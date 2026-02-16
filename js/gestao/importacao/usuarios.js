@@ -86,10 +86,11 @@ Gestao.Importacao.Usuarios = {
             mapUsuarios.set(id, {
                 id: id,
                 nome: nomeRaw,
-                funcao: funcaoFinal,          // Agora lê direto da coluna FUNÇÃO
-                modelo_contrato: contratoFinal, // Agora lê direto da coluna CONTRATO
-                ativo: ativo,
-                senha: senhaPadraoHash 
+                funcao: funcaoFinal,             // Agora lê direto da coluna FUNÇÃO
+                contrato: contratoFinal,         // Coluna real no TiDB
+                situacao: ativo ? 'ATIVO' : 'INATIVO',
+                senha: senhaPadraoHash,
+                nivel_acesso: funcaoFinal === 'ADMIN' ? 3 : 1
             });
         }
 
@@ -97,16 +98,44 @@ Gestao.Importacao.Usuarios = {
         console.log(`📉 Usuários processados: ${listaUpsert.length}`);
 
         if (listaUpsert.length > 0) {
-            const { error } = await Sistema.supabase
-                .from('usuarios')
-                .upsert(listaUpsert, { onConflict: 'id' }); 
+            try {
+                // Monta um único SQL de upsert para TiDB (MySQL compatível)
+                // ON DUPLICATE KEY UPDATE usa a PK 'id' da tabela usuarios
+                const sql = `
+                    INSERT INTO usuarios (
+                        id, nome, contrato, situacao, funcao, senha, nivel_acesso
+                    ) VALUES
+                    ${listaUpsert.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}
+                    ON DUPLICATE KEY UPDATE
+                        nome         = VALUES(nome),
+                        contrato     = VALUES(contrato),
+                        situacao     = VALUES(situacao),
+                        funcao       = VALUES(funcao),
+                        senha        = VALUES(senha),
+                        nivel_acesso = VALUES(nivel_acesso)
+                `;
 
-            if (error) {
-                console.error("Erro Supabase:", error);
-                alert("Erro ao salvar: " + error.message);
-            } else {
-                alert(`✅ Importação Perfeita!\n\n${listaUpsert.length} usuários atualizados seguindo a nova planilha.`);
+                const params = [];
+                for (const u of listaUpsert) {
+                    params.push(
+                        String(u.id),
+                        u.nome,
+                        u.contrato,
+                        u.situacao,
+                        u.funcao,
+                        u.senha,
+                        u.nivel_acesso
+                    );
+                }
+
+                const result = await Sistema.query(sql, params);
+                if (result === null) throw new Error("Falha ao salvar usuários.");
+
+                alert(`✅ Importação concluída!\n\n${listaUpsert.length} usuários inseridos/atualizados no TiDB.`);
                 if (Gestao.Usuarios) Gestao.Usuarios.carregar(); 
+            } catch (e) {
+                console.error("Erro ao importar usuários (TiDB):", e);
+                alert("Erro ao salvar: " + (e.message || "Falha na importação."));
             }
         } else {
             alert("Nenhum dado válido encontrado no CSV.");
