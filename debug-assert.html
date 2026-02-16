@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Assertividade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-100 p-8">
+    <h1 class="text-2xl font-bold mb-4 text-slate-800">Debug Assertividade x Usuários</h1>
+
+    <div id="status" class="mb-4 p-4 bg-white rounded shadow-sm">Carregando dados...</div>
+
+    <div class="grid grid-cols-2 gap-8">
+        <div>
+            <h2 class="font-bold mb-2">Amostra Assertividade (Top 10)</h2>
+            <div id="sample-assert" class="bg-white p-4 rounded shadow-sm overflow-auto max-h-[500px]"></div>
+        </div>
+        <div>
+            <h2 class="font-bold mb-2">Amostra Usuários (Top 10)</h2>
+            <div id="sample-users" class="bg-white p-4 rounded shadow-sm overflow-auto max-h-[500px]"></div>
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <h2 class="font-bold mb-2">Resumo de Agrupamento (Como no Geral.js)</h2>
+        <div id="agg-result" class="bg-white p-4 rounded shadow-sm overflow-auto"></div>
+    </div>
+
+    <script type="module">
+        import { Sistema } from './js/sistema.js';
+
+        async function run() {
+            try {
+                const status = document.getElementById('status');
+
+                // 1. Amostra de Assertividade
+                const assertRows = await Sistema.query("SELECT * FROM assertividade LIMIT 10");
+                document.getElementById('sample-assert').innerHTML = `<pre class="text-xs">${JSON.stringify(assertRows, null, 2)}</pre>`;
+
+                // 2. Amostra de Usuários
+                const userRows = await Sistema.query("SELECT id, nome FROM usuarios LIMIT 10");
+                document.getElementById('sample-users').innerHTML = `<pre class="text-xs">${JSON.stringify(userRows, null, 2)}</pre>`;
+
+                // 3. Teste de Agrupamento
+                const aggSql = `
+                    SELECT usuario_id, COUNT(*) as qtd, AVG(assertividade_val) as media
+                    FROM assertividade
+                    WHERE auditora_nome IS NOT NULL AND auditora_nome != ''
+                      AND assertividade_val IS NOT NULL
+                    GROUP BY usuario_id
+                `;
+                const aggResult = await Sistema.query(aggSql);
+                document.getElementById('agg-result').innerHTML = `<pre class="text-xs">${JSON.stringify(aggResult, null, 2)}</pre>`;
+
+                status.innerHTML = "✅ Dados carregados. Verifique se os IDs batem e se o agrupamento retorna algo.";
+                status.classList.add('bg-emerald-50', 'text-emerald-700');
+
+            } catch (e) {
+                document.getElementById('status').innerHTML = "❌ Erro: " + e.message;
+            }
+        }
+
+        window.addEventListener('load', run);
+    </script>
+</body>
+
+</html>

@@ -146,20 +146,21 @@ Produtividade.Geral = {
 
     buscarAssertividadeUnificada: async function (range) {
         // Alinhado com o "Cérebro" da Gestão > Assertividade
-        // Filtros: auditora preenchida e valor de assertividade não nulo
+        // Usamos CAST para garantir que o ID seja tratado de forma consistente (TiDB pode oscilar entre Int/String)
         let sql = `
-            SELECT usuario_id, COUNT(*) as qtd_auditorias, AVG(assertividade_val) as media_assertividade
-            FROM assertividade
-            WHERE data_referencia >= ? AND data_referencia <= ?
-              AND auditora_nome IS NOT NULL AND auditora_nome != ''
-              AND assertividade_val IS NOT NULL
-            GROUP BY usuario_id
-        `;
+        SELECT CAST(usuario_id AS CHAR) as usuario_id, 
+               COUNT(*) as qtd_auditorias, 
+               AVG(assertividade_val) as media_assertividade
+        FROM assertividade
+        WHERE data_referencia >= ? AND data_referencia <= ?
+          AND (auditora_nome IS NOT NULL OR assertividade_val IS NOT NULL)
+        GROUP BY usuario_id
+    `;
         let params = [range.inicio, range.fim];
 
         try {
             const data = await Sistema.query(sql, params);
-            // Filtra apenas o próprio usuário se não for gestor
+            // Filtragem de permissão: assistentes veem apenas o seu, gestores tudo
             this.state.dadosKPIAssertividade = this.filtrarDadosPermissao(data || []);
         } catch (e) {
             console.error("Erro Assertividade:", e);
