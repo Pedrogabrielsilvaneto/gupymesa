@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   try {
     connection = await mysql.createConnection(dbConfig);
     const { query, values } = req.body;
-    const [rows] = await connection.execute(query, values);
+    const [rows] = await connection.query(query, values);
     res.status(200).json({ data: rows, error: null });
   } catch (error) {
     console.error("Erro na API:", error);

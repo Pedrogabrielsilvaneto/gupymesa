@@ -43,8 +43,9 @@ Gestao.Importacao.Datas = {
 
 Gestao.Importacao.Assertividade = {
 
-    // 🚀 LOTE TURBO: 2000 por lote (2000×25=50000 placeholders, limite TiDB: 65535)
-    LOTE_SIZE: 2000,
+    // 🚀 LOTE TURBO: 5000 por lote (API usa connection.query, sem limite de placeholders)
+    LOTE_SIZE: 5000,
+    PARALLEL_BATCHES: 5, // Envia 5 lotes por vez para máxima velocidade
 
     mesesMap: { 'janeiro': 1, 'jan': 1, 'fevereiro': 2, 'fev': 2, 'marco': 3, 'março': 3, 'mar': 3, 'abril': 4, 'abr': 4, 'maio': 5, 'mai': 5, 'junho': 6, 'jun': 6, 'julho': 7, 'jul': 7, 'agosto': 8, 'ago': 8, 'setembro': 9, 'set': 9, 'outubro': 10, 'out': 10, 'novembro': 11, 'nov': 11, 'dezembro': 12, 'dez': 12 },
 
@@ -264,66 +265,77 @@ Gestao.Importacao.Assertividade = {
         const totalLotes = Math.ceil(total / this.LOTE_SIZE);
         const BASE_PERC = 20, RANGE_PERC = 80;
 
+        // Prepara todos os lotes
+        const lotes = [];
         for (let i = 0; i < total; i += this.LOTE_SIZE) {
-            const lote = dados.slice(i, i + this.LOTE_SIZE);
-            const qtdLote = lote.length;
-            const numLote = Math.floor(i / this.LOTE_SIZE) + 1;
+            lotes.push(dados.slice(i, i + this.LOTE_SIZE));
+        }
+
+        // Processa em grupos paralelos
+        for (let g = 0; g < lotes.length; g += this.PARALLEL_BATCHES) {
+            const grupo = lotes.slice(g, g + this.PARALLEL_BATCHES);
+            const numGrupo = Math.floor(g / this.PARALLEL_BATCHES) + 1;
+            const totalGrupos = Math.ceil(lotes.length / this.PARALLEL_BATCHES);
             const percGlobal = BASE_PERC + ((processados / total) * RANGE_PERC);
 
-            await this.mostrarProgresso(percGlobal, `Gravando Lote <b>${numLote}/${totalLotes}</b> (${qtdLote} reg)...`);
+            await this.mostrarProgresso(percGlobal, `⚡ Grupo <b>${numGrupo}/${totalGrupos}</b> (${grupo.length} lotes em paralelo, ${grupo.reduce((s, l) => s + l.length, 0).toLocaleString()} reg)...`);
 
-            // --- TENTATIVA COM RETRY ---
-            let sucesso = false;
-            let tentativas = 0;
+            // Envia todos os lotes do grupo em paralelo
+            const promises = grupo.map((lote, idx) => this._inserirLote(lote, g + idx + 1, totalLotes));
+            const results = await Promise.allSettled(promises);
 
-            while (!sucesso && tentativas < 3) {
-                try {
-                    // Monta SQL INSERT para TiDB com múltiplos valores
-                    const campos = Object.keys(lote[0] || {});
-                    if (campos.length === 0) {
-                        sucesso = true;
-                        continue;
-                    }
-
-                    const sql = `
-                        INSERT INTO assertividade (
-                            ${campos.join(', ')}
-                        ) VALUES
-                        ${lote.map(() => `(${campos.map(() => '?').join(', ')})`).join(', ')}
-                    `;
-
-                    const params = [];
-                    for (const registro of lote) {
-                        campos.forEach(campo => {
-                            params.push(registro[campo] !== undefined && registro[campo] !== '' ? registro[campo] : null);
-                        });
-                    }
-
-                    const result = await Sistema.query(sql, params);
-                    if (result === null) throw new Error("Falha ao inserir lote.");
-                    sucesso = true;
-                } catch (err) {
-                    tentativas++;
-                    console.warn(`⚠️ Falha Lote ${numLote} (Tentativa ${tentativas}/3): ${err.message}`);
-                    // Se for erro de timeout, espera e tenta de novo
-                    if (tentativas < 3) {
-                        await this.mostrarProgresso(percGlobal, `Reenviando Lote ${numLote} (Tentativa ${tentativas + 1})...`, 'normal');
-                        await new Promise(r => setTimeout(r, 3000)); // Espera 3s
-                    } else {
-                        console.error(`Erro Final Lote ${numLote}:`, err);
-                        erros += qtdLote;
-                    }
+            for (let r = 0; r < results.length; r++) {
+                if (results[r].status === 'fulfilled' && results[r].value) {
+                    processados += grupo[r].length;
+                } else {
+                    const reason = results[r].reason || results[r].value;
+                    console.error(`❌ Lote ${g + r + 1} falhou:`, reason);
+                    erros += grupo[r].length;
                 }
             }
-
-            if (sucesso) processados += qtdLote;
         }
 
         if (erros === 0) {
             await this.mostrarProgresso(100, `Sucesso! <b>${processados.toLocaleString()}</b> registros importados.`, 'sucesso');
             if (window.Gestao && Gestao.Assertividade) Gestao.Assertividade.carregar();
         } else {
-            await this.mostrarProgresso(100, `Finalizado com <b>${erros}</b> erros (veja console).`, 'erro');
+            await this.mostrarProgresso(100, `Finalizado com <b>${erros.toLocaleString()}</b> erros de ${total.toLocaleString()} (veja console).`, 'erro');
+        }
+    },
+
+    _inserirLote: async function (lote, numLote, totalLotes) {
+        let tentativas = 0;
+        while (tentativas < 3) {
+            try {
+                const campos = Object.keys(lote[0] || {});
+                if (campos.length === 0) return true;
+
+                const sql = `
+                    INSERT INTO assertividade (
+                        ${campos.join(', ')}
+                    ) VALUES
+                    ${lote.map(() => `(${campos.map(() => '?').join(', ')})`).join(', ')}
+                `;
+
+                const params = [];
+                for (const registro of lote) {
+                    campos.forEach(campo => {
+                        params.push(registro[campo] !== undefined && registro[campo] !== '' ? registro[campo] : null);
+                    });
+                }
+
+                const result = await Sistema.query(sql, params);
+                if (result === null) throw new Error("Falha ao inserir lote.");
+                return true;
+            } catch (err) {
+                tentativas++;
+                console.warn(`⚠️ Falha Lote ${numLote} (Tentativa ${tentativas}/3): ${err.message}`);
+                if (tentativas < 3) {
+                    await new Promise(r => setTimeout(r, 2000));
+                } else {
+                    throw err;
+                }
+            }
         }
     },
 
