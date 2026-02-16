@@ -14,13 +14,31 @@ Gestao.Usuarios = {
         if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8"><i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i></td></tr>`;
 
         try {
-            const { data, error } = await Sistema.supabase
-                .from('usuarios')
-                .select('*')
-                .order('nome');
+            // Consulta direta no TiDB via API (/api/banco)
+            const sql = `
+                SELECT 
+                    id,
+                    nome,
+                    contrato,
+                    situacao,
+                    funcao,
+                    nivel_acesso
+                FROM usuarios
+                ORDER BY nome
+            `;
 
-            if (error) throw error;
-            this.cacheData = data;
+            const rows = await Sistema.query(sql);
+            if (!rows) throw new Error("Falha ao carregar usuários.");
+
+            // Normaliza os campos para o formato esperado pela tela
+            this.cacheData = rows.map(u => ({
+                ...u,
+                email: u.email || '', // pode não existir na tabela ainda
+                modelo_contrato: u.contrato || '',
+                ativo: (u.situacao || '').toUpperCase() === 'ATIVO',
+                jornada_diaria: u.jornada_diaria || null,
+                supervisor: u.supervisor || ''
+            }));
             this.filtrar(); 
 
         } catch (error) {
@@ -225,12 +243,17 @@ Gestao.Usuarios = {
             btn.disabled = true;
 
             const hash = await Sistema.gerarHash("gupy123");
-            const { error } = await Sistema.supabase
-                .from('usuarios')
-                .update({ senha: hash })
-                .eq('id', id);
+            
+            const sql = `
+                UPDATE usuarios
+                SET senha = ?
+                WHERE id = ?
+            `;
+            const result = await Sistema.query(sql, [hash, id]);
+            if (result === null) {
+                throw new Error("Falha na atualização de senha.");
+            }
 
-            if (error) throw error;
             alert("Senha redefinida com sucesso para 'gupy123'!");
             
             btn.innerHTML = originalText;
@@ -260,15 +283,58 @@ Gestao.Usuarios = {
             supervisor: document.getElementById('user-supervisor').value
         };
         
-        if(id) payload.id = id;
-        
-        const { error } = await Sistema.supabase.from('usuarios').upsert(payload);
-        if(!error) {
+        try {
+            if (id) {
+                // Atualiza usuário existente
+                const sqlUpdate = `
+                    UPDATE usuarios
+                    SET 
+                        nome      = ?,
+                        contrato  = ?,
+                        situacao  = ?,
+                        funcao    = ?
+                    WHERE id = ?
+                `;
+                const situacao = payload.ativo ? 'ATIVO' : 'INATIVO';
+                const result = await Sistema.query(sqlUpdate, [
+                    payload.nome,
+                    payload.modelo_contrato,
+                    situacao,
+                    payload.funcao,
+                    id
+                ]);
+                if (result === null) throw new Error("Falha ao atualizar usuário.");
+            } else {
+                // Cria novo usuário com ID informado e senha padrão "gupy123"
+                const novoId = prompt("Informe o ID do novo usuário (mesmo ID do Gupy):");
+                if (!novoId) {
+                    alert("ID é obrigatório para criar um novo usuário.");
+                    return;
+                }
+                const senhaHash = await Sistema.gerarHash("gupy123");
+                const sqlInsert = `
+                    INSERT INTO usuarios (
+                        id, nome, contrato, situacao, funcao, senha, nivel_acesso
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1)
+                `;
+                const situacao = payload.ativo ? 'ATIVO' : 'INATIVO';
+                const result = await Sistema.query(sqlInsert, [
+                    String(novoId),
+                    payload.nome,
+                    payload.modelo_contrato,
+                    situacao,
+                    payload.funcao,
+                    senhaHash
+                ]);
+                if (result === null) throw new Error("Falha ao criar usuário.");
+            }
+
             document.getElementById('modal-usuario').classList.add('hidden');
             document.getElementById('modal-usuario').classList.remove('flex');
             this.carregar();
-        } else {
-            alert(error.message);
+        } catch (e) {
+            console.error(e);
+            alert(e.message || "Erro ao salvar usuário.");
         }
     }
 };
