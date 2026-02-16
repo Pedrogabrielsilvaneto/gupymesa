@@ -57,6 +57,61 @@ Gestao.Metas = {
         // this.carregar(); 
     },
 
+    // --- Lógica do Seletor de Mês ---
+    abrirSeletorMes: function () {
+        const dropdown = document.getElementById('dropdown-mes-metas');
+        if (!dropdown) return;
+
+        this.viewAno = this.state.ano; // Inicia com o ano atual
+        dropdown.classList.remove('hidden');
+        this.renderizarGradeMeses();
+
+        // Fechar ao clicar fora
+        setTimeout(() => {
+            const closeHandler = (e) => {
+                const el = document.getElementById('dropdown-mes-metas');
+                const input = document.getElementById('input-mes-metas');
+                if (el && !el.classList.contains('hidden') && !el.contains(e.target) && e.target !== input) {
+                    el.classList.add('hidden');
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            document.addEventListener('click', closeHandler);
+        }, 100);
+    },
+
+    mudarAno: function (delta) {
+        this.viewAno = (this.viewAno || this.state.ano) + delta;
+        this.renderizarGradeMeses();
+    },
+
+    renderizarGradeMeses: function () {
+        const grid = document.getElementById('grid-meses-metas');
+        const labelAno = document.getElementById('label-ano-metas');
+        if (!grid || !labelAno) return;
+
+        labelAno.innerText = this.viewAno;
+
+        grid.innerHTML = this.MESES.map((nome, i) => {
+            const mes = i + 1;
+            const isSelected = (mes === this.state.mes && this.viewAno === this.state.ano);
+            const classe = isSelected
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-slate-100';
+
+            return `<button onclick="Gestao.Metas.confirmarSelecaoMes(${mes})" class="rounded py-1.5 text-xs font-bold transition ${classe}">${nome.substring(0, 3)}</button>`;
+        }).join('');
+    },
+
+    confirmarSelecaoMes: function (mes) {
+        this.state.mes = mes;
+        this.state.ano = this.viewAno;
+        this.atualizarInputMes();
+        document.getElementById('dropdown-mes-metas').classList.add('hidden');
+        this.state.alteracoesPendentes.clear();
+        this.carregar();
+    },
+
     selecionarMes: function () {
         const el = document.getElementById('input-mes-metas');
         if (!el || !el.value) return;
