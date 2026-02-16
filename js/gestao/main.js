@@ -8,12 +8,7 @@ Gestao.init = async function() {
         return;
     }
 
-    // Inicializa Supabase sem forçar redirect (já corrigido no sistema.js)
-    if (!Sistema.supabase) {
-        if (typeof Sistema.inicializar === 'function') {
-            Sistema.inicializar(false);
-        }
-    }
+    // Sistema agora usa TiDB diretamente via Sistema.query() - não precisa mais de Supabase
     
     // 2. Verifica Sessão Manualmente (Segurança da Página)
     let user = null;
