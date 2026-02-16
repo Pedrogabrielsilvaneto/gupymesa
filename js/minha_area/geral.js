@@ -217,6 +217,11 @@ MinhaArea.Geral = {
     },
 
     renderizarDiario: function (uid) {
+        if (this.ehGestao(uid)) {
+            this.renderizarDiarioGestor(uid);
+            return;
+        }
+
         if (this.state.headerOriginal && this.els.tabelaHeader) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
         }
@@ -306,11 +311,16 @@ MinhaArea.Geral = {
     calcularKpisGlobal: function () {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
         let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
+        let managerMeta = 0;
 
         this.state.listaTabela.forEach(i => {
-            if (this.ehGestao(i.uid)) return;
+            if (this.ehGestao(i.uid)) {
+                // Se encontrar um gestor com meta definida, usa ela como Meta Global da Equipe
+                if (i.meta_total_periodo > 0) managerMeta = i.meta_total_periodo;
+                return;
+            }
             totalProd += i.producao;
-            totalMeta += i.meta_total_periodo;
+            totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
             totalFator += i.soma_fator;
             totalUteis += i.dias_uteis_liquidos;
 
@@ -325,6 +335,11 @@ MinhaArea.Geral = {
             }
         });
 
+        // Se houver meta de gestão definida, ela PREVALECE sobre a soma das metas individuais
+        if (managerMeta > 0) {
+            totalMeta = managerMeta;
+        }
+
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
@@ -334,6 +349,87 @@ MinhaArea.Geral = {
                 meta: countUsers > 0 ? Math.round(somaMetasEquipe / countUsers) : 100
             }
         });
+    },
+
+    renderizarDiarioGestor: function (uid) {
+        // Visão Consolidada da Equipe para o Gestor
+        const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
+        if (!item) return;
+
+        // Recalcula totais da equipe (simular calcularKpisGlobal mas focado no contexto do gestor)
+        let totalProd = 0;
+        let totalDocs = 0, somaAssertGlobal = 0;
+        let totalFator = 0, totalUteis = 0;
+
+        // Agrupa produção diária de todos os assistentes
+        const diarioAgregado = {};
+        let somaMetasAssistentes = 0;
+
+        this.state.listaTabela.forEach(i => {
+            if (this.ehGestao(i.uid)) return; // Ignora outros gestores/si mesmo
+            totalProd += i.producao;
+            somaMetasAssistentes += i.meta_total_periodo;
+            totalFator += i.soma_fator;
+            totalUteis += i.dias_uteis_liquidos;
+            if (i.qtd_assert > 0) {
+                somaAssertGlobal += i.soma_notas_bruta;
+                totalDocs += i.qtd_assert;
+            }
+        });
+
+        // Agrega dadosProducao
+        this.state.dadosProducao.forEach(d => {
+            if (this.ehGestao(d.usuario_id)) return;
+            if (!diarioAgregado[d.data_referencia]) {
+                diarioAgregado[d.data_referencia] = {
+                    data: d.data_referencia,
+                    prod: 0,
+                    meta: 0, // Dificil calcular meta diária agregada sem iterar users...
+                    fator: 0
+                };
+            }
+            diarioAgregado[d.data_referencia].prod += Number(d.quantidade) || 0;
+            diarioAgregado[d.data_referencia].fator += (Number(d.fator) || 1); // Soma de dias trabalhados na equipe
+        });
+
+        // Meta: Se gestor tem meta definida (>0), usa ela. Senão, soma das metas dos assistentes.
+        const metaEquipe = item.meta_total_periodo > 0 ? item.meta_total_periodo : (somaMetasAssistentes || 1);
+
+        this.atualizarCardsKPI({
+            prod: { real: totalProd, meta: metaEquipe },
+            assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
+            capacidade: { diasReal: totalFator, diasTotal: totalUteis },
+            velocidade: { real: 0, meta: 0 } // Velocidade média não faz sentido agregado assim simples
+        });
+
+        if (this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
+
+        const listaDias = Object.values(diarioAgregado).sort((a, b) => a.data.localeCompare(b.data));
+
+        if (listaDias.length === 0) {
+            this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-400">Nenhum registro de produção da equipe no período.</td></tr>`;
+            return;
+        }
+
+        this.els.tabela.innerHTML = listaDias.map(d => {
+            // Estimar meta do dia proporcional? 
+            // Meta Equipe / Dias Uteis = Meta Dia Média?
+            // Vamos simplificar: mostrar apenas produção total
+            return `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs bg-purple-50/10">
+                    <td class="px-3 py-2 font-bold text-slate-700">${new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR')} (Equipe)</td>
+                    <td class="px-2 py-2 text-center text-slate-500">-</td>
+                    <td class="px-2 py-2 text-center text-slate-400">-</td>
+                    <td class="px-2 py-2 text-center text-slate-400">-</td>
+                    <td class="px-2 py-2 text-center text-slate-400">-</td>
+                    <td class="px-2 py-2 text-center font-black text-blue-600">${d.prod}</td>
+                    <td class="px-2 py-2 text-center text-slate-500">-</td>
+                    <td class="px-2 py-2 text-center font-bold text-slate-400">-</td>
+                    <td class="px-2 py-2 text-center text-slate-400">-</td>
+                    <td class="px-2 py-2 text-center">-</td>
+                    <td class="px-3 py-2 text-center"></td>
+                </tr>`;
+        }).join('');
     },
 
     atualizarCardsKPI: function (kpi) {
