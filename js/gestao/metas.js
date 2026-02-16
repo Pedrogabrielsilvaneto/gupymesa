@@ -5,44 +5,49 @@ Gestao.Metas = {
         ano: new Date().getFullYear(),
         listaCompleta: [],
         listaVisivel: [],
-        filtroContrato: '',
-        filtroSituacao: 'ATIVO',
         alteracoesPendentes: new Set()
     },
 
+    MESES: ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"],
+
     init: function () {
-        this.atualizarLabelPeriodo();
+        this.popularSeletorMes();
         this.carregar();
     },
 
-    mudarMes: function (delta) {
-        let novoMes = this.state.mes + delta;
-        if (novoMes > 12) { novoMes = 1; this.state.ano++; }
-        else if (novoMes < 1) { novoMes = 12; this.state.ano--; }
-        this.state.mes = novoMes;
+    popularSeletorMes: function () {
+        const sel = document.getElementById('select-mes-metas');
+        if (!sel) return;
+        sel.innerHTML = '';
+
+        // Gera 12 meses antes e 6 depois do mês atual
+        const hoje = new Date();
+        const mesesOpcoes = [];
+        for (let i = -12; i <= 6; i++) {
+            const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+            const m = d.getMonth() + 1;
+            const a = d.getFullYear();
+            const label = `${this.MESES[m - 1].substring(0, 3)} ${a}`;
+            mesesOpcoes.push({ m, a, label });
+        }
+
+        mesesOpcoes.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = `${opt.m}-${opt.a}`;
+            o.textContent = opt.label;
+            if (opt.m === this.state.mes && opt.a === this.state.ano) o.selected = true;
+            sel.appendChild(o);
+        });
+    },
+
+    selecionarMes: function () {
+        const sel = document.getElementById('select-mes-metas');
+        if (!sel || !sel.value) return;
+        const [mes, ano] = sel.value.split('-').map(Number);
+        this.state.mes = mes;
+        this.state.ano = ano;
         this.state.alteracoesPendentes.clear();
-        this.atualizarLabelPeriodo();
         this.carregar();
-    },
-
-    atualizarLabelPeriodo: function () {
-        const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-        const el = document.getElementById('header-meta-periodo');
-        if (el) el.innerText = `${meses[this.state.mes - 1]} ${this.state.ano}`;
-    },
-
-    setFiltroContrato: function (valor) {
-        this.state.filtroContrato = valor;
-        document.querySelectorAll('.pill-contrato').forEach(b => b.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        this.filtrarERenderizar();
-    },
-
-    setFiltroSituacao: function (valor) {
-        this.state.filtroSituacao = valor;
-        document.querySelectorAll('.pill-situacao').forEach(b => b.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        this.filtrarERenderizar();
     },
 
     carregar: async function () {
@@ -93,12 +98,14 @@ Gestao.Metas = {
 
     filtrarERenderizar: function () {
         const termo = (document.getElementById('header-search-metas')?.value || '').toLowerCase().trim();
+        const contratoFiltro = (document.getElementById('filtro-contrato-metas')?.value || '').toUpperCase();
+        const situacaoFiltro = (document.getElementById('filtro-situacao-metas')?.value || '').toUpperCase();
         const mostrarGestao = document.getElementById('check-mostrar-gestao')?.checked || false;
 
         this.state.listaVisivel = this.state.listaCompleta.filter(u => {
             if (termo && !u.nome.toLowerCase().includes(termo) && !String(u.id).includes(termo)) return false;
-            if (this.state.filtroContrato && u.contrato !== this.state.filtroContrato) return false;
-            if (this.state.filtroSituacao && u.situacao !== this.state.filtroSituacao) return false;
+            if (contratoFiltro && u.contrato !== contratoFiltro) return false;
+            if (situacaoFiltro && u.situacao !== situacaoFiltro) return false;
             if (!mostrarGestao && u.isGestao) return false;
             return true;
         });
@@ -198,18 +205,11 @@ Gestao.Metas = {
     },
 
     salvarTodas: async function () {
-        if (this.state.alteracoesPendentes.size === 0) {
-            alert("Nenhuma alteração para salvar.");
-            return;
-        }
+        if (this.state.alteracoesPendentes.size === 0) { alert("Nenhuma alteração para salvar."); return; }
 
         const btn = document.querySelector('#actions-metas button[onclick="Gestao.Metas.salvarTodas()"]');
         let originalHtml;
-        if (btn) {
-            originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-[9px]"></i> Salvando...';
-            btn.disabled = true;
-        }
+        if (btn) { originalHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-[9px]"></i>'; btn.disabled = true; }
 
         const upserts = [];
         this.state.alteracoesPendentes.forEach(uid => {
@@ -218,38 +218,24 @@ Gestao.Metas = {
             const valAssert = document.getElementById(`assert-${uid}`)?.value;
             if (u && valProd && valAssert) {
                 upserts.push({
-                    usuario_id: uid, usuario_nome: u.nome,
-                    mes: this.state.mes, ano: this.state.ano,
-                    meta_producao: parseInt(valProd),
-                    meta_assertividade: parseFloat(valAssert.replace(',', '.'))
+                    usuario_id: uid, usuario_nome: u.nome, mes: this.state.mes, ano: this.state.ano,
+                    meta_producao: parseInt(valProd), meta_assertividade: parseFloat(valAssert.replace(',', '.'))
                 });
             }
         });
 
         try {
             if (upserts.length === 0) { alert("Nenhuma alteração válida."); return; }
-
-            const sql = `
-                INSERT INTO metas (id, usuario_id, mes, ano, meta_producao, meta_assertividade)
-                VALUES ${upserts.map(() => '(?, ?, ?, ?, ?, ?)').join(', ')}
-                ON DUPLICATE KEY UPDATE
-                    meta_producao = VALUES(meta_producao),
-                    meta_assertividade = VALUES(meta_assertividade)
-            `;
+            const sql = `INSERT INTO metas (id, usuario_id, mes, ano, meta_producao, meta_assertividade) VALUES ${upserts.map(() => '(?, ?, ?, ?, ?, ?)').join(', ')} ON DUPLICATE KEY UPDATE meta_producao = VALUES(meta_producao), meta_assertividade = VALUES(meta_assertividade)`;
             const params = [];
-            for (const m of upserts) {
-                params.push(Sistema.gerarUUID(), String(m.usuario_id), this.state.mes, this.state.ano, m.meta_producao, m.meta_assertividade);
-            }
-
+            for (const m of upserts) { params.push(Sistema.gerarUUID(), String(m.usuario_id), this.state.mes, this.state.ano, m.meta_producao, m.meta_assertividade); }
             const result = await Sistema.query(sql, params);
             if (result === null) throw new Error("Falha ao salvar metas.");
-
             this.state.alteracoesPendentes.clear();
             await this.carregar();
             alert("✅ Metas salvas!");
         } catch (e) {
-            console.error(e);
-            alert("Erro: " + e.message);
+            console.error(e); alert("Erro: " + e.message);
         } finally {
             if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
         }

@@ -83,22 +83,30 @@
             display: flex;
         }
 
-        .pill-contrato,
-        .pill-situacao {
-            color: #94a3b8;
+        .select-mini {
+            appearance: none;
+            -webkit-appearance: none;
             background: transparent;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            font-weight: 700;
+            color: #475569;
+            padding: 4px 18px 4px 6px;
+            font-size: 11px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24'%3E%3Cpath fill='%2394a3b8' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+            border-radius: 6px;
+            transition: all .15s;
         }
 
-        .pill-contrato.active,
-        .pill-situacao.active {
-            color: #fff;
-            background: #334155;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, .1);
+        .select-mini:hover {
+            background-color: #f1f5f9;
         }
 
-        .pill-contrato:hover:not(.active),
-        .pill-situacao:hover:not(.active) {
-            color: #64748b;
+        .select-mini:focus {
+            background-color: #f1f5f9;
         }
     </style>
 </head>
@@ -158,30 +166,26 @@
                         </select>
                     </div>
 
-                    <div id="search-group-metas" class="header-search-group flex items-center gap-4">
-                        <div class="relative w-44">
+                    <div id="search-group-metas" class="header-search-group flex items-center gap-3">
+                        <div class="relative w-40">
                             <i
-                                class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
+                                class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
                             <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()"
                                 placeholder="Buscar..."
-                                class="w-full pl-8 pr-3 py-1.5 bg-transparent border-b border-slate-200 text-xs outline-none focus:border-slate-400 transition placeholder-slate-300">
+                                class="w-full pl-7 pr-2 py-1 bg-transparent border-b border-slate-200 text-[11px] outline-none focus:border-slate-400 transition placeholder-slate-300">
                         </div>
-                        <div class="flex rounded-full bg-slate-100 p-0.5" id="pills-contrato-metas">
-                            <button onclick="Gestao.Metas.setFiltroContrato('')"
-                                class="pill-contrato active px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Todos</button>
-                            <button onclick="Gestao.Metas.setFiltroContrato('CLT')"
-                                class="pill-contrato px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">CLT</button>
-                            <button onclick="Gestao.Metas.setFiltroContrato('TERCEIROS')"
-                                class="pill-contrato px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Terceiros</button>
-                        </div>
-                        <div class="flex rounded-full bg-slate-100 p-0.5" id="pills-situacao-metas">
-                            <button onclick="Gestao.Metas.setFiltroSituacao('ATIVO')"
-                                class="pill-situacao active px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Ativos</button>
-                            <button onclick="Gestao.Metas.setFiltroSituacao('')"
-                                class="pill-situacao px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Todos</button>
-                            <button onclick="Gestao.Metas.setFiltroSituacao('INATIVO')"
-                                class="pill-situacao px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Inativos</button>
-                        </div>
+                        <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                            class="select-mini">
+                            <option value="">Todos</option>
+                            <option value="CLT">CLT</option>
+                            <option value="TERCEIROS">Terceiros</option>
+                        </select>
+                        <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                            class="select-mini">
+                            <option value="ATIVO">Ativos</option>
+                            <option value="">Todos</option>
+                            <option value="INATIVO">Inativos</option>
+                        </select>
                     </div>
 
                     <div id="search-group-empresas" class="header-search-group relative w-64">
@@ -230,18 +234,8 @@
 
                     <div id="actions-metas" class="header-action-group items-center gap-3">
 
-                        <div class="flex items-center gap-1">
-                            <button onclick="Gestao.Metas.mudarMes(-1)"
-                                class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition">
-                                <i class="fas fa-chevron-left text-[9px]"></i>
-                            </button>
-                            <span id="header-meta-periodo"
-                                class="font-bold text-slate-600 text-[11px] tracking-wide min-w-[90px] text-center select-none cursor-default">--</span>
-                            <button onclick="Gestao.Metas.mudarMes(1)"
-                                class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition">
-                                <i class="fas fa-chevron-right text-[9px]"></i>
-                            </button>
-                        </div>
+                        <select id="select-mes-metas" onchange="Gestao.Metas.selecionarMes()"
+                            class="select-mini"></select>
 
                         <div class="h-4 w-px bg-slate-200"></div>
 
