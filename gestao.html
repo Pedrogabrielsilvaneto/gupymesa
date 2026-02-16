@@ -241,8 +241,9 @@
 
                     <div id="actions-metas" class="header-action-group items-center gap-3">
 
-                        <select id="select-mes-metas" onchange="Gestao.Metas.selecionarMes()"
-                            class="select-mini"></select>
+                        <input type="text" id="input-mes-metas" placeholder="02/2026" maxlength="7"
+                            onchange="Gestao.Metas.selecionarMes()" onkeydown="if(event.key==='Enter'){this.blur();}"
+                            class="w-[68px] text-center text-[11px] font-bold text-slate-600 bg-transparent border-b border-slate-200 outline-none focus:border-slate-400 transition py-0.5 tracking-wide">
 
                         <div class="h-4 w-px bg-slate-200"></div>
 

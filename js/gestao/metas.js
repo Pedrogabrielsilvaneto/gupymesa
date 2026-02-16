@@ -13,36 +13,39 @@ Gestao.Metas = {
 
     init: function () {
         if (!this.state._initialized) {
-            this.popularSeletorMes();
+            this.atualizarInputMes();
             this.state._initialized = true;
         }
         this.carregar();
     },
 
-    popularSeletorMes: function () {
-        const sel = document.getElementById('select-mes-metas');
-        if (!sel) return;
-        sel.innerHTML = '';
-
-        const hoje = new Date();
-        for (let i = -12; i <= 6; i++) {
-            const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-            const m = d.getMonth() + 1;
-            const a = d.getFullYear();
-            const o = document.createElement('option');
-            o.value = `${m}-${a}`;
-            o.textContent = `${this.MESES[m - 1].substring(0, 3)} ${a}`;
-            if (m === this.state.mes && a === this.state.ano) o.selected = true;
-            sel.appendChild(o);
-        }
+    atualizarInputMes: function () {
+        const el = document.getElementById('input-mes-metas');
+        if (el) el.value = String(this.state.mes).padStart(2, '0') + '/' + this.state.ano;
     },
 
     selecionarMes: function () {
-        const sel = document.getElementById('select-mes-metas');
-        if (!sel || !sel.value) return;
-        const [mes, ano] = sel.value.split('-').map(Number);
+        const el = document.getElementById('input-mes-metas');
+        if (!el || !el.value) return;
+
+        const val = el.value.trim();
+        const match = val.match(/^(\d{1,2})\s*[\/\-\.]\s*(\d{4})$/);
+        if (!match) {
+            this.atualizarInputMes(); // reverte ao valor válido
+            return;
+        }
+
+        const mes = parseInt(match[1]);
+        const ano = parseInt(match[2]);
+
+        if (mes < 1 || mes > 12 || ano < 2020 || ano > 2040) {
+            this.atualizarInputMes();
+            return;
+        }
+
         this.state.mes = mes;
         this.state.ano = ano;
+        this.atualizarInputMes(); // normaliza formato
         this.state.alteracoesPendentes.clear();
         this.carregar();
     },
