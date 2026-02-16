@@ -3,46 +3,46 @@ Gestao.Metas = {
     state: {
         mes: new Date().getMonth() + 1,
         ano: new Date().getFullYear(),
-        listaCompleta: [], 
-        listaVisivel: [],  
+        listaCompleta: [],
+        listaVisivel: [],
         mostrarInativos: false,
         mostrarGestao: false,
         alteracoesPendentes: new Set()
     },
 
-    init: function() {
+    init: function () {
         this.atualizarLabelPeriodo();
         this.carregar();
     },
 
-    mudarMes: function(delta) {
+    mudarMes: function (delta) {
         let novoMes = this.state.mes + delta;
-        if (novoMes > 12) { novoMes = 1; this.state.ano++; } 
+        if (novoMes > 12) { novoMes = 1; this.state.ano++; }
         else if (novoMes < 1) { novoMes = 12; this.state.ano--; }
-        
+
         this.state.mes = novoMes;
         this.state.alteracoesPendentes.clear();
         this.atualizarLabelPeriodo();
         this.carregar();
     },
 
-    toggleFiltros: function() {
+    toggleFiltros: function () {
         const elInativos = document.getElementById('check-mostrar-inativos');
         const elGestao = document.getElementById('check-mostrar-gestao');
-        
+
         this.state.mostrarInativos = elInativos ? elInativos.checked : false;
         this.state.mostrarGestao = elGestao ? elGestao.checked : false;
-        
+
         this.filtrarERenderizar();
     },
 
-    atualizarLabelPeriodo: function() {
+    atualizarLabelPeriodo: function () {
         const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const el = document.getElementById('header-meta-periodo');
         if (el) el.innerText = `${meses[this.state.mes - 1]} ${this.state.ano}`;
     },
 
-    carregar: async function() {
+    carregar: async function () {
         const tbody = document.getElementById('lista-metas');
         if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-blue-500 text-2xl"></i><p class="text-xs text-slate-400 mt-2">Sincronizando metas...</p></td></tr>';
 
@@ -74,20 +74,20 @@ Gestao.Metas = {
             // Normaliza usuários e combina com metas
             this.state.listaCompleta = usersRows.map(u => {
                 const m = metasRows.find(x => x.usuario_id === u.id || x.usuario_id === String(u.id));
-                
+
                 // Normaliza campos
                 const ativo = (u.situacao || '').toUpperCase() === 'ATIVO';
                 const perfil = (u.perfil || '').toUpperCase();
                 const funcao = (u.funcao || '').toUpperCase();
-                
+
                 // Lógica Aprimorada de Identificação de Gestão
                 // Inclui: Gestora, Auditora, Admin, Super Admin e IDs 1/1000
                 const isGestao = perfil.includes('GESTOR') || perfil.includes('AUDITOR') || perfil.includes('ADMIN') ||
-                                 funcao.includes('GESTOR') || funcao.includes('AUDITOR') || funcao.includes('ADMIN') ||
-                                 u.nome === 'Super Admin' || u.nome === 'Super Admin Gupy' || 
-                                 String(u.id) === '1' || String(u.id) === '1000' ||
-                                 (u.nivel_acesso && parseInt(u.nivel_acesso) >= 2);
-                
+                    funcao.includes('GESTOR') || funcao.includes('AUDITOR') || funcao.includes('ADMIN') ||
+                    u.nome === 'Super Admin' || u.nome === 'Super Admin Gupy' ||
+                    String(u.id) === '1' || String(u.id) === '1000' ||
+                    (u.nivel_acesso && parseInt(u.nivel_acesso) >= 2);
+
                 return {
                     id: u.id,
                     nome: u.nome,
@@ -96,7 +96,7 @@ Gestao.Metas = {
                     perfil: perfil,
                     funcao: funcao,
                     isGestao: !!isGestao,
-                    meta_prod: m ? (m.meta_producao || m.meta_prod || null) : null, 
+                    meta_prod: m ? (m.meta_producao || m.meta_prod || null) : null,
                     meta_assert: m ? (m.meta_assertividade || m.meta_assert || null) : null,
                     id_meta: m ? m.id : null
                 };
@@ -106,24 +106,24 @@ Gestao.Metas = {
 
         } catch (e) {
             console.error(e);
-            if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center text-rose-500 py-4">Erro: ${e.message}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center text-rose-500 py-4">Erro: ${e.message}</td></tr>`;
         }
     },
 
-    filtrarERenderizar: function() {
+    filtrarERenderizar: function () {
         this.state.listaVisivel = this.state.listaCompleta.filter(u => {
             // Filtro Inativos
             if (!this.state.mostrarInativos && !u.ativo) return false;
-            
+
             // Filtro Gestão (Default: Esconder)
             if (!this.state.mostrarGestao && u.isGestao) return false;
 
             return true;
         });
-        
+
         // Ordenação: Gestão > Ativos > Inativos > Nome
-        this.state.listaVisivel.sort((a,b) => {
-            if (a.isGestao !== b.isGestao) return a.isGestao ? 1 : -1; 
+        this.state.listaVisivel.sort((a, b) => {
+            if (a.isGestao !== b.isGestao) return a.isGestao ? 1 : -1;
             if (a.ativo !== b.ativo) return a.ativo ? -1 : 1;
             return a.nome.localeCompare(b.nome);
         });
@@ -131,14 +131,14 @@ Gestao.Metas = {
         this.renderizar();
     },
 
-    renderizar: function() {
+    renderizar: function () {
         const tbody = document.getElementById('lista-metas');
         const footer = document.getElementById('resumo-metas-footer');
         if (!tbody) return;
 
         if (this.state.listaVisivel.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400 italic">Nenhum registro encontrado.</td></tr>';
-            if(footer) footer.innerText = '0 registros';
+            if (footer) footer.innerText = '0 registros';
             return;
         }
 
@@ -146,7 +146,7 @@ Gestao.Metas = {
             const isInactive = !u.ativo;
             let rowClass = 'hover:bg-slate-50';
             if (isInactive) rowClass = 'bg-slate-50 opacity-60';
-            if (u.isGestao) rowClass = 'bg-purple-50/30 hover:bg-purple-50'; 
+            if (u.isGestao) rowClass = 'bg-purple-50/30 hover:bg-purple-50';
 
             return `
             <tr class="border-b border-slate-100 transition group ${rowClass}" id="row-${u.id}">
@@ -196,19 +196,19 @@ Gestao.Metas = {
             </tr>`;
         }).join('');
 
-        if(footer) footer.innerText = `${this.state.listaVisivel.length} registros listados`;
+        if (footer) footer.innerText = `${this.state.listaVisivel.length} registros listados`;
     },
 
-    marcarAlterado: function(uid) {
+    marcarAlterado: function (uid) {
         this.state.alteracoesPendentes.add(uid);
         const status = document.getElementById(`status-${uid}`);
-        if(status) status.innerHTML = '<i class="fas fa-pen text-blue-500 animate-pulse"></i> <span class="text-blue-600">Editado</span>';
-        
+        if (status) status.innerHTML = '<i class="fas fa-pen text-blue-500 animate-pulse"></i> <span class="text-blue-600">Editado</span>';
+
         const row = document.getElementById(`row-${uid}`);
-        if(row) row.classList.add('bg-blue-50/30');
+        if (row) row.classList.add('bg-blue-50/30');
     },
 
-    aplicarPadrao: function() {
+    aplicarPadrao: function () {
         const valProd = document.getElementById('padrao-prod-input')?.value || 650;
         const valAssert = document.getElementById('padrao-assert-input')?.value || 97;
 
@@ -220,27 +220,27 @@ Gestao.Metas = {
         alvos.forEach(u => {
             const elProd = document.getElementById(`prod-${u.id}`);
             const elAssert = document.getElementById(`assert-${u.id}`);
-            
+
             if (elProd) { elProd.value = valProd; this.marcarAlterado(u.id); }
             if (elAssert) { elAssert.value = valAssert; this.marcarAlterado(u.id); }
         });
     },
 
-    salvarTodas: async function() {
+    salvarTodas: async function () {
         if (this.state.alteracoesPendentes.size === 0) {
             alert("Nenhuma alteração detectada para salvar.");
             return;
         }
 
         const btn = document.querySelector('#actions-metas button[onclick="Gestao.Metas.salvarTodas()"]');
-        if(btn) {
+        if (btn) {
             var originalHtml = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
             btn.disabled = true;
         }
 
         const upserts = [];
-        
+
         this.state.alteracoesPendentes.forEach(uid => {
             const u = this.state.listaCompleta.find(x => x.id === uid);
             const valProd = document.getElementById(`prod-${uid}`)?.value;
@@ -267,9 +267,9 @@ Gestao.Metas = {
             // Monta SQL de upsert para TiDB (INSERT ... ON DUPLICATE KEY UPDATE)
             const sql = `
                 INSERT INTO metas (
-                    usuario_id, mes, ano, meta_producao, meta_assertividade
+                    id, usuario_id, mes, ano, meta_producao, meta_assertividade
                 ) VALUES
-                ${upserts.map(() => '(?, ?, ?, ?, ?)').join(', ')}
+                ${upserts.map(() => '(?, ?, ?, ?, ?, ?)').join(', ')}
                 ON DUPLICATE KEY UPDATE
                     meta_producao = VALUES(meta_producao),
                     meta_assertividade = VALUES(meta_assertividade)
@@ -278,6 +278,7 @@ Gestao.Metas = {
             const params = [];
             for (const m of upserts) {
                 params.push(
+                    Sistema.gerarUUID(), // Gera ID unico para cada registro (sera ignorado no update se chave unica bater, mas necessario pro insert)
                     String(m.usuario_id),
                     this.state.mes,
                     this.state.ano,
@@ -297,7 +298,7 @@ Gestao.Metas = {
             console.error(e);
             alert("Erro ao salvar: " + e.message);
         } finally {
-            if(btn) {
+            if (btn) {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
             }
