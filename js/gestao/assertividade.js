@@ -69,14 +69,33 @@ Gestao.Assertividade = {
     bindEvents: function () {
         if (this.els.btnAnt) this.els.btnAnt.addEventListener('click', () => this.mudarPagina(-1));
         if (this.els.btnProx) this.els.btnProx.addEventListener('click', () => this.mudarPagina(1));
+
         const inputs = this.els.thead.querySelectorAll('input[data-filter]');
+
+        // Debounce para não buscar a cada tecla
+        const debounce = (func, wait) => {
+            let timeout;
+            return function (...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
+
         inputs.forEach(input => {
             const acao = () => {
                 this.state.filtros[input.dataset.filter] = input.value.trim();
                 this.state.page = 1;
                 this.carregarDados();
             };
-            input.addEventListener('keyup', (e) => { if (e.key === 'Enter') acao(); });
+
+            // Busca ao digitar (com delay)
+            input.addEventListener('input', debounce(acao, 600));
+
+            // Para datas, mantém o change imediato também
             if (input.type === 'date') input.addEventListener('change', acao);
         });
     },
