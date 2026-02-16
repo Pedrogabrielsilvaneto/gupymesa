@@ -500,12 +500,16 @@ Produtividade.Geral = {
                 const gt = existente ? existente.gradual_total : 0;
                 const gp = existente ? existente.gradual_parcial : 0;
 
+                const partesData = dia.split('-');
+                const anoRef = parseInt(partesData[0]);
+                const mesRef = parseInt(partesData[1]);
+
                 // Upsert logic with INSERT ... ON DUPLICATE KEY UPDATE
                 await Sistema.query(
-                    `INSERT INTO producao (id, usuario_id, data_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE fator = VALUES(fator), justificativa = VALUES(justificativa)`,
-                    [uuid, uid, dia, novoFator, justificativa, quantidade, fifo, gt, gp]
+                    [uuid, uid, dia, mesRef, anoRef, novoFator, justificativa, quantidade, fifo, gt, gp]
                 );
             }
         } else {
@@ -539,15 +543,18 @@ Produtividade.Geral = {
             }
 
             const uuid = existente ? existente.id : (Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID());
+            const partesData = dataRef.split('-');
+            const anoRef = parseInt(partesData[0]);
+            const mesRef = parseInt(partesData[1]);
 
             // Upsert / Insert Update
             await Sistema.query(
-                `INSERT INTO producao (id, usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, fator, justificativa, perfil_fc, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'OK')
+                `INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fifo, gradual_total, gradual_parcial, fator, justificativa, perfil_fc, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'OK')
                  ON DUPLICATE KEY UPDATE 
                     fator = VALUES(fator), 
                     justificativa = VALUES(justificativa)`,
-                [uuid, uid, dataRef, payload.quantidade, payload.fifo, payload.gradual_total, payload.gradual_parcial, payload.fator, payload.justificativa]
+                [uuid, uid, dataRef, mesRef, anoRef, payload.quantidade, payload.fifo, payload.gradual_total, payload.gradual_parcial, payload.fator, payload.justificativa]
             );
 
             if (campo === 'justificativa') {

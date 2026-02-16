@@ -157,14 +157,21 @@ window.Produtividade.Importacao.Validacao = {
 
             this.dadosProcessados.forEach(d => {
                 const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
-                values.push(uuid, d.usuario_id, d.data_referencia, d.quantidade, d.fifo || 0, d.gradual_total || 0, d.gradual_parcial || 0, d.perfil_fc || 0, d.fator || 1, 'OK');
-                placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                // Extrai MÊS e ANO da data_referencia (YYYY-MM-DD)
+                const partesData = d.data_referencia.split('-'); // [2026, 02, 16]
+                const anoRef = parseInt(partesData[0]);
+                const mesRef = parseInt(partesData[1]);
+
+                values.push(uuid, d.usuario_id, d.data_referencia, mesRef, anoRef, d.quantidade, d.fifo || 0, d.gradual_total || 0, d.gradual_parcial || 0, d.perfil_fc || 0, d.fator || 1, 'OK');
+                placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             });
 
             const sql = `
-                INSERT INTO producao (id, usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator, status)
+                INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator, status)
                 VALUES ${placeholders.join(', ')}
                 ON DUPLICATE KEY UPDATE
+                    mes_referencia = VALUES(mes_referencia),
+                    ano_referencia = VALUES(ano_referencia),
                     quantidade = VALUES(quantidade),
                     fifo = VALUES(fifo),
                     gradual_total = VALUES(gradual_total),
