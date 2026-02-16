@@ -203,6 +203,12 @@ Produtividade.Geral = {
         return perfil === 'admin' || perfil === 'administrador' || funcao.includes('gestor') || funcao.includes('auditor') || uid === 1 || uid === 1000;
     },
 
+    normalizarData: function (d) {
+        if (!d) return null;
+        const str = String(d).trim();
+        return str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
+    },
+
     // ... (processarDadosUnificados, renderizarTabela, calcularKpisGlobal e auxiliares mantidos, foco na lógica de Abono abaixo) ...
     processarDadosUnificados: function () {
         const mapa = new Map();
@@ -210,15 +216,8 @@ Produtividade.Geral = {
         const isPeriodo = range.inicio !== range.fim;
         const diasUteisPeriodo = this.contarDiasUteis(range.inicio, range.fim);
 
-        // Helper para normalizar datas do banco (ISO ou string parcial) para YYYY-MM-DD
-        const normalizarData = (d) => {
-            if (!d) return null;
-            const str = String(d).trim();
-            return str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
-        };
-
         const getChave = (uid, dataRaw) => {
-            const date = normalizarData(dataRaw);
+            const date = this.normalizarData(dataRaw);
             return isPeriodo ? String(uid) : `${uid}_${date}`;
         };
 
@@ -227,7 +226,7 @@ Produtividade.Geral = {
             if (this.ehAdmin(uidStr)) return;
 
             const chave = getChave(uidStr, p.data_referencia);
-            if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : normalizarData(p.data_referencia));
+            if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : this.normalizarData(p.data_referencia));
 
             const item = mapa.get(chave);
             item.producao += Number(p.quantidade) || 0;
@@ -691,7 +690,7 @@ Produtividade.Geral = {
         const dadosUser = this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).sort((a, b) => a.data_referencia.localeCompare(b.data_referencia));
         if (dadosUser.length === 0) { this.els.tabela.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Nenhum registro encontrado neste período.</td></tr>`; return; }
         this.els.tabela.innerHTML = dadosUser.map(d => {
-            const dateObj = new Date(d.data_referencia + 'T12:00:00');
+            const dateObj = new Date(this.normalizarData(d.data_referencia) + 'T12:00:00');
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(uid));
             const fator = d.fator !== null ? Number(d.fator) : 1.0;
             const metaDia = Math.round((metaObj ? (metaObj.meta_producao || 100) : 100) * fator);
