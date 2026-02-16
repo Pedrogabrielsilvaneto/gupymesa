@@ -47,32 +47,57 @@ Gestao.Metas = {
         if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-blue-500 text-2xl"></i><p class="text-xs text-slate-400 mt-2">Sincronizando metas...</p></td></tr>';
 
         try {
-            const { data: users, error: errU } = await Sistema.supabase.from('usuarios').select('id, nome, ativo, contrato, perfil, funcao').order('nome');
-            if (errU) throw errU;
+            // Busca usuários via TiDB
+            const sqlUsers = `
+                SELECT 
+                    id, 
+                    nome, 
+                    contrato,
+                    situacao,
+                    funcao,
+                    nivel_acesso
+                FROM usuarios
+                ORDER BY nome
+            `;
+            const usersRows = await Sistema.query(sqlUsers);
+            if (!usersRows) throw new Error("Falha ao carregar usuários.");
 
-            const { data: metas, error: errM } = await Sistema.supabase.from('metas')
-                .select('*')
-                .eq('mes', this.state.mes)
-                .eq('ano', this.state.ano);
-            if (errM) throw errM;
+            // Busca metas do período atual via TiDB
+            const sqlMetas = `
+                SELECT *
+                FROM metas
+                WHERE mes = ? AND ano = ?
+            `;
+            const metasRows = await Sistema.query(sqlMetas, [this.state.mes, this.state.ano]);
+            if (metasRows === null) throw new Error("Falha ao carregar metas.");
 
-            this.state.listaCompleta = users.map(u => {
-                const m = metas.find(x => x.usuario_id === u.id);
+            // Normaliza usuários e combina com metas
+            this.state.listaCompleta = usersRows.map(u => {
+                const m = metasRows.find(x => x.usuario_id === u.id || x.usuario_id === String(u.id));
                 
-                // Lógica Aprimorada de Identificação de Gestão
-                // Inclui: Gestora, Auditora, Admin, Super Admin e IDs 1/1000
+                // Normaliza campos
+                const ativo = (u.situacao || '').toUpperCase() === 'ATIVO';
                 const perfil = (u.perfil || '').toUpperCase();
                 const funcao = (u.funcao || '').toUpperCase();
                 
+                // Lógica Aprimorada de Identificação de Gestão
+                // Inclui: Gestora, Auditora, Admin, Super Admin e IDs 1/1000
                 const isGestao = perfil.includes('GESTOR') || perfil.includes('AUDITOR') || perfil.includes('ADMIN') ||
                                  funcao.includes('GESTOR') || funcao.includes('AUDITOR') || funcao.includes('ADMIN') ||
-                                 u.nome === 'Super Admin Gupy' || u.id === 1 || u.id === 1000;
+                                 u.nome === 'Super Admin' || u.nome === 'Super Admin Gupy' || 
+                                 String(u.id) === '1' || String(u.id) === '1000' ||
+                                 (u.nivel_acesso && parseInt(u.nivel_acesso) >= 2);
                 
                 return {
-                    ...u,
+                    id: u.id,
+                    nome: u.nome,
+                    contrato: u.contrato || '',
+                    ativo: ativo,
+                    perfil: perfil,
+                    funcao: funcao,
                     isGestao: !!isGestao,
-                    meta_prod: m ? m.meta_producao : null, 
-                    meta_assert: m ? m.meta_assertividade : null,
+                    meta_prod: m ? (m.meta_producao || m.meta_prod || null) : null, 
+                    meta_assert: m ? (m.meta_assertividade || m.meta_assert || null) : null,
                     id_meta: m ? m.id : null
                 };
             });
@@ -234,11 +259,35 @@ Gestao.Metas = {
         });
 
         try {
-            const { error } = await Sistema.supabase
-                .from('metas')
-                .upsert(upserts, { onConflict: 'usuario_id, mes, ano' });
+            if (upserts.length === 0) {
+                alert("Nenhuma alteração válida para salvar.");
+                return;
+            }
 
-            if (error) throw error;
+            // Monta SQL de upsert para TiDB (INSERT ... ON DUPLICATE KEY UPDATE)
+            const sql = `
+                INSERT INTO metas (
+                    usuario_id, mes, ano, meta_producao, meta_assertividade
+                ) VALUES
+                ${upserts.map(() => '(?, ?, ?, ?, ?)').join(', ')}
+                ON DUPLICATE KEY UPDATE
+                    meta_producao = VALUES(meta_producao),
+                    meta_assertividade = VALUES(meta_assertividade)
+            `;
+
+            const params = [];
+            for (const m of upserts) {
+                params.push(
+                    String(m.usuario_id),
+                    this.state.mes,
+                    this.state.ano,
+                    m.meta_producao,
+                    m.meta_assertividade
+                );
+            }
+
+            const result = await Sistema.query(sql, params);
+            if (result === null) throw new Error("Falha ao salvar metas.");
 
             this.state.alteracoesPendentes.clear();
             await this.carregar();
