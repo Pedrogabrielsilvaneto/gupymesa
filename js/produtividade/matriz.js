@@ -5,20 +5,20 @@
  */
 Produtividade.Matriz = {
     initialized: false,
-    
-    init: function() {
+
+    init: function () {
         if (!this.initialized) { this.initialized = true; }
         this.carregar();
     },
 
-    carregar: async function() {
+    carregar: async function () {
         const tbody = document.getElementById('matriz-body');
-        if (!tbody) return; 
+        if (!tbody) return;
 
         // CORREÇÃO: O ID correto no HTML é 'sel-ano', não 'global-date'
         const anoSelect = document.getElementById('sel-ano');
         let ano = new Date().getFullYear();
-        if(anoSelect && anoSelect.value) {
+        if (anoSelect && anoSelect.value) {
             ano = parseInt(anoSelect.value);
         }
 
@@ -43,52 +43,58 @@ Produtividade.Matriz = {
                 return;
             }
 
-            data.forEach(r => {
-                if (!r.usuario) return;
+            // Aplica filtros se a engine estiver carregada
+            const dadosFiltrados = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+                ? window.Produtividade.Filtros.preFiltrar(data)
+                : data;
 
-                const uid = r.usuario.id;
-                const nome = r.usuario.nome || 'Sem Nome';
-                const cargo = r.usuario.funcao ? String(r.usuario.funcao).toUpperCase() : 'ASSISTENTE';
-                
+            dadosFiltrados.forEach(r => {
+                const u = r.usuario || {};
+                const uid = u.id || r.usuario_id;
+                if (!uid) return;
+
+                const nome = u.nome || 'Sem Nome';
+                const cargo = u.funcao ? String(u.funcao).toUpperCase() : 'ASSISTENTE';
+
                 // Filtro de cargos de Gestão
                 if (!mostrarGestao && ['AUDITORA', 'GESTORA', 'COORDENADORA'].includes(cargo)) return;
 
-                if (!users[uid]) { 
-                    users[uid] = { 
-                        nome: nome, 
-                        cargo: cargo, 
-                        contrato: r.usuario.contrato || 'PJ', 
-                        months: new Array(12).fill(0) 
-                    }; 
+                if (!users[uid]) {
+                    users[uid] = {
+                        nome: nome,
+                        cargo: cargo,
+                        contrato: u.contrato || 'PJ',
+                        months: new Array(12).fill(0)
+                    };
                 }
-                
+
                 // Mapeia o mês da data_referencia (YYYY-MM-DD)
-                const mesIndex = parseInt(r.data_referencia.split('-')[1]) - 1; 
-                if (mesIndex >= 0 && mesIndex <= 11) { 
-                    users[uid].months[mesIndex] += (Number(r.quantidade) || 0); 
+                const mesIndex = parseInt(r.data_referencia.split('-')[1]) - 1;
+                if (mesIndex >= 0 && mesIndex <= 11) {
+                    users[uid].months[mesIndex] += (Number(r.quantidade) || 0);
                 }
             });
 
             const listaUsers = Object.values(users).sort((a, b) => a.nome.localeCompare(b.nome));
             this.renderizar(listaUsers, tbody);
-            
+
         } catch (err) {
             console.error("Erro Crítico na Matriz:", err);
             tbody.innerHTML = `<tr><td colspan="20" class="text-center py-4 text-red-500">Erro ao carregar matriz: ${err.message}</td></tr>`;
         }
     },
 
-    renderizar: function(lista, tbody) {
-        if(!tbody) return;
+    renderizar: function (lista, tbody) {
+        if (!tbody) return;
         tbody.innerHTML = '';
-        
-        if (lista.length === 0) { 
-            tbody.innerHTML = '<tr><td colspan="20" class="text-center py-12 text-slate-400 italic">Nenhum dado encontrado para os filtros atuais.</td></tr>'; 
-            return; 
+
+        if (lista.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="20" class="text-center py-12 text-slate-400 italic">Nenhum dado encontrado para os filtros atuais.</td></tr>';
+            return;
         }
 
         const format = (n) => n === 0 ? '-' : Math.round(n).toLocaleString('pt-BR');
-        
+
         lista.forEach(u => {
             const m = u.months;
             const q1 = m[0] + m[1] + m[2];
@@ -101,7 +107,7 @@ Produtividade.Matriz = {
 
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-50 transition odd:bg-white even:bg-slate-50/30 group border-b border-slate-100 last:border-0";
-            
+
             // Classes de estilização
             const tdNome = "px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]";
             const tdMes = "px-3 py-3 text-center text-slate-600 border-r border-slate-100 text-xs";

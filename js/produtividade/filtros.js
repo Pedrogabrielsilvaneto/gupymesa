@@ -10,28 +10,46 @@ Produtividade.Filtros = {
     estado: { nome: '', funcao: 'todos', contrato: 'todos' },
 
     // CONFIGURAÇÃO: Define quais filtros aparecem em cada aba
-    // Opções: 'nome', 'funcao', 'contrato'
     configVisibilidade: {
-        'geral':       ['nome', 'funcao', 'contrato'], // Validação precisa de tudo
-        'consolidado': ['nome', 'funcao', 'contrato'], // Análise financeira precisa de contrato
-        'performance': ['nome', 'funcao'],             // Gráficos: contrato é menos relevante
-        'matriz':      ['nome', 'funcao']              // Grade: prioriza espaço horizontal
+        'geral': ['nome', 'funcao', 'contrato'],
+        'consolidado': ['nome', 'funcao', 'contrato'],
+        'performance': ['nome', 'funcao'],
+        'matriz': ['nome', 'funcao']
     },
 
-    init: function() {
-        console.log("🔍 [NEXUS] Engine de Filtros Dinâmicos Iniciada");
+    init: function () {
+        console.log("🔍 [HUD] Engine de Filtros Iniciada");
         this.configurarInterceptadorDeAbas();
-        
-        // Ajuste inicial
+
         setTimeout(() => {
             this.abaAtiva = this.detectarAbaInicial();
             this.ajustarVisibilidade(this.abaAtiva);
-            this.aplicar();
+            this.popularSeletores();
         }, 500);
     },
 
-    detectarAbaInicial: function() {
-        // Tenta descobrir qual aba está aberta olhando as classes 'hidden'
+    popularSeletores: async function () {
+        if (!window.Sistema || !Sistema.query) return;
+        try {
+            // Busca funções únicas do banco
+            const funcoes = await Sistema.query("SELECT DISTINCT funcao FROM usuarios WHERE funcao IS NOT NULL AND funcao != '' ORDER BY funcao ASC");
+            const selFuncao = document.getElementById('filtro-funcao-prod');
+            if (selFuncao && funcoes) {
+                // Mantém o "Todas Funções"
+                selFuncao.innerHTML = '<option value="todos">Todas Funções</option>';
+                funcoes.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.funcao.toUpperCase();
+                    opt.textContent = f.funcao;
+                    selFuncao.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error("Erro ao popular seletores de filtro:", e);
+        }
+    },
+
+    detectarAbaInicial: function () {
         if (!document.getElementById('tab-geral').classList.contains('hidden')) return 'geral';
         if (!document.getElementById('tab-consolidado').classList.contains('hidden')) return 'consolidado';
         if (!document.getElementById('tab-performance').classList.contains('hidden')) return 'performance';
@@ -39,70 +57,46 @@ Produtividade.Filtros = {
         return 'geral';
     },
 
-    configurarInterceptadorDeAbas: function() {
+    configurarInterceptadorDeAbas: function () {
+        const self = this;
         const funcaoOriginal = Produtividade.mudarAba;
-        
-        Produtividade.mudarAba = function(abaId) {
-            // 1. Executa a troca original
-            funcaoOriginal(abaId);
-            
-            // 2. Atualiza estado interno
-            Produtividade.Filtros.abaAtiva = abaId;
-            
-            // 3. Ajusta a UI (Esconde/Mostra filtros)
-            Produtividade.Filtros.ajustarVisibilidade(abaId);
 
-            // 4. Reaplica a lógica de dados
-            Produtividade.Filtros.aplicar();
+        Produtividade.mudarAba = function (abaId) {
+            funcaoOriginal(abaId);
+            self.abaAtiva = abaId;
+            self.ajustarVisibilidade(abaId);
+            self.aplicar();
         };
     },
 
-    /**
-     * Controla quais elementos HTML aparecem na tela
-     */
-    ajustarVisibilidade: function(abaId) {
+    ajustarVisibilidade: function (abaId) {
         const container = document.getElementById('container-filtros-hud');
         if (!container) return;
 
-        // Se não houver configuração para a aba, esconde o container inteiro
         const configs = this.configVisibilidade[abaId];
         if (!configs) {
             container.classList.add('hidden');
             return;
         }
 
-        // Mostra o container principal
         container.classList.remove('hidden');
 
-        // Mapa de elementos DOM
         const elementos = {
             'nome': document.getElementById('wrap-filtro-nome'),
             'funcao': document.getElementById('wrap-filtro-funcao'),
             'contrato': document.getElementById('wrap-filtro-contrato')
         };
 
-        // Itera sobre os filtros possíveis e aplica a visibilidade
         Object.keys(elementos).forEach(chave => {
             const el = elementos[chave];
             if (el) {
-                if (configs.includes(chave)) {
-                    el.classList.remove('hidden');
-                    el.classList.add('block'); // Garante display
-                } else {
-                    el.classList.add('hidden');
-                    el.classList.remove('block');
-                    
-                    // Reset opcional: se esconder, reseta o valor para não filtrar invisível?
-                    // Por enquanto, mantemos o estado (user pode querer filtrar e mudar de aba)
-                    // Mas visualmente ele some.
-                }
+                if (configs.includes(chave)) el.classList.remove('hidden');
+                else el.classList.add('hidden');
             }
         });
-        
-        console.log(`👁️ [VISIBILIDADE] Ajustado para aba: ${abaId}`, configs);
     },
 
-    aplicar: function() {
+    aplicar: function () {
         try {
             this.estado.nome = document.getElementById('filtro-nome-prod')?.value.toLowerCase().trim() || '';
             this.estado.funcao = document.getElementById('filtro-funcao-prod')?.value || 'todos';
@@ -110,98 +104,70 @@ Produtividade.Filtros = {
 
             switch (this.abaAtiva) {
                 case 'geral': this.filtrarGeral(); break;
-                case 'consolidado': this.filtrarConsolidado(); break;
-                case 'performance': this.filtrarPerformance(); break;
-                case 'matriz': this.filtrarMatriz(); break;
+                // Outras abas podem precisar de implementações específicas se não usarem a mesma lógica de filtro
             }
         } catch (err) {
-            console.error("[NEXUS] Erro no Filtro:", err);
+            console.error("[HUD] Erro ao aplicar filtro:", err);
         }
     },
 
-    // --- ESTRATÉGIAS DE DADOS (Mantidas da versão anterior) ---
+    resetar: function () {
+        const elNome = document.getElementById('filtro-nome-prod');
+        const elFuncao = document.getElementById('filtro-funcao-prod');
+        const elContrato = document.getElementById('filtro-contrato-prod');
 
-    filtrarGeral: function() {
-        if (!Produtividade.Geral || !Produtividade.Geral.dadosOriginais) return;
-        const filtrados = this.executarLogica(Produtividade.Geral.dadosOriginais);
-        
-        const bkp = Produtividade.Geral.dadosOriginais;
-        if (typeof Produtividade.Geral.renderizarTabela === 'function') {
-            Produtividade.Geral.dadosOriginais = filtrados;
-            Produtividade.Geral.renderizarTabela(); 
-            Produtividade.Geral.dadosOriginais = bkp;
-            Produtividade.Geral.atualizarKPIsGlobal(filtrados, this.temFiltroAtivo());
+        if (elNome) elNome.value = '';
+        if (elFuncao) elFuncao.value = 'todos';
+        if (elContrato) elContrato.value = 'todos';
+
+        this.aplicar();
+    },
+
+    filtrarGeral: function () {
+        if (!Produtividade.Geral || !Produtividade.Geral.state) return;
+
+        Produtividade.Geral.renderizarTabela();
+        Produtividade.Geral.calcularKpisGlobal();
+        if (typeof Produtividade.Geral.atualizarDestaques === 'function') {
+            Produtividade.Geral.atualizarDestaques();
         }
     },
 
-    filtrarConsolidado: function() {
-        if (!Produtividade.Consolidado) return;
-        if (!Produtividade.Consolidado.dadosBackup && Produtividade.Consolidado.dados?.length) {
-            Produtividade.Consolidado.dadosBackup = [...Produtividade.Consolidado.dados];
-        }
-        if (!Produtividade.Consolidado.dadosBackup) return;
+    // Esta função será chamada de dentro dos métodos de renderização dos módulos
+    preFiltrar: function (lista) {
+        if (!lista || lista.length === 0) return [];
 
-        const filtrados = this.executarLogica(Produtividade.Consolidado.dadosBackup);
-        if (typeof Produtividade.Consolidado.renderizarTabela === 'function') {
-            Produtividade.Consolidado.dados = filtrados;
-            Produtividade.Consolidado.renderizarTabela();
-        }
-    },
-
-    filtrarPerformance: function() {
-        if (!Produtividade.Performance) return;
-        if (!Produtividade.Performance.dadosBackup && Produtividade.Performance.dadosGlobais?.length) {
-            Produtividade.Performance.dadosBackup = [...Produtividade.Performance.dadosGlobais];
-        }
-        if (!Produtividade.Performance.dadosBackup) return;
-
-        const filtrados = this.executarLogica(Produtividade.Performance.dadosBackup);
-        if (typeof Produtividade.Performance.processarDados === 'function') {
-            Produtividade.Performance.dadosGlobais = filtrados;
-            Produtividade.Performance.renderizarDashboard(filtrados);
-        }
-    },
-
-    filtrarMatriz: function() {
-        if (!Produtividade.Matriz) return;
-        if (!Produtividade.Matriz.dadosBackup && Produtividade.Matriz.dados?.length) {
-            Produtividade.Matriz.dadosBackup = [...Produtividade.Matriz.dados];
-        }
-        if (!Produtividade.Matriz.dadosBackup) return;
-
-        const filtrados = this.executarLogica(Produtividade.Matriz.dadosBackup);
-        if (typeof Produtividade.Matriz.renderizarGrade === 'function') {
-            Produtividade.Matriz.dados = filtrados;
-            Produtividade.Matriz.renderizarGrade();
-        }
-    },
-
-    executarLogica: function(lista) {
-        if (!lista) return [];
         return lista.filter(item => {
-            let u = item.usuario || item;
-            if (!u.nome && item.nome) u = item;
+            const u = item.usuario_id ? (window.Produtividade.Geral?.state?.mapaUsuarios[item.usuario_id] || {}) : (item.uid ? (window.Produtividade.Geral?.state?.mapaUsuarios[item.uid] || {}) : item);
 
-            const nome = (u.nome || '').toLowerCase();
-            const funcao = (u.funcao || 'ASSISTENTE').toUpperCase();
-            const contrato = (u.contrato || 'PJ').toUpperCase();
+            const nome = (item.nome || u.nome || '').toLowerCase();
+            const funcao = (u.funcao || '').toUpperCase();
+            const contrato = (u.contrato || '').toUpperCase();
 
-            // Só aplica o filtro se o elemento estiver VISÍVEL na aba atual
-            // Isso evita que um filtro "Contrato" escondido afete a "Matriz" inadvertidamente
-            const cfg = this.configVisibilidade[this.abaAtiva] || [];
-            
-            const matchNome = !cfg.includes('nome') || nome.includes(this.estado.nome);
-            const matchFuncao = !cfg.includes('funcao') || this.estado.funcao === 'todos' || funcao === this.estado.funcao;
-            const matchContrato = !cfg.includes('contrato') || this.estado.contrato === 'todos' || contrato === this.estado.contrato;
+            // Match Nome/ID
+            const matchNome = this.estado.nome === '' || nome.includes(this.estado.nome) || String(item.usuario_id || item.uid || '').includes(this.estado.nome);
+
+            // Match Função
+            const matchFuncao = this.estado.funcao === 'todos' || funcao === this.estado.funcao;
+
+            // Match Contrato
+            let matchContrato = this.estado.contrato === 'todos';
+            if (!matchContrato) {
+                if (this.estado.contrato === 'TERCEIROS') {
+                    matchContrato = contrato.includes('PJ') || contrato.includes('TERCEIRO') || contrato.includes('TER');
+                } else {
+                    matchContrato = contrato.includes(this.estado.contrato);
+                }
+            }
 
             return matchNome && matchFuncao && matchContrato;
         });
-    },
-
-    temFiltroAtivo: function() {
-        return this.estado.nome !== '' || this.estado.funcao !== 'todos' || this.estado.contrato !== 'todos';
     }
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => Produtividade.Filtros.init(), 600);
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => Produtividade.Filtros.init(), 300);

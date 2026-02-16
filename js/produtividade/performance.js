@@ -8,31 +8,31 @@ Produtividade.Performance = {
     dadosRPC: [],        // KPIs gerais do RPC
     dadosTimeline: [],   // Produção dia-a-dia para gráficos
     dadosDocs: [],       // Dados de assertividade para análise de documentos
-    
+
     usuarioSelecionado: null, // null = Visão Time Global
     mode: 'tracao',      // 'tracao' (Positivo) | 'atrito' (Negativo)
     chartInstance: null,
 
-    init: function() {
+    init: function () {
         if (typeof Chart === 'undefined') { console.error("Chart.js required"); return; }
         this.initialized = true;
-        this.setMode('tracao', false); 
+        this.setMode('tracao', false);
         this.carregar();
     },
 
-    setMode: function(novoModo, recarregar = true) {
+    setMode: function (novoModo, recarregar = true) {
         this.mode = novoModo;
         // Toggle Visual dos Botões
         const btnTracao = document.getElementById('btn-mode-tracao');
         const btnAtrito = document.getElementById('btn-mode-atrito');
-        
+
         const baseClass = "flex items-center gap-2 px-6 py-2 text-sm font-bold rounded-lg transition-all duration-300";
         const activeClassTracao = `${baseClass} bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200 transform scale-105`;
         const activeClassAtrito = `${baseClass} bg-white text-rose-600 shadow-sm ring-1 ring-rose-200 transform scale-105`;
         const inactiveClass = `${baseClass} text-slate-400 hover:text-slate-600 bg-transparent shadow-none ring-0`;
 
-        if(btnTracao && btnAtrito) {
-            if(novoModo === 'tracao') {
+        if (btnTracao && btnAtrito) {
+            if (novoModo === 'tracao') {
                 btnTracao.className = activeClassTracao;
                 btnAtrito.className = inactiveClass;
             } else {
@@ -40,22 +40,22 @@ Produtividade.Performance = {
                 btnAtrito.className = activeClassAtrito;
             }
         }
-        
+
         // Se já tiver dados, renderiza o novo cenário imediatamente
-        if(recarregar && this.dadosRPC.length > 0) this.renderizarCenario();
+        if (recarregar && this.dadosRPC.length > 0) this.renderizarCenario();
     },
 
-    carregar: async function() {
+    carregar: async function () {
         const container = document.getElementById('performance-engine-container');
-        if(container) container.innerHTML = '<div class="text-center text-slate-400 py-24 animate-pulse"><i class="fas fa-circle-notch fa-spin text-2xl mb-4 text-indigo-400"></i><p class="font-medium">Carregando inteligência de dados...</p></div>';
+        if (container) container.innerHTML = '<div class="text-center text-slate-400 py-24 animate-pulse"><i class="fas fa-circle-notch fa-spin text-2xl mb-4 text-indigo-400"></i><p class="font-medium">Carregando inteligência de dados...</p></div>';
 
         const datas = Produtividade.getDatasFiltro();
-        this.usuarioSelecionado = null; 
+        this.usuarioSelecionado = null;
 
         try {
             // 1. KPIs Gerais
-            const reqRPC = Sistema.supabase.rpc('get_painel_produtividade', { 
-                data_inicio: datas.inicio, data_fim: datas.fim 
+            const reqRPC = Sistema.supabase.rpc('get_painel_produtividade', {
+                data_inicio: datas.inicio, data_fim: datas.fim
             });
 
             // 2. Timeline (Evolução)
@@ -68,7 +68,7 @@ Produtividade.Performance = {
             const reqDocs = Sistema.supabase.from('assertividade')
                 .select('doc_name, status, assistente_nome, data_referencia, porcentagem_assertividade')
                 .gte('data_referencia', datas.inicio).lte('data_referencia', datas.fim)
-                .limit(3000); 
+                .limit(3000);
 
             const [resRPC, resTimeline, resDocs] = await Promise.all([reqRPC, reqTimeline, reqDocs]);
 
@@ -83,35 +83,43 @@ Produtividade.Performance = {
 
         } catch (err) {
             console.error("Erro Performance:", err);
-            if(container) container.innerHTML = `<div class="bg-red-50 text-red-600 p-6 rounded-xl border border-red-100 text-center"><p>Erro ao processar dados: ${err.message}</p></div>`;
+            if (container) container.innerHTML = `<div class="bg-red-50 text-red-600 p-6 rounded-xl border border-red-100 text-center"><p>Erro ao processar dados: ${err.message}</p></div>`;
         }
     },
 
-    selecionarUsuario: function(id) {
+    selecionarUsuario: function (id) {
         this.usuarioSelecionado = (this.usuarioSelecionado === id) ? null : id;
         this.renderizarCenario();
     },
 
     // --- ENGINE DE DADOS (Processa KPIs com base no contexto e modo) ---
-    processarDadosAtuais: function() {
-        // 1. Filtragem Contextual (Global ou Individual)
-        const usuariosFiltrados = this.usuarioSelecionado 
-            ? this.dadosRPC.filter(u => u.usuario_id == this.usuarioSelecionado)
+    processarDadosAtuais: function () {
+        // 1. Filtragem Contextual (Global ou Individual + Engine de Filtros)
+        let rpcFiltrado = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+            ? window.Produtividade.Filtros.preFiltrar(this.dadosRPC)
             : this.dadosRPC;
 
-        const producaoFiltrada = this.usuarioSelecionado
-            ? this.dadosTimeline.filter(p => p.usuario_id == this.usuarioSelecionado)
+        const usuariosFiltrados = this.usuarioSelecionado
+            ? rpcFiltrado.filter(u => u.usuario_id == this.usuarioSelecionado)
+            : rpcFiltrado;
+
+        let timelineFiltrada = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+            ? window.Produtividade.Filtros.preFiltrar(this.dadosTimeline)
             : this.dadosTimeline;
 
+        const producaoFiltrada = this.usuarioSelecionado
+            ? timelineFiltrada.filter(p => p.usuario_id == this.usuarioSelecionado)
+            : timelineFiltrada;
+
         let nomeUsuarioSel = null;
-        if(this.usuarioSelecionado) {
+        if (this.usuarioSelecionado) {
             const u = this.dadosRPC.find(x => x.usuario_id == this.usuarioSelecionado);
-            if(u) nomeUsuarioSel = u.nome;
+            if (u) nomeUsuarioSel = u.nome;
         }
 
         // Filtra docs pelo nome do assistente (match parcial seguro)
         const docsFiltrados = nomeUsuarioSel
-            ? this.dadosDocs.filter(d => d.assistente_nome && d.assistente_nome.toLowerCase().includes(nomeUsuarioSel.split(' ')[0].toLowerCase())) 
+            ? this.dadosDocs.filter(d => d.assistente_nome && d.assistente_nome.toLowerCase().includes(nomeUsuarioSel.split(' ')[0].toLowerCase()))
             : this.dadosDocs;
 
         // 2. Estrutura de Estatísticas
@@ -120,14 +128,14 @@ Produtividade.Performance = {
             somaAssert: 0,
             qtdAud: 0,
             mediaAssert: 0,
-            
+
             // Atrito Específico
             totalErrosEstimados: 0,
             totalReprovacoesReais: 0, // Baseado na tabela assertividade (NOK)
-            
+
             melhorDia: { data: '-', qtd: 0 },
             piorDia: { data: '-', qtd: 0 }, // Dia com mais NOKs
-            
+
             topDocs: [],     // Docs com mais acertos
             ofensorDocs: []  // Docs com mais erros
         };
@@ -135,7 +143,7 @@ Produtividade.Performance = {
         // 3. Cálculos KPI Base
         usuariosFiltrados.forEach(u => {
             const cargo = (u.funcao || '').toUpperCase();
-            if(['GESTORA', 'AUDITORA'].includes(cargo) && !this.usuarioSelecionado) return;
+            if (['GESTORA', 'AUDITORA'].includes(cargo) && !this.usuarioSelecionado) return;
 
             const qty = Number(u.total_qty) || 0;
             const sAud = Number(u.soma_auditorias) || 0;
@@ -145,12 +153,12 @@ Produtividade.Performance = {
             stats.totalProducao += qty;
             stats.somaAssert += sAud;
             stats.qtdAud += qAud;
-            
+
             // Estimativa de erros para KPI global
             const errosUser = qty * ((100 - mediaUser) / 100);
             stats.totalErrosEstimados += errosUser;
         });
-        
+
         stats.mediaAssert = stats.qtdAud > 0 ? (stats.somaAssert / stats.qtdAud) : (stats.totalProducao > 0 ? 100 : 0);
         const taxaErro = 100 - stats.mediaAssert;
 
@@ -166,15 +174,15 @@ Produtividade.Performance = {
 
         docsFiltrados.forEach(d => {
             const nomeDoc = d.doc_name || 'Outros';
-            const status = (d.status||'').toUpperCase();
+            const status = (d.status || '').toUpperCase();
             const isNok = status.includes('NOK') || status.includes('REPROV');
             const isOk = ['OK', 'VALIDO'].includes(status);
 
-            if(!docsMap[nomeDoc]) docsMap[nomeDoc] = { nome: nomeDoc, ok: 0, nok: 0, total: 0 };
-            
+            if (!docsMap[nomeDoc]) docsMap[nomeDoc] = { nome: nomeDoc, ok: 0, nok: 0, total: 0 };
+
             docsMap[nomeDoc].total++;
-            if(isOk) docsMap[nomeDoc].ok++;
-            if(isNok) {
+            if (isOk) docsMap[nomeDoc].ok++;
+            if (isNok) {
                 docsMap[nomeDoc].nok++;
                 stats.totalReprovacoesReais++;
                 // Contagem de Pior Dia baseada em NOKs reais
@@ -194,16 +202,16 @@ Produtividade.Performance = {
 
         // Rankings de Docs
         const docsArray = Object.values(docsMap);
-        stats.topDocs = [...docsArray].sort((a,b) => b.ok - a.ok).slice(0, 5);
-        stats.ofensorDocs = [...docsArray].sort((a,b) => b.nok - a.nok).slice(0, 5);
+        stats.topDocs = [...docsArray].sort((a, b) => b.ok - a.ok).slice(0, 5);
+        stats.ofensorDocs = [...docsArray].sort((a, b) => b.nok - a.nok).slice(0, 5);
 
         return stats;
     },
 
-    renderizarCenario: function() {
+    renderizarCenario: function () {
         const container = document.getElementById('performance-engine-container');
         const stats = this.processarDadosAtuais();
-        
+
         // Template Base (Grid)
         let html = `
         <div class="grid grid-cols-12 gap-6 h-full animate-fade-in">
@@ -221,25 +229,25 @@ Produtividade.Performance = {
     },
 
     // --- SIDEBAR (Renderiza diferente para Tração vs Atrito) ---
-    renderSidebar: function(stats) {
+    renderSidebar: function (stats) {
         const isGlobal = !this.usuarioSelecionado;
-        
+
         // Ordenação Dinâmica: Tração = Volume | Atrito = Erros Estimados
         const sorted = [...this.dadosRPC]
-            .filter(u => !['GESTORA', 'AUDITORA'].includes((u.funcao||'').toUpperCase()))
+            .filter(u => !['GESTORA', 'AUDITORA'].includes((u.funcao || '').toUpperCase()))
             .map(u => {
                 const qty = Number(u.total_qty) || 0;
                 const qa = Number(u.qtd_auditorias) || 0;
                 const sa = Number(u.soma_auditorias) || 0;
-                const media = qa > 0 ? sa/qa : (qty > 0 ? 100 : 0);
-                const erros = qty * ((100-media)/100);
+                const media = qa > 0 ? sa / qa : (qty > 0 ? 100 : 0);
+                const erros = qty * ((100 - media) / 100);
                 return { ...u, qty, media, erros };
             });
 
         if (this.mode === 'tracao') {
-            sorted.sort((a,b) => b.qty - a.qty);
+            sorted.sort((a, b) => b.qty - a.qty);
         } else {
-            sorted.sort((a,b) => b.erros - a.erros); // Quem tem mais erro sobe
+            sorted.sort((a, b) => b.erros - a.erros); // Quem tem mais erro sobe
         }
 
         const tituloLista = this.mode === 'tracao' ? '🏆 Top Performers' : '⚠️ Pontos de Atenção';
@@ -247,23 +255,23 @@ Produtividade.Performance = {
 
         let listaHtml = sorted.map((u, i) => {
             const isSelected = this.usuarioSelecionado == u.usuario_id;
-            
+
             // Estilos
             let activeClass = '';
             let textClass = 'text-slate-600';
             let subText = '';
-            let iconRank = `<div class="w-6 text-center text-xs font-bold text-slate-300">#${i+1}</div>`;
+            let iconRank = `<div class="w-6 text-center text-xs font-bold text-slate-300">#${i + 1}</div>`;
 
             if (this.mode === 'tracao') {
                 activeClass = isSelected ? 'bg-indigo-50 border-indigo-200 shadow-inner' : 'bg-white border-transparent hover:bg-slate-50';
                 textClass = isSelected ? 'text-indigo-700' : 'text-slate-600';
                 subText = `${u.qty.toLocaleString()} docs`;
-                if(i < 3) iconRank = ['🥇','🥈','🥉'][i];
+                if (i < 3) iconRank = ['🥇', '🥈', '🥉'][i];
             } else {
                 activeClass = isSelected ? 'bg-rose-50 border-rose-200 shadow-inner' : 'bg-white border-transparent hover:bg-slate-50';
                 textClass = isSelected ? 'text-rose-700' : 'text-slate-600';
                 subText = `${Math.round(u.erros).toLocaleString()} falhas est.`;
-                if(i < 3) iconRank = `<i class="fas fa-exclamation-circle text-rose-400"></i>`;
+                if (i < 3) iconRank = `<i class="fas fa-exclamation-circle text-rose-400"></i>`;
             }
 
             return `
@@ -295,15 +303,15 @@ Produtividade.Performance = {
             <i class="fas ${this.mode === 'tracao' ? 'fa-trophy' : 'fa-life-ring'} absolute -bottom-4 -right-4 text-6xl text-white/10"></i>
             <p class="text-white/80 text-xs font-bold uppercase mb-1">Dica de Gestão</p>
             <p class="text-sm font-medium leading-relaxed">
-                ${this.mode === 'tracao' 
-                    ? 'Use a lista para identificar os motores do time. Reconheça os padrões dos Top Performers.' 
-                    : 'A lista prioriza quem tem maior volume de erros. Foque o treinamento no Top 3 para maior impacto.'}
+                ${this.mode === 'tracao'
+                ? 'Use a lista para identificar os motores do time. Reconheça os padrões dos Top Performers.'
+                : 'A lista prioriza quem tem maior volume de erros. Foque o treinamento no Top 3 para maior impacto.'}
             </p>
         </div>`;
     },
 
     // --- VIEW: TRAÇÃO (LADO POSITIVO) ---
-    buildTracaoView: function(stats) {
+    buildTracaoView: function (stats) {
         return `
         <div class="flex items-center justify-between">
             <div>
@@ -312,7 +320,7 @@ Produtividade.Performance = {
             </div>
             <div class="text-right hidden sm:block">
                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                    <i class="far fa-calendar-alt mr-2"></i> Melhor Dia: ${stats.melhorDia.data !== '-' ? stats.melhorDia.data.split('-').reverse().slice(0,2).join('/') : '--'}
+                    <i class="far fa-calendar-alt mr-2"></i> Melhor Dia: ${stats.melhorDia.data !== '-' ? stats.melhorDia.data.split('-').reverse().slice(0, 2).join('/') : '--'}
                  </span>
             </div>
         </div>
@@ -368,9 +376,9 @@ Produtividade.Performance = {
     },
 
     // --- VIEW: ATRITO (LADO NEGATIVO) ---
-    buildAtritoView: function(stats) {
+    buildAtritoView: function (stats) {
         const taxaErro = (100 - stats.mediaAssert).toFixed(2);
-        
+
         return `
         <div class="flex items-center justify-between">
             <div>
@@ -379,7 +387,7 @@ Produtividade.Performance = {
             </div>
             <div class="text-right hidden sm:block">
                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-100">
-                    <i class="fas fa-exclamation-triangle mr-2"></i> Pior Dia: ${stats.piorDia.data !== '-' ? stats.piorDia.data.split('-').reverse().slice(0,2).join('/') : '--'}
+                    <i class="fas fa-exclamation-triangle mr-2"></i> Pior Dia: ${stats.piorDia.data !== '-' ? stats.piorDia.data.split('-').reverse().slice(0, 2).join('/') : '--'}
                  </span>
             </div>
         </div>
@@ -444,14 +452,14 @@ Produtividade.Performance = {
     },
 
     // --- RENDERIZADORES COMPONENTES ---
-    
-    renderDocList: function(docs, tipo) {
-        if(docs.length === 0) return '<p class="text-center text-xs text-slate-300 italic py-10">Sem dados.</p>';
-        
+
+    renderDocList: function (docs, tipo) {
+        if (docs.length === 0) return '<p class="text-center text-xs text-slate-300 italic py-10">Sem dados.</p>';
+
         return docs.map((doc, i) => `
             <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <div class="flex items-center gap-3 overflow-hidden">
-                    <div class="w-6 h-6 rounded-full bg-white text-xs font-bold flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm flex-shrink-0">${i+1}</div>
+                    <div class="w-6 h-6 rounded-full bg-white text-xs font-bold flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm flex-shrink-0">${i + 1}</div>
                     <span class="text-xs font-bold text-slate-600 truncate" title="${doc.nome}">${doc.nome}</span>
                 </div>
                 <div class="text-right flex-shrink-0">
@@ -463,50 +471,50 @@ Produtividade.Performance = {
         `).join('');
     },
 
-    getNomeContexto: function() {
+    getNomeContexto: function () {
         if (!this.usuarioSelecionado) return "Visão Global do Time";
         const u = this.dadosRPC.find(x => x.usuario_id == this.usuarioSelecionado);
         return u ? u.nome : "Usuário";
     },
 
     // --- CHART ENGINE (Dinâmico para os 2 modos) ---
-    renderChartEvolution: function(stats) {
+    renderChartEvolution: function (stats) {
         const ctx = document.getElementById('chart-evolution').getContext('2d');
         if (this.chartInstance) this.chartInstance.destroy();
 
         // Dados base: Tração = Timeline Produção | Atrito = Timeline NOKs (extraído de dadosDocs)
         let dataMap = {};
-        
+
         if (this.mode === 'tracao') {
-            const raw = this.usuarioSelecionado 
+            const raw = this.usuarioSelecionado
                 ? this.dadosTimeline.filter(p => p.usuario_id == this.usuarioSelecionado)
                 : this.dadosTimeline;
-            
-            raw.forEach(r => dataMap[r.data_referencia] = (dataMap[r.data_referencia]||0) + Number(r.quantidade));
+
+            raw.forEach(r => dataMap[r.data_referencia] = (dataMap[r.data_referencia] || 0) + Number(r.quantidade));
         } else {
             // No modo Atrito, precisamos contar os NOKs na tabela de Docs
-            let rawDocs = this.usuarioSelecionado 
+            let rawDocs = this.usuarioSelecionado
                 ? this.dadosDocs.filter(d => d.assistente_nome && d.assistente_nome.toLowerCase().includes(this.getNomeContexto().split(' ')[0].toLowerCase()))
                 : this.dadosDocs;
-            
+
             rawDocs.forEach(d => {
-                const status = (d.status||'').toUpperCase();
-                if(status.includes('NOK') || status.includes('REPROV')) {
-                    dataMap[d.data_referencia] = (dataMap[d.data_referencia]||0) + 1;
+                const status = (d.status || '').toUpperCase();
+                if (status.includes('NOK') || status.includes('REPROV')) {
+                    dataMap[d.data_referencia] = (dataMap[d.data_referencia] || 0) + 1;
                 }
             });
         }
 
         // Agrupamento Temporal
         const datas = Object.keys(dataMap).sort();
-        if(datas.length === 0) return;
+        if (datas.length === 0) return;
 
         const dt1 = new Date(datas[0]);
-        const dt2 = new Date(datas[datas.length-1]);
+        const dt2 = new Date(datas[datas.length - 1]);
         const isMonthView = ((dt2 - dt1) / (1000 * 60 * 60 * 24)) > 35;
-        
+
         const labelEl = document.getElementById('label-periodo-chart');
-        if(labelEl) labelEl.innerText = isMonthView ? "Mês a Mês" : "Dia a Dia";
+        if (labelEl) labelEl.innerText = isMonthView ? "Mês a Mês" : "Dia a Dia";
 
         // Processa Agrupamento
         const finalMap = {};
@@ -517,7 +525,7 @@ Produtividade.Performance = {
 
         const labels = Object.keys(finalMap).sort();
         const values = labels.map(k => finalMap[k]);
-        
+
         // Estilização condicional
         const color = this.mode === 'tracao' ? '#6366f1' : '#f43f5e'; // Indigo vs Rose
         const bg = this.mode === 'tracao' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(244, 63, 94, 0.1)';
@@ -526,7 +534,7 @@ Produtividade.Performance = {
         const fmtLabels = labels.map(k => {
             if (isMonthView) {
                 const [ano, mes] = k.split('-');
-                return `${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(mes)-1]}/${ano.slice(2)}`;
+                return `${["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][parseInt(mes) - 1]}/${ano.slice(2)}`;
             }
             return k.split('-').reverse().slice(0, 2).join('/');
         });

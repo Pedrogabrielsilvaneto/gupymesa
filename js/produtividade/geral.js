@@ -274,21 +274,28 @@ Produtividade.Geral = {
 
     renderizarTabela: function () {
         if (!this.els.tabela) return;
+
+        // Aplica filtros se a engine estiver carregada
+        const listaOriginal = this.state.listaTabela || [];
+        const listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+            ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
+            : listaOriginal;
+
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
             if (this.els.selectionHeader) this.els.selectionHeader.classList.add('hidden');
         }
         this.els.tabela.innerHTML = '';
 
-        if (this.state.listaTabela.length === 0) {
-            this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-slate-400">Nenhum dado encontrado.</td></tr>`;
+        if (listaExibicao.length === 0) {
+            this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-slate-400">Nenhum dado encontrado com os filtros atuais.</td></tr>`;
             if (this.els.totalFooter) this.els.totalFooter.textContent = '0';
             return;
         }
 
-        if (this.els.totalFooter) this.els.totalFooter.textContent = this.state.listaTabela.length;
+        if (this.els.totalFooter) this.els.totalFooter.textContent = listaExibicao.length;
 
-        const html = this.state.listaTabela.map(row => {
+        const html = listaExibicao.map(row => {
             const mediaAssert = row.media_final;
             const metaParaCalculo = row.meta_real_calculada;
             const pctProd = metaParaCalculo > 0 ? Math.round((row.producao / metaParaCalculo) * 100) : 0;
@@ -334,7 +341,12 @@ Produtividade.Geral = {
     },
 
     calcularKpisGlobal: function () {
-        // ... (Mantém a lógica original de cálculo de KPIs)
+        // Aplica filtros se a engine estiver carregada
+        const listaOriginal = this.state.listaTabela || [];
+        const listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+            ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
+            : listaOriginal;
+
         let totalProd = 0, totalMeta = 0;
         let somaPontosAssert = 0, totalDocsAssert = 0;
         let somaMetaAssert = 0, countUsersMeta = 0;
@@ -342,7 +354,7 @@ Produtividade.Geral = {
         let datasComProducao = new Set();
         let totalDiasUteis = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
-        this.state.listaTabela.forEach(i => {
+        listaExibicao.forEach(i => {
             totalProd += i.producao;
             totalMeta += i.meta_real_calculada;
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
