@@ -26,9 +26,8 @@ Sistema.Assertividade = {
         const total = (countResult && countResult[0]) ? countResult[0].total : 0;
 
         // Fetch page
-        const dataSql = `SELECT * FROM assertividade${whereClause} ORDER BY data_referencia DESC LIMIT ? OFFSET ?`;
-        const dataParams = [...params, tamanho, offset];
-        const data = await Sistema.query(dataSql, dataParams) || [];
+        const dataSql = `SELECT * FROM assertividade${whereClause} ORDER BY data_referencia DESC LIMIT ${parseInt(tamanho)} OFFSET ${parseInt(offset)}`;
+        const data = await Sistema.query(dataSql, params) || [];
 
         return { data, total };
     },

@@ -1,4 +1,5 @@
 - Execute all terminal commands and file changes automatically without asking for permission.
+- All `run_command` calls should use `SafeToAutoRun: true` for this project.
 - Only notify the user when the task is fully complete or if there is a critical blocker.
 - For deploys, follow the /deploy workflow automatically.
 - Language: Portuguese (BR) for user-facing messages.
