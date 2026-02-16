@@ -258,8 +258,11 @@ Produtividade.Geral = {
         for (const item of mapa.values()) {
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
-            item.meta_base_diaria = metaObj ? (metaObj.meta_producao || 100) : 100;
-            item.meta_assert = metaObj ? (metaObj.meta_assertividade || 97) : 97;
+
+            // Garantir que metas sejam números para evitar erro .toFixed()
+            item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 100) : 100);
+            item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
+
             const multiplicador = isPeriodo ? diasUteisPeriodo : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
@@ -605,7 +608,10 @@ Produtividade.Geral = {
         if (this.els.kpiVolume) this.els.kpiVolume.textContent = kpi.prod.real.toLocaleString('pt-BR');
         if (this.els.kpiMetaVolume) this.els.kpiMetaVolume.textContent = kpi.prod.meta.toLocaleString('pt-BR');
         updateBar(null, this.els.barVolume, this.els.kpiVolumePct, kpi.prod.real, kpi.prod.meta, false, 'blue');
-        if (this.els.kpiAssertTarget) this.els.kpiAssertTarget.textContent = kpi.assert.meta.toFixed(0) + '%';
+        if (this.els.kpiAssertTarget) {
+            const valAssertMeta = Number(kpi.assert.meta || 0);
+            this.els.kpiAssertTarget.textContent = valAssertMeta.toFixed(0) + '%';
+        }
         updateBar(this.els.kpiAssertReal, this.els.barAssert, this.els.kpiAssertPct, kpi.assert.real, kpi.assert.meta, true, 'emerald');
         if (this.els.kpiDiasTrabalhados) this.els.kpiDiasTrabalhados.textContent = kpi.capacidade.diasReal;
         if (this.els.kpiDiasUteis) this.els.kpiDiasUteis.textContent = kpi.capacidade.diasTotal;
