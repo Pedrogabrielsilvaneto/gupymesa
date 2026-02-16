@@ -37,9 +37,22 @@
             try {
                 // 1. Tabela USUARIOS
                 log("--- Verificando Tabela USUARIOS ---");
-                const sqlUser = "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS perfil VARCHAR(50)";
-                await Sistema.query(sqlUser);
-                log("✅ Coluna 'perfil' verificada/adicionada.", "text-emerald-400");
+
+                const colsUser = [
+                    "perfil VARCHAR(50)",
+                    "ativo BOOLEAN DEFAULT TRUE",
+                    "funcao VARCHAR(100)"
+                ];
+
+                for (const col of colsUser) {
+                    try {
+                        const sql = `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ${col}`;
+                        await Sistema.query(sql);
+                        log(`✅ Coluna Usuario '${col.split(' ')[0]}' verificada.`, "text-emerald-400");
+                    } catch (e) {
+                        log(`⚠️ Aviso na coluna ${col.split(' ')[0]}: ${e.message}`, "text-amber-400");
+                    }
+                }
 
                 // 2. Tabela PRODUCAO
                 log("--- Verificando Tabela PRODUCAO ---");
