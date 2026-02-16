@@ -2,6 +2,7 @@
   "name": "performance-pro",
   "version": "1.0.0",
   "dependencies": {
+    "dotenv": "^17.3.1",
     "mysql2": "^3.9.0"
   }
 }
