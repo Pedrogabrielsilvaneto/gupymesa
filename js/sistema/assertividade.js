@@ -7,21 +7,22 @@ Sistema.Assertividade = {
     buscarPaginado: async function (filtros, pagina = 1, tamanho = 50) {
         let where = [];
         let params = [];
-        let join = '';
-        let selectPrefix = 'a.*';
+        const needJoin = !!(filtros.contrato || filtros.funcao);
+        const t = needJoin ? 'a.' : '';
 
-        if (filtros.data) { where.push('a.data_referencia = ?'); params.push(filtros.data); }
-        if (filtros.id_emp) { where.push('a.company_id LIKE ?'); params.push(`%${filtros.id_emp}%`); }
-        if (filtros.empresa) { where.push('a.empresa_nome LIKE ?'); params.push(`%${filtros.empresa}%`); }
-        if (filtros.assistente) { where.push('a.assistente_nome LIKE ?'); params.push(`%${filtros.assistente}%`); }
-        if (filtros.doc_name) { where.push('a.doc_name LIKE ?'); params.push(`%${filtros.doc_name}%`); }
-        if (filtros.status) { where.push('a.status LIKE ?'); params.push(`%${filtros.status}%`); }
-        if (filtros.obs) { where.push('a.observacao LIKE ?'); params.push(`%${filtros.obs}%`); }
-        if (filtros.auditora) { where.push('a.auditora_nome LIKE ?'); params.push(`%${filtros.auditora}%`); }
+        if (filtros.data) { where.push(`${t}data_referencia = ?`); params.push(filtros.data); }
+        if (filtros.id_emp) { where.push(`${t}company_id LIKE ?`); params.push(`%${filtros.id_emp}%`); }
+        if (filtros.empresa) { where.push(`${t}empresa_nome LIKE ?`); params.push(`%${filtros.empresa}%`); }
+        if (filtros.assistente) { where.push(`${t}assistente_nome LIKE ?`); params.push(`%${filtros.assistente}%`); }
+        if (filtros.doc_name) { where.push(`${t}doc_name LIKE ?`); params.push(`%${filtros.doc_name}%`); }
+        if (filtros.status) { where.push(`${t}status LIKE ?`); params.push(`%${filtros.status}%`); }
+        if (filtros.obs) { where.push(`${t}observacao LIKE ?`); params.push(`%${filtros.obs}%`); }
+        if (filtros.auditora) { where.push(`${t}auditora_nome LIKE ?`); params.push(`%${filtros.auditora}%`); }
 
-        // Contrato e Função: JOIN com usuarios
-        if (filtros.contrato || filtros.funcao) {
-            join = ' LEFT JOIN usuarios u ON a.usuario_id = u.id';
+        let fromClause, selectClause;
+        if (needJoin) {
+            fromClause = 'assertividade a LEFT JOIN usuarios u ON CAST(a.usuario_id AS CHAR) = CAST(u.id AS CHAR)';
+            selectClause = 'a.*';
             if (filtros.contrato) {
                 if (filtros.contrato === 'TERCEIROS') {
                     where.push("(UPPER(u.contrato) LIKE '%PJ%' OR UPPER(u.contrato) LIKE '%TERCEIRO%')");
@@ -31,25 +32,27 @@ Sistema.Assertividade = {
             }
             if (filtros.funcao) {
                 if (filtros.funcao === 'GESTAO') {
-                    where.push("(UPPER(u.funcao) LIKE '%GESTOR%' OR UPPER(u.funcao) LIKE '%ADMIN%' OR u.nivel_acesso >= 2)");
+                    where.push("(UPPER(u.funcao) LIKE '%GESTOR%' OR UPPER(u.funcao) LIKE '%ADMIN%')");
                 } else if (filtros.funcao === 'AUDITORIA') {
                     where.push("UPPER(u.funcao) LIKE '%AUDITOR%'");
                 } else if (filtros.funcao === 'ASSISTENTE') {
-                    where.push("(UPPER(u.funcao) NOT LIKE '%GESTOR%' AND UPPER(u.funcao) NOT LIKE '%ADMIN%' AND UPPER(u.funcao) NOT LIKE '%AUDITOR%' AND (u.nivel_acesso IS NULL OR u.nivel_acesso < 2))");
+                    where.push("(u.funcao IS NULL OR (UPPER(u.funcao) NOT LIKE '%GESTOR%' AND UPPER(u.funcao) NOT LIKE '%ADMIN%' AND UPPER(u.funcao) NOT LIKE '%AUDITOR%'))");
                 }
             }
+        } else {
+            fromClause = 'assertividade';
+            selectClause = '*';
         }
 
         const whereClause = where.length > 0 ? ' WHERE ' + where.join(' AND ') : '';
         const offset = (pagina - 1) * tamanho;
 
-        // Count total
-        const countSql = `SELECT COUNT(*) as total FROM assertividade a${join}${whereClause}`;
+        const countSql = `SELECT COUNT(*) as total FROM ${fromClause}${whereClause}`;
         const countResult = await Sistema.query(countSql, params);
         const total = (countResult && countResult[0]) ? countResult[0].total : 0;
 
-        // Fetch page
-        const dataSql = `SELECT ${selectPrefix} FROM assertividade a${join}${whereClause} ORDER BY a.data_referencia DESC LIMIT ${parseInt(tamanho)} OFFSET ${parseInt(offset)}`;
+        const orderCol = needJoin ? 'a.data_referencia' : 'data_referencia';
+        const dataSql = `SELECT ${selectClause} FROM ${fromClause}${whereClause} ORDER BY ${orderCol} DESC LIMIT ${parseInt(tamanho)} OFFSET ${parseInt(offset)}`;
         const data = await Sistema.query(dataSql, params) || [];
 
         return { data, total };
