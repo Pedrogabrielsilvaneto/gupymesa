@@ -193,7 +193,9 @@ Produtividade.Geral = {
     ehGestao: function (user) {
         const perfil = (user.perfil || '').toLowerCase();
         const funcao = (user.funcao || '').toLowerCase();
-        return perfil === 'admin' || perfil === 'administrador' || funcao.includes('gestor') || funcao.includes('auditor') || user.id === 1 || user.id === 1000;
+        const uid = parseInt(user.id);
+        console.log(`🔍 [DEBUG] Check Permissão: ID=${uid}, Perfil=${perfil}, Funcao=${funcao}`);
+        return perfil === 'admin' || perfil === 'administrador' || funcao.includes('gestor') || funcao.includes('auditor') || uid === 1 || uid === 1000;
     },
 
     // ... (processarDadosUnificados, renderizarTabela, calcularKpisGlobal e auxiliares mantidos, foco na lógica de Abono abaixo) ...
