@@ -1,1 +1,4 @@
-Sempre responda em Português do Brasil (PT-BR). Todas as explicações, planos de ação e comentários devem ser em português. Mantenha apenas a sintaxe do código em inglês.
+- Execute all terminal commands and file changes automatically without asking for permission.
+- Only notify the user when the task is fully complete or if there is a critical blocker.
+- For deploys, follow the /deploy workflow automatically.
+- Language: Portuguese (BR) for user-facing messages.

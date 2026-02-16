@@ -1,64 +1,82 @@
 /* ARQUIVO: js/sistema/assertividade.js */
+/* Adaptado para TiDB (Sistema.query) - V2 */
 window.Sistema = window.Sistema || {};
 
 Sistema.Assertividade = {
-    
-    buscarPaginado: async function(filtros, pagina = 1, tamanho = 50) {
-        let query = Sistema.supabase
-            .from('assertividade')
-            .select('*', { count: 'exact' });
 
-        if (filtros.data) query = query.eq('data_referencia', filtros.data);
-        if (filtros.id_emp) query = query.ilike('company_id', `%${filtros.id_emp}%`);
-        if (filtros.empresa) query = query.ilike('empresa_nome', `%${filtros.empresa}%`);
-        if (filtros.assistente) query = query.ilike('assistente_nome', `%${filtros.assistente}%`);
-        if (filtros.doc_name) query = query.ilike('doc_name', `%${filtros.doc_name}%`);
-        if (filtros.status) query = query.ilike('status', `%${filtros.status}%`);
-        if (filtros.obs) query = query.ilike('observacao', `%${filtros.obs}%`);
-        if (filtros.auditora) query = query.ilike('auditora_nome', `%${filtros.auditora}%`);
+    buscarPaginado: async function (filtros, pagina = 1, tamanho = 50) {
+        let where = [];
+        let params = [];
 
-        const inicio = (pagina - 1) * tamanho;
-        const fim = inicio + tamanho - 1;
+        if (filtros.data) { where.push('data_referencia = ?'); params.push(filtros.data); }
+        if (filtros.id_emp) { where.push('company_id LIKE ?'); params.push(`%${filtros.id_emp}%`); }
+        if (filtros.empresa) { where.push('empresa_nome LIKE ?'); params.push(`%${filtros.empresa}%`); }
+        if (filtros.assistente) { where.push('assistente_nome LIKE ?'); params.push(`%${filtros.assistente}%`); }
+        if (filtros.doc_name) { where.push('doc_name LIKE ?'); params.push(`%${filtros.doc_name}%`); }
+        if (filtros.status) { where.push('status LIKE ?'); params.push(`%${filtros.status}%`); }
+        if (filtros.obs) { where.push('observacao LIKE ?'); params.push(`%${filtros.obs}%`); }
+        if (filtros.auditora) { where.push('auditora_nome LIKE ?'); params.push(`%${filtros.auditora}%`); }
 
-        const { data, error, count } = await query
-            .range(inicio, fim)
-            .order('data_referencia', { ascending: false });
+        const whereClause = where.length > 0 ? ' WHERE ' + where.join(' AND ') : '';
+        const offset = (pagina - 1) * tamanho;
 
-        if (error) throw new Error(error.message);
-        return { data, total: count };
+        // Count total
+        const countSql = `SELECT COUNT(*) as total FROM assertividade${whereClause}`;
+        const countResult = await Sistema.query(countSql, params);
+        const total = (countResult && countResult[0]) ? countResult[0].total : 0;
+
+        // Fetch page
+        const dataSql = `SELECT * FROM assertividade${whereClause} ORDER BY data_referencia DESC LIMIT ? OFFSET ?`;
+        const dataParams = [...params, tamanho, offset];
+        const data = await Sistema.query(dataSql, dataParams) || [];
+
+        return { data, total };
     },
 
-    buscarAnaliseCentralizada: async function(params) {
-        console.log("🧠 Enviando para o Banco (RPC V9):", params);
+    buscarAnaliseCentralizada: async function (params) {
+        console.log("🧠 Análise Centralizada (TiDB V2):", params);
 
-        const assistenteId = params.assistente_id ? parseInt(params.assistente_id) : null;
+        let where = ['auditora_nome IS NOT NULL', "auditora_nome != ''"];
+        let sqlParams = [];
 
-        const { data, error } = await Sistema.supabase.rpc('rpc_analise_assertividade', {
-            p_inicio: params.inicio,
-            p_fim: params.fim,
-            p_assistente_id: assistenteId,
-            p_auditora: params.auditora || null
-        });
+        if (params.inicio) { where.push('data_referencia >= ?'); sqlParams.push(params.inicio); }
+        if (params.fim) { where.push('data_referencia <= ?'); sqlParams.push(params.fim); }
+        if (params.assistente_id) { where.push('usuario_id = ?'); sqlParams.push(params.assistente_id); }
+        if (params.auditora) { where.push('auditora_nome LIKE ?'); sqlParams.push(`%${params.auditora}%`); }
 
-        if (error) {
-            console.error("Erro RPC:", error);
-            throw new Error(`Erro no cálculo: ${error.message}`);
-        }
+        const whereClause = where.length > 0 ? ' WHERE ' + where.join(' AND ') : '';
 
-        if (data && data.length > 0) {
-            return data[0];
-        } else {
-            return { 
-                total_docs: 0, 
-                qtd_auditorias: 0,
-                soma_assertividade: 0,
-                media_assertividade: 0, 
-                detalhe_diario: [] 
-            };
-        }
+        // Total docs
+        const totalSql = `SELECT COUNT(*) as total FROM assertividade${whereClause}`;
+        const totalResult = await Sistema.query(totalSql, sqlParams);
+        const total_docs = (totalResult && totalResult[0]) ? totalResult[0].total : 0;
+
+        // Media assertividade
+        const mediaSql = `SELECT AVG(assertividade_val) as media FROM assertividade${whereClause} AND assertividade_val IS NOT NULL`;
+        const mediaResult = await Sistema.query(mediaSql, sqlParams);
+        const media_assertividade = (mediaResult && mediaResult[0]) ? mediaResult[0].media : 0;
+
+        // Detalhe diário
+        const detalheSql = `
+            SELECT data_referencia as data, COUNT(*) as docs, AVG(assertividade_val) as media
+            FROM assertividade${whereClause} AND assertividade_val IS NOT NULL
+            GROUP BY data_referencia
+            ORDER BY data_referencia
+        `;
+        const detalheResult = await Sistema.query(detalheSql, sqlParams) || [];
+
+        return {
+            total_docs,
+            media_assertividade,
+            detalhe_diario: detalheResult.map(d => ({
+                data: d.data,
+                docs: d.docs,
+                media: d.media
+            }))
+        };
     },
 
-    _extrairValorPorcentagem: function(valorStr) {
+    _extrairValorPorcentagem: function (valorStr) {
         if (valorStr === null || valorStr === undefined || valorStr === '') return null;
         if (typeof valorStr === 'number') return valorStr;
         const limpo = String(valorStr).replace('%', '').replace(',', '.').trim();
@@ -66,7 +84,7 @@ Sistema.Assertividade = {
         return isNaN(num) ? null : num;
     },
 
-    formatarPorcentagem: function(valor) {
+    formatarPorcentagem: function (valor) {
         if (valor === null || valor === undefined) return '-';
         return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
     }
