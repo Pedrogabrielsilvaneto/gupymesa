@@ -12,8 +12,9 @@ USE GupyMesa;
 -- Como presumo que já existam dados, vamos fazer um ALTER TABLE seguro.
 
 SET @dbname = DATABASE();
-SET @tablename = "metas";
-SET @columnname = "usuario_id";
+SET @tablename = 'metas';
+SET @columnname = 'usuario_id';
+
 SET @preparedStatement = (SELECT IF(
   (
     SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -22,9 +23,10 @@ SET @preparedStatement = (SELECT IF(
       AND (table_schema = @dbname)
       AND (column_name = @columnname)
   ) > 0,
-  "SELECT 1",
-  "ALTER TABLE metas ADD COLUMN usuario_id VARCHAR(50) NOT NULL AFTER id;"
+  'SELECT 1',
+  'ALTER TABLE metas ADD COLUMN usuario_id VARCHAR(50) NOT NULL AFTER id'
 ));
+
 PREPARE stmt FROM @preparedStatement;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
