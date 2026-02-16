@@ -49,7 +49,9 @@ Gestao.Usuarios = {
 
     filtrar: async function() {
         const termo = document.getElementById('header-search-usuarios')?.value.toLowerCase() || '';
-        const mostrarInativos = document.getElementById('toggle-inativos')?.checked || false;
+        const contratoFiltro = (document.getElementById('filtro-contrato-usuarios')?.value || '').toUpperCase();
+        const situacaoFiltro = (document.getElementById('filtro-situacao-usuarios')?.value || '').toUpperCase();
+        const funcaoFiltro = (document.getElementById('filtro-funcao-usuarios')?.value || '').toUpperCase();
 
         const tbody = document.getElementById('lista-usuarios');
         const contador = document.getElementById('contador-usuarios');
@@ -64,13 +66,19 @@ Gestao.Usuarios = {
         }
 
         const filtrados = this.cacheData.filter(u => {
+            const contrato = (u.modelo_contrato || u.contrato || '').toUpperCase();
+            const situacao = (u.situacao || (u.ativo ? 'ATIVO' : 'INATIVO')).toUpperCase();
+            const funcao = (u.funcao || '').toUpperCase();
+
             const matchTexto = u.id.toString().includes(termo) || 
                                u.nome.toLowerCase().includes(termo) || 
                                (u.email && u.email.toLowerCase().includes(termo));
+
+            const matchContrato = contratoFiltro ? contrato === contratoFiltro : true;
+            const matchSituacao = situacaoFiltro ? situacao === situacaoFiltro : true;
+            const matchFuncao = funcaoFiltro ? funcao === funcaoFiltro : true;
             
-            const matchAtivo = mostrarInativos ? true : u.ativo;
-            
-            return matchTexto && matchAtivo;
+            return matchTexto && matchContrato && matchSituacao && matchFuncao;
         });
 
         if (filtrados.length === 0) {

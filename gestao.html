@@ -59,9 +59,29 @@
             <div class="flex items-center gap-4">
                 
                 <div id="header-search-area">
-                    <div id="search-group-usuarios" class="header-search-group active relative w-64">
-                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" id="header-search-usuarios" onkeyup="Gestao.Usuarios.filtrar()" placeholder="Buscar Usuários..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                    <div id="search-group-usuarios" class="header-search-group active flex items-center gap-2">
+                        <div class="relative w-56">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="header-search-usuarios" onkeyup="Gestao.Usuarios.filtrar()" placeholder="Buscar por nome ou ID..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                        </div>
+                        <select id="filtro-contrato-usuarios" onchange="Gestao.Usuarios.filtrar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                            <option value="">Contrato: Todos</option>
+                            <option value="CLT">CLT</option>
+                            <option value="PJ">PJ</option>
+                            <option value="TEMPORÁRIO">Temporário</option>
+                        </select>
+                        <select id="filtro-situacao-usuarios" onchange="Gestao.Usuarios.filtrar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                            <option value="">Status: Todos</option>
+                            <option value="ATIVO">Ativos</option>
+                            <option value="INATIVO">Inativos</option>
+                        </select>
+                        <select id="filtro-funcao-usuarios" onchange="Gestao.Usuarios.filtrar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                            <option value="">Função: Todas</option>
+                            <option value="ASSISTENTE">Assistente</option>
+                            <option value="AUDITORA">Auditora</option>
+                            <option value="GESTORA">Gestora</option>
+                            <option value="ADMIN">Admin</option>
+                        </select>
                     </div>
 
                     <div id="search-group-empresas" class="header-search-group relative w-64">
@@ -151,15 +171,6 @@
     <div class="max-w-[1600px] mx-auto px-4 py-8 pt-32">
         
         <div id="view-usuarios" class="gestao-view animate-fade space-y-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-end items-center">
-                 <label class="flex items-center gap-3 cursor-pointer select-none group">
-                    <div class="relative">
-                        <input type="checkbox" id="toggle-inativos" onchange="Gestao.Usuarios.filtrar()" class="sr-only peer">
-                        <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
-                    </div>
-                    <span class="text-xs font-bold text-slate-500 group-hover:text-blue-600 transition">Mostrar Inativos</span>
-                </label>
-            </div>
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="overflow-x-auto custom-scroll">
                     <table class="w-full min-w-[1000px] text-sm text-left">
