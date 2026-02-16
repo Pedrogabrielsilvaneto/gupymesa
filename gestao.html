@@ -167,32 +167,6 @@
                     </div>
 
                     <div id="search-group-metas" class="header-search-group flex items-center gap-3">
-                        <div class="relative w-40">
-                            <i
-                                class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
-                            <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()"
-                                placeholder="Buscar..."
-                                class="w-full pl-7 pr-2 py-1 bg-transparent border-b border-slate-200 text-[11px] outline-none focus:border-slate-400 transition placeholder-slate-300">
-                        </div>
-                        <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()"
-                            class="select-mini">
-                            <option value="">Todos</option>
-                            <option value="CLT">CLT</option>
-                            <option value="TERCEIROS">Terceiros</option>
-                        </select>
-                        <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
-                            class="select-mini">
-                            <option value="ATIVO">Ativos</option>
-                            <option value="">Todos</option>
-                            <option value="INATIVO">Inativos</option>
-                        </select>
-                        <select id="filtro-funcao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
-                            class="select-mini">
-                            <option value="">Função</option>
-                            <option value="ASSISTENTE">Assistente</option>
-                            <option value="GESTAO">Gestão</option>
-                            <option value="AUDITORIA">Auditoria</option>
-                        </select>
                     </div>
 
                     <div id="search-group-empresas" class="header-search-group relative w-64">
@@ -365,7 +339,70 @@
             </div>
         </div>
 
-        <div id="view-metas" class="gestao-view hidden animate-fade space-y-6">
+        <div id="view-metas" class="gestao-view hidden animate-fade space-y-4">
+
+            <!-- Filtros Verticais Coloridos -->
+            <div class="grid grid-cols-4 gap-3">
+                <!-- Buscar -->
+                <div class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <div class="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center">
+                            <i class="fas fa-search text-[9px] text-slate-500"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Buscar</span>
+                    </div>
+                    <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()"
+                        placeholder="Nome ou ID..."
+                        class="w-full text-xs bg-slate-50 rounded-lg px-3 py-1.5 outline-none border border-slate-200 focus:border-slate-400 transition placeholder-slate-300">
+                </div>
+                <!-- Contrato -->
+                <div class="bg-white rounded-xl border border-sky-200 p-3 shadow-sm">
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <div class="w-5 h-5 rounded-md bg-sky-50 flex items-center justify-center">
+                            <i class="fas fa-file-contract text-[9px] text-sky-500"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Contrato</span>
+                    </div>
+                    <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                        class="w-full text-xs bg-sky-50 rounded-lg px-3 py-1.5 outline-none border border-sky-200 focus:border-sky-400 font-bold text-sky-700 cursor-pointer">
+                        <option value="">Todos</option>
+                        <option value="CLT">CLT</option>
+                        <option value="TERCEIROS">Terceiros</option>
+                    </select>
+                </div>
+                <!-- Status -->
+                <div class="bg-white rounded-xl border border-emerald-200 p-3 shadow-sm">
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <div class="w-5 h-5 rounded-md bg-emerald-50 flex items-center justify-center">
+                            <i class="fas fa-circle-check text-[9px] text-emerald-500"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Status</span>
+                    </div>
+                    <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                        class="w-full text-xs bg-emerald-50 rounded-lg px-3 py-1.5 outline-none border border-emerald-200 focus:border-emerald-400 font-bold text-emerald-700 cursor-pointer">
+                        <option value="ATIVO">Ativos</option>
+                        <option value="">Todos</option>
+                        <option value="INATIVO">Inativos</option>
+                    </select>
+                </div>
+                <!-- Função -->
+                <div class="bg-white rounded-xl border border-purple-200 p-3 shadow-sm">
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <div class="w-5 h-5 rounded-md bg-purple-50 flex items-center justify-center">
+                            <i class="fas fa-user-tag text-[9px] text-purple-500"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Função</span>
+                    </div>
+                    <select id="filtro-funcao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                        class="w-full text-xs bg-purple-50 rounded-lg px-3 py-1.5 outline-none border border-purple-200 focus:border-purple-400 font-bold text-purple-700 cursor-pointer">
+                        <option value="">Todas</option>
+                        <option value="ASSISTENTE">Assistente</option>
+                        <option value="GESTAO">Gestão</option>
+                        <option value="AUDITORIA">Auditoria</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
