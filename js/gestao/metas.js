@@ -22,6 +22,39 @@ Gestao.Metas = {
     atualizarInputMes: function () {
         const el = document.getElementById('input-mes-metas');
         if (el) el.value = String(this.state.mes).padStart(2, '0') + '/' + this.state.ano;
+
+        // Carrega dias úteis
+        this.carregarDiasUteis();
+    },
+
+    carregarDiasUteis: async function () {
+        if (!Gestao.DiasUteis) return;
+        const input = document.getElementById('input-dias-uteis-metas');
+        if (!input) return;
+
+        input.value = '';
+        input.placeholder = '...';
+
+        const val = await Gestao.DiasUteis.obter(this.state.mes, this.state.ano);
+        input.value = val !== null ? val : '';
+        input.placeholder = val !== null ? '' : 'Auto';
+    },
+
+    salvarDiasUteis: async function () {
+        const input = document.getElementById('input-dias-uteis-metas');
+        const icon = document.getElementById('icon-saved-dias-uteis');
+        if (!input) return;
+
+        const val = input.value;
+        await Gestao.DiasUteis.salvar(this.state.mes, this.state.ano, val);
+
+        if (icon) {
+            icon.classList.remove('hidden');
+            setTimeout(() => icon.classList.add('hidden'), 2000);
+        }
+
+        // Recarrega se necessário (aqui talvez não precise recarregar a grade, mas é bom)
+        // this.carregar(); 
     },
 
     selecionarMes: function () {

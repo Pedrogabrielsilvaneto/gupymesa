@@ -11,10 +11,10 @@ MinhaArea.Geral = {
     state: {
         loading: false,
         dadosProducao: [],
-        dadosAssertividadeDiaria: [], 
+        dadosAssertividadeDiaria: [],
         dadosMetas: [],
         mapaUsuarios: {},
-        listaTabela: [], 
+        listaTabela: [],
         range: { inicio: null, fim: null },
         headerOriginal: null,
         editando: { uid: null, data: null },
@@ -25,7 +25,7 @@ MinhaArea.Geral = {
         tabelaHeader: document.querySelector('#ma-tab-diario thead'),
         tabela: document.getElementById('tabela-extrato'),
         totalFooter: document.getElementById('total-registros-footer'),
-        
+
         kpiVolume: document.getElementById('kpi-prod-real'),
         kpiMetaVolume: document.getElementById('kpi-prod-meta'),
         kpiVolumePct: document.getElementById('pct-prod'),
@@ -44,7 +44,7 @@ MinhaArea.Geral = {
         barVeloc: document.getElementById('bar-dia')
     },
 
-    carregar: async function() {
+    carregar: async function () {
         if (!this.state.headerOriginal && this.els.tabelaHeader) {
             this.state.headerOriginal = this.els.tabelaHeader.innerHTML;
         }
@@ -53,7 +53,7 @@ MinhaArea.Geral = {
         if (!filtro) return;
 
         this.state.range = filtro;
-        
+
         // Identifica se é visão macro (mais de 45 dias)
         const d1 = new Date(filtro.inicio);
         const d2 = new Date(filtro.fim);
@@ -67,12 +67,12 @@ MinhaArea.Geral = {
 
             await Promise.all([
                 this.buscarProducao(filtro, uidAlvo),
-                this.buscarAssertividadeDiariaSQL(filtro, uidAlvo), 
+                this.buscarAssertividadeDiariaSQL(filtro, uidAlvo),
                 this.buscarMetas(filtro, uidAlvo)
             ]);
-            
-            this.processarDadosUnificados();
-            
+
+            await this.processarDadosUnificados();
+
             if (uidAlvo) {
                 this.renderizarDiario(uidAlvo);
             } else {
@@ -88,13 +88,13 @@ MinhaArea.Geral = {
         }
     },
 
-    buscarUsuarios: async function() {
+    buscarUsuarios: async function () {
         if (Object.keys(this.state.mapaUsuarios).length > 0) return;
         const { data } = await Sistema.supabase.from('usuarios').select('id, nome, perfil, funcao, ativo');
         if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
     },
 
-    buscarProducao: async function(range, uid) {
+    buscarProducao: async function (range, uid) {
         let query = Sistema.supabase.from('producao').select('*').gte('data_referencia', range.inicio).lte('data_referencia', range.fim);
         if (uid) query = query.eq('usuario_id', uid);
         const { data, error } = await query;
@@ -102,7 +102,7 @@ MinhaArea.Geral = {
         this.state.dadosProducao = data || [];
     },
 
-    buscarAssertividadeDiariaSQL: async function(range, uid) {
+    buscarAssertividadeDiariaSQL: async function (range, uid) {
         const { data, error } = await Sistema.supabase.rpc('rpc_kpi_assertividade_diaria', { p_inicio: range.inicio, p_fim: range.fim });
         if (error) { this.state.dadosAssertividadeDiaria = []; return; }
         let res = data || [];
@@ -110,25 +110,39 @@ MinhaArea.Geral = {
         this.state.dadosAssertividadeDiaria = res;
     },
 
-    buscarMetas: async function(range, uid) {
+    buscarMetas: async function (range, uid) {
         if (!range.inicio) return;
-        const partes = range.inicio.split('-'); 
+        const partes = range.inicio.split('-');
         let query = Sistema.supabase.from('metas').select('*').gte('ano', parseInt(partes[0])).lte('ano', new Date(range.fim).getFullYear());
         if (uid) query = query.eq('usuario_id', uid);
         const { data } = await query;
         this.state.dadosMetas = data || [];
     },
 
-    processarDadosUnificados: function() {
+    processarDadosUnificados: async function () {
         const mapa = new Map();
-        const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
+        let diasUteisPeriodo;
+        const d1 = new Date(this.state.range.inicio + 'T12:00:00');
+        const d2 = new Date(this.state.range.fim + 'T12:00:00');
+
+        // Verifica se é mês cheio (aprox) para usar config manual
+        // Ex: 2023-01-01 a 2023-01-31
+        const ultimoDia = new Date(d1.getFullYear(), d1.getMonth() + 1, 0).getDate();
+        const isFullMonth = (d1.getDate() === 1) && (d2.getDate() === ultimoDia) && (d1.getMonth() === d2.getMonth());
+
+        if (isFullMonth) {
+            diasUteisPeriodo = await Gestao.DiasUteis.getDiasUteisMes(d1.getMonth() + 1, d1.getFullYear());
+        } else {
+            diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+        }
 
         this.state.dadosProducao.forEach(p => {
             const uid = parseInt(p.usuario_id);
             const chave = String(uid);
             if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid);
             const item = mapa.get(chave);
-            
+
             const fator = p.fator !== null ? Number(p.fator) : 1.0;
             const dataRef = new Date(p.data_referencia + 'T12:00:00');
             const mesChave = `${dataRef.getFullYear()}-${dataRef.getMonth() + 1}`;
@@ -136,7 +150,7 @@ MinhaArea.Geral = {
             item.producao += Number(p.quantidade) || 0;
             item.soma_fator += fator;
             item.soma_abono += (1.0 - fator);
-            
+
             if (!item.meses[mesChave]) item.meses[mesChave] = { prod: 0, dias: 0 };
             item.meses[mesChave].prod += Number(p.quantidade) || 0;
             item.meses[mesChave].dias += fator;
@@ -148,15 +162,15 @@ MinhaArea.Geral = {
             if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid);
             const item = mapa.get(chave);
             const qtd = Number(a.qtd_auditorias || 0);
-            if (qtd > 0) { 
-                item.qtd_assert += qtd; 
-                item.soma_notas_bruta += (Number(a.media_assertividade) * qtd); 
+            if (qtd > 0) {
+                item.qtd_assert += qtd;
+                item.soma_notas_bruta += (Number(a.media_assertividade) * qtd);
             }
         });
 
         for (const item of mapa.values()) {
             item.media_final = item.qtd_assert > 0 ? item.soma_notas_bruta / item.qtd_assert : null;
-            
+
             if (this.state.isMacro) {
                 let somaMedias = 0;
                 let somaMetas = 0;
@@ -188,10 +202,10 @@ MinhaArea.Geral = {
             item.dias_uteis_liquidos = diasUteisLiquidos;
         }
 
-        this.state.listaTabela = Array.from(mapa.values()).sort((a,b) => a.nome.localeCompare(b.nome));
+        this.state.listaTabela = Array.from(mapa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
     },
 
-    iniciarItemMapa: function(mapa, chave, uid) {
+    iniciarItemMapa: function (mapa, chave, uid) {
         const u = this.state.mapaUsuarios[uid];
         mapa.set(chave, {
             uid: uid, nome: u ? u.nome : `ID: ${uid}`,
@@ -202,11 +216,11 @@ MinhaArea.Geral = {
         });
     },
 
-    renderizarDiario: function(uid) {
+    renderizarDiario: function (uid) {
         if (this.state.headerOriginal && this.els.tabelaHeader) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
         }
-        
+
         const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
         if (item) {
             this.atualizarCardsKPI({
@@ -219,7 +233,7 @@ MinhaArea.Geral = {
 
         const dadosFiltrados = this.state.dadosProducao
             .filter(d => String(d.usuario_id) === String(uid))
-            .sort((a,b) => a.data_referencia.localeCompare(b.data_referencia));
+            .sort((a, b) => a.data_referencia.localeCompare(b.data_referencia));
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = dadosFiltrados.length;
 
@@ -237,7 +251,7 @@ MinhaArea.Geral = {
             const metaDia = Math.round(metaBase * fator);
             const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
             const assertDia = assertMap[d.data_referencia];
-            
+
             let assertHtml = '<span class="text-slate-300">-</span>';
             if (assertDia && assertDia.qtd_auditorias > 0) {
                 const cor = assertDia.media_assertividade >= (item?.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
@@ -263,10 +277,10 @@ MinhaArea.Geral = {
         }).join('');
     },
 
-    renderizarGradeEquipe: function() {
+    renderizarGradeEquipe: function () {
         const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Meta</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Real</th><th class="px-2 py-3 text-center bg-slate-50">Meta Ajust.</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assert.</th></tr>`;
         if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = headerGrade;
-        
+
         const listaAssistentes = this.state.listaTabela.filter(row => !this.ehGestao(row.uid));
         if (this.els.totalFooter) this.els.totalFooter.textContent = listaAssistentes.length;
 
@@ -289,7 +303,7 @@ MinhaArea.Geral = {
         }).join('');
     },
 
-    calcularKpisGlobal: function() {
+    calcularKpisGlobal: function () {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
         let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
 
@@ -315,14 +329,14 @@ MinhaArea.Geral = {
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: { diasReal: totalFator, diasTotal: totalUteis },
-            velocidade: { 
-                real: countUsers > 0 ? Math.round(somaMediasEquipe / countUsers) : 0, 
-                meta: countUsers > 0 ? Math.round(somaMetasEquipe / countUsers) : 100 
+            velocidade: {
+                real: countUsers > 0 ? Math.round(somaMediasEquipe / countUsers) : 0,
+                meta: countUsers > 0 ? Math.round(somaMetasEquipe / countUsers) : 100
             }
         });
     },
 
-    atualizarCardsKPI: function(kpi) {
+    atualizarCardsKPI: function (kpi) {
         const setVal = (id, val, isPct) => {
             const el = document.getElementById(id);
             if (el) el.textContent = isPct ? val.toFixed(2) + '%' : Math.round(val).toLocaleString('pt-BR');
@@ -352,29 +366,29 @@ MinhaArea.Geral = {
         setBar('bar-dia', 'pct-dia', kpi.velocidade.real, kpi.velocidade.meta);
     },
 
-    contarDiasUteis: function(i, f) { 
-        let c = 0, cur = new Date(i+'T12:00:00'), end = new Date(f+'T12:00:00'); 
-        while(cur <= end) { if(cur.getDay() !== 0 && cur.getDay() !== 6) c++; cur.setDate(cur.getDate() + 1); } 
-        return c || 1; 
+    contarDiasUteis: function (i, f) {
+        let c = 0, cur = new Date(i + 'T12:00:00'), end = new Date(f + 'T12:00:00');
+        while (cur <= end) { if (cur.getDay() !== 0 && cur.getDay() !== 6) c++; cur.setDate(cur.getDate() + 1); }
+        return c || 1;
     },
 
-    ehGestao: function(uid) {
+    ehGestao: function (uid) {
         const u = this.state.mapaUsuarios[uid];
         if (!u) return false;
         const p = (u.perfil || '').toUpperCase();
         return ['ADMIN', 'GESTOR', 'AUDITOR', 'COORDENADOR', 'LIDER'].some(t => p.includes(t));
     },
 
-    renderLoading: function() { if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-600"></i></td></tr>`; },
+    renderLoading: function () { if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-600"></i></td></tr>`; },
 
-    abrirModalObs: function(uid, dataRef) {
+    abrirModalObs: function (uid, dataRef) {
         const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia === dataRef);
         this.state.editando = { uid: uid, data: dataRef };
         const elData = document.getElementById('obs-data-ref');
         const elGestao = document.getElementById('obs-gestao-view');
         const elAssistente = document.getElementById('obs-assistente-text');
         const modal = document.getElementById('modal-obs-assistente');
-        if(elData) elData.innerText = new Date(dataRef + 'T12:00:00').toLocaleDateString('pt-BR');
+        if (elData) elData.innerText = new Date(dataRef + 'T12:00:00').toLocaleDateString('pt-BR');
         const justGestao = dadoDia ? dadoDia.justificativa : '';
         const fator = dadoDia ? parseFloat(dadoDia.fator) : 1.0;
         let htmlGestao = '<span class="text-slate-400 italic text-xs">Nenhuma observação da gestão.</span>';
@@ -382,21 +396,21 @@ MinhaArea.Geral = {
             htmlGestao = `<span class="text-slate-700 font-medium">${justGestao}</span>`;
             if (fator < 1.0) htmlGestao += `<div class="mt-1"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">Dia Abonado (Fator ${fator})</span></div>`;
         }
-        if(elGestao) elGestao.innerHTML = htmlGestao;
-        if(elAssistente) elAssistente.value = (dadoDia ? dadoDia.observacao_assistente : '') || '';
-        if(modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
+        if (elGestao) elGestao.innerHTML = htmlGestao;
+        if (elAssistente) elAssistente.value = (dadoDia ? dadoDia.observacao_assistente : '') || '';
+        if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
     },
 
-    fecharModalObs: function() {
+    fecharModalObs: function () {
         const modal = document.getElementById('modal-obs-assistente');
-        if(modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
+        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
     },
 
-    salvarObsAssistente: async function() {
+    salvarObsAssistente: async function () {
         const { uid, data } = this.state.editando;
         const texto = document.getElementById('obs-assistente-text').value;
         const btn = document.getElementById('btn-salvar-obs');
-        if(!uid || !data) return;
+        if (!uid || !data) return;
         const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; btn.disabled = true;
         try {
             const { data: existente } = await Sistema.supabase.from('producao').select('*').eq('usuario_id', uid).eq('data_referencia', data).maybeSingle();
@@ -405,7 +419,7 @@ MinhaArea.Geral = {
             if (!existente) delete payload.id;
             const { error } = await Sistema.supabase.from('producao').upsert(payload, { onConflict: 'usuario_id, data_referencia' });
             if (error) throw error;
-            this.fecharModalObs(); this.carregar(); 
+            this.fecharModalObs(); this.carregar();
         } catch (e) { console.error(e); alert("Erro ao salvar observação: " + e.message); } finally { btn.innerHTML = originalText; btn.disabled = false; }
     }
 };
