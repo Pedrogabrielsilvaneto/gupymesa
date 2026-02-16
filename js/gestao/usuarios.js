@@ -39,11 +39,103 @@ Gestao.Usuarios = {
                 jornada_diaria: u.jornada_diaria || null,
                 supervisor: u.supervisor || ''
             }));
+            this.popularFiltros();
             this.filtrar(); 
 
         } catch (error) {
             console.error(error);
             if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro: ${error.message}</td></tr>`;
+        }
+    },
+
+    popularFiltros: function() {
+        if (!this.cacheData || this.cacheData.length === 0) return;
+
+        // Extrai valores únicos dos dados reais
+        const contratos = new Set();
+        const situacoes = new Set();
+        const funcoes = new Set();
+
+        this.cacheData.forEach(u => {
+            const contrato = (u.modelo_contrato || u.contrato || '').trim().toUpperCase();
+            const situacao = (u.situacao || (u.ativo ? 'ATIVO' : 'INATIVO')).trim().toUpperCase();
+            const funcao = (u.funcao || '').trim().toUpperCase();
+
+            if (contrato) {
+                // Normaliza PJ para Terceiros
+                if (contrato === 'PJ' || contrato.includes('PJ')) {
+                    contratos.add('TERCEIROS');
+                } else if (contrato === 'CLT' || contrato.includes('CLT')) {
+                    contratos.add('CLT');
+                }
+            }
+            if (situacao) situacoes.add(situacao);
+            if (funcao) funcoes.add(funcao);
+        });
+
+        // Popula seletor de Contrato
+        const selectContrato = document.getElementById('filtro-contrato-usuarios');
+        if (selectContrato) {
+            const valorAtual = selectContrato.value;
+            selectContrato.innerHTML = '<option value="">Contrato: Todos</option>';
+            
+            const opcoesContrato = Array.from(contratos).sort();
+            opcoesContrato.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c;
+                option.textContent = c === 'TERCEIROS' ? 'Terceiros' : c;
+                selectContrato.appendChild(option);
+            });
+            
+            // Restaura seleção anterior se ainda existir
+            if (valorAtual && opcoesContrato.includes(valorAtual)) {
+                selectContrato.value = valorAtual;
+            }
+        }
+
+        // Popula seletor de Situação
+        const selectSituacao = document.getElementById('filtro-situacao-usuarios');
+        if (selectSituacao) {
+            const valorAtual = selectSituacao.value;
+            selectSituacao.innerHTML = '<option value="">Status: Todos</option>';
+            
+            const opcoesSituacao = Array.from(situacoes).sort();
+            opcoesSituacao.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s;
+                option.textContent = s === 'ATIVO' ? 'Ativos' : s === 'INATIVO' ? 'Inativos' : s;
+                selectSituacao.appendChild(option);
+            });
+            
+            // Restaura seleção anterior se ainda existir
+            if (valorAtual && opcoesSituacao.includes(valorAtual)) {
+                selectSituacao.value = valorAtual;
+            }
+        }
+
+        // Popula seletor de Função
+        const selectFuncao = document.getElementById('filtro-funcao-usuarios');
+        if (selectFuncao) {
+            const valorAtual = selectFuncao.value;
+            selectFuncao.innerHTML = '<option value="">Função: Todas</option>';
+            
+            const opcoesFuncao = Array.from(funcoes).sort();
+            opcoesFuncao.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f;
+                // Formatação amigável
+                const texto = f === 'ASSISTENTE' ? 'Assistente' :
+                             f === 'AUDITORA' ? 'Auditora' :
+                             f === 'GESTORA' ? 'Gestora' :
+                             f === 'ADMIN' ? 'Admin' : f;
+                option.textContent = texto;
+                selectFuncao.appendChild(option);
+            });
+            
+            // Restaura seleção anterior se ainda existir
+            if (valorAtual && opcoesFuncao.includes(valorAtual)) {
+                selectFuncao.value = valorAtual;
+            }
         }
     },
 
@@ -66,9 +158,13 @@ Gestao.Usuarios = {
         }
 
         const filtrados = this.cacheData.filter(u => {
-            const contrato = (u.modelo_contrato || u.contrato || '').toUpperCase();
-            const situacao = (u.situacao || (u.ativo ? 'ATIVO' : 'INATIVO')).toUpperCase();
-            const funcao = (u.funcao || '').toUpperCase();
+            let contrato = (u.modelo_contrato || u.contrato || '').toUpperCase().trim();
+            // Normaliza PJ para TERCEIROS para comparação
+            if (contrato === 'PJ' || contrato.includes('PJ')) {
+                contrato = 'TERCEIROS';
+            }
+            const situacao = (u.situacao || (u.ativo ? 'ATIVO' : 'INATIVO')).toUpperCase().trim();
+            const funcao = (u.funcao || '').toUpperCase().trim();
 
             const matchTexto = u.id.toString().includes(termo) || 
                                u.nome.toLowerCase().includes(termo) || 
