@@ -49,55 +49,12 @@ Gestao.Assertividade = {
                 <th class="px-2 py-3 text-center border-b w-[60px]">%</th>
                 <th class="px-2 py-3 text-center border-b min-w-[100px]">Auditora</th>
             </tr>
-            <tr class="bg-white text-slate-600 text-xs">
-                <th class="p-1 border-b"><input type="date" data-filter="data" class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="id_emp" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="empresa" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="assistente" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="doc_name" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="status" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="obs" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-                <th class="p-1 border-b bg-slate-50"></th>
-                <th class="p-1 border-b bg-slate-50"></th>
-                <th class="p-1 border-b bg-slate-50"></th>
-                <th class="p-1 border-b bg-slate-50"></th>
-                <th class="p-1 border-b"><input type="text" data-filter="auditora" placeholder="..." class="w-full border rounded px-1 py-1 outline-none focus:border-blue-500"></th>
-            </tr>
         `;
     },
 
     bindEvents: function () {
         if (this.els.btnAnt) this.els.btnAnt.addEventListener('click', () => this.mudarPagina(-1));
         if (this.els.btnProx) this.els.btnProx.addEventListener('click', () => this.mudarPagina(1));
-
-        const inputs = this.els.thead.querySelectorAll('input[data-filter]');
-
-        // Debounce para não buscar a cada tecla
-        const debounce = (func, wait) => {
-            let timeout;
-            return function (...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        };
-
-        inputs.forEach(input => {
-            const acao = () => {
-                this.state.filtros[input.dataset.filter] = input.value.trim();
-                this.state.page = 1;
-                this.carregarDados();
-            };
-
-            // Busca ao digitar (com delay)
-            input.addEventListener('input', debounce(acao, 600));
-
-            // Para datas, mantém o change imediato também
-            if (input.type === 'date') input.addEventListener('change', acao);
-        });
     },
 
     aplicarFiltrosHeader: function () {
