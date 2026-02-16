@@ -6,65 +6,129 @@ Gestao.Importacao.Empresas = {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
 
-        // Feedback Visual
-        const btnLabel = input.parentElement;
-        const originalHtml = btnLabel.innerHTML;
-        btnLabel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lendo...';
-        btnLabel.classList.add('opacity-50', 'cursor-not-allowed');
+        const parentDiv = input.closest('div'); 
+        const btnImportar = parentDiv ? parentDiv.querySelector('button') : null;
+        let originalText = '';
+        
+        if (btnImportar) {
+            originalText = btnImportar.innerHTML;
+            btnImportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lendo CSV...';
+            btnImportar.disabled = true;
+            btnImportar.classList.add('opacity-75', 'cursor-not-allowed');
+        }
 
         try {
-            const linhas = await Gestao.lerArquivo(file);
-            const upserts = [];
-
-            for (const row of linhas) {
-                // Normaliza chaves
-                const c = {};
-                Object.keys(row).forEach(k => c[this.normalizarChave(k)] = row[k]);
-
-                // Campos Obrigatórios
-                const id = parseInt(c['idempresa'] || c['id'] || 0);
-                const nome = c['nome'] || c['empresa'] || '';
-                
-                if (!id || !nome) continue;
-
-                // TRATAMENTO ROBUSTO DE DATA
-                // Tenta ler colunas comuns para data
-                const rawDate = c['entrouparamesa'] || c['dataentrada'] || c['inicio'] || c['data'];
-                let dataEntrada = null;
-
-                if (rawDate) {
-                    dataEntrada = this.parseData(rawDate);
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                encoding: "UTF-8",
+                complete: async (results) => {
+                    await this.processarDados(results.data);
+                    input.value = ""; 
+                    if (btnImportar) {
+                        btnImportar.innerHTML = originalText;
+                        btnImportar.disabled = false;
+                        btnImportar.classList.remove('opacity-75', 'cursor-not-allowed');
+                    }
+                },
+                error: (error) => {
+                    console.error(error);
+                    alert("Erro ao ler CSV: " + error.message);
+                    if (btnImportar) {
+                        btnImportar.innerHTML = originalText;
+                        btnImportar.disabled = false;
+                        btnImportar.classList.remove('opacity-75', 'cursor-not-allowed');
+                    }
                 }
+            });
 
-                upserts.push({
-                    id: id,
-                    nome: String(nome).trim(),
-                    subdominio: String(c['subdominio'] || '').trim().toLowerCase(),
-                    data_entrada: dataEntrada,
-                    observacao: String(c['obs'] || c['observacao'] || '').trim()
-                });
+        } catch (e) {
+            console.error(e);
+            alert("Erro crítico: " + e.message);
+            if (btnImportar) {
+                btnImportar.innerHTML = originalText;
+                btnImportar.disabled = false;
+                btnImportar.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+    },
+
+    processarDados: async function(linhas) {
+        console.log(`📊 Linhas brutas: ${linhas.length}`);
+        
+        const upserts = [];
+
+        for (const row of linhas) {
+            // Normaliza chaves
+            const c = {};
+            Object.keys(row).forEach(k => c[this.normalizarChave(k)] = row[k]);
+
+            // Campos Obrigatórios
+            const id = parseInt(c['idempresa'] || c['id'] || 0);
+            const nome = c['nome'] || c['empresa'] || '';
+            
+            if (!id || !nome) continue;
+
+            // TRATAMENTO ROBUSTO DE DATA
+            // Tenta ler colunas comuns para data
+            const rawDate = c['entrouparamesa'] || c['dataentrada'] || c['inicio'] || c['data'];
+            let dataEntrada = null;
+
+            if (rawDate) {
+                dataEntrada = this.parseData(rawDate);
             }
 
-            if (upserts.length > 0) {
-                const { error } = await Sistema.supabase.from('empresas').upsert(upserts);
-                if (error) throw error;
-                
-                alert(`Importação concluída!\n${upserts.length} empresas processadas.`);
+            upserts.push({
+                id: id,
+                nome: String(nome).trim(),
+                subdominio: String(c['subdominio'] || '').trim().toLowerCase(),
+                data_entrada: dataEntrada,
+                observacao: String(c['obs'] || c['observacao'] || '').trim()
+            });
+        }
+
+        console.log(`📉 Empresas processadas: ${upserts.length}`);
+
+        if (upserts.length > 0) {
+            try {
+                // Monta SQL de upsert para TiDB
+                const sql = `
+                    INSERT INTO empresas (
+                        id, nome, subdominio, data_entrada, observacao
+                    ) VALUES
+                    ${upserts.map(() => '(?, ?, ?, ?, ?)').join(', ')}
+                    ON DUPLICATE KEY UPDATE
+                        nome         = VALUES(nome),
+                        subdominio   = VALUES(subdominio),
+                        data_entrada = VALUES(data_entrada),
+                        observacao   = VALUES(observacao)
+                `;
+
+                const params = [];
+                for (const e of upserts) {
+                    params.push(
+                        e.id,
+                        e.nome,
+                        e.subdominio,
+                        e.data_entrada,
+                        e.observacao
+                    );
+                }
+
+                const result = await Sistema.query(sql, params);
+                if (result === null) throw new Error("Falha ao salvar empresas.");
+
+                alert(`✅ Importação concluída!\n\n${upserts.length} empresas inseridas/atualizadas no TiDB.`);
                 
                 if (Gestao.Empresas && typeof Gestao.Empresas.carregar === 'function') {
                     Gestao.Empresas.carregar();
                 }
-            } else {
-                alert("Nenhuma empresa válida encontrada. Verifique as colunas 'ID Empresa' e 'Nome'.");
+            } catch (e) {
+                console.error("Erro ao importar empresas (TiDB):", e);
+                alert("Erro ao salvar: " + (e.message || "Falha na importação."));
             }
-
-        } catch (e) {
-            console.error(e);
-            alert("Erro na importação: " + e.message);
-        } finally {
-            btnLabel.innerHTML = originalHtml;
-            btnLabel.classList.remove('opacity-50', 'cursor-not-allowed');
-            input.value = "";
+        } else {
+            alert("Nenhuma empresa válida encontrada. Verifique as colunas 'ID Empresa' e 'Nome'.");
         }
     },
 
