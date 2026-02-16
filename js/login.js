@@ -50,15 +50,9 @@ const Login = {
             const senhaHash = await Sistema.gerarHash(senha);
 
             // 2. Consulta direta no TiDB via API (/api/banco)
+            // Usamos SELECT * para não depender de nomes de colunas específicos
             const sql = `
-                SELECT 
-                    id,
-                    nome,
-                    perfil,
-                    funcao,
-                    contrato,
-                    ativo,
-                    COALESCE(trocar_senha, 0) AS trocar_senha
+                SELECT *
                 FROM usuarios
                 WHERE id = ? AND senha = ?
                 LIMIT 1
