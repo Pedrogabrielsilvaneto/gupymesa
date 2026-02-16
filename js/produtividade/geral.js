@@ -234,7 +234,7 @@ Produtividade.Geral = {
 
         for (const item of mapa.values()) {
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
-            const metaObj = this.state.dadosMetas.find(m => m.usuario_id === item.uid);
+            const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
             item.meta_base_diaria = metaObj ? (metaObj.meta_producao || 100) : 100;
             item.meta_assert = metaObj ? (metaObj.meta_assertividade || 97) : 97;
             const multiplicador = isPeriodo ? diasUteisPeriodo : 1;
