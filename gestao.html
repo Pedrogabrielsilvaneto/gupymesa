@@ -1,172 +1,293 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão - GupyMesa</title>
     <link rel="shortcut icon" href="img/favicon.png" type="image/x-icon">
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; color: #1e293b; }
-        .tab-btn { transition: all 0.2s; position: relative; cursor: pointer; color: #475569; }
-        .tab-btn:hover { background-color: #f8fafc; color: #1e293b; }
-        .tab-btn.active { color: #2563eb; background-color: #eff6ff; }
-        .animate-fade { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .header-action-group, .header-search-group { display: none; }
-        .header-action-group.active, .header-search-group.active { display: flex; }
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        .tab-btn {
+            transition: all 0.2s;
+            position: relative;
+            cursor: pointer;
+            color: #475569;
+        }
+
+        .tab-btn:hover {
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        .tab-btn.active {
+            color: #2563eb;
+            background-color: #eff6ff;
+        }
+
+        .animate-fade {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .header-action-group,
+        .header-search-group {
+            display: none;
+        }
+
+        .header-action-group.active,
+        .header-search-group.active {
+            display: flex;
+        }
+
+        .pill-contrato,
+        .pill-situacao {
+            color: #94a3b8;
+            background: transparent;
+        }
+
+        .pill-contrato.active,
+        .pill-situacao.active {
+            color: #fff;
+            background: #334155;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .1);
+        }
+
+        .pill-contrato:hover:not(.active),
+        .pill-situacao:hover:not(.active) {
+            color: #64748b;
+        }
     </style>
 </head>
+
 <body class="bg-slate-50">
-    
+
     <script src="js/config.js"></script>
     <script src="js/sistema.js"></script>
     <script src="js/sistema/assertividade.js"></script>
     <script src="js/menu/global.js"></script>
     <div id="global-menu"></div>
 
-    <div class="bg-white border-b border-slate-200 shadow-sm fixed top-12 left-0 w-full z-40 h-14 flex items-center transition-all">
+    <div
+        class="bg-white border-b border-slate-200 shadow-sm fixed top-12 left-0 w-full z-40 h-14 flex items-center transition-all">
         <div class="max-w-[1600px] mx-auto px-4 w-full flex items-center justify-between">
-            
+
             <div class="flex gap-2 overflow-x-auto no-scrollbar">
-                <button onclick="Gestao.mudarAba('usuarios')" id="btn-usuarios" class="tab-btn active px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                <button onclick="Gestao.mudarAba('usuarios')" id="btn-usuarios"
+                    class="tab-btn active px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
                     <i class="fas fa-users"></i> Usuários
                 </button>
-                <button onclick="Gestao.mudarAba('empresas')" id="btn-empresas" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                <button onclick="Gestao.mudarAba('empresas')" id="btn-empresas"
+                    class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
                     <i class="fas fa-building"></i> Empresas
                 </button>
-                <button onclick="Gestao.mudarAba('assertividade')" id="btn-assertividade" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                <button onclick="Gestao.mudarAba('assertividade')" id="btn-assertividade"
+                    class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
                     <i class="fas fa-check-double"></i> Assertividade
                 </button>
-                <button onclick="Gestao.mudarAba('metas')" id="btn-metas" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                <button onclick="Gestao.mudarAba('metas')" id="btn-metas"
+                    class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
                     <i class="fas fa-bullseye"></i> Metas
                 </button>
             </div>
 
             <div class="flex items-center gap-4">
-                
+
                 <div id="header-search-area">
                     <div id="search-group-usuarios" class="header-search-group flex items-center gap-2">
                         <div class="relative w-56">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" id="header-search-usuarios" onkeyup="Gestao.Usuarios.filtrar()" placeholder="Buscar por nome ou ID..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                            <input type="text" id="header-search-usuarios" onkeyup="Gestao.Usuarios.filtrar()"
+                                placeholder="Buscar por nome ou ID..."
+                                class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
                         </div>
-                        <select id="filtro-contrato-usuarios" onchange="Gestao.Usuarios.filtrar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                        <select id="filtro-contrato-usuarios" onchange="Gestao.Usuarios.filtrar()"
+                            class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
                             <option value="">Contrato: Todos</option>
                         </select>
-                        <select id="filtro-situacao-usuarios" onchange="Gestao.Usuarios.filtrar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                        <select id="filtro-situacao-usuarios" onchange="Gestao.Usuarios.filtrar()"
+                            class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
                             <option value="">Status: Todos</option>
                         </select>
-                        <select id="filtro-funcao-usuarios" onchange="Gestao.Usuarios.filtrar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                        <select id="filtro-funcao-usuarios" onchange="Gestao.Usuarios.filtrar()"
+                            class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
                             <option value="">Função: Todas</option>
                         </select>
                     </div>
 
-                    <div id="search-group-metas" class="header-search-group flex items-center gap-2">
-                        <div class="relative w-48">
-                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()" placeholder="Buscar assistente..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                    <div id="search-group-metas" class="header-search-group flex items-center gap-4">
+                        <div class="relative w-44">
+                            <i
+                                class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
+                            <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()"
+                                placeholder="Buscar..."
+                                class="w-full pl-8 pr-3 py-1.5 bg-transparent border-b border-slate-200 text-xs outline-none focus:border-slate-400 transition placeholder-slate-300">
                         </div>
-                        <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
-                            <option value="">Contrato: Todos</option>
-                            <option value="CLT">CLT</option>
-                            <option value="TERCEIROS">Terceiros</option>
-                        </select>
-                        <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
-                            <option value="ATIVO">Ativos</option>
-                            <option value="">Todos</option>
-                            <option value="INATIVO">Inativos</option>
-                        </select>
+                        <div class="flex rounded-full bg-slate-100 p-0.5" id="pills-contrato-metas">
+                            <button onclick="Gestao.Metas.setFiltroContrato('')"
+                                class="pill-contrato active px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Todos</button>
+                            <button onclick="Gestao.Metas.setFiltroContrato('CLT')"
+                                class="pill-contrato px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">CLT</button>
+                            <button onclick="Gestao.Metas.setFiltroContrato('TERCEIROS')"
+                                class="pill-contrato px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Terceiros</button>
+                        </div>
+                        <div class="flex rounded-full bg-slate-100 p-0.5" id="pills-situacao-metas">
+                            <button onclick="Gestao.Metas.setFiltroSituacao('ATIVO')"
+                                class="pill-situacao active px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Ativos</button>
+                            <button onclick="Gestao.Metas.setFiltroSituacao('')"
+                                class="pill-situacao px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Todos</button>
+                            <button onclick="Gestao.Metas.setFiltroSituacao('INATIVO')"
+                                class="pill-situacao px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all">Inativos</button>
+                        </div>
                     </div>
 
                     <div id="search-group-empresas" class="header-search-group relative w-64">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" id="header-search-empresas" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Buscar por nome, ID, subdomínio..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                        <input type="text" id="header-search-empresas"
+                            onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()"
+                            placeholder="Buscar por nome, ID, subdomínio..."
+                            class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
                     </div>
                 </div>
 
                 <div id="top-bar-actions" class="flex items-center gap-3 border-l border-slate-200 pl-4">
-                    
+
                     <div id="actions-usuarios" class="header-action-group active items-center gap-2">
-                        <button onclick="Gestao.Usuarios.abrirModal()" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                        <button onclick="Gestao.Usuarios.abrirModal()"
+                            class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
                             <i class="fas fa-user-plus"></i> Novo
                         </button>
-                        <button onclick="document.getElementById('input-csv-usuarios').click()" class="text-indigo-600 hover:bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                        <button onclick="document.getElementById('input-csv-usuarios').click()"
+                            class="text-indigo-600 hover:bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
                             <i class="fas fa-file-upload"></i> Importar
                         </button>
                     </div>
 
                     <div id="actions-empresas" class="header-action-group items-center gap-2">
-                        <button onclick="Gestao.Empresas.abrirModal()" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                        <button onclick="Gestao.Empresas.abrirModal()"
+                            class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
                             <i class="fas fa-plus-circle"></i> Nova
                         </button>
-                        <button onclick="document.getElementById('input-csv-empresas').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-2">
+                        <button onclick="document.getElementById('input-csv-empresas').click()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-2">
                             <i class="fas fa-file-upload"></i> Importar
                         </button>
                     </div>
 
                     <div id="actions-assertividade" class="header-action-group items-center gap-2">
-                        <button id="btn-sala-teste" onclick="Gestao.Assertividade.abrirSimulador()" class="text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                        <button id="btn-sala-teste" onclick="Gestao.Assertividade.abrirSimulador()"
+                            class="text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
                             <i class="fas fa-flask"></i> Sala de Teste
                         </button>
-                        <button onclick="document.getElementById('input-csv-assertividade').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-2">
+                        <button onclick="document.getElementById('input-csv-assertividade').click()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-2">
                             <i class="fas fa-file-upload"></i> Importar
                         </button>
                     </div>
 
                     <div id="actions-metas" class="header-action-group items-center gap-3">
-                        
-                        <input type="month" id="header-meta-month" onchange="Gestao.Metas.selecionarMes()" class="text-xs font-bold text-slate-700 border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none cursor-pointer shadow-sm">
 
-                        <div class="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg p-1" title="Defina o padrão e clique no raio para aplicar (Ignora Gestão/Auditoria)">
-                            <div class="relative group/tooltip">
-                                <input type="number" id="padrao-prod-input" value="650" class="w-12 text-center text-xs font-bold text-blue-800 bg-white border border-blue-200 rounded py-0.5 outline-none focus:border-blue-500 placeholder-blue-300">
-                                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 transition whitespace-nowrap pointer-events-none">Prod. Padrão</span>
-                            </div>
-                            <span class="text-blue-300 font-bold text-xs">/</span>
-                            <div class="relative group/tooltip">
-                                <input type="number" id="padrao-assert-input" value="97" class="w-10 text-center text-xs font-bold text-emerald-800 bg-white border border-emerald-200 rounded py-0.5 outline-none focus:border-emerald-500 placeholder-emerald-300">
-                                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 transition whitespace-nowrap pointer-events-none">Assert. Padrão</span>
-                            </div>
-                            <button onclick="Gestao.Metas.aplicarPadrao()" class="w-6 h-6 ml-1 flex items-center justify-center rounded bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition active:scale-95">
-                                <i class="fas fa-bolt text-[10px]"></i>
+                        <div class="flex items-center gap-1">
+                            <button onclick="Gestao.Metas.mudarMes(-1)"
+                                class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition">
+                                <i class="fas fa-chevron-left text-[9px]"></i>
+                            </button>
+                            <span id="header-meta-periodo"
+                                class="font-bold text-slate-600 text-[11px] tracking-wide min-w-[90px] text-center select-none cursor-default">--</span>
+                            <button onclick="Gestao.Metas.mudarMes(1)"
+                                class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition">
+                                <i class="fas fa-chevron-right text-[9px]"></i>
                             </button>
                         </div>
 
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none border-l border-slate-200 pl-3">
-                            <input type="checkbox" id="check-mostrar-gestao" class="sr-only peer" onchange="Gestao.Metas.filtrarERenderizar()">
-                            <div class="relative w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-purple-500"></div>
-                            <span class="text-[9px] font-bold text-slate-400 uppercase leading-none">Gestão</span>
+                        <div class="h-4 w-px bg-slate-200"></div>
+
+                        <div class="flex items-center gap-1 bg-slate-50 rounded-full px-2 py-0.5"
+                            title="Padrão: Produção / Assertividade">
+                            <input type="number" id="padrao-prod-input" value="650"
+                                class="w-10 text-center text-[10px] font-bold text-slate-600 bg-transparent outline-none">
+                            <span class="text-slate-300 text-[10px]">/</span>
+                            <input type="number" id="padrao-assert-input" value="97"
+                                class="w-8 text-center text-[10px] font-bold text-slate-600 bg-transparent outline-none">
+                            <button onclick="Gestao.Metas.aplicarPadrao()"
+                                class="w-5 h-5 flex items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-800 transition active:scale-95 ml-0.5">
+                                <i class="fas fa-bolt text-[8px]"></i>
+                            </button>
+                        </div>
+
+                        <div class="h-4 w-px bg-slate-200"></div>
+
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input type="checkbox" id="check-mostrar-gestao" class="sr-only peer"
+                                onchange="Gestao.Metas.filtrarERenderizar()">
+                            <div
+                                class="relative w-5 h-3 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-purple-500">
+                            </div>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">Gestão</span>
                         </label>
 
-                        <button onclick="Gestao.Metas.salvarTodas()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition transform active:scale-95 flex items-center gap-2 ml-1">
-                            <i class="fas fa-save"></i> Salvar
+                        <button onclick="Gestao.Metas.salvarTodas()"
+                            class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-bold tracking-wide uppercase transition active:scale-95 flex items-center gap-1.5">
+                            <i class="fas fa-save text-[9px]"></i> Salvar
                         </button>
                     </div>
 
-                    <input type="file" id="input-csv-usuarios" accept=".csv" class="hidden" onchange="Gestao.Importacao.Usuarios.executar(this)">
-                    <input type="file" id="input-csv-empresas" accept=".csv" class="hidden" onchange="Gestao.Importacao.Empresas.executar(this)">
-                    <input type="file" id="input-csv-assertividade" accept=".csv" class="hidden" onchange="Gestao.Importacao.Assertividade.processarArquivo(this)">
+                    <input type="file" id="input-csv-usuarios" accept=".csv" class="hidden"
+                        onchange="Gestao.Importacao.Usuarios.executar(this)">
+                    <input type="file" id="input-csv-empresas" accept=".csv" class="hidden"
+                        onchange="Gestao.Importacao.Empresas.executar(this)">
+                    <input type="file" id="input-csv-assertividade" accept=".csv" class="hidden"
+                        onchange="Gestao.Importacao.Assertividade.processarArquivo(this)">
                 </div>
             </div>
         </div>
     </div>
 
     <div class="max-w-[1600px] mx-auto px-4 py-8 pt-32">
-        
+
         <div id="view-usuarios" class="gestao-view animate-fade space-y-4">
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="overflow-x-auto custom-scroll">
@@ -184,7 +305,8 @@
                         <tbody id="lista-usuarios" class="divide-y divide-slate-100 bg-white"></tbody>
                     </table>
                 </div>
-                <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center font-semibold uppercase tracking-wide">
+                <div
+                    class="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center font-semibold uppercase tracking-wide">
                     <span id="contador-usuarios">Carregando...</span>
                     <span><i class="fas fa-info-circle mr-1"></i> ID é único</span>
                 </div>
@@ -208,24 +330,48 @@
                         <tbody id="lista-empresas" class="divide-y divide-slate-100 bg-white"></tbody>
                     </table>
                 </div>
-                <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center font-semibold uppercase tracking-wide"><div class="flex items-center gap-4"><span id="info-paginacao-emp" class="text-slate-500">Iniciando...</span></div><div class="flex items-center gap-2"><button onclick="Gestao.Empresas.mudarPagina(-1)" id="btn-ant-emp" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"><i class="fas fa-chevron-left"></i> Anterior</button><button onclick="Gestao.Empresas.mudarPagina(1)" id="btn-prox-emp" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">Próximo <i class="fas fa-chevron-right"></i></button></div></div>
+                <div
+                    class="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center font-semibold uppercase tracking-wide">
+                    <div class="flex items-center gap-4"><span id="info-paginacao-emp"
+                            class="text-slate-500">Iniciando...</span></div>
+                    <div class="flex items-center gap-2"><button onclick="Gestao.Empresas.mudarPagina(-1)"
+                            id="btn-ant-emp"
+                            class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"><i
+                                class="fas fa-chevron-left"></i> Anterior</button><button
+                            onclick="Gestao.Empresas.mudarPagina(1)" id="btn-prox-emp"
+                            class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">Próximo
+                            <i class="fas fa-chevron-right"></i></button></div>
+                </div>
             </div>
         </div>
 
         <div id="view-assertividade" class="gestao-view hidden animate-fade">
-             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                 <div class="overflow-x-auto custom-scroll flex-1">
-                     <table class="w-full min-w-[1500px] text-sm text-left">
-                        <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100 tracking-wider">
-                           <tr class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100">
-                               <th class="p-4 text-center">Carregando Sistema V7...</th>
-                           </tr>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div class="overflow-x-auto custom-scroll flex-1">
+                    <table class="w-full min-w-[1500px] text-sm text-left">
+                        <thead
+                            class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100 tracking-wider">
+                            <tr
+                                class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100">
+                                <th class="p-4 text-center">Carregando Sistema V7...</th>
+                            </tr>
                         </thead>
                         <tbody id="lista-assertividade" class="divide-y divide-slate-100 bg-white"></tbody>
-                     </table>
-                 </div>
-                 <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs font-semibold text-slate-600"><div class="flex items-center gap-4"><span id="info-paginacao" class="text-slate-500">Iniciando...</span><span id="total-registros-assertividade" class="text-slate-400 font-normal"></span></div><div class="flex items-center gap-2"><button id="btn-pag-ant-assert" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"><i class="fas fa-chevron-left"></i> Anterior</button><span id="span-pag-assert" class="mx-2">1</span><button id="btn-pag-prox-assert" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">Próximo <i class="fas fa-chevron-right"></i></button></div></div>
-             </div>
+                    </table>
+                </div>
+                <div
+                    class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs font-semibold text-slate-600">
+                    <div class="flex items-center gap-4"><span id="info-paginacao"
+                            class="text-slate-500">Iniciando...</span><span id="total-registros-assertividade"
+                            class="text-slate-400 font-normal"></span></div>
+                    <div class="flex items-center gap-2"><button id="btn-pag-ant-assert"
+                            class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"><i
+                                class="fas fa-chevron-left"></i> Anterior</button><span id="span-pag-assert"
+                            class="mx-2">1</span><button id="btn-pag-prox-assert"
+                            class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">Próximo
+                            <i class="fas fa-chevron-right"></i></button></div>
+                </div>
+            </div>
         </div>
 
         <div id="view-metas" class="gestao-view hidden animate-fade space-y-6">
@@ -235,20 +381,23 @@
                         <tr>
                             <th class="px-6 py-3 w-[60px] text-center"><i class="fas fa-user"></i></th>
                             <th class="px-6 py-3">Assistente</th>
-                            <th class="px-4 py-3 text-center w-[150px] bg-blue-50/50 text-blue-700 border-l border-blue-100">
+                            <th
+                                class="px-4 py-3 text-center w-[150px] bg-blue-50/50 text-blue-700 border-l border-blue-100">
                                 Meta Produção
                             </th>
-                            <th class="px-4 py-3 text-center w-[150px] bg-emerald-50/50 text-emerald-700 border-l border-emerald-100">
+                            <th
+                                class="px-4 py-3 text-center w-[150px] bg-emerald-50/50 text-emerald-700 border-l border-emerald-100">
                                 Meta Assertividade
                             </th>
                             <th class="px-6 py-3 text-right w-[100px]">Status</th>
                         </tr>
                     </thead>
                     <tbody id="lista-metas" class="divide-y divide-slate-100">
-                        </tbody>
+                    </tbody>
                 </table>
-                
-                <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-medium">
+
+                <div
+                    class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-medium">
                     <span id="resumo-metas-footer">Carregando...</span>
                     <span class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-blue-500"></span> Editado
@@ -265,10 +414,11 @@
     <script src="js/gestao/empresas.js"></script>
     <script src="js/gestao/assertividade.js"></script>
     <script src="js/gestao/metas.js"></script>
-    
+
     <script src="js/gestao/importacao/usuarios.js"></script>
     <script src="js/gestao/importacao/empresas.js"></script>
     <script src="js/gestao/importacao/assertividade.js"></script>
 
 </body>
+
 </html>
