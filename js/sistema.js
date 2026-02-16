@@ -5,6 +5,31 @@
 
 const Sistema = {
     usuarioLogado: null,
+    supabase: null, // Cliente Supabase Global
+
+    // --- INICIALIZAÇÃO CENTRALIZADA ---
+    async inicializar() {
+        if (this.supabase) return; // Já inicializado
+
+        if (typeof CONFIG === 'undefined' || !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
+            console.error("Configuração do Supabase (CONFIG) não encontrada ou incompleta.");
+            return;
+        }
+
+        if (typeof supabase === 'undefined') {
+            console.error("Biblioteca Supabase (supabase-js) não carregada.");
+            return;
+        }
+
+        try {
+            this.supabase = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+                auth: { persistSession: true }
+            });
+            console.log("✅ Sistema: Supabase Inicializado com Sucesso.");
+        } catch (e) {
+            console.error("Erro ao inicializar Supabase:", e);
+        }
+    },
 
     // --- NÚCLEO: Conexão com a API ---
     async query(sql, params = []) {
@@ -14,14 +39,14 @@ const Sistema = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query: sql, values: params })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.error) {
                 console.error("Erro SQL:", result.error);
                 throw new Error(result.error);
             }
-            
+
             return result.data;
         } catch (erro) {
             console.error("Falha na comunicação com API:", erro);
@@ -30,7 +55,7 @@ const Sistema = {
     },
 
     // --- CRIPTOGRAFIA (ESSENCIAL PARA O LOGIN) ---
-    gerarHash: async function(texto) {
+    gerarHash: async function (texto) {
         if (!texto) return '';
         const msgBuffer = new TextEncoder().encode(texto);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -40,7 +65,7 @@ const Sistema = {
 
     // --- UTILITÁRIOS ---
     gerarUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
@@ -81,9 +106,9 @@ const Sistema = {
         const paginasPublicas = ['index.html', 'login.html', 'ferramentas.html'];
         const path = window.location.pathname;
         const paginaAtual = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
-        
+
         if (paginasPublicas.includes(paginaAtual)) return;
-        
+
         const usuario = this.lerSessao();
         if (!usuario) {
             window.location.href = 'index.html';
@@ -110,7 +135,7 @@ const Sistema = {
             id, usuarioId, dados.data, dados.mes, dados.ano, dados.tarefa, dados.qtd, dados.tempo || 0
         ]);
     },
-    
+
     atualizarTodasAbas() {
         if (typeof atualizarGeral === 'function') atualizarGeral();
         if (typeof atualizarPerformance === 'function') atualizarPerformance();
@@ -121,11 +146,14 @@ const Sistema = {
     // --- DATA MODULE ---
     Datas: {
         feriadosFixos: ['01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'],
-        ehFeriado: function(data) { return false; } // Simplificado
+        ehFeriado: function (data) { return false; } // Simplificado
     }
 };
 
 if (typeof window !== 'undefined') {
     window.Sistema = Sistema;
-    document.addEventListener('DOMContentLoaded', () => Sistema.verificarSessaoGlobal());
+    document.addEventListener('DOMContentLoaded', () => {
+        Sistema.inicializar();
+        Sistema.verificarSessaoGlobal();
+    });
 }
