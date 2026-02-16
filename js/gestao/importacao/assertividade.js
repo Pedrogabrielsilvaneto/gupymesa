@@ -240,15 +240,18 @@ Gestao.Importacao.Assertividade = {
 
             try {
                 // Timeout manual para evitar travamento eterno
+                const sqlDelete = `DELETE FROM assertividade WHERE data_referencia = ?`;
                 const resultado = await Promise.race([
-                    Sistema.supabase.from('assertividade').delete().eq('data_referencia', dataStr),
+                    Sistema.query(sqlDelete, [dataStr]),
                     new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000))
                 ]);
-                if (resultado.error) throw new Error(resultado.error.message);
+                if (resultado === null) throw new Error("Falha ao limpar histórico.");
             } catch (err) {
                 console.warn(`Retry limpeza ${dataStr}...`);
                 await new Promise(r => setTimeout(r, 1500));
-                await Sistema.supabase.from('assertividade').delete().eq('data_referencia', dataStr);
+                const sqlDelete = `DELETE FROM assertividade WHERE data_referencia = ?`;
+                const resultado = await Sistema.query(sqlDelete, [dataStr]);
+                if (resultado === null) throw new Error("Falha ao limpar histórico após retry.");
             }
             diaAtual++;
         }
@@ -275,8 +278,29 @@ Gestao.Importacao.Assertividade = {
             
             while (!sucesso && tentativas < 3) {
                 try {
-                    const { error } = await Sistema.supabase.from('assertividade').insert(lote);
-                    if (error) throw error;
+                    // Monta SQL INSERT para TiDB com múltiplos valores
+                    const campos = Object.keys(lote[0] || {});
+                    if (campos.length === 0) {
+                        sucesso = true;
+                        continue;
+                    }
+                    
+                    const sql = `
+                        INSERT INTO assertividade (
+                            ${campos.join(', ')}
+                        ) VALUES
+                        ${lote.map(() => `(${campos.map(() => '?').join(', ')})`).join(', ')}
+                    `;
+                    
+                    const params = [];
+                    for (const registro of lote) {
+                        campos.forEach(campo => {
+                            params.push(registro[campo] !== undefined && registro[campo] !== '' ? registro[campo] : null);
+                        });
+                    }
+                    
+                    const result = await Sistema.query(sql, params);
+                    if (result === null) throw new Error("Falha ao inserir lote.");
                     sucesso = true;
                 } catch (err) {
                     tentativas++;
