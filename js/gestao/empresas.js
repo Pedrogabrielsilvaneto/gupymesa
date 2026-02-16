@@ -8,7 +8,8 @@ Gestao.Empresas = {
         filtros: {
             nome: '',
             subdominio: '',
-            obs: ''
+            obs: '',
+            buscaGeral: ''
         },
         loading: false
     },
@@ -25,15 +26,19 @@ Gestao.Empresas = {
     },
 
     atualizarFiltrosEBuscar: function() {
-        // Filtros da Tabela
-        this.state.filtros.nome = document.getElementById('filtro-emp-nome')?.value.trim() || '';
-        this.state.filtros.subdominio = document.getElementById('filtro-emp-sub')?.value.trim() || '';
-        this.state.filtros.obs = document.getElementById('filtro-emp-obs')?.value.trim() || '';
+        // Busca geral do header - busca em nome, subdomínio e observação
+        const buscaGeral = document.getElementById('header-search-empresas')?.value.trim() || '';
         
-        // Busca do Cabeçalho (Novo ID)
-        const buscaGeral = document.getElementById('header-search-empresas')?.value.trim();
+        // Limpa filtros anteriores
+        this.state.filtros.nome = '';
+        this.state.filtros.subdominio = '';
+        this.state.filtros.obs = '';
+        
+        // Se há busca, aplica em todos os campos (busca inteligente)
         if (buscaGeral) {
-            this.state.filtros.nome = buscaGeral; // Sobrescreve filtro de nome
+            this.state.filtros.buscaGeral = buscaGeral;
+        } else {
+            this.state.filtros.buscaGeral = '';
         }
 
         this.state.page = 1;
@@ -60,17 +65,25 @@ Gestao.Empresas = {
             const whereConditions = [];
             const params = [];
 
-            if (this.state.filtros.nome) {
-                whereConditions.push('nome LIKE ?');
-                params.push(`%${this.state.filtros.nome}%`);
-            }
-            if (this.state.filtros.subdominio) {
-                whereConditions.push('subdominio LIKE ?');
-                params.push(`%${this.state.filtros.subdominio}%`);
-            }
-            if (this.state.filtros.obs) {
-                whereConditions.push('observacao LIKE ?');
-                params.push(`%${this.state.filtros.obs}%`);
+            // Busca geral busca em nome, subdomínio ou observação
+            if (this.state.filtros.buscaGeral) {
+                const busca = `%${this.state.filtros.buscaGeral}%`;
+                whereConditions.push('(nome LIKE ? OR subdominio LIKE ? OR observacao LIKE ? OR id LIKE ?)');
+                params.push(busca, busca, busca, busca);
+            } else {
+                // Filtros específicos (caso precise no futuro)
+                if (this.state.filtros.nome) {
+                    whereConditions.push('nome LIKE ?');
+                    params.push(`%${this.state.filtros.nome}%`);
+                }
+                if (this.state.filtros.subdominio) {
+                    whereConditions.push('subdominio LIKE ?');
+                    params.push(`%${this.state.filtros.subdominio}%`);
+                }
+                if (this.state.filtros.obs) {
+                    whereConditions.push('observacao LIKE ?');
+                    params.push(`%${this.state.filtros.obs}%`);
+                }
             }
 
             const whereClause = whereConditions.length > 0 
