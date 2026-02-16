@@ -41,34 +41,60 @@ window.Produtividade.Importacao.Validacao = {
         const statusEl = document.getElementById('status-importacao-prod');
         if (statusEl) {
             statusEl.classList.remove('hidden');
-            statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Validando arquivos...</span>`;
+            statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Analisando arquivos...</span>`;
         }
 
         let arquivosIgnorados = 0;
-        let arquivosDuplicados = 0;
-        let arquivosProcessados = 0;
+        let datasParaImportar = new Set();
+        let arquivosValidos = [];
 
+        // 1. Pré-análise: Coletar datas e filtrar nomes inválidos
         for (const file of files) {
-            // 1. Validação de Nome (Formato)
             const dataRef = this.extrairDataDoNome(file.name);
             if (!dataRef) {
                 console.warn(`⚠️ Ignorado (Nome inválido): ${file.name}`);
-                alert(`Arquivo "${file.name}" ignorado.\nO nome deve conter a data no formato DDMMAAAA (ex: 01012026.csv).`);
                 arquivosIgnorados++;
                 continue;
             }
+            datasParaImportar.add(dataRef);
+            arquivosValidos.push({ file, dataRef });
+        }
 
-            // 2. Validação de Duplicidade (Banco de Dados)
-            const jaExiste = await this.verificarDuplicidade(dataRef);
-            if (jaExiste) {
-                console.warn(`⚠️ Bloqueado (Data já existe): ${dataRef}`);
-                alert(`BLOQUEADO: Já existem dados importados para a data ${dataRef} (Arquivo: ${file.name}).\n\nSe deseja reimportar, exclua os dados dessa data primeiro.`);
-                arquivosDuplicados++;
-                continue;
+        if (datasParaImportar.size === 0) {
+            alert(`Nenhum arquivo válido encontrado.\nCertifique-se que o nome segue o padrão DDMMAAAA.csv (ex: 01012026.csv).`);
+            if (statusEl) statusEl.innerHTML = "";
+            return;
+        }
+
+        // 2. Verificar Duplicidade em Massa
+        const datasArray = Array.from(datasParaImportar);
+        const datasExistentes = await this.verificarDuplicidadeMassa(datasArray);
+
+        if (datasExistentes.length > 0) {
+            const msg = `⚠️ ATENÇÃO: Encontramos dados já importados para as seguintes datas:\n\n` +
+                datasExistentes.map(d => `📅 ${d.split('-').reverse().join('/')}`).join('\n') +
+                `\n\nDeseja EXCLUIR os dados antigos dessas datas e SUBSTITUIR pelos novos arquivos?\n` +
+                `(Essa ação não pode ser desfeita)`;
+
+            if (!confirm(msg)) {
+                alert("Importação cancelada pelo usuário.");
+                if (statusEl) statusEl.innerHTML = "";
+                input.value = '';
+                return;
             }
 
+            // 3. Auto-Delete (Se confirmado)
+            if (statusEl) statusEl.innerHTML = `<span class="text-rose-500"><i class="fas fa-trash"></i> Removendo dados antigos...</span>`;
+            await this.excluirDadosMassa(datasExistentes);
+        }
+
+        // 4. Processamento Normal
+        if (statusEl) statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Processando ${arquivosValidos.length} arquivos...</span>`;
+
+        let arquivosProcessados = 0;
+        for (const item of arquivosValidos) {
             await new Promise(resolve => {
-                Papa.parse(file, {
+                Papa.parse(item.file, {
                     header: true,
                     skipEmptyLines: true,
                     encoding: "UTF-8",
@@ -80,7 +106,7 @@ window.Produtividade.Importacao.Validacao = {
                         .replace(/[ú]/g, 'u')
                         .replace(/ç/g, 'c'),
                     complete: (res) => {
-                        this.prepararDados(res.data, dataRef, file.name);
+                        this.prepararDados(res.data, item.dataRef, item.file.name);
                         arquivosProcessados++;
                         resolve();
                     }
@@ -88,8 +114,36 @@ window.Produtividade.Importacao.Validacao = {
             });
         }
 
-        this.finalizarAnalise(files.length, arquivosIgnorados, arquivosDuplicados);
+        this.finalizarAnalise(files.length, arquivosIgnorados, 0); // 0 duplicados pois foram tratados
         input.value = '';
+    },
+
+    verificarDuplicidadeMassa: async function (datas) {
+        if (datas.length === 0) return [];
+        // Constrói query dinâmica: SELECT DISTINCT data_referencia WHERE data_referencia IN (?, ?, ?)
+        const placeholders = datas.map(() => '?').join(',');
+        const sql = `SELECT DISTINCT data_referencia FROM producao WHERE data_referencia IN (${placeholders})`;
+        try {
+            const res = await Sistema.query(sql, datas);
+            return res ? res.map(r => r.data_referencia) : [];
+        } catch (e) {
+            console.error("Erro check duplicidade massa:", e);
+            return [];
+        }
+    },
+
+    excluirDadosMassa: async function (datas) {
+        if (datas.length === 0) return;
+        const placeholders = datas.map(() => '?').join(',');
+        const sql = `DELETE FROM producao WHERE data_referencia IN (${placeholders})`;
+        try {
+            await Sistema.query(sql, datas);
+            console.log("✅ Dados antigos excluídos para:", datas);
+        } catch (e) {
+            console.error("Erro auto-delete:", e);
+            alert("Erro ao excluir dados antigos: " + e.message);
+            throw e; // Interrompe fluxo
+        }
     },
 
     verificarDuplicidade: async function (data) {
