@@ -4,12 +4,13 @@
             "ssh": "Disabled",
             "previewLimit": 50,
             "server": "db.btzdlrjqdzisvyskskeb.supabase.co",
+            "port": 5432,
             "driver": "PostgreSQL",
             "name": "GupyMesa DB",
-            "connectString": "postgresql://postgres.btzdlrjqdzisvyskskeb:Pedro_Gupy_2026@aws-1-sa-east-1.pooler.supabase.com:6543/postgres",
+            "group": "GupyMesa Direto",
             "database": "postgres",
             "username": "postgres",
-            "password": "Pedro_Gupy_2026"
+            "password": "GupyMesa2026"
         }
     ]
 }

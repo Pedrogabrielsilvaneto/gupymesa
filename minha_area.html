@@ -106,75 +106,34 @@
             <div id="container-checkin-alert" class="hidden mb-4"></div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                
                 <div class="kpi-card border-l-4 border-l-blue-500">
                     <i class="fas fa-cubes kpi-icon-bg text-blue-500"></i>
                     <div class="kpi-title">Produtividade</div>
-                    <div class="kpi-fraction">
-                        <span class="kpi-val" id="kpi-prod-real">--</span>
-                        <span class="kpi-sep">/</span>
-                        <span class="kpi-meta" id="kpi-prod-meta">--</span>
-                    </div>
-                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div id="bar-prod" class="h-full bg-blue-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="kpi-footer">
-                        <span class="font-bold">Percentual Atingido</span>
-                        <span id="pct-prod" class="font-black text-blue-600">--%</span>
-                    </div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-prod-real">--</span><span class="kpi-sep">/</span><span class="kpi-meta" id="kpi-prod-meta">--</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div id="bar-prod" class="h-full bg-blue-500 rounded-full transition-all duration-1000" style="width: 0%"></div></div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-prod" class="font-black text-blue-600">--%</span></div>
                 </div>
-                
                 <div class="kpi-card border-l-4 border-l-purple-500">
                     <i class="fas fa-calendar-day kpi-icon-bg text-purple-500"></i>
                     <div class="kpi-title">Dias Produtivos</div>
-                    <div class="kpi-fraction">
-                        <span class="kpi-val" id="kpi-dias-trab">--</span>
-                        <span class="kpi-sep">/</span>
-                        <span class="kpi-meta" id="kpi-dias-uteis">--</span>
-                    </div>
-                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div id="bar-dias" class="h-full bg-purple-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="kpi-footer">
-                        <span class="font-bold">Percentual Atingido</span>
-                        <span id="pct-dias" class="font-black text-purple-600">--%</span>
-                    </div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-dias-trab">--</span><span class="kpi-sep">/</span><span class="kpi-meta" id="kpi-dias-uteis">--</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div id="bar-dias" class="h-full bg-purple-500 rounded-full transition-all duration-1000" style="width: 0%"></div></div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-dias" class="font-black text-purple-600">--%</span></div>
                 </div>
-                
                 <div class="kpi-card border-l-4 border-l-amber-500">
                     <i class="fas fa-bolt kpi-icon-bg text-amber-500"></i>
                     <div class="kpi-title">Produção Diária</div>
-                    <div class="kpi-fraction">
-                        <span class="kpi-val" id="kpi-dia-media">--</span>
-                        <span class="kpi-sep">/</span>
-                        <span class="kpi-meta" id="kpi-dia-meta">--</span>
-                    </div>
-                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div id="bar-dia" class="h-full bg-amber-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="kpi-footer">
-                        <span class="font-bold">Percentual Atingido</span>
-                        <span id="pct-dia" class="font-black text-amber-600">--%</span>
-                    </div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-dia-media">--</span><span class="kpi-sep">/</span><span class="kpi-meta" id="kpi-dia-meta">--</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div id="bar-dia" class="h-full bg-amber-500 rounded-full transition-all duration-1000" style="width: 0%"></div></div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-dia" class="font-black text-amber-600">--%</span></div>
                 </div>
-
                 <div class="kpi-card border-l-4 border-l-emerald-500">
                     <i class="fas fa-check-circle kpi-icon-bg text-emerald-500"></i>
                     <div class="kpi-title">Assertividade</div>
-                    <div class="kpi-fraction">
-                        <span class="kpi-val" id="kpi-assert-real">--%</span>
-                        <span class="kpi-sep">/</span>
-                        <span class="kpi-meta" id="kpi-assert-meta">--%</span>
-                    </div>
-                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div id="bar-assert" class="h-full bg-emerald-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="kpi-footer">
-                        <span class="font-bold">Percentual Atingido</span>
-                        <span id="pct-assert" class="font-black text-emerald-600">--%</span>
-                    </div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-assert-real">--%</span><span class="kpi-sep">/</span><span class="kpi-meta" id="kpi-assert-meta">--%</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div id="bar-assert" class="h-full bg-emerald-500 rounded-full transition-all duration-1000" style="width: 0%"></div></div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-assert" class="font-black text-emerald-600">--%</span></div>
                 </div>
-
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-320px)]">
@@ -205,114 +164,192 @@
             </div>
         </div>
 
-        <div id="ma-tab-metas" class="ma-view hidden animate-enter">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="kpi-card border-l-4 border-l-blue-500 relative overflow-hidden group">
-                    <i class="fas fa-box-open kpi-icon-bg text-blue-500 group-hover:scale-110 transition-transform duration-500"></i>
-                    <div>
-                        <div class="kpi-title text-blue-600">Validação</div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="kpi-main-val text-slate-800" id="meta-prod-real">--</span>
-                            <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 rounded border border-slate-100" title="Meta do Período Selecionado">
-                                Meta: <span id="meta-prod-meta">--</span>
-                            </span>
-                        </div>
+        <div id="ma-tab-metas" class="ma-view hidden animate-enter pb-10">
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                
+                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                    <i class="fas fa-check-double absolute -right-4 -bottom-4 text-7xl text-blue-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Validação</p>
+                        <span class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded border border-blue-100 shadow-sm">TOTAL</span>
                     </div>
-                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                        <div id="bar-meta-prod" class="h-full bg-blue-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
+                    <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight" id="card-ranking-prod">--</h3>
+                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Entregas totais realizadas</p>
                 </div>
 
-                <div class="kpi-card border-l-4 border-l-emerald-500 relative overflow-hidden group">
-                    <i class="fas fa-check-circle kpi-icon-bg text-emerald-500 group-hover:scale-110 transition-transform duration-500"></i>
-                    <div>
-                        <div class="kpi-title text-emerald-600">Assertividade</div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="kpi-main-val text-slate-800" id="meta-assert-real">--%</span>
-                            <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 rounded border border-slate-100">
-                                Meta: <span id="meta-assert-meta">98%</span>
-                            </span>
-                        </div>
+                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                    <i class="fas fa-calendar-day absolute -right-4 -bottom-4 text-7xl text-amber-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Produção Diária</p>
+                        <span class="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-1 rounded border border-amber-100 shadow-sm">MÉDIA</span>
                     </div>
-                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                        <div id="bar-meta-assert" class="h-full bg-emerald-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
+                    <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight" id="card-ranking-media">--</h3>
+                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Média por pessoa no período</p>
                 </div>
 
-                <div class="kpi-card border-l-4 border-l-purple-500 relative overflow-hidden group">
-                    <i class="fas fa-search kpi-icon-bg text-purple-500 group-hover:scale-110 transition-transform duration-500"></i>
-                    <div>
-                        <div class="kpi-title text-purple-600">Auditados</div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="kpi-main-val text-slate-800" id="auditoria-total-auditados">--</span>
-                            <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 rounded border border-slate-100">
-                                de <span id="auditoria-total-validados">--</span> docs
-                            </span>
-                        </div>
+                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                    <i class="fas fa-percent absolute -right-4 -bottom-4 text-7xl text-emerald-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Assertividade</p>
+                        <span class="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2 py-1 rounded border border-emerald-100 shadow-sm">QLD</span>
                     </div>
-                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                        <div id="bar-auditoria-cov" class="h-full bg-purple-500 rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                </div>
-
-                <div class="kpi-card border-l-4 border-l-amber-500 relative overflow-hidden group">
-                    <i class="fas fa-thumbs-up kpi-icon-bg text-amber-500 group-hover:scale-110 transition-transform duration-500"></i>
-                    <div>
-                        <div class="kpi-title text-amber-600">Auditoria</div>
-                        <div class="flex items-center gap-3 mt-1">
-                            <div class="flex flex-col">
-                                <span class="text-lg font-black text-emerald-600 leading-none" id="auditoria-total-ok">--</span>
-                                <span class="text-[9px] text-slate-400 font-bold uppercase">Aprovados</span>
-                            </div>
-                            <div class="w-px h-6 bg-slate-200"></div>
-                            <div class="flex flex-col">
-                                <span class="text-lg font-black text-rose-600 leading-none" id="auditoria-total-nok">--</span>
-                                <span class="text-[9px] text-slate-400 font-bold uppercase">Reprovados</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                        <div id="bar-auditoria-res" class="h-full bg-emerald-500 rounded-full transition-all duration-1000" style="width: 100%"></div>
-                    </div>
+                    <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight" id="card-ranking-assert">--%</h3>
+                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Índice global de acertos</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[420px]">
-                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col h-full relative">
-                    <div class="flex justify-between items-center mb-6">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                                <i class="fas fa-chart-area text-blue-500"></i> Evolução de Volume
-                            </h3>
-                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">Realizado vs Meta</p>
-                        </div>
-                        <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 uppercase periodo-label">--</span>
-                    </div>
-                    <div class="flex-1 w-full relative min-h-0">
-                        <canvas id="graficoEvolucaoProducao"></canvas>
-                    </div>
+            <div class="mb-4 flex flex-col md:flex-row justify-between items-end gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-list-ol text-blue-600"></i> Ranking & Evolução
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Visualize a performance dia a dia ou mês a mês. Valores em <span class="text-rose-600 font-bold">vermelho</span> estão abaixo da meta.<br>
+                        Clique no nome para abrir o comparativo.
+                    </p>
                 </div>
-
-                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col h-full relative">
-                    <div class="flex justify-between items-center mb-6">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                                <i class="fas fa-chart-line text-emerald-500"></i> Evolução de Qualidade
-                            </h3>
-                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">Índice de Assertividade</p>
-                        </div>
-                        <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 uppercase periodo-label">--</span>
-                    </div>
-                    <div class="flex-1 w-full relative min-h-0">
-                        <canvas id="graficoEvolucaoAssertividade"></canvas>
-                    </div>
+                
+                <div class="flex items-center gap-4 text-[10px] font-bold bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Acima Meta</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Abaixo Meta</div>
+                </div>
+            </div>
+        
+            <div class="bg-white border border-slate-300 rounded-xl shadow-sm flex flex-col h-[calc(100vh-340px)] overflow-hidden relative">
+                <div id="loading-metas" class="absolute inset-0 bg-white/90 z-50 flex flex-col items-center justify-center hidden">
+                    <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-3"></i>
+                    <span class="text-sm font-bold text-slate-600 animate-pulse">Processando dados...</span>
+                </div>
+        
+                <div class="overflow-auto custom-scrollbar flex-1 relative">
+                    <table class="w-full text-xs text-left border-collapse separate border-spacing-0">
+                        <thead class="bg-slate-100 text-slate-600 font-bold uppercase sticky top-0 z-30 shadow-sm h-12">
+                            <tr id="grade-equipe-header"></tr>
+                        </thead>
+                        <tbody id="grade-equipe-body" class="divide-y divide-slate-200 bg-white"></tbody>
+                    </table>
+                </div>
+                
+                <div class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500 font-bold flex justify-between items-center z-30">
+                    <span id="metas-periodo-label">--</span>
+                    <span id="metas-total-users">--</span>
                 </div>
             </div>
         </div>
 
         <div id="ma-tab-auditoria" class="ma-view hidden animate-enter space-y-4">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center justify-center min-h-[400px]">
-                <div class="text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-500 mb-4"><i class="fas fa-clipboard-check text-2xl"></i></div><h3 class="text-lg font-bold text-slate-700">Painel de Auditoria</h3><p class="text-sm text-slate-500 mt-2">Visualize aqui seus erros, acertos e pontos de atenção validados pela auditoria.</p><div id="auditoria-content" class="mt-8 w-full text-left"></div></div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fas fa-list-alt text-blue-600"></i> Histórico de Auditorias
+                    </h3>
+                    <span id="auditoria-total-count" class="text-xs font-bold text-slate-400 bg-slate-200 px-2 py-1 rounded-full">0 docs</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
+                            <tr>
+                                <th class="px-4 py-3 border-b">Nome do documento auditados</th>
+                                <th class="px-4 py-3 border-b text-center">% Assertividade</th>
+                                <th class="px-4 py-3 border-b">Apontamento/Obs</th>
+                                <th class="px-4 py-3 border-b text-center">Status</th>
+                                <th class="px-4 py-3 border-b">Empresa</th>
+                                <th class="px-4 py-3 border-b">Documento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditoria-grid-geral" class="text-sm text-slate-600 divide-y divide-slate-100">
+                            </tbody>
+                    </table>
+                </div>
+                <div id="auditoria-loading-geral" class="hidden text-center py-4 text-blue-500"><i class="fas fa-circle-notch fa-spin"></i> Carregando...</div>
+            </div>
+
+            <div class="bg-rose-50 rounded-xl border border-rose-100 overflow-hidden">
+                <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
+                    <div class="md:col-span-1">
+                        <h4 class="text-rose-800 font-bold flex items-center gap-2"><i class="fas fa-times-circle"></i> Documentos NOK</h4>
+                        <p class="text-xs text-rose-600 mt-1">Auditados com erro</p>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">Docs Validados</div>
+                        <div id="nok-total-validados" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">% Assertividade</div>
+                        <div id="nok-pct-assert" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">Docs Auditados (NOK)</div>
+                        <div id="nok-qtd-docs" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">Campos Errados</div>
+                        <div id="nok-qtd-campos" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                </div>
+                
+                <div class="bg-rose-100/50 px-4 py-2 border-t border-rose-200 flex justify-center">
+                    <button onclick="MinhaArea.Auditoria.toggleDetalhes('nok')" class="text-xs font-bold text-rose-700 hover:text-rose-900 flex items-center gap-2 focus:outline-none">
+                        <span id="btn-text-nok">Ver Detalhes</span> <i id="icon-nok" class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                </div>
+
+                <div id="detalhes-nok" class="hidden border-t border-rose-200 bg-white">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-rose-50 text-rose-800 font-bold">
+                            <tr>
+                                <th class="px-4 py-2">Empresa</th>
+                                <th class="px-4 py-2">Categoria</th>
+                                <th class="px-4 py-2">Documento (Oculto)</th>
+                                <th class="px-4 py-2 text-center">Campos NOK</th>
+                                <th class="px-4 py-2">Apontamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grid-detalhes-nok" class="text-slate-600 divide-y divide-rose-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 rounded-xl border border-emerald-100 overflow-hidden">
+                <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                    <div class="md:col-span-1">
+                        <h4 class="text-emerald-800 font-bold flex items-center gap-2"><i class="fas fa-check-circle"></i> Documentos OK</h4>
+                        <p class="text-xs text-emerald-600 mt-1">Auditados com sucesso</p>
+                    </div>
+                    <div class="text-center border-l border-emerald-200">
+                        <div class="text-xs text-emerald-500 uppercase font-bold">Docs Validados</div>
+                        <div id="ok-total-validados" class="text-lg font-black text-emerald-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-emerald-200">
+                        <div class="text-xs text-emerald-500 uppercase font-bold">% Assertividade</div>
+                        <div id="ok-pct-assert" class="text-lg font-black text-emerald-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-emerald-200">
+                        <div class="text-xs text-emerald-500 uppercase font-bold">Total Acertos (OK)</div>
+                        <div id="ok-qtd-docs" class="text-lg font-black text-emerald-800">-</div>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-100/50 px-4 py-2 border-t border-emerald-200 flex justify-center">
+                    <button onclick="MinhaArea.Auditoria.toggleDetalhes('ok')" class="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-2 focus:outline-none">
+                        <span id="btn-text-ok">Ver Detalhes</span> <i id="icon-ok" class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                </div>
+
+                <div id="detalhes-ok" class="hidden border-t border-emerald-200 bg-white">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-emerald-50 text-emerald-800 font-bold">
+                            <tr>
+                                <th class="px-4 py-2">Empresa</th>
+                                <th class="px-4 py-2">Categoria</th>
+                                <th class="px-4 py-2">Documento (Oculto)</th>
+                                <th class="px-4 py-2">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grid-detalhes-ok" class="text-slate-600 divide-y divide-emerald-100"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
@@ -321,12 +358,7 @@
                 <div class="w-full lg:w-1/3 flex flex-col gap-4 h-full">
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col">
                         <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="font-bold text-slate-700 flex items-center gap-2">
-                                    <i class="fas fa-chart-bar text-rose-500"></i> Onde estou errando?
-                                </h3>
-                                <p class="text-xs text-slate-400">Clique na barra para filtrar.</p>
-                            </div>
+                            <div><h3 class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-chart-bar text-rose-500"></i> Onde estou errando?</h3><p class="text-xs text-slate-400">Clique na barra para filtrar.</p></div>
                             <div class="flex flex-col items-end gap-2">
                                 <div class="flex bg-slate-100 rounded-lg p-1">
                                     <button onclick="MinhaArea.Comparativo.mudarVisao('doc')" id="btn-view-doc" class="px-3 py-1 text-[10px] font-bold rounded bg-white text-rose-600 shadow-sm transition">Docs</button>
@@ -336,74 +368,33 @@
                                 <button id="btn-ver-todos" onclick="MinhaArea.Comparativo.toggleMostrarTodos()" class="text-[10px] font-bold text-blue-500 hover:underline">Ver Todos</button>
                             </div>
                         </div>
-                        
-                        <div class="flex-1 w-full relative min-h-[200px]">
-                            <canvas id="graficoTopOfensores"></canvas>
-                        </div>
-
+                        <div class="flex-1 w-full relative min-h-[200px]"><canvas id="graficoTopOfensores"></canvas></div>
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                                 <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">Visão Geral</h3>
-                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                    <span class="text-[10px] font-bold text-slate-600">Total Auditados</span>
-                                    <span id="card-total-auditados" class="text-xs font-black text-blue-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                    <span class="text-[10px] font-bold text-slate-600">Total de Acertos</span>
-                                    <span id="card-total-acertos" class="text-xs font-black text-emerald-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center py-1.5">
-                                    <span class="text-[10px] font-bold text-slate-600">Total de Erros</span>
-                                    <span id="card-total-erros" class="text-xs font-black text-rose-600">--</span>
-                                </div>
+                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed"><span class="text-[10px] font-bold text-slate-600">Total Auditados</span><span id="card-total-auditados" class="text-xs font-black text-blue-600">--</span></div>
+                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed"><span class="text-[10px] font-bold text-slate-600">Total de Acertos</span><span id="card-total-acertos" class="text-xs font-black text-emerald-600">--</span></div>
+                                <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Total de Erros</span><span id="card-total-erros" class="text-xs font-black text-rose-600">--</span></div>
                             </div>
-
                             <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                                 <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">Detalhamento</h3>
-                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                    <span class="text-[10px] font-bold text-slate-600">Erros Gupy</span>
-                                    <span id="card-erros-gupy" class="text-xs font-black text-rose-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center py-1.5">
-                                    <span class="text-[10px] font-bold text-slate-600">Erros NDF</span>
-                                    <span id="card-erros-ndf" class="text-xs font-black text-amber-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center pl-2 mt-0.5">
-                                    <span class="text-[9px] font-bold text-amber-500/80 flex items-center gap-1">
-                                        <i class="fas fa-level-up-alt rotate-90 text-[8px]"></i> Empresa Valida
-                                    </span>
-                                    <span id="card-empresa-validar" class="text-[10px] font-bold text-amber-500">--</span>
-                                </div>
+                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed"><span class="text-[10px] font-bold text-slate-600">Erros Gupy</span><span id="card-erros-gupy" class="text-xs font-black text-rose-600">--</span></div>
+                                <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Erros NDF</span><span id="card-erros-ndf" class="text-xs font-black text-amber-600">--</span></div>
+                                <div class="flex justify-between items-center pl-2 mt-0.5"><span class="text-[9px] font-bold text-amber-500/80 flex items-center gap-1"><i class="fas fa-level-up-alt rotate-90 text-[8px]"></i> Empresa Valida</span><span id="card-empresa-validar" class="text-[10px] font-bold text-amber-500">--</span></div>
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <div class="w-full lg:w-2/3 flex flex-col h-full">
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden relative">
                         <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center z-10 relative">
-                            <div>
-                                <h3 class="font-bold text-slate-700 flex items-center gap-2">
-                                    <i class="fas fa-exclamation-triangle text-amber-500"></i> Feed de Atenção
-                                </h3>
-                                <p class="text-xs text-slate-500">Documentos reprovados (NOK).</p>
-                            </div>
+                            <div><h3 class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-exclamation-triangle text-amber-500"></i> Feed de Atenção</h3><p class="text-xs text-slate-500">Documentos reprovados (NOK).</p></div>
                             <div class="flex items-center gap-3">
-                                <div class="relative">
-                                    <input type="text" placeholder="Buscar..." onkeyup="MinhaArea.Comparativo.filtrarPorBusca(this.value)" class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-blue-500 w-40 transition">
-                                    <i class="fas fa-search absolute left-2.5 top-2 text-slate-400 text-xs"></i>
-                                </div>
-                                <button id="btn-limpar-filtro" onclick="MinhaArea.Comparativo.limparFiltro()" class="hidden px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition flex items-center gap-2">
-                                    <i class="fas fa-times text-rose-500"></i> Limpar
-                                </button>
+                                <div class="relative"><input type="text" placeholder="Buscar..." onkeyup="MinhaArea.Comparativo.filtrarPorBusca(this.value)" class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-blue-500 w-40 transition"><i class="fas fa-search absolute left-2.5 top-2 text-slate-400 text-xs"></i></div>
+                                <button id="btn-limpar-filtro" onclick="MinhaArea.Comparativo.limparFiltro()" class="hidden px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition flex items-center gap-2"><i class="fas fa-times text-rose-500"></i> Limpar</button>
                             </div>
                         </div>
-                        
-                        <div id="feed-erros-container" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50">
-                            <div class="text-center py-12 text-slate-400">
-                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Carregando feed de erros...
-                            </div>
-                        </div>
+                        <div id="feed-erros-container" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50"><div class="text-center py-12 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Carregando feed de erros...</div></div>
                     </div>
                 </div>
             </div>
@@ -412,6 +403,56 @@
         <div id="ma-tab-feedback" class="ma-view hidden animate-enter space-y-4">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center justify-center min-h-[400px]">
                 <div class="text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-50 text-purple-500 mb-4"><i class="fas fa-comments text-2xl"></i></div><h3 class="text-lg font-bold text-slate-700">Meus Feedbacks</h3><p class="text-sm text-slate-500 mt-2">Histórico de feedbacks recebidos da gestão e planos de ação.</p><div id="feedback-content" class="mt-8 w-full"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-comparativo-metas" class="fixed inset-0 z-[70] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div class="bg-white w-[95%] max-w-6xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                            <i class="fas fa-balance-scale text-blue-600"></i> Comparador de Performance
+                        </h3>
+                        <p class="text-xs text-slate-500">Gráficos de colunas para facilitar a comparação visual.</p>
+                    </div>
+                    <button onclick="MinhaArea.Metas.fecharModalComparativo()" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="border-t-4 border-blue-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
+                        <label class="text-[10px] font-bold text-blue-500 uppercase block mb-1">Slot 1</label>
+                        <select id="comp-sel-1" onchange="MinhaArea.Metas.atualizarComparativoManual()" class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-blue-500"></select>
+                    </div>
+                    <div class="border-t-4 border-emerald-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
+                        <label class="text-[10px] font-bold text-emerald-500 uppercase block mb-1">Slot 2</label>
+                        <select id="comp-sel-2" onchange="MinhaArea.Metas.atualizarComparativoManual()" class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-emerald-500"></select>
+                    </div>
+                    <div class="border-t-4 border-amber-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
+                        <label class="text-[10px] font-bold text-amber-500 uppercase block mb-1">Slot 3</label>
+                        <select id="comp-sel-3" onchange="MinhaArea.Metas.atualizarComparativoManual()" class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-amber-500"></select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-y-auto bg-slate-50/50">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[400px]">
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Validação</h4>
+                        <div class="flex-1 w-full min-h-0 relative">
+                            <canvas id="chart-comp-prod"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Assertividade</h4>
+                        <div class="flex-1 w-full min-h-0 relative">
+                            <canvas id="chart-comp-assert"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -462,6 +503,8 @@
     <style>
         #modal-obs-assistente.active { opacity: 1; pointer-events: auto; }
         #modal-obs-assistente.active > div { transform: scale(100%); }
+        #modal-comparativo-metas.active { opacity: 1; pointer-events: auto; }
+        #modal-comparativo-metas.active > div { transform: scale(100%); }
     </style>
 
     <script src="js/minha_area/main.js"></script>

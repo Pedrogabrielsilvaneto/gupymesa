@@ -1,309 +1,411 @@
 /* ARQUIVO: js/minha_area/geral.js
-   ATUALIZAÇÃO:
-   - Inclusão de "Nº Erros Auditados" no Card de Assertividade.
-   - Ajuste de UI para aceitar HTML nos cards (innerHTML).
-   - Manutenção das lógicas de Abono e Metas Recalculadas.
+   VERSÃO: V4.8 (Correção de Somas, Médias e Escopo de Funções)
+   DESCRIÇÃO: 
+     - Visão Micro (Mês/Semana): Média = (Total Produção / Dias Trabalhados).
+     - Visão Macro (Tri/Sem/Ano): Média = (Soma das Médias Mensais / Qtd de Meses).
+     - Correção do erro de referência na função renderizarGradeEquipe.
 */
+window.MinhaArea = window.MinhaArea || {};
 
 MinhaArea.Geral = {
-    obsEditando: { data: null, uid: null },
+    state: {
+        loading: false,
+        dadosProducao: [],
+        dadosAssertividadeDiaria: [], 
+        dadosMetas: [],
+        mapaUsuarios: {},
+        listaTabela: [], 
+        range: { inicio: null, fim: null },
+        headerOriginal: null,
+        editando: { uid: null, data: null },
+        isMacro: false
+    },
+
+    els: {
+        tabelaHeader: document.querySelector('#ma-tab-diario thead'),
+        tabela: document.getElementById('tabela-extrato'),
+        totalFooter: document.getElementById('total-registros-footer'),
+        
+        kpiVolume: document.getElementById('kpi-prod-real'),
+        kpiMetaVolume: document.getElementById('kpi-prod-meta'),
+        kpiVolumePct: document.getElementById('pct-prod'),
+        barVolume: document.getElementById('bar-prod'),
+        kpiAssertReal: document.getElementById('kpi-assert-real'),
+        kpiAssertTarget: document.getElementById('kpi-assert-meta'),
+        kpiAssertPct: document.getElementById('pct-assert'),
+        barAssert: document.getElementById('bar-assert'),
+        kpiDiasTrabalhados: document.getElementById('kpi-dias-trab'),
+        kpiDiasUteis: document.getElementById('kpi-dias-uteis'),
+        kpiDiasPct: document.getElementById('pct-dias'),
+        barDias: document.getElementById('bar-dias'),
+        kpiVelocReal: document.getElementById('kpi-dia-media'),
+        kpiVelocEsperada: document.getElementById('kpi-dia-meta'),
+        kpiVelocPct: document.getElementById('pct-dia'),
+        barVeloc: document.getElementById('bar-dia')
+    },
 
     carregar: async function() {
-        const rawUid = MinhaArea.getUsuarioAlvo();
-        const uid = rawUid ? parseInt(rawUid) : null;
-        const isGeral = (uid === null); 
-        const tbody = document.getElementById('tabela-extrato');
-        
-        // Proteção contra datas inválidas
-        const filtro = MinhaArea.getDatasFiltro();
-        if (!filtro || !filtro.inicio || !filtro.fim) return;
-        const { inicio, fim } = filtro;
-
-        if(tbody) {
-            tbody.innerHTML = '<tr><td colspan="11" class="text-center py-20 text-slate-400 bg-slate-50/50"><div class="flex flex-col items-center"><i class="fas fa-spinner fa-spin text-2xl text-blue-400 mb-2"></i><span>Carregando dados...</span></div></td></tr>';
+        if (!this.state.headerOriginal && this.els.tabelaHeader) {
+            this.state.headerOriginal = this.els.tabelaHeader.innerHTML;
         }
+
+        const filtro = MinhaArea.getDatasFiltro();
+        if (!filtro) return;
+
+        this.state.range = filtro;
+        
+        // Identifica se é visão macro (mais de 45 dias)
+        const d1 = new Date(filtro.inicio);
+        const d2 = new Date(filtro.fim);
+        this.state.isMacro = (d2 - d1) / (1000 * 60 * 60 * 24) > 45;
+
+        const uidAlvo = MinhaArea.getUsuarioAlvo();
+        this.renderLoading();
 
         try {
-            const dtInicio = new Date(inicio + 'T12:00:00');
-            const dtFim = new Date(fim + 'T12:00:00');
+            await this.buscarUsuarios();
 
-            // Queries
-            const qProd = Sistema.supabase.from('producao').select('*').gte('data_referencia', inicio).lte('data_referencia', fim);
-            const qMetas = Sistema.supabase.from('metas').select('*').gte('ano', dtInicio.getFullYear()).lte('ano', dtFim.getFullYear());
+            await Promise.all([
+                this.buscarProducao(filtro, uidAlvo),
+                this.buscarAssertividadeDiariaSQL(filtro, uidAlvo), 
+                this.buscarMetas(filtro, uidAlvo)
+            ]);
             
-            // ATUALIZAÇÃO: Buscando auditora_nome para filtrar erros auditados
-            const qAssert = Sistema.supabase.from('assertividade').select('qtd_ok, qtd_nok, usuario_id, data_referencia, auditora_nome').gte('data_referencia', inicio).lte('data_referencia', fim);
-
-            let dProd = [], dMetas = [], dAssert = [];
-
-            const promises = isGeral 
-                ? [qProd, qMetas, qAssert] 
-                : [qProd.eq('usuario_id', uid), qMetas.eq('usuario_id', uid), qAssert.eq('usuario_id', uid)];
-
-            const [p, m, a] = await Promise.all(promises);
-
-            if (p.error) throw new Error("Erro Prod: " + p.error.message);
-            if (m.error) throw new Error("Erro Metas: " + m.error.message);
+            this.processarDadosUnificados();
             
-            dProd = p.data || []; 
-            dMetas = m.data || []; 
-            dAssert = a.data || [];
-
-            // Processamento Metas
-            const mapMetas = {}; 
-            dMetas.forEach(meta => {
-                mapMetas[`${meta.ano}-${meta.mes}`] = {
-                    prod: meta.meta_producao || 100,
-                    assert: meta.meta_assertividade || 98
-                };
-            });
-
-            // Processamento Diário (Produção + Abono)
-            const mapDiario = new Map();
-            const diasProdutivos = new Set();
-            
-            dProd.forEach(prod => {
-                const d = prod.data_referencia;
-                if (!mapDiario.has(d)) mapDiario.set(d, { qtd: 0, fator: 0, c: 0, f: 0, gt: 0, gp: 0, j_g: '', j_a: '' });
-                const o = mapDiario.get(d);
-                
-                o.qtd += Number(prod.quantidade || 0);
-                o.fator += (prod.fator !== null) ? Number(prod.fator) : 1.0;
-                o.c++;
-                
-                if (prod.quantidade > 0) diasProdutivos.add(d);
-                
-                o.j_g = (prod.justificativa || prod.justificativa_abono || '').trim();
-                o.j_a = (prod.observacao_assistente || '').trim();
-                o.f = prod.fifo || 0; 
-                o.gt = prod.gradual_total || 0; 
-                o.gp = prod.gradual_parcial || 0;
-            });
-
-            const listaGrid = [];
-            const defaultMetaProd = 100;
-            
-            let totalProduzido = 0;
-            let totalMetaAcumulada = 0; 
-            let totalDiasAbonados = 0; 
-
-            for (let d = new Date(dtInicio); d <= dtFim; d.setDate(d.getDate() + 1)) {
-                if (d.getDay() === 0 || d.getDay() === 6) continue;
-                
-                const dStr = d.toISOString().split('T')[0];
-                const keyMeta = `${d.getFullYear()}-${d.getMonth() + 1}`;
-                const metaObj = mapMetas[keyMeta];
-                const metaBase = metaObj ? metaObj.prod : defaultMetaProd;
-                const metaAssertMes = metaObj ? metaObj.assert : 98;
-
-                const info = mapDiario.get(dStr);
-                const qtdDia = info ? info.qtd : 0;
-                const fatorDia = info ? (info.fator / info.c) : 1.0;
-                
-                const metaAjustada = Math.round(metaBase * fatorDia);
-                totalProduzido += qtdDia;
-                totalMetaAcumulada += metaAjustada;
-
-                const fatorSeguro = Math.max(0, Math.min(1, fatorDia));
-                const abonoDia = 1.0 - fatorSeguro;
-                totalDiasAbonados += abonoDia;
-
-                if (info || !isGeral) {
-                    listaGrid.push({ 
-                        data: dStr, fator: fatorDia, qtd: qtdDia, meta: metaAjustada, metaAssert: metaAssertMes,
-                        j_g: info?.j_g || '', j_a: info?.j_a || '', 
-                        f: info?.f || 0, gt: info?.gt || 0, gp: info?.gp || 0 
-                    });
-                }
+            if (uidAlvo) {
+                this.renderizarDiario(uidAlvo);
+            } else {
+                this.calcularKpisGlobal();
+                this.renderizarGradeEquipe();
             }
 
-            // --- ATUALIZAÇÃO DOS CARDS (KPIS) ---
-
-            // CARD 1: PRODUTIVIDADE
-            const pctProd = totalMetaAcumulada > 0 ? (totalProduzido / totalMetaAcumulada) * 100 : 0;
-            this.atualizarCard('kpi-prod-real', 'kpi-prod-meta', 'bar-prod', 'pct-prod', totalProduzido, totalMetaAcumulada, pctProd);
-
-            // CARD 2: DIAS PRODUTIVOS
-            const numDiasUteisCalendar = this.calcUteis(inicio, fim);
-            const numDiasUteisEfetivos = Math.max(0, numDiasUteisCalendar - Math.round(totalDiasAbonados * 10) / 10);
-            const numDiasTrab = diasProdutivos.size;
-            const pctDias = numDiasUteisEfetivos > 0 ? (numDiasTrab / numDiasUteisEfetivos) * 100 : 0;
-            this.atualizarCard('kpi-dias-trab', 'kpi-dias-uteis', 'bar-dias', 'pct-dias', numDiasTrab, numDiasUteisEfetivos, pctDias);
-
-            // CARD 3: PRODUÇÃO DIÁRIA
-            const refMetaKey = `${dtFim.getFullYear()}-${dtFim.getMonth()+1}`;
-            const metaMensalRef = (mapMetas[refMetaKey] ? mapMetas[refMetaKey].prod : defaultMetaProd);
-            const mediaReal = numDiasTrab > 0 ? Math.round(totalProduzido / numDiasTrab) : 0;
-            const pctDia = metaMensalRef > 0 ? (mediaReal / metaMensalRef) * 100 : 0;
-            this.atualizarCard('kpi-dia-media', 'kpi-dia-meta', 'bar-dia', 'pct-dia', mediaReal, metaMensalRef, pctDia);
-
-            // CARD 4: ASSERTIVIDADE (Atualizado com Erros Auditados)
-            let totalOk = 0, totalNok = 0, errosAuditados = 0;
-            
-            dAssert.forEach(i => { 
-                totalOk += (i.qtd_ok || 0); 
-                totalNok += (i.qtd_nok || 0);
-                
-                // Só conta como erro auditado se tiver nome da auditora
-                if (i.auditora_nome && i.auditora_nome.trim() !== '') {
-                    errosAuditados += (i.qtd_nok || 0);
-                }
-            });
-            
-            const totalDocs = totalOk + totalNok;
-            const assertReal = totalDocs > 0 ? (totalOk / totalDocs) * 100 : 100;
-            const metaAssertRef = (mapMetas[refMetaKey] ? mapMetas[refMetaKey].assert : 98);
-            const pctAssertKpi = metaAssertRef > 0 ? (assertReal / metaAssertRef) * 100 : 100;
-            
-            // Constrói HTML para mostrar: "98% (3 Erros)"
-            const htmlMetaAssert = `${metaAssertRef}% <span class="text-rose-500 text-[10px] ml-1 font-bold whitespace-nowrap" title="Erros validados por auditoria">(${errosAuditados} Erros)</span>`;
-
-            this.atualizarCard('kpi-assert-real', 'kpi-assert-meta', 'bar-assert', 'pct-assert', 
-                assertReal.toFixed(2) + '%', 
-                htmlMetaAssert, // Passa HTML aqui
-                pctAssertKpi
-            );
-
-            // --- RENDERIZAÇÃO TABELA ---
-            if(tbody) {
-                tbody.innerHTML = '';
-                if (document.getElementById('total-registros-footer')) document.getElementById('total-registros-footer').innerText = listaGrid.length;
-
-                if (listaGrid.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-slate-400 text-xs">Sem registros.</td></tr>';
-                } else {
-                    listaGrid.sort((a,b) => b.data.localeCompare(a.data)).forEach(i => {
-                        const p = i.meta > 0 ? (i.qtd / i.meta) * 100 : 100;
-                        const dBr = i.data.split('-').reverse().join('/');
-                        const assertDia = (i.fator * 100); 
-                        
-                        let obsHtml = '';
-                        if (i.j_g) obsHtml += `<div class="text-[10px] text-blue-600 font-bold mb-1 truncate" title="${i.j_g}"><i class="fas fa-user-tie mr-1"></i>${i.j_g}</div>`;
-                        if (i.j_a) obsHtml += `<div class="text-[10px] text-slate-500 italic truncate" title="${i.j_a}"><i class="fas fa-comment-dots mr-1"></i>${i.j_a}</div>`;
-                        
-                        const metaStyle = (i.fator < 1.0) ? 'text-amber-600 font-black' : 'text-slate-400 font-bold';
-                        const fatorStyle = (i.fator < 1.0) ? 'text-amber-600 font-bold bg-amber-50 rounded px-1' : 'text-slate-500';
-
-                        tbody.innerHTML += `
-                        <tr class="hover:bg-blue-50/50 border-b border-slate-200 text-xs cursor-pointer transition-colors group" onclick="MinhaArea.Geral.abrirModalObs('${i.data}', '${i.j_g.replace(/'/g, "\\'")}', '${i.j_a.replace(/'/g, "\\'")}')">
-                            <td class="px-3 py-2 font-bold bg-slate-50/30 text-slate-600 group-hover:text-blue-600">${dBr}</td>
-                            <td class="px-2 py-2 text-center"><span class="${fatorStyle}">${i.fator.toFixed(2)}</span></td>
-                            <td class="px-2 py-2 text-center text-slate-400">${i.f}</td>
-                            <td class="px-2 py-2 text-center text-slate-400">${i.gt}</td>
-                            <td class="px-2 py-2 text-center text-slate-400">${i.gp}</td>
-                            <td class="px-2 py-2 text-center font-black text-blue-700">${i.qtd}</td>
-                            <td class="px-2 py-2 text-center ${metaStyle}">${i.meta}</td>
-                            <td class="px-2 py-2 text-center font-bold ${p >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${p.toFixed(0)}%</td>
-                            <td class="px-2 py-2 text-center text-slate-400 font-bold">${i.metaAssert}%</td>
-                            <td class="px-2 py-2 text-center font-bold ${assertDia >= i.metaAssert ? 'text-emerald-600' : 'text-rose-600'}">${assertDia.toFixed(2)}%</td>
-                            <td class="px-3 py-2 min-w-[200px] border-l border-slate-100 relative group-hover:bg-blue-50/30">
-                                ${obsHtml || '<span class="text-slate-300 opacity-50 text-[10px]">Clique para adicionar...</span>'}
-                                <i class="fas fa-pen absolute right-2 top-1/2 -translate-y-1/2 text-blue-300 opacity-0 group-hover:opacity-100 transition"></i>
-                            </td>
-                        </tr>`;
-                    });
-                }
+        } catch (error) {
+            console.error("Erro MA Geral:", error);
+            if (this.els.tabela) {
+                this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-4 text-rose-500">Erro: ${error.message}</td></tr>`;
             }
-
-        } catch (e) { 
-            console.error(e);
-            if(tbody) tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-rose-500 text-xs">Erro: ${e.message}</td></tr>`;
         }
     },
 
-    atualizarCard: function(idVal, idMeta, idBar, idPct, val, meta, pct) {
-        const elVal = document.getElementById(idVal);
-        const elMeta = document.getElementById(idMeta);
-        const elBar = document.getElementById(idBar);
-        const elPct = document.getElementById(idPct);
-        const safePct = isNaN(pct) ? 0 : pct;
-
-        // ATUALIZAÇÃO: Uso de innerHTML para permitir ícones/cores
-        if(elVal) elVal.innerHTML = (typeof val === 'number') ? val.toLocaleString('pt-BR') : val;
-        if(elMeta) elMeta.innerHTML = (typeof meta === 'number') ? meta.toLocaleString('pt-BR') : meta;
-        
-        if(elBar) elBar.style.width = Math.min(Math.max(safePct, 0), 100) + '%';
-        if(elPct) {
-            elPct.innerText = safePct.toFixed(1) + '%';
-            elPct.className = 'font-black ' + (safePct >= 100 ? 'text-emerald-600' : (safePct >= 80 ? 'text-blue-600' : 'text-rose-600'));
-        }
+    buscarUsuarios: async function() {
+        if (Object.keys(this.state.mapaUsuarios).length > 0) return;
+        const { data } = await Sistema.supabase.from('usuarios').select('id, nome, perfil, funcao, ativo');
+        if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
     },
 
-    abrirModalObs: function(data, gestao, assistente) {
-        const uidAlvo = MinhaArea.getUsuarioAlvo();
-        if (!uidAlvo) return; 
+    buscarProducao: async function(range, uid) {
+        let query = Sistema.supabase.from('producao').select('*').gte('data_referencia', range.inicio).lte('data_referencia', range.fim);
+        if (uid) query = query.eq('usuario_id', uid);
+        const { data, error } = await query;
+        if (error) throw new Error("Erro Prod: " + error.message);
+        this.state.dadosProducao = data || [];
+    },
 
-        this.obsEditando = { data, uid: parseInt(uidAlvo) };
-        const elData = document.getElementById('obs-data-ref');
-        const elView = document.getElementById('obs-gestao-view');
-        const elText = document.getElementById('obs-assistente-text');
-        const modal = document.getElementById('modal-obs-assistente');
+    buscarAssertividadeDiariaSQL: async function(range, uid) {
+        const { data, error } = await Sistema.supabase.rpc('rpc_kpi_assertividade_diaria', { p_inicio: range.inicio, p_fim: range.fim });
+        if (error) { this.state.dadosAssertividadeDiaria = []; return; }
+        let res = data || [];
+        if (uid) res = res.filter(d => String(d.usuario_id) === String(uid));
+        this.state.dadosAssertividadeDiaria = res;
+    },
+
+    buscarMetas: async function(range, uid) {
+        if (!range.inicio) return;
+        const partes = range.inicio.split('-'); 
+        let query = Sistema.supabase.from('metas').select('*').gte('ano', parseInt(partes[0])).lte('ano', new Date(range.fim).getFullYear());
+        if (uid) query = query.eq('usuario_id', uid);
+        const { data } = await query;
+        this.state.dadosMetas = data || [];
+    },
+
+    processarDadosUnificados: function() {
+        const mapa = new Map();
+        const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
+        this.state.dadosProducao.forEach(p => {
+            const uid = parseInt(p.usuario_id);
+            const chave = String(uid);
+            if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid);
+            const item = mapa.get(chave);
+            
+            const fator = p.fator !== null ? Number(p.fator) : 1.0;
+            const dataRef = new Date(p.data_referencia + 'T12:00:00');
+            const mesChave = `${dataRef.getFullYear()}-${dataRef.getMonth() + 1}`;
+
+            item.producao += Number(p.quantidade) || 0;
+            item.soma_fator += fator;
+            item.soma_abono += (1.0 - fator);
+            
+            if (!item.meses[mesChave]) item.meses[mesChave] = { prod: 0, dias: 0 };
+            item.meses[mesChave].prod += Number(p.quantidade) || 0;
+            item.meses[mesChave].dias += fator;
+        });
+
+        this.state.dadosAssertividadeDiaria.forEach(a => {
+            const uid = parseInt(a.usuario_id);
+            const chave = String(uid);
+            if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid);
+            const item = mapa.get(chave);
+            const qtd = Number(a.qtd_auditorias || 0);
+            if (qtd > 0) { 
+                item.qtd_assert += qtd; 
+                item.soma_notas_bruta += (Number(a.media_assertividade) * qtd); 
+            }
+        });
+
+        for (const item of mapa.values()) {
+            item.media_final = item.qtd_assert > 0 ? item.soma_notas_bruta / item.qtd_assert : null;
+            
+            if (this.state.isMacro) {
+                let somaMedias = 0;
+                let somaMetas = 0;
+                let qtdMeses = 0;
+
+                Object.keys(item.meses).forEach(mKey => {
+                    const m = item.meses[mKey];
+                    const [ano, mes] = mKey.split('-');
+                    const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mes && mt.ano == ano);
+                    const metaBase = metaObj ? (metaObj.meta_producao || 100) : 100;
+
+                    if (m.dias > 0) {
+                        somaMedias += (m.prod / m.dias);
+                        somaMetas += metaBase;
+                        qtdMeses++;
+                    }
+                });
+
+                item.velocidade_acumulada = qtdMeses > 0 ? Math.round(somaMedias / qtdMeses) : 0;
+                item.meta_velocidade_media = qtdMeses > 0 ? Math.round(somaMetas / qtdMeses) : 100;
+            } else {
+                item.velocidade_acumulada = item.soma_fator > 0 ? Math.round(item.producao / item.soma_fator) : 0;
+                const metaObj = this.state.dadosMetas[0];
+                item.meta_velocidade_media = metaObj ? (metaObj.meta_producao || 100) : 100;
+            }
+
+            const diasUteisLiquidos = Math.max(0, diasUteisPeriodo - item.soma_abono);
+            item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
+            item.dias_uteis_liquidos = diasUteisLiquidos;
+        }
+
+        this.state.listaTabela = Array.from(mapa.values()).sort((a,b) => a.nome.localeCompare(b.nome));
+    },
+
+    iniciarItemMapa: function(mapa, chave, uid) {
+        const u = this.state.mapaUsuarios[uid];
+        mapa.set(chave, {
+            uid: uid, nome: u ? u.nome : `ID: ${uid}`,
+            producao: 0, soma_fator: 0, soma_abono: 0,
+            qtd_assert: 0, soma_notas_bruta: 0, media_final: null,
+            meses: {}, velocidade_acumulada: 0, meta_velocidade_media: 100,
+            meta_total_periodo: 0, dias_uteis_liquidos: 0, meta_assert: 97
+        });
+    },
+
+    renderizarDiario: function(uid) {
+        if (this.state.headerOriginal && this.els.tabelaHeader) {
+            this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
+        }
         
-        if (!modal || !elText) {
-            alert("ERRO VISUAL: Modal não encontrado.");
+        const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
+        if (item) {
+            this.atualizarCardsKPI({
+                prod: { real: item.producao, meta: item.meta_total_periodo },
+                assert: { real: item.media_final || 0, meta: item.meta_assert },
+                capacidade: { diasReal: item.soma_fator, diasTotal: item.dias_uteis_liquidos },
+                velocidade: { real: item.velocidade_acumulada, meta: item.meta_velocidade_media }
+            });
+        }
+
+        const dadosFiltrados = this.state.dadosProducao
+            .filter(d => String(d.usuario_id) === String(uid))
+            .sort((a,b) => a.data_referencia.localeCompare(b.data_referencia));
+
+        if (this.els.totalFooter) this.els.totalFooter.textContent = dadosFiltrados.length;
+
+        if (dadosFiltrados.length === 0) {
+            this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-400">Nenhum registro encontrado.</td></tr>`;
             return;
         }
 
-        if(elData) elData.innerText = data.split('-').reverse().join('/');
-        
-        if(elView) {
-            if (gestao && gestao !== 'undefined' && gestao.trim() !== '') {
-                elView.innerHTML = `<span class="text-blue-700 font-semibold">${gestao}</span>`;
-            } else {
-                elView.innerHTML = '<span class="text-slate-400 font-normal">Nenhuma observação da gestão.</span>';
-            }
-        }
+        const assertMap = {};
+        this.state.dadosAssertividadeDiaria.forEach(a => assertMap[a.data_referencia] = a);
 
-        if(elText) elText.value = (assistente && assistente !== 'undefined') ? assistente : '';
-        
-        modal.classList.remove('hidden');
-        setTimeout(() => modal.classList.add('active'), 10);
+        this.els.tabela.innerHTML = dadosFiltrados.map(d => {
+            const fator = d.fator !== null ? Number(d.fator) : 1.0;
+            const metaBase = item ? item.meta_velocidade_media : 100;
+            const metaDia = Math.round(metaBase * fator);
+            const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
+            const assertDia = assertMap[d.data_referencia];
+            
+            let assertHtml = '<span class="text-slate-300">-</span>';
+            if (assertDia && assertDia.qtd_auditorias > 0) {
+                const cor = assertDia.media_assertividade >= (item?.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
+                assertHtml = `<span class="${cor} font-bold">${Number(assertDia.media_assertividade).toFixed(2)}%</span>`;
+            }
+
+            return `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs">
+                    <td class="px-3 py-2 font-bold text-slate-700">${new Date(d.data_referencia + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                    <td class="px-2 py-2 text-center text-slate-500">${fator.toFixed(2)}</td>
+                    <td class="px-2 py-2 text-center text-slate-400">${d.fifo || 0}</td>
+                    <td class="px-2 py-2 text-center text-slate-400">${d.gradual_total || 0}</td>
+                    <td class="px-2 py-2 text-center text-slate-400">${d.gradual_parcial || 0}</td>
+                    <td class="px-2 py-2 text-center font-black text-blue-600">${d.quantidade || 0}</td>
+                    <td class="px-2 py-2 text-center text-slate-500">${metaDia}</td>
+                    <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
+                    <td class="px-2 py-2 text-center text-slate-400">${item?.meta_assert || 97}%</td>
+                    <td class="px-2 py-2 text-center">${assertHtml}</td>
+                    <td class="px-3 py-2 cursor-pointer group" onclick="MinhaArea.Geral.abrirModalObs('${d.usuario_id}', '${d.data_referencia}')">
+                        <span class="text-slate-400 group-hover:text-blue-600"><i class="far fa-edit"></i></span>
+                    </td>
+                </tr>`;
+        }).join('');
     },
 
-    fecharModalObs: function() { 
+    renderizarGradeEquipe: function() {
+        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Meta</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Real</th><th class="px-2 py-3 text-center bg-slate-50">Meta Ajust.</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assert.</th></tr>`;
+        if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = headerGrade;
+        
+        const listaAssistentes = this.state.listaTabela.filter(row => !this.ehGestao(row.uid));
+        if (this.els.totalFooter) this.els.totalFooter.textContent = listaAssistentes.length;
+
+        this.els.tabela.innerHTML = listaAssistentes.map(row => {
+            const pct = row.meta_total_periodo > 0 ? Math.round((row.producao / row.meta_total_periodo) * 100) : 0;
+            let assertHtml = '<span class="text-slate-300">-</span>';
+            if (row.media_final !== null) {
+                const cor = row.media_final >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
+                assertHtml = `<span class="${cor} font-bold">${row.media_final.toFixed(2)}%</span>`;
+            }
+            return `
+                <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
+                    <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
+                    <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
+                    <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
+                    <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
+                    <td class="px-2 py-3 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
+                    <td class="px-2 py-3 text-center">${assertHtml}</td>
+                </tr>`;
+        }).join('');
+    },
+
+    calcularKpisGlobal: function() {
+        let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
+        let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
+
+        this.state.listaTabela.forEach(i => {
+            if (this.ehGestao(i.uid)) return;
+            totalProd += i.producao;
+            totalMeta += i.meta_total_periodo;
+            totalFator += i.soma_fator;
+            totalUteis += i.dias_uteis_liquidos;
+
+            if (i.producao > 0) {
+                somaMediasEquipe += i.velocidade_acumulada;
+                somaMetasEquipe += i.meta_velocidade_media;
+                countUsers++;
+            }
+            if (i.qtd_assert > 0) {
+                somaAssertGlobal += i.soma_notas_bruta;
+                totalDocs += i.qtd_assert;
+            }
+        });
+
+        this.atualizarCardsKPI({
+            prod: { real: totalProd, meta: totalMeta },
+            assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
+            capacidade: { diasReal: totalFator, diasTotal: totalUteis },
+            velocidade: { 
+                real: countUsers > 0 ? Math.round(somaMediasEquipe / countUsers) : 0, 
+                meta: countUsers > 0 ? Math.round(somaMetasEquipe / countUsers) : 100 
+            }
+        });
+    },
+
+    atualizarCardsKPI: function(kpi) {
+        const setVal = (id, val, isPct) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = isPct ? val.toFixed(2) + '%' : Math.round(val).toLocaleString('pt-BR');
+        };
+        const setBar = (idBar, idPct, real, meta) => {
+            const bar = document.getElementById(idBar);
+            const pctText = document.getElementById(idPct);
+            const calculo = meta > 0 ? Math.round((real / meta) * 100) : 0;
+            if (bar) bar.style.width = Math.min(calculo, 100) + '%';
+            if (pctText) pctText.textContent = calculo + '%';
+        };
+
+        setVal('kpi-prod-real', kpi.prod.real);
+        setVal('kpi-prod-meta', kpi.prod.meta);
+        setBar('bar-prod', 'pct-prod', kpi.prod.real, kpi.prod.meta);
+
+        setVal('kpi-assert-real', kpi.assert.real, true);
+        setVal('kpi-assert-meta', kpi.assert.meta, true);
+        setBar('bar-assert', 'pct-assert', kpi.assert.real, kpi.assert.meta);
+
+        setVal('kpi-dias-trab', kpi.capacidade.diasReal);
+        setVal('kpi-dias-uteis', kpi.capacidade.diasTotal);
+        setBar('bar-dias', 'pct-dias', kpi.capacidade.diasReal, kpi.capacidade.diasTotal);
+
+        setVal('kpi-dia-media', kpi.velocidade.real);
+        setVal('kpi-dia-meta', kpi.velocidade.meta);
+        setBar('bar-dia', 'pct-dia', kpi.velocidade.real, kpi.velocidade.meta);
+    },
+
+    contarDiasUteis: function(i, f) { 
+        let c = 0, cur = new Date(i+'T12:00:00'), end = new Date(f+'T12:00:00'); 
+        while(cur <= end) { if(cur.getDay() !== 0 && cur.getDay() !== 6) c++; cur.setDate(cur.getDate() + 1); } 
+        return c || 1; 
+    },
+
+    ehGestao: function(uid) {
+        const u = this.state.mapaUsuarios[uid];
+        if (!u) return false;
+        const p = (u.perfil || '').toUpperCase();
+        return ['ADMIN', 'GESTOR', 'AUDITOR', 'COORDENADOR', 'LIDER'].some(t => p.includes(t));
+    },
+
+    renderLoading: function() { if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-600"></i></td></tr>`; },
+
+    abrirModalObs: function(uid, dataRef) {
+        const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia === dataRef);
+        this.state.editando = { uid: uid, data: dataRef };
+        const elData = document.getElementById('obs-data-ref');
+        const elGestao = document.getElementById('obs-gestao-view');
+        const elAssistente = document.getElementById('obs-assistente-text');
         const modal = document.getElementById('modal-obs-assistente');
-        if(modal) {
-            modal.classList.remove('active');
-            setTimeout(() => modal.classList.add('hidden'), 300);
+        if(elData) elData.innerText = new Date(dataRef + 'T12:00:00').toLocaleDateString('pt-BR');
+        const justGestao = dadoDia ? dadoDia.justificativa : '';
+        const fator = dadoDia ? parseFloat(dadoDia.fator) : 1.0;
+        let htmlGestao = '<span class="text-slate-400 italic text-xs">Nenhuma observação da gestão.</span>';
+        if (justGestao) {
+            htmlGestao = `<span class="text-slate-700 font-medium">${justGestao}</span>`;
+            if (fator < 1.0) htmlGestao += `<div class="mt-1"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">Dia Abonado (Fator ${fator})</span></div>`;
         }
+        if(elGestao) elGestao.innerHTML = htmlGestao;
+        if(elAssistente) elAssistente.value = (dadoDia ? dadoDia.observacao_assistente : '') || '';
+        if(modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
+    },
+
+    fecharModalObs: function() {
+        const modal = document.getElementById('modal-obs-assistente');
+        if(modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
     },
 
     salvarObsAssistente: async function() {
-        const txt = document.getElementById('obs-assistente-text').value.trim();
-        const { data, uid } = this.obsEditando;
-        
-        const btnSalvar = document.getElementById('btn-salvar-obs');
-        if(btnSalvar) btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-
+        const { uid, data } = this.state.editando;
+        const texto = document.getElementById('obs-assistente-text').value;
+        const btn = document.getElementById('btn-salvar-obs');
+        if(!uid || !data) return;
+        const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; btn.disabled = true;
         try {
-            const { data: reg, error: errSelect } = await Sistema.supabase.from('producao').select('id').eq('usuario_id', uid).eq('data_referencia', data).maybeSingle();
-            if (errSelect) throw errSelect;
-
-            if (reg) {
-                const { error } = await Sistema.supabase.from('producao').update({ observacao_assistente: txt }).eq('id', reg.id);
-                if(error) throw error;
-            } else {
-                const { error } = await Sistema.supabase.from('producao').insert({ usuario_id: uid, data_referencia: data, quantidade: 0, fator: 1.0, observacao_assistente: txt });
-                if(error) throw error;
-            }
-            
-            this.fecharModalObs();
-            this.carregar();
-            
-            if(btnSalvar) btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar';
-
-        } catch (e) { 
-            console.error(e);
-            alert("Erro ao salvar: " + e.message);
-            if(btnSalvar) btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar';
-        }
-    },
-
-    calcUteis: function(i, f) {
-        try {
-            let c = 0, cur = new Date(i+'T12:00:00'), end = new Date(f+'T12:00:00');
-            while(cur<=end) { if(cur.getDay()!==0 && cur.getDay()!==6) c++; cur.setDate(cur.getDate()+1); }
-            return c;
-        } catch(e) { return 0; }
+            const { data: existente } = await Sistema.supabase.from('producao').select('*').eq('usuario_id', uid).eq('data_referencia', data).maybeSingle();
+            const payload = existente ? { ...existente } : { usuario_id: uid, data_referencia: data, quantidade: 0, fator: 1.0 };
+            payload.observacao_assistente = texto;
+            if (!existente) delete payload.id;
+            const { error } = await Sistema.supabase.from('producao').upsert(payload, { onConflict: 'usuario_id, data_referencia' });
+            if (error) throw error;
+            this.fecharModalObs(); this.carregar(); 
+        } catch (e) { console.error(e); alert("Erro ao salvar observação: " + e.message); } finally { btn.innerHTML = originalText; btn.disabled = false; }
     }
 };

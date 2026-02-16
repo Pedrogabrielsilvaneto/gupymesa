@@ -3,55 +3,52 @@ window.Produtividade = window.Produtividade || {};
 
 Produtividade.Assertividade = {
     init: function() {
-        console.log("🛡️ Módulo de Assertividade Iniciado");
+        console.log("🛡️ Módulo de Assertividade (Produtividade) Iniciado");
     },
 
     /**
-     * Renderiza a célula da tabela com a Nota Média e a Quantidade de Auditorias.
-     * @param {Object} auditoria - Objeto { qtd: 10, soma: 980 }
-     * @param {Number} metaAlvo - Meta de assertividade (ex: 98.00)
+     * Renderiza a célula usando a inteligência central do Sistema.
+     * @param {Object} dadosPreCalculados - Opcional. Se vier nulo, calcula na hora.
+     * Espera-se: { soma: number, qtd: number }
      */
-    renderizarCelula: function(auditoria, metaAlvo) {
-        // Garante que os números sejam números
-        const qtd = Number(auditoria?.qtd || 0);
-        const soma = Number(auditoria?.soma || 0);
-        const meta = Number(metaAlvo || 98);
-
-        // 1. Se não tem auditoria, mostra traço discreto
+    renderizarCelula: function(auditoriaData, metaAlvo) {
+        // Usa a Central para garantir consistência visual e matemática
+        const qtd = Number(auditoriaData?.qtd || 0);
+        const soma = Number(auditoriaData?.soma || 0);
+        
+        // Se não houver dados
         if (qtd === 0) {
             return '<div class="text-center text-slate-300 font-mono text-xs">-</div>';
         }
 
-        // 2. Cálculo da Média
-        const media = soma / qtd;
-        const atingiu = media >= meta;
-
-        // 3. Definição de Cores e Ícones
-        // Agora usamos o padrão visual definido no Sistema.Assertividade.config se quisermos ser estritos,
-        // mas aqui mantemos o visual de "Pill" específico da tabela de produtividade.
+        // Delega o cálculo matemático para a Central
+        const media = Sistema.Assertividade.calcularMedia(soma, qtd);
         
-        const corTexto = atingiu ? 'text-emerald-700' : 'text-rose-700';
-        const bgCor = atingiu ? 'bg-emerald-50' : 'bg-rose-50';
-        const borda = atingiu ? 'border-emerald-100' : 'border-rose-100';
-        const icone = atingiu ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-circle"></i>';
+        // Delega a decisão visual (cores/ícones) para a Central
+        const visual = Sistema.Assertividade.obterStatusVisual(media, metaAlvo);
+        const textoFormatado = Sistema.Assertividade.formatarPorcentagem(media);
 
-        // 4. Retorno do HTML (Visual Card Compacto)
+        // Renderiza HTML específico desta view (Card Compacto)
+        // Nota: Usamos as classes retornadas pelo sistema (visual.class) ou aplicamos classes customizadas mantendo a lógica de cor
+        
+        // Mapeando as cores do sistema para o layout específico de Produtividade (se quiser manter o layout de "pill")
+        // Mas o ideal é usar as cores vindas do visual.color para bordas/texto.
+        
         return `
-            <div class="flex flex-col items-center justify-center py-1 px-2 rounded-lg ${bgCor} border ${borda} transition group cursor-help w-full" 
-                 title="Média: ${media.toFixed(2)}% | Meta: ${meta}% | Total: ${qtd} Auditorias">
+            <div class="flex flex-col items-center justify-center py-1 px-2 rounded-lg ${visual.class} transition group cursor-help w-full" 
+                 title="Média: ${textoFormatado} | Meta: ${metaAlvo || Sistema.Assertividade.config.metaPadrao}% | Total: ${qtd} Docs">
                 
-                <div class="flex items-center gap-1.5 ${corTexto} font-bold text-xs">
-                    ${icone}
-                    <span>${media.toFixed(2)}%</span>
+                <div class="flex items-center gap-1.5 font-bold text-xs">
+                    ${visual.icon}
+                    <span>${textoFormatado}</span>
                 </div>
                 
-                <span class="text-[9px] text-slate-400 font-semibold uppercase tracking-wide group-hover:text-slate-600 transition-colors mt-0.5">
-                    ${qtd} ${qtd === 1 ? 'Aud' : 'Auds'}
+                <span class="text-[9px] opacity-70 font-semibold uppercase tracking-wide mt-0.5">
+                    ${qtd} ${qtd === 1 ? 'Doc' : 'Docs'}
                 </span>
             </div>
         `;
     }
 };
 
-// Inicializa
 Produtividade.Assertividade.init();

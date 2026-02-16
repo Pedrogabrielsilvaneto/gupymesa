@@ -1,4 +1,5 @@
 /* ARQUIVO: js/minha_area/comparativo.js
+   VERSÃO: V2.1 (ID PPC no Feed)
    DESCRIÇÃO: Engine de Assertividade (Layout: 2 Cards na Lateral)
 */
 
@@ -18,7 +19,7 @@ const FRIENDLY_NAMES_MAP = {
 MinhaArea.Comparativo = {
     chartOfensores: null,
     dadosBrutosCache: [], 
-    listaErrosCache: [], // Cache específico apenas para os erros (Feed/Gráfico)
+    listaErrosCache: [], 
     visaoAtual: 'doc', 
     mostrarTodos: false,
 
@@ -30,59 +31,52 @@ MinhaArea.Comparativo = {
         if (!uid && typeof MinhaArea.isAdmin === 'function' && !MinhaArea.isAdmin()) return;
 
         const { inicio, fim } = MinhaArea.getDatasFiltro();
-        
         const containerFeed = document.getElementById('feed-erros-container');
         
-        // --- SELETORES DOS CARDS ---
+        // SELETORES DOS CARDS
         const elTotalAuditados = document.getElementById('card-total-auditados');
         const elTotalAcertos = document.getElementById('card-total-acertos');
         const elTotalErros = document.getElementById('card-total-erros');
-
         const elErrosGupy = document.getElementById('card-erros-gupy'); 
         const elErrosNdf = document.getElementById('card-erros-ndf'); 
         const elEmpresaValidar = document.getElementById('card-empresa-validar'); 
-
         const btnLimpar = document.getElementById('btn-limpar-filtro');
         
         if(btnLimpar) btnLimpar.classList.add('hidden');
         if(containerFeed) containerFeed.innerHTML = '<div class="text-center py-12 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Analisando auditorias...</div>';
 
         try {
-            // 1. BUSCA PARALELA OTIMIZADA
+            // 1. BUSCA DADOS
             const dados = await this.buscarTudoPaginado(uid, inicio, fim);
             this.dadosBrutosCache = dados;
 
             console.log(`📦 Base Total: ${dados.length} registros auditados.`);
 
-            // --- REGRAS DE NEGÓCIO ---
-            let countTotalAuditados = 0; // Universo Total
-            let countErrosGupy = 0;      // < 100% e não é NDF
-            let countErrosNdf = 0;       // < 100% e é NDF (Soma total, incluindo empresa valida)
-            let countNdfEmpresa = 0;     // Apenas 'DOC_NDF_OUTROS' (para detalhamento)
+            // 2. REGRAS DE NEGÓCIO
+            let countTotalAuditados = 0; 
+            let countErrosGupy = 0;      
+            let countErrosNdf = 0;       
+            let countNdfEmpresa = 0;     
 
-            const listaErros = []; // Apenas para o Feed e Gráfico
+            const listaErros = []; 
 
             for (let i = 0; i < dados.length; i++) {
                 const d = dados[i];
-                
-                // Regra 1: Deve ter auditora
                 if (!d.auditora_nome || d.auditora_nome.trim() === '') continue;
 
-                // Incrementa o universo total
                 countTotalAuditados++;
 
-                // Regra 2: É erro? (Qtd NOK > 0)
                 const isErro = (d.qtd_nok && Number(d.qtd_nok) > 0);
 
                 if (isErro) {
-                    listaErros.push(d); // Adiciona na lista visual
+                    listaErros.push(d); 
 
                     const tipoDocUpper = (d.tipo_documento || '').toUpperCase();
                     const isNdf = tipoDocUpper.startsWith('DOC_NDF_');
 
                     if (isNdf) {
-                        countErrosNdf++; // Soma no total de NDF
-                        if (tipoDocUpper === 'DOC_NDF_OUTROS') countNdfEmpresa++; // Contabiliza específico
+                        countErrosNdf++; 
+                        if (tipoDocUpper === 'DOC_NDF_OUTROS') countNdfEmpresa++; 
                     } else {
                         countErrosGupy++;
                     }
@@ -91,30 +85,18 @@ MinhaArea.Comparativo = {
             
             this.listaErrosCache = listaErros;
 
-            // --- CÁLCULOS FINAIS PARA OS CARDS ---
-            // 1. Total de Erros (Geral)
+            // 3. ATUALIZAÇÃO CARDS
             const totalErrosReais = countErrosGupy + countErrosNdf;
-            
-            // 2. Total de Acertos (Restante)
             const totalAcertos = countTotalAuditados - totalErrosReais;
 
-            // --- ATUALIZAÇÃO DO DOM (CARDS) ---
-            
-            // Card 1: Visão Geral
             if(elTotalAuditados) elTotalAuditados.innerText = countTotalAuditados.toLocaleString('pt-BR');
             if(elTotalAcertos) elTotalAcertos.innerText = totalAcertos.toLocaleString('pt-BR');
             if(elTotalErros) elTotalErros.innerText = totalErrosReais.toLocaleString('pt-BR');
-            
-            // Card 2: Detalhamento
             if(elErrosGupy) elErrosGupy.innerText = countErrosGupy.toLocaleString('pt-BR'); 
-            
-            // Mostra o Total NDF (que já inclui a empresa valida)
             if(elErrosNdf) elErrosNdf.innerText = countErrosNdf.toLocaleString('pt-BR'); 
-            
-            // Mostra o detalhe (apenas informativo)
             if(elEmpresaValidar) elEmpresaValidar.innerText = countNdfEmpresa.toLocaleString('pt-BR');
 
-            // --- RENDERIZAÇÃO (Gráfico e Feed) ---
+            // 4. RENDERIZAÇÃO FEED
             if (listaErros.length === 0) {
                 this.renderizarVazio(containerFeed);
                 this.renderizarGraficoVazio();
@@ -141,9 +123,7 @@ MinhaArea.Comparativo = {
     },
 
     getDocType: function(d) {
-        if (this.isNDF(d)) {
-            return d.tipo_documento || "DOC_NDF_GENERICO";
-        }
+        if (this.isNDF(d)) return d.tipo_documento || "DOC_NDF_GENERICO";
         return d.doc_name || d.tipo_documento || 'Documento Gupy';
     },
 
@@ -160,18 +140,19 @@ MinhaArea.Comparativo = {
         
         for (let i = 0; i < base.length; i++) {
             if (matches >= 100) break;
-            
             const d = base[i];
             const nome = (d.doc_name || '').toLowerCase();
             const tipoTecnico = (this.getDocType(d) || '');
             const tipoAmigavel = this.getFriendlyName(tipoTecnico).toLowerCase();
             const obs = (d.observacao || '').toLowerCase();
             const emp = (d.empresa_nome || '').toLowerCase();
+            const idppc = (d.id_ppc || '').toLowerCase(); // Permite buscar pelo ID também
             
             if (nome.includes(termo) || 
                 tipoTecnico.toLowerCase().includes(termo) || 
                 tipoAmigavel.includes(termo) || 
                 obs.includes(termo) || 
+                idppc.includes(termo) ||
                 emp.includes(termo)) {
                 
                 filtrados.push(d);
@@ -193,11 +174,9 @@ MinhaArea.Comparativo = {
 
     mudarVisao: function(novaVisao) {
         this.visaoAtual = novaVisao;
-        
         const btnDoc = document.getElementById('btn-view-doc');
         const btnEmpresa = document.getElementById('btn-view-empresa');
         const btnNdf = document.getElementById('btn-view-ndf');
-        
         const baseClass = "px-3 py-1 text-[10px] font-bold rounded transition ";
         const activeClass = "bg-white text-rose-600 shadow-sm";
         const inactiveClass = "text-slate-500 hover:bg-white";
@@ -207,15 +186,8 @@ MinhaArea.Comparativo = {
         if(btnNdf) btnNdf.className = baseClass + (novaVisao === 'ndf' ? activeClass : inactiveClass);
 
         this.limparFiltro(false);
-        
         const base = this.listaErrosCache;
-        let filtrados;
-        
-        if (novaVisao === 'ndf') {
-            filtrados = base.filter(d => this.isNDF(d));
-        } else {
-            filtrados = base;
-        }
+        let filtrados = (novaVisao === 'ndf') ? base.filter(d => this.isNDF(d)) : base;
         
         this.atualizarGrafico(filtrados);
         this.renderizarFeed(filtrados, document.getElementById('feed-erros-container'));
@@ -229,7 +201,6 @@ MinhaArea.Comparativo = {
         for (let i = 0; i < base.length; i++) {
             if (limit >= 200) break;
             const d = base[i];
-            
             let match = false;
             if (this.visaoAtual === 'empresa') {
                 const emp = d.empresa_nome || 'Desconhecida';
@@ -239,13 +210,8 @@ MinhaArea.Comparativo = {
                 const nomeAmigavelItem = this.getFriendlyName(tipoTecnico);
                 match = (nomeAmigavelItem === valorAmigavel || nomeAmigavelItem.includes(valorAmigavel.replace('...', '')));
             }
-
-            if(match) {
-                filtrados.push(d);
-                limit++;
-            }
+            if(match) { filtrados.push(d); limit++; }
         }
-        
         this.aplicarFiltroVisual(filtrados, valorAmigavel);
     },
 
@@ -255,13 +221,11 @@ MinhaArea.Comparativo = {
         if (this.chartOfensores) this.chartOfensores.destroy();
 
         const agrupamento = {};
-        
         const limitProcess = Math.min(dadosParaGrafico.length, 50000);
 
         for (let i = 0; i < limitProcess; i++) {
             const item = dadosParaGrafico[i];
             let chave = 'Outros';
-            
             if (this.visaoAtual === 'empresa') {
                 chave = item.empresa_nome || 'Desconhecida';
             } else if (this.visaoAtual === 'ndf') {
@@ -271,9 +235,7 @@ MinhaArea.Comparativo = {
                 const codigoTecnico = this.getDocType(item);
                 chave = this.getFriendlyName(codigoTecnico);
             }
-            
             if(chave.length > 28) chave = chave.substring(0, 26) + '...';
-            
             agrupamento[chave] = (agrupamento[chave] || 0) + 1;
         }
 
@@ -306,7 +268,6 @@ MinhaArea.Comparativo = {
         const totalItens = lista.length;
         
         lista.sort((a, b) => new Date(b.data_referencia || 0) - new Date(a.data_referencia || 0));
-        
         const itensVisiveis = lista.slice(0, LIMITE_RENDER);
         
         if (totalItens === 0) {
@@ -315,11 +276,8 @@ MinhaArea.Comparativo = {
         }
         
         let html = '';
-        
         if (totalItens > LIMITE_RENDER) {
-            html += `<div class="bg-blue-50 text-blue-600 text-[10px] font-bold p-2 rounded mb-2 text-center border border-blue-100">
-                <i class="fas fa-info-circle"></i> Exibindo os ${LIMITE_RENDER} erros mais recentes de um total de ${totalItens.toLocaleString()}.
-            </div>`;
+            html += `<div class="bg-blue-50 text-blue-600 text-[10px] font-bold p-2 rounded mb-2 text-center border border-blue-100"><i class="fas fa-info-circle"></i> Exibindo os ${LIMITE_RENDER} erros mais recentes de um total de ${totalItens.toLocaleString()}.</div>`;
         }
 
         itensVisiveis.forEach(doc => {
@@ -330,6 +288,9 @@ MinhaArea.Comparativo = {
             const empresa = doc.empresa_nome || ''; 
             const obs = doc.observacao || 'Sem observação.';
             const isNdf = this.isNDF(doc);
+            
+            // --- NOVO: ID PPC ---
+            const idPPC = doc.id_ppc || '-';
             
             let badgeClass = 'bg-rose-50 text-rose-600';
             let badgeText = 'NOK';
@@ -346,8 +307,15 @@ MinhaArea.Comparativo = {
             html += `
             <div class="bg-white p-3 rounded-lg border-l-4 ${borderClass} shadow-sm hover:shadow-md transition border border-slate-100 group mb-2">
                 <div class="flex justify-between items-start mb-1">
-                    <div class="overflow-hidden pr-2">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 block truncate">${data} • ${subtitulo}</span>
+                    <div class="overflow-hidden pr-2 w-full">
+                        <div class="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                            <span>${data}</span>
+                            <span class="text-slate-200">|</span>
+                            <span class="text-slate-500 bg-slate-100 px-1 rounded" title="ID da PPC">ID: ${idPPC}</span>
+                            <span class="text-slate-200">|</span>
+                            <span class="truncate">${subtitulo}</span>
+                        </div>
+                        
                         <h4 class="font-bold text-slate-700 text-xs leading-tight truncate" title="${nomeDocumentoOriginal}">${nomeDocumentoOriginal}</h4>
                         <div class="text-[9px] text-slate-500 truncate" title="${empresa}">${empresa}</div>
                         ${assistenteInfo}
@@ -368,59 +336,18 @@ MinhaArea.Comparativo = {
         const labels = dados.map(d => d[0]);
         const values = dados.map(d => d[1]);
         const _this = this;
-        
         let barColor = '#f43f5e'; 
         if (this.visaoAtual === 'empresa') barColor = '#3b82f6'; 
         if (this.visaoAtual === 'ndf') barColor = '#d97706'; 
 
         this.chartOfensores = new Chart(ctx, {
             type: 'bar',
-            data: { 
-                labels: labels, 
-                datasets: [{ 
-                    label: 'Ocorrências', 
-                    data: values, 
-                    backgroundColor: barColor, 
-                    borderRadius: 4, 
-                    barThickness: 'flex',
-                    maxBarThickness: 30,
-                    hoverBackgroundColor: '#1e293b' 
-                }] 
-            },
+            data: { labels: labels, datasets: [{ label: 'Ocorrências', data: values, backgroundColor: barColor, borderRadius: 4, barThickness: 'flex', maxBarThickness: 30, hoverBackgroundColor: '#1e293b' }] },
             options: {
-                indexAxis: 'y', 
-                responsive: true, 
-                maintainAspectRatio: false,
-                onClick: (e, elements) => { 
-                    if (elements.length > 0) { 
-                        const index = elements[0].index; 
-                        _this.filtrarPorSelecao(labels[index]); 
-                    } 
-                },
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                        padding: 10,
-                        titleFont: { family: "'Nunito', sans-serif" },
-                        bodyFont: { family: "'Nunito', sans-serif" }
-                    }
-                },
-                scales: { 
-                    x: { 
-                        beginAtZero: true, 
-                        grid: { color: '#f1f5f9' }, 
-                        ticks: { 
-                            autoSkip: true,
-                            maxTicksLimit: 8,
-                            font: { size: 10 } 
-                        } 
-                    }, 
-                    y: { 
-                        grid: { display: false }, 
-                        ticks: { font: { size: 10, weight: 'bold' }, color: '#64748b' } 
-                    } 
-                }
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                onClick: (e, elements) => { if (elements.length > 0) { const index = elements[0].index; _this.filtrarPorSelecao(labels[index]); } },
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(30, 41, 59, 0.9)', padding: 10 } },
+                scales: { x: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { autoSkip: true, maxTicksLimit: 8, font: { size: 10 } } }, y: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, color: '#64748b' } } }
             }
         });
     },
@@ -435,49 +362,29 @@ MinhaArea.Comparativo = {
     },
 
     buscarTudoPaginado: async function(uid, inicio, fim) {
-        let queryCount = Sistema.supabase
-            .from('assertividade')
-            .select('*', { count: 'exact', head: true }) 
-            .gte('data_referencia', inicio)
-            .lte('data_referencia', fim)
-            .neq('auditora_nome', null);
-
+        let queryCount = Sistema.supabase.from('assertividade').select('*', { count: 'exact', head: true }).gte('data_referencia', inicio).lte('data_referencia', fim).neq('auditora_nome', null);
         if (uid) queryCount = queryCount.eq('usuario_id', uid);
-
         const { count, error: errCount } = await queryCount;
-        
         if (errCount) throw errCount;
         if (count === 0) return [];
 
         const PAGE_SIZE = 1000;
         const totalPages = Math.ceil(count / PAGE_SIZE);
         const promises = [];
-        const colunas = 'id, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok';
+        // ADICIONADO: id_ppc na query
+        const colunas = 'id, id_ppc, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok';
         const MAX_PAGES = 300; 
         const pagesToFetch = Math.min(totalPages, MAX_PAGES);
 
         for (let i = 0; i < pagesToFetch; i++) {
-            let query = Sistema.supabase
-                .from('assertividade')
-                .select(colunas)
-                .gte('data_referencia', inicio)
-                .lte('data_referencia', fim)
-                .neq('auditora_nome', null)
-                .range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
-
+            let query = Sistema.supabase.from('assertividade').select(colunas).gte('data_referencia', inicio).lte('data_referencia', fim).neq('auditora_nome', null).range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
             if (uid) query = query.eq('usuario_id', uid);
             promises.push(query);
         }
 
         const responses = await Promise.all(promises);
-
         let todos = [];
-        responses.forEach(({ data, error }) => {
-            if (!error && data) {
-                todos = todos.concat(data);
-            }
-        });
-
+        responses.forEach(({ data, error }) => { if (!error && data) todos = todos.concat(data); });
         return todos;
     }
 };

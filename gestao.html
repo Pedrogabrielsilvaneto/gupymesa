@@ -25,28 +25,125 @@
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .header-action-group, .header-search-group { display: none; }
+        .header-action-group.active, .header-search-group.active { display: flex; }
     </style>
 </head>
 <body class="bg-slate-50">
     
     <script src="js/config.js"></script>
     <script src="js/sistema.js"></script>
-    
     <script src="js/sistema/assertividade.js"></script>
-    
     <script src="js/menu/global.js"></script>
     <div id="global-menu"></div>
 
     <div class="bg-white border-b border-slate-200 shadow-sm fixed top-12 left-0 w-full z-40 h-14 flex items-center transition-all">
         <div class="max-w-[1600px] mx-auto px-4 w-full flex items-center justify-between">
+            
             <div class="flex gap-2 overflow-x-auto no-scrollbar">
-                <button onclick="Gestao.mudarAba('usuarios')" id="btn-usuarios" class="tab-btn active px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap"><i class="fas fa-users"></i> Usuários</button>
-                <button onclick="Gestao.mudarAba('empresas')" id="btn-empresas" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap"><i class="fas fa-building"></i> Empresas</button>
-                <button onclick="Gestao.mudarAba('assertividade')" id="btn-assertividade" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap"><i class="fas fa-check-double"></i> Assertividade</button>
-                <button onclick="Gestao.mudarAba('metas')" id="btn-metas" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap"><i class="fas fa-bullseye"></i> Metas</button>
+                <button onclick="Gestao.mudarAba('usuarios')" id="btn-usuarios" class="tab-btn active px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-users"></i> Usuários
+                </button>
+                <button onclick="Gestao.mudarAba('empresas')" id="btn-empresas" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-building"></i> Empresas
+                </button>
+                <button onclick="Gestao.mudarAba('assertividade')" id="btn-assertividade" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-check-double"></i> Assertividade
+                </button>
+                <button onclick="Gestao.mudarAba('metas')" id="btn-metas" class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-bullseye"></i> Metas
+                </button>
             </div>
-            <div class="text-xs text-slate-400 font-bold hidden md:block">
-                Painel Administrativo
+
+            <div class="flex items-center gap-4">
+                
+                <div id="header-search-area">
+                    <div id="search-group-usuarios" class="header-search-group active relative w-64">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="header-search-usuarios" onkeyup="Gestao.Usuarios.filtrar()" placeholder="Buscar Usuários..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                    </div>
+
+                    <div id="search-group-empresas" class="header-search-group relative w-64">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="header-search-empresas" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Buscar Empresas..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                    </div>
+                </div>
+
+                <div id="top-bar-actions" class="flex items-center gap-3 border-l border-slate-200 pl-4">
+                    
+                    <div id="actions-usuarios" class="header-action-group active items-center gap-2">
+                        <button onclick="Gestao.Usuarios.abrirModal()" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                            <i class="fas fa-user-plus"></i> Novo
+                        </button>
+                        <button onclick="document.getElementById('input-csv-usuarios').click()" class="text-indigo-600 hover:bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                            <i class="fas fa-file-upload"></i> Importar
+                        </button>
+                    </div>
+
+                    <div id="actions-empresas" class="header-action-group items-center gap-2">
+                        <button onclick="Gestao.Empresas.abrirModal()" class="text-emerald-600 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                            <i class="fas fa-plus-circle"></i> Nova
+                        </button>
+                        <button onclick="document.getElementById('input-csv-empresas').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-2">
+                            <i class="fas fa-file-upload"></i> Importar
+                        </button>
+                    </div>
+
+                    <div id="actions-assertividade" class="header-action-group items-center gap-2">
+                        <button id="btn-sala-teste" onclick="Gestao.Assertividade.abrirSimulador()" class="text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+                            <i class="fas fa-flask"></i> Sala de Teste
+                        </button>
+                        <button onclick="document.getElementById('input-csv-assertividade').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-2">
+                            <i class="fas fa-file-upload"></i> Importar
+                        </button>
+                    </div>
+
+                    <div id="actions-metas" class="header-action-group items-center gap-3">
+                        
+                        <div class="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                            <button onclick="Gestao.Metas.mudarMes(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white text-slate-500 text-[10px] transition"><i class="fas fa-chevron-left"></i></button>
+                            <span id="header-meta-periodo" class="font-bold text-slate-700 w-24 text-center uppercase text-[10px] tracking-wide leading-none pt-0.5">--</span>
+                            <button onclick="Gestao.Metas.mudarMes(1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white text-slate-500 text-[10px] transition"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+
+                        <div class="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg p-1" title="Defina o padrão e clique no raio para aplicar (Ignora Gestão/Auditoria)">
+                            <div class="relative group/tooltip">
+                                <input type="number" id="padrao-prod-input" value="650" class="w-12 text-center text-xs font-bold text-blue-800 bg-white border border-blue-200 rounded py-0.5 outline-none focus:border-blue-500 placeholder-blue-300">
+                                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 transition whitespace-nowrap pointer-events-none">Prod. Padrão</span>
+                            </div>
+                            <span class="text-blue-300 font-bold text-xs">/</span>
+                            <div class="relative group/tooltip">
+                                <input type="number" id="padrao-assert-input" value="97" class="w-10 text-center text-xs font-bold text-emerald-800 bg-white border border-emerald-200 rounded py-0.5 outline-none focus:border-emerald-500 placeholder-emerald-300">
+                                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 transition whitespace-nowrap pointer-events-none">Assert. Padrão</span>
+                            </div>
+                            <button onclick="Gestao.Metas.aplicarPadrao()" class="w-6 h-6 ml-1 flex items-center justify-center rounded bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition active:scale-95">
+                                <i class="fas fa-bolt text-[10px]"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex flex-col border-l border-slate-200 pl-2 gap-0.5">
+                            <label class="flex items-center gap-1 cursor-pointer select-none">
+                                <input type="checkbox" id="check-mostrar-inativos" class="sr-only peer" onchange="Gestao.Metas.toggleFiltros()">
+                                <div class="relative w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-slate-500"></div>
+                                <span class="text-[9px] font-bold text-slate-400 uppercase leading-none">Inativos</span>
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer select-none">
+                                <input type="checkbox" id="check-mostrar-gestao" class="sr-only peer" onchange="Gestao.Metas.toggleFiltros()">
+                                <div class="relative w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-purple-500"></div>
+                                <span class="text-[9px] font-bold text-slate-400 uppercase leading-none">Gestão</span>
+                            </label>
+                        </div>
+
+                        <button onclick="Gestao.Metas.salvarTodas()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition transform active:scale-95 flex items-center gap-2 ml-1">
+                            <i class="fas fa-save"></i> Salvar
+                        </button>
+                    </div>
+
+                    <input type="file" id="input-csv-usuarios" accept=".csv" class="hidden" onchange="Gestao.Importacao.Usuarios.executar(this)">
+                    <input type="file" id="input-csv-empresas" accept=".csv" class="hidden" onchange="Gestao.Importacao.Empresas.executar(this)">
+                    <input type="file" id="input-csv-assertividade" accept=".csv" class="hidden" onchange="Gestao.Importacao.Assertividade.processarArquivo(this)">
+                </div>
             </div>
         </div>
     </div>
@@ -54,51 +151,39 @@
     <div class="max-w-[1600px] mx-auto px-4 py-8 pt-32">
         
         <div id="view-usuarios" class="gestao-view animate-fade space-y-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 justify-between items-center">
-                <div class="relative w-full md:w-96 group">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition"></i>
-                    <input type="text" id="search-usuarios" onkeyup="Gestao.Usuarios.filtrar()" placeholder="Buscar por ID ou Nome..." class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none transition shadow-sm">
-                </div>
-                
-                <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                    <label class="flex items-center gap-3 cursor-pointer select-none group">
-                        <div class="relative">
-                            <input type="checkbox" id="toggle-inativos" onchange="Gestao.Usuarios.filtrar()" class="sr-only peer">
-                            <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
-                        </div>
-                        <span class="text-xs font-bold text-slate-500 group-hover:text-blue-600 transition">Inativos</span>
-                    </label>
-
-                    <input type="file" id="input-csv-usuarios" accept=".csv" class="hidden" onchange="Gestao.Importacao.Usuarios.executar(this)">
-                    <button onclick="document.getElementById('input-csv-usuarios').click()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 transform active:scale-95">
-                        <i class="fas fa-file-upload"></i> <span class="hidden sm:inline">Importar</span>
-                    </button>
-
-                    <button onclick="Gestao.Usuarios.abrirModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 transform active:scale-95">
-                        <i class="fas fa-user-plus"></i> <span class="hidden sm:inline">Novo</span>
-                    </button>
-                </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-end items-center">
+                 <label class="flex items-center gap-3 cursor-pointer select-none group">
+                    <div class="relative">
+                        <input type="checkbox" id="toggle-inativos" onchange="Gestao.Usuarios.filtrar()" class="sr-only peer">
+                        <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                    </div>
+                    <span class="text-xs font-bold text-slate-500 group-hover:text-blue-600 transition">Mostrar Inativos</span>
+                </label>
             </div>
-
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full min-w-[1000px] text-sm text-left"><thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-100"><tr><th class="px-4 py-4 w-[10%]">ID</th><th class="px-4 py-4 w-[35%]">Nome</th><th class="px-4 py-4 w-[20%]">Contrato</th><th class="px-4 py-4 w-[20%] text-center">Status</th><th class="px-4 py-4 w-[15%] text-right">Ações</th></tr></thead><tbody id="lista-usuarios" class="divide-y divide-slate-100 bg-white"></tbody></table>
+                    <table class="w-full min-w-[1000px] text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-100">
+                            <tr>
+                                <th class="px-4 py-4 w-[10%]">ID</th>
+                                <th class="px-4 py-4 w-[25%]">Nome</th>
+                                <th class="px-4 py-4 w-[15%]">Contrato</th>
+                                <th class="px-4 py-4 w-[15%] text-center">Situação</th>
+                                <th class="px-4 py-4 w-[15%]">Função</th>
+                                <th class="px-4 py-4 w-[10%] text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-usuarios" class="divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
                 </div>
-                <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center font-semibold uppercase tracking-wide"><span id="contador-usuarios">Carregando...</span><span><i class="fas fa-info-circle mr-1"></i> ID é único</span></div>
+                <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center font-semibold uppercase tracking-wide">
+                    <span id="contador-usuarios">Carregando...</span>
+                    <span><i class="fas fa-info-circle mr-1"></i> ID é único</span>
+                </div>
             </div>
         </div>
 
         <div id="view-empresas" class="gestao-view hidden animate-fade space-y-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 justify-between items-center">
-                <div class="relative w-full md:w-96 group">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition"></i>
-                    <input type="text" id="search-empresas" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Buscar..." class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none transition shadow-sm">
-                </div>
-                <div class="flex justify-end w-full md:w-auto gap-4 items-center">
-                     <div class="text-xs text-slate-400 text-right hidden md:block"><span class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-bold border border-emerald-100">Database Live</span></div>
-                    <button onclick="Gestao.Empresas.abrirModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 transform active:scale-95"><i class="fas fa-plus-circle"></i> <span class="hidden sm:inline">Nova Empresa</span></button>
-                </div>
-            </div>
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                 <div class="overflow-x-auto custom-scroll flex-1">
                     <table class="w-full min-w-[1000px] text-sm text-left"><thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-100"><tr><th class="px-4 py-3 w-[10%]">ID</th><th class="px-4 py-3 w-[30%]">Nome</th><th class="px-4 py-3 w-[15%]">Subdomínio</th><th class="px-4 py-3 w-[15%]">Entrou em</th><th class="px-4 py-3 w-[20%]">Obs</th><th class="px-4 py-3 w-[10%] text-right">Ações</th></tr><tr class="bg-slate-100/50 border-b border-slate-200"><td class="p-1"><input type="text" disabled class="w-full text-[10px] p-1 border rounded bg-slate-100 cursor-not-allowed"></td><td class="p-1"><input type="text" id="filtro-emp-nome" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td><td class="p-1"><input type="text" id="filtro-emp-sub" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td><td class="p-1"><input type="text" disabled class="w-full text-[10px] p-1 border rounded bg-slate-100 cursor-not-allowed text-center" value="-"></td><td class="p-1"><input type="text" id="filtro-emp-obs" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td><td class="p-1"></td></tr></thead><tbody id="lista-empresas" class="divide-y divide-slate-100 bg-white"></tbody></table>
@@ -107,119 +192,48 @@
             </div>
         </div>
 
-        <div id="view-assertividade" class="gestao-view hidden animate-fade space-y-4">
-             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 justify-between items-center">
-                <div class="relative w-full md:w-96 group">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition"></i>
-                    <input type="text" id="search-assert" onkeyup="Gestao.Assertividade.atualizarFiltrosEBuscar()" placeholder="Buscar Geral..." class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none transition shadow-sm">
-                </div>
-
-                <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                    <div id="status-importacao" class="text-xs font-bold text-slate-400 hidden md:block"></div>
-                    
-                    <input type="file" id="input-csv-assertividade" accept=".csv" class="hidden" onchange="Importacao.Assertividade.processarArquivo(this)">
-                    
-                    <button onclick="document.getElementById('input-csv-assertividade').click()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 transform active:scale-95">
-                        <i class="fas fa-file-upload"></i> <span class="hidden sm:inline">Importar CSV</span>
-                    </button>
-                </div>
-             </div>
-
+        <div id="view-assertividade" class="gestao-view hidden animate-fade">
              <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                  <div class="overflow-x-auto custom-scroll flex-1">
                      <table class="w-full min-w-[1500px] text-sm text-left">
                         <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100 tracking-wider">
-                            <tr><th class="px-3 py-2 w-[8%]">Data</th><th class="px-3 py-2 w-[5%] text-center">ID Emp</th><th class="px-3 py-2 w-[12%]">Empresa</th><th class="px-3 py-2 w-[12%]">Assistente</th><th class="px-3 py-2 w-[12%]">Doc Name</th><th class="px-3 py-2 w-[6%] text-center">Status</th><th class="px-3 py-2 w-[15%]">Obs</th><th class="px-3 py-2 w-[5%] text-center">Campos</th><th class="px-3 py-2 w-[5%] text-center text-emerald-600">OK</th><th class="px-3 py-2 w-[5%] text-center text-rose-600">NOK</th><th class="px-3 py-2 w-[5%] text-center">%</th><th class="px-3 py-2 w-[10%]">Auditora</th></tr>
-                            <tr class="bg-slate-100/50 border-b border-slate-200">
-                                <td class="p-1"><input type="date" id="filtro-data" onchange="Gestao.Assertividade.atualizarFiltrosEBuscar()" class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td>
-                                <td class="p-1"><input type="text" disabled class="w-full text-[10px] p-1 border rounded bg-slate-100 cursor-not-allowed"></td>
-                                <td class="p-1"><input type="text" id="filtro-empresa" onkeyup="Gestao.Assertividade.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td>
-                                <td class="p-1"><input type="text" id="filtro-assistente" onkeyup="Gestao.Assertividade.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td>
-                                <td class="p-1"><input type="text" id="filtro-doc" onkeyup="Gestao.Assertividade.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td>
-                                <td class="p-1">
-                                    <input type="text" id="filtro-status" placeholder="Carregando..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm">
-                                </td>
-                                <td class="p-1"><input type="text" id="filtro-obs" onkeyup="Gestao.Assertividade.atualizarFiltrosEBuscar()" placeholder="Filtrar..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td>
-                                <td class="p-1 text-center text-xs text-slate-300">-</td>
-                                <td class="p-1 text-center text-xs text-slate-300">-</td>
-                                <td class="p-1 text-center text-xs text-slate-300">-</td>
-                                <td class="p-1 text-center text-xs text-slate-300">-</td>
-                                <td class="p-1"><input type="text" id="filtro-auditora" placeholder="Carregando..." class="w-full text-[10px] p-1 border rounded bg-white focus:border-blue-500 outline-none shadow-sm"></td>
-                            </tr>
+                           <tr class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-100">
+                               <th class="p-4 text-center">Carregando Sistema V7...</th>
+                           </tr>
                         </thead>
                         <tbody id="lista-assertividade" class="divide-y divide-slate-100 bg-white"></tbody>
                      </table>
                  </div>
-                 <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs font-semibold text-slate-600"><div class="flex items-center gap-4"><span id="info-paginacao" class="text-slate-500">Iniciando...</span></div><div class="flex items-center gap-2"><button onclick="Gestao.Assertividade.mudarPagina(-1)" id="btn-ant" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"><i class="fas fa-chevron-left"></i> Anterior</button><button onclick="Gestao.Assertividade.mudarPagina(1)" id="btn-prox" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">Próximo <i class="fas fa-chevron-right"></i></button></div></div>
+                 <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs font-semibold text-slate-600"><div class="flex items-center gap-4"><span id="info-paginacao" class="text-slate-500">Iniciando...</span><span id="total-registros-assertividade" class="text-slate-400 font-normal"></span></div><div class="flex items-center gap-2"><button id="btn-pag-ant-assert" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"><i class="fas fa-chevron-left"></i> Anterior</button><span id="span-pag-assert" class="mx-2">1</span><button id="btn-pag-prox-assert" class="px-3 py-1.5 bg-white border border-slate-300 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">Próximo <i class="fas fa-chevron-right"></i></button></div></div>
              </div>
         </div>
 
-        <div id="view-metas" class="gestao-view hidden animate-fade space-y-4">
-            
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col xl:flex-row gap-6 justify-between items-center z-20">
+        <div id="view-metas" class="gestao-view hidden animate-fade space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-3 w-[60px] text-center"><i class="fas fa-user"></i></th>
+                            <th class="px-6 py-3">Assistente</th>
+                            <th class="px-4 py-3 text-center w-[150px] bg-blue-50/50 text-blue-700 border-l border-blue-100">
+                                Meta Produção
+                            </th>
+                            <th class="px-4 py-3 text-center w-[150px] bg-emerald-50/50 text-emerald-700 border-l border-emerald-100">
+                                Meta Assertividade
+                            </th>
+                            <th class="px-6 py-3 text-right w-[100px]">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-metas" class="divide-y divide-slate-100">
+                        </tbody>
+                </table>
                 
-                <div class="flex items-center gap-3 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
-                    <button onclick="Gestao.Metas.mudarMes(-1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-white hover:shadow rounded transition"><i class="fas fa-chevron-left"></i></button>
-                    <div class="text-center px-4 min-w-[140px]">
-                        <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Competência</span>
-                        <span id="metas-periodo-label" class="text-base font-bold text-slate-700 capitalize">Carregando...</span>
-                    </div>
-                    <button onclick="Gestao.Metas.mudarMes(1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-white hover:shadow rounded transition"><i class="fas fa-chevron-right"></i></button>
-                </div>
-
-                <div class="flex items-center gap-2 bg-blue-50 p-2 rounded-lg border border-blue-100 w-full xl:w-auto">
-                    <span class="text-[10px] font-bold text-blue-700 uppercase hidden md:inline mr-2">Em Massa:</span>
-                    
-                    <div class="relative">
-                        <input type="number" id="input-massa-prod" placeholder="Qtd (ex: 1000)" class="w-28 px-3 py-1.5 text-xs border border-blue-200 rounded text-center font-bold text-blue-800 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-300">
-                        <span class="absolute right-2 top-1.5 text-[10px] text-blue-300 font-bold">UN</span>
-                    </div>
-
-                    <div class="relative">
-                        <input type="number" id="input-massa-assert" placeholder="% (ex: 98)" class="w-24 px-3 py-1.5 text-xs border border-blue-200 rounded text-center font-bold text-blue-800 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-300">
-                        <span class="absolute right-2 top-1.5 text-[10px] text-blue-300 font-bold">%</span>
-                    </div>
-
-                    <button onclick="Gestao.Metas.aplicarEmMassa()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm transition active:scale-95 whitespace-nowrap" title="Aplicar aos selecionados">
-                        <i class="fas fa-check"></i>
-                    </button>
-                </div>
-
-                <button onclick="Gestao.Metas.salvarTodas()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition transform active:scale-95 w-full xl:w-auto flex justify-center items-center gap-2">
-                    <i class="fas fa-save"></i> Salvar Metas
-                </button>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                <div class="overflow-x-auto custom-scroll flex-1">
-                    <table class="w-full min-w-[900px] text-sm text-left">
-                        <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-100">
-                            <tr>
-                                <th class="px-6 py-4 w-[5%] text-center">
-                                    <input type="checkbox" id="check-meta-todos" onclick="Gestao.Metas.toggleSelecionarTodos()" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-                                </th>
-                                <th class="px-6 py-4 w-[5%]">ID</th>
-                                <th class="px-6 py-4 w-[30%]">Assistente</th>
-                                <th class="px-6 py-4 w-[10%]">Contrato</th>
-                                
-                                <th class="px-4 py-4 w-[20%] text-center bg-blue-50/30 border-x border-slate-100">
-                                    <i class="fas fa-box-open text-blue-400 mr-1"></i> Meta Produção
-                                </th>
-                                
-                                <th class="px-4 py-4 w-[20%] text-center bg-emerald-50/30 border-r border-slate-100">
-                                    <i class="fas fa-check-circle text-emerald-400 mr-1"></i> Meta Assertividade
-                                </th>
-                                
-                                <th class="px-6 py-4 w-[10%] text-right">Histórico</th>
-                            </tr>
-                        </thead>
-                        <tbody id="lista-metas" class="divide-y divide-slate-100 bg-white">
-                            </tbody>
-                    </table>
-                </div>
-                <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400 font-medium">
-                    <span><i class="fas fa-info-circle mr-1"></i> Defina as metas e clique em Salvar.</span>
+                <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-medium">
                     <span id="resumo-metas-footer">Carregando...</span>
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> Editado
+                        <span class="w-2 h-2 rounded-full bg-slate-300 ml-2"></span> Salvo
+                    </span>
                 </div>
             </div>
         </div>

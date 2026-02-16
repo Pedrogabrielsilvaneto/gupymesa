@@ -1,205 +1,278 @@
+window.Gestao = window.Gestao || {};
+
 Gestao.Usuarios = {
-    estado: {
-        lista: [],
-        editandoId: null
-    },
+    cacheData: null,
 
     init: function() {
+        console.log("🚀 Gestão Usuários Carregada.");
+        this.injetarModal();
         this.carregar();
     },
 
     carregar: async function() {
         const tbody = document.getElementById('lista-usuarios');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12"><i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i></td></tr>';
+        if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8"><i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i></td></tr>`;
 
-        const { data, error } = await Sistema.supabase
-            .from('usuarios')
-            .select('*')
-            .order('nome');
+        try {
+            const { data, error } = await Sistema.supabase
+                .from('usuarios')
+                .select('*')
+                .order('nome');
 
-        if (error) {
+            if (error) throw error;
+            this.cacheData = data;
+            this.filtrar(); 
+
+        } catch (error) {
             console.error(error);
-            alert("Erro ao carregar usuários: " + error.message);
-            return;
+            if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro: ${error.message}</td></tr>`;
         }
-
-        this.estado.lista = data || [];
-        this.filtrar();
     },
 
-    filtrar: function() {
-        const termo = document.getElementById('search-usuarios') ? document.getElementById('search-usuarios').value.toLowerCase() : '';
-        const checkInativos = document.getElementById('toggle-inativos');
-        const mostrarInativos = checkInativos ? checkInativos.checked : false;
+    filtrar: async function() {
+        const termo = document.getElementById('header-search-usuarios')?.value.toLowerCase() || '';
+        const mostrarInativos = document.getElementById('toggle-inativos')?.checked || false;
 
-        const filtrados = this.estado.lista.filter(u => {
-            const matchTexto = (u.nome || '').toLowerCase().includes(termo) || String(u.id).includes(termo);
-            const matchStatus = mostrarInativos ? true : u.ativo === true;
-            return matchTexto && matchStatus;
-        });
-
-        this.renderizar(filtrados);
-    },
-
-    renderizar: function(lista) {
         const tbody = document.getElementById('lista-usuarios');
         const contador = document.getElementById('contador-usuarios');
-        if (!tbody) return;
+        
+        if(!tbody) return;
 
         tbody.innerHTML = '';
         
-        if (lista.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-slate-400 italic">Nenhum usuário encontrado.</td></tr>';
-            if(contador) contador.innerText = '0 usuários';
+        if (!this.cacheData) {
+             await this.carregar();
+             return; 
+        }
+
+        const filtrados = this.cacheData.filter(u => {
+            const matchTexto = u.id.toString().includes(termo) || 
+                               u.nome.toLowerCase().includes(termo) || 
+                               (u.email && u.email.toLowerCase().includes(termo));
+            
+            const matchAtivo = mostrarInativos ? true : u.ativo;
+            
+            return matchTexto && matchAtivo;
+        });
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">Nenhum usuário encontrado.</td></tr>`;
+            if(contador) contador.innerText = '0 registros';
             return;
         }
 
-        let html = '';
-        lista.forEach(item => {
-            const contratoClass = item.contrato === 'PJ' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-600 border-slate-200';
-            const statusClass = item.ativo ? 'bg-emerald-500 shadow-emerald-200 shadow-[0_0_8px]' : 'bg-slate-300';
-            const rowClass = item.ativo ? '' : 'opacity-60 bg-slate-50 grayscale';
+        tbody.innerHTML = filtrados.map(u => {
+            const statusClass = u.ativo 
+                ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                : 'bg-slate-100 text-slate-500 border-slate-200';
+            const statusText = u.ativo ? 'ATIVO' : 'INATIVO'; // Texto igual ao da planilha
+            
+            // Tratamento visual da função
+            let badgeFuncao = 'bg-slate-50 text-slate-600 border-slate-200';
+            if ((u.funcao||'').toUpperCase().includes('AUDITORA')) badgeFuncao = 'bg-purple-50 text-purple-700 border-purple-100';
+            if ((u.funcao||'').toUpperCase().includes('GESTORA')) badgeFuncao = 'bg-amber-50 text-amber-700 border-amber-100';
 
-            html += `
-            <tr class="hover:bg-slate-50 border-b border-slate-50 transition group ${rowClass}">
-                <td class="px-6 py-4 font-mono text-slate-400 text-xs">#${item.id}</td>
-                <td class="px-6 py-4 font-bold text-slate-700">
-                    ${item.nome}
-                    <div class="text-[10px] text-slate-400 font-normal mt-0.5 uppercase tracking-wide">${item.funcao || 'Sem função'}</div>
+            return `
+            <tr class="hover:bg-slate-50 border-b border-slate-100 text-slate-600 transition">
+                <td class="px-4 py-3 font-mono text-xs text-slate-500">${u.id}</td>
+                
+                <td class="px-4 py-3 font-bold text-slate-700 flex flex-col">
+                    <span>${u.nome}</span>
+                    <span class="text-[10px] text-slate-400 font-normal">${u.email || ''}</span>
                 </td>
-                <td class="px-6 py-4">
-                    <span class="px-2 py-1 rounded text-[10px] font-bold border ${contratoClass}">${item.contrato || 'ND'}</span>
-                </td>
-                <td class="px-6 py-4 text-center cursor-pointer select-none" onclick="Gestao.Usuarios.toggleStatus('${item.id}', ${item.ativo})" title="Clique para alterar status">
-                    <div class="flex items-center justify-center gap-2 border border-slate-100 rounded-full px-2 py-1 bg-white hover:border-blue-200 transition">
-                        <span class="w-2 h-2 rounded-full inline-block ${statusClass}"></span>
-                        <span class="text-[10px] font-bold ${item.ativo ? 'text-emerald-600' : 'text-slate-400'}">${item.ativo ? 'Ativo' : 'Inativo'}</span>
-                    </div>
-                </td>
-                <td class="px-6 py-4 text-right flex justify-end gap-2 items-center">
-                    <button id="btn-reset-${item.id}" onclick="Gestao.Usuarios.resetarSenhaManual('${item.id}', '${item.nome}')" 
-                        class="text-amber-500 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 p-2 rounded-lg transition shadow-sm border border-amber-100 active:scale-95" 
-                        title="Redefinir Senha Manualmente">
-                        <i class="fas fa-key"></i>
-                    </button>
 
-                    <button onclick="Gestao.Usuarios.abrirModal('${item.id}')" 
-                        class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-2 rounded-lg transition shadow-sm border border-blue-100 active:scale-95"
-                        title="Editar Usuário">
+                <td class="px-4 py-3 text-xs font-semibold text-slate-500">${u.modelo_contrato || '-'}</td>
+
+                <td class="px-4 py-3 text-center">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusClass}">${statusText}</span>
+                </td>
+
+                <td class="px-4 py-3 text-xs">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeFuncao}">${u.funcao || 'Assistente'}</span>
+                </td>
+                
+                <td class="px-4 py-3 text-right">
+                    <button onclick="Gestao.Usuarios.editar(${u.id})" class="text-indigo-600 hover:bg-indigo-50 p-2 rounded transition" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
                 </td>
             </tr>`;
-        });
+        }).join('');
 
-        tbody.innerHTML = html;
-        if(contador) contador.innerText = `${lista.length} usuários listados`;
+        if(contador) contador.innerText = `${filtrados.length} registros`;
+    },
+    
+    // ... MANTER O RESTANTE DO CÓDIGO (injetarModal, abrirModal, editar, salvar, redefinirSenha) IGUAL AO ANTERIOR ...
+    injetarModal: function() {
+         if (document.getElementById('modal-usuario')) return;
+         const html = `
+        <div id="modal-usuario" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden items-center justify-center z-50 backdrop-blur-sm">
+            <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-down">
+                <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 id="modal-titulo-user" class="text-lg font-bold text-slate-700">Novo Usuário</h3>
+                    <button onclick="document.getElementById('modal-usuario').classList.add('hidden'); document.getElementById('modal-usuario').classList.remove('flex');" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-6">
+                    <form id="form-usuario" onsubmit="event.preventDefault(); Gestao.Usuarios.salvar()">
+                        <input type="hidden" id="user-id">
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo *</label>
+                                <input type="text" id="user-nome" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
+                                <input type="email" id="user-email" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Função</label>
+                                <select id="user-funcao" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:border-blue-500 outline-none">
+                                    <option value="Assistente">Assistente</option>
+                                    <option value="Auditora">Auditora</option>
+                                    <option value="Gestora">Gestora</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contrato</label>
+                                <select id="user-contrato" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white focus:border-blue-500 outline-none">
+                                    <option value="CLT">CLT</option>
+                                    <option value="PJ">PJ</option>
+                                    <option value="Temporário">Temporário</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end pb-2">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="user-ativo" class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500">
+                                    <span class="ml-2 text-sm font-bold text-slate-600">Usuário Ativo</span>
+                                </label>
+                            </div>
+                        </div>
+
+                         <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Jornada (Horas)</label>
+                                <input type="number" id="user-jornada" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="Ex: 8">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Supervisor</label>
+                                <input type="text" id="user-supervisor" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-4 border-t border-slate-100">
+                            <button type="button" onclick="Gestao.Usuarios.redefinirSenha()" class="px-4 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 border border-amber-200 rounded transition flex items-center gap-2">
+                                <i class="fas fa-key"></i> Redefinir Senha
+                            </button>
+
+                            <div class="flex gap-3">
+                                <button type="button" onclick="document.getElementById('modal-usuario').classList.add('hidden'); document.getElementById('modal-usuario').classList.remove('flex');" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded transition">Cancelar</button>
+                                <button type="submit" id="btn-salvar-user" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded shadow transition">Salvar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
+    
+    abrirModal: function() {
+        if(!document.getElementById('modal-usuario')) this.injetarModal();
+        const modal = document.getElementById('modal-usuario');
+        const form = document.getElementById('form-usuario');
+        form.reset();
+        document.getElementById('user-id').value = '';
+        document.getElementById('user-ativo').checked = true;
+        document.getElementById('modal-titulo-user').innerText = 'Novo Usuário';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     },
 
-    // --- MANIPULAÇÃO DE DADOS ---
+    editar: async function(id) {
+        this.abrirModal();
+        document.getElementById('modal-titulo-user').innerText = 'Editar Usuário';
+        const user = this.cacheData.find(u => u.id === id);
+        if(user) {
+            document.getElementById('user-id').value = user.id;
+            document.getElementById('user-nome').value = user.nome;
+            document.getElementById('user-email').value = user.email || '';
+            document.getElementById('user-funcao').value = user.funcao || 'Assistente';
+            document.getElementById('user-contrato').value = user.modelo_contrato || 'CLT';
+            document.getElementById('user-jornada').value = user.jornada_diaria || '';
+            document.getElementById('user-supervisor').value = user.supervisor || '';
+            document.getElementById('user-ativo').checked = user.ativo;
+        }
+    },
 
-    abrirModal: function(id = null) {
-        // Implementação simplificada de prompt (Ideal seria um modal HTML real)
-        // Se já tiver modal no HTML, adaptar aqui.
-        // Como o foco era o reset, vou manter o fluxo básico.
+    redefinirSenha: async function() {
+        const id = document.getElementById('user-id').value;
+        if (!id) {
+            alert("Selecione um usuário já salvo para redefinir a senha.");
+            return;
+        }
         
-        let nome = '';
-        let funcao = 'Assistente';
-        let contrato = 'CLT';
-        
-        if(id) {
-            const user = this.estado.lista.find(u => u.id == id);
-            if(user) {
-                nome = user.nome;
-                funcao = user.funcao;
-                contrato = user.contrato;
-            }
-        }
-
-        // Aqui, para ser rápido, usamos Prompts, mas recomendo criar um <dialog> no HTML depois.
-        const novoNome = prompt("Nome do Usuário:", nome);
-        if(novoNome === null) return;
-
-        const novaFuncao = prompt("Função (Assistente, Auditora, Gestora):", funcao);
-        if(novaFuncao === null) return;
-
-        const novoContrato = prompt("Contrato (CLT ou PJ):", contrato);
-        if(novoContrato === null) return;
-
-        this.salvar(id, novoNome, novaFuncao, novoContrato);
-    },
-
-    salvar: async function(id, nome, funcao, contrato) {
-        if(!nome) return alert("Nome é obrigatório");
-
-        const payload = {
-            nome: nome,
-            funcao: funcao,
-            contrato: contrato,
-            ativo: true
-        };
-
-        let error = null;
-
-        if (id) {
-            // Atualizar
-            const res = await Sistema.supabase.from('usuarios').update(payload).eq('id', id);
-            error = res.error;
-        } else {
-            // Criar Novo
-            const res = await Sistema.supabase.from('usuarios').insert(payload);
-            error = res.error;
-        }
-
-        if (error) {
-            alert("Erro ao salvar: " + error.message);
-        } else {
-            this.carregar();
-        }
-    },
-
-    toggleStatus: async function(id, statusAtual) {
-        if (!confirm(`Deseja ${statusAtual ? 'desativar' : 'ativar'} este usuário?`)) return;
-
-        const { error } = await Sistema.supabase
-            .from('usuarios')
-            .update({ ativo: !statusAtual })
-            .eq('id', id);
-
-        if (error) {
-            alert("Erro: " + error.message);
-        } else {
-            this.carregar();
-        }
-    },
-
-    // --- NOVA FUNÇÃO: RESET DE SENHA ---
-    resetarSenhaManual: async function(id, nome) {
-        // 1. Confirmação Simples
-        const confirmacao = confirm(`⚠️ ATENÇÃO:\n\nDeseja resetar a senha de ${nome} para "gupy123"?\n\nO usuário será obrigado a trocar a senha no próximo login.`);
-        
-        if (!confirmacao) return;
-
-        // Feedback Visual (opcional, mas bom)
-        const btn = document.activeElement; // Pega o botão clicado
-        const textoOriginal = btn ? btn.innerHTML : '';
-        if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (!confirm("Tem certeza que deseja redefinir a senha deste usuário para 'gupy123'?")) return;
 
         try {
-            // 2. Chama a nova função SQL (sem passar senha, o banco já sabe que é gupy123)
-            const { error } = await Sistema.supabase.rpc('admin_resetar_senha', { 
-                p_usuario_id: parseInt(id)
-            });
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+            btn.disabled = true;
+
+            const hash = await Sistema.gerarHash("gupy123");
+            const { error } = await Sistema.supabase
+                .from('usuarios')
+                .update({ senha: hash })
+                .eq('id', id);
 
             if (error) throw error;
+            alert("Senha redefinida com sucesso para 'gupy123'!");
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
 
-            alert(`✅ Sucesso!\n\nA senha de ${nome} foi redefinida para: gupy123\nEle(a) será solicitado a trocar no próximo acesso.`);
+        } catch (e) {
+            alert("Erro ao redefinir senha: " + e.message);
+            const btn = event.target.closest('button'); // Fallback caso event.currentTarget se perca
+            if(btn) {
+                btn.innerHTML = '<i class="fas fa-key"></i> Redefinir Senha';
+                btn.disabled = false;
+            }
+        }
+    },
 
-        } catch (error) {
-            console.error("Erro Reset:", error);
-            alert("Erro ao resetar senha: " + (error.message || error.details));
-        } finally {
-            if(btn) btn.innerHTML = textoOriginal;
+    salvar: async function() {
+        const id = document.getElementById('user-id').value;
+        const nome = document.getElementById('user-nome').value;
+        
+        const payload = {
+            nome: nome,
+            email: document.getElementById('user-email').value,
+            funcao: document.getElementById('user-funcao').value,
+            modelo_contrato: document.getElementById('user-contrato').value,
+            ativo: document.getElementById('user-ativo').checked,
+            jornada_diaria: document.getElementById('user-jornada').value || null,
+            supervisor: document.getElementById('user-supervisor').value
+        };
+        
+        if(id) payload.id = id;
+        
+        const { error } = await Sistema.supabase.from('usuarios').upsert(payload);
+        if(!error) {
+            document.getElementById('modal-usuario').classList.add('hidden');
+            document.getElementById('modal-usuario').classList.remove('flex');
+            this.carregar();
+        } else {
+            alert(error.message);
         }
     }
 };
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    if(window.Gestao && window.Gestao.Usuarios) Gestao.Usuarios.init();
+}

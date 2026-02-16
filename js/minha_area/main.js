@@ -1,12 +1,12 @@
 /* ARQUIVO: js/minha_area/main.js
-   DESCRIÇÃO: Controlador de Filtros (Corrigido: Semana Recortada pelo Mês)
-   REGRA: Semana de Seg-Dom, mas nunca exibe dias do mês anterior.
+   DESCRIÇÃO: Controlador de Filtros (Configurado para Início Semestral)
+   REGRA: Inicia sempre exibindo o semestre atual (S1 ou S2).
 */
 
 const MinhaArea = {
     usuario: null,
     usuarioAlvoId: null,
-    filtroPeriodo: 'mes', // mes, semana, ano
+    filtroPeriodo: 'ano', // Alterado de 'mes' para 'ano' para iniciar no modo semestral
 
     init: async function() {
         if (!Sistema.supabase) await Sistema.inicializar(false);
@@ -22,7 +22,15 @@ const MinhaArea = {
         }
 
         this.popularSeletoresFixos();
-        this.carregarEstadoSalvo();
+        
+        // Tenta carregar estado salvo, se não houver, define o semestre atual
+        const salvo = localStorage.getItem('ma_filtro_state');
+        if (!salvo) {
+            this.configurarSemestreAtual();
+        } else {
+            this.carregarEstadoSalvo();
+        }
+
         this.atualizarInterfaceFiltros();
         
         if (this.filtroPeriodo === 'semana') {
@@ -48,6 +56,17 @@ const MinhaArea = {
             const el = document.getElementById(id);
             if(el) el.addEventListener('change', () => this.salvarEAtualizar());
         });
+    },
+
+    // Define automaticamente S1 ou S2 com base na data atual
+    configurarSemestreAtual: function() {
+        const mesAtual = new Date().getMonth(); // 0-11
+        const seletorSub = document.getElementById('sel-subperiodo-ano');
+        if (seletorSub) {
+            // Janeiro (0) a Junho (5) = S1, Julho (6) a Dezembro (11) = S2
+            const semestre = mesAtual <= 5 ? 'S1' : 'S2';
+            seletorSub.value = semestre;
+        }
     },
 
     isAdmin: function() {
@@ -119,7 +138,6 @@ const MinhaArea = {
         if(elMes) elMes.value = mesAtual;
     },
 
-    // --- CORREÇÃO DA LÓGICA DE SEMANAS ---
     popularSemanasDoMes: function() {
         const elSemana = document.getElementById('sel-semana');
         const elAno = document.getElementById('sel-ano');
@@ -130,15 +148,11 @@ const MinhaArea = {
         const ano = parseInt(elAno.value);
         const mes = parseInt(elMes.value); 
 
-        // Limites do Mês
         const primeiroDiaMes = new Date(ano, mes, 1);
         const ultimoDiaMes = new Date(ano, mes + 1, 0);
 
-        // Encontrar a Segunda-Feira da primeira semana (pode cair no mês anterior)
-        // Dia da semana: 0 (Dom) ... 6 (Sab) -> ISO: 1 (Seg) ... 7 (Dom)
-        // Ajuste: Segunda = 1.
         let diaSemana = primeiroDiaMes.getDay(); 
-        if (diaSemana === 0) diaSemana = 7; // Domingo vira 7 para facilitar conta da Segunda (1)
+        if (diaSemana === 0) diaSemana = 7; 
         
         let segundaFeiraAtual = new Date(primeiroDiaMes);
         segundaFeiraAtual.setDate(primeiroDiaMes.getDate() - (diaSemana - 1));
@@ -146,43 +160,27 @@ const MinhaArea = {
         let html = '';
         let count = 1;
 
-        // Loop enquanto a segunda-feira ainda estiver dentro do mês 
-        // OU se a semana começou antes mas termina dentro do mês
         while (segundaFeiraAtual <= ultimoDiaMes) {
             const domingoAtual = new Date(segundaFeiraAtual);
             domingoAtual.setDate(segundaFeiraAtual.getDate() + 6);
 
-            // Se a semana inteira já passou do fim do mês (caso raro de loop), para.
             if (segundaFeiraAtual > ultimoDiaMes) break;
 
-            // --- RECORTE (CLAMP) ---
-            // Início: O maior entre (Segunda da Semana) e (1º do Mês)
             const inicioReal = segundaFeiraAtual < primeiroDiaMes ? primeiroDiaMes : segundaFeiraAtual;
-            
-            // Fim: O menor entre (Domingo da Semana) e (Último do Mês)
-            // (Opcional: se quiser mostrar até o dia 5 do mês seguinte, remova o clamp do fim. 
-            //  Mas por consistência com "Mês Anterior", geralmente travamos o mês todo).
             const fimReal = domingoAtual > ultimoDiaMes ? ultimoDiaMes : domingoAtual;
 
-            // Formatação
             const fmt = d => d.toISOString().split('T')[0];
             const fmtBr = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-            // Só adiciona se houver dias válidos (Safety check)
             if (inicioReal <= fimReal) {
                 const valor = `${fmt(inicioReal)}|${fmt(fimReal)}`;
                 const texto = `Semana ${count} (${fmtBr(inicioReal)} a ${fmtBr(fimReal)})`;
                 html += `<option value="${valor}">${texto}</option>`;
                 count++;
             }
-
-            // Avança para próxima Segunda
             segundaFeiraAtual.setDate(segundaFeiraAtual.getDate() + 7);
         }
-
         elSemana.innerHTML = html;
-        
-        // Tenta selecionar a primeira opção por padrão se nenhuma estiver salva
         if (elSemana.options.length > 0 && !elSemana.value) {
             elSemana.selectedIndex = 0;
         }
@@ -228,7 +226,6 @@ const MinhaArea = {
             tipo: this.filtroPeriodo,
             ano: document.getElementById('sel-ano')?.value,
             mes: document.getElementById('sel-mes')?.value,
-            // Não salva semana específica para evitar bugs na troca de mês
             sub: document.getElementById('sel-subperiodo-ano')?.value
         };
         localStorage.setItem('ma_filtro_state', JSON.stringify(estado));

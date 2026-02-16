@@ -1,354 +1,695 @@
 /* ARQUIVO: js/minha_area/metas.js
-   DESCRIÇÃO: Engine de Metas V6 (Correção Definitiva de Fuso Horário/Datas)
+   VERSÃO: V11.5 (Correção Média das Médias - Visão Macro)
+   DESCRIÇÃO: 
+     - Visão Micro (Mês/Semana): Média = (Total Produção / Dias Trabalhados).
+     - Visão Macro (Tri/Sem/Ano): Média = (Soma das Médias Mensais / Quantidade de Meses).
 */
 
 MinhaArea.Metas = {
-    chartProd: null,
-    chartAssert: null,
     isLocked: false,
+    cacheUsers: [],
+    cacheDados: {}, 
+    cacheColunas: [],
+    statsUsers: {}, 
+    isMacroView: false,
+    currentFilterContract: 'TODOS',
+    viewState: 'GRID', 
+    activeSubTab: 'PROD', 
+    selectedUserId: null,
+    
+    chartDetailProd: null,
+    chartDetailAssert: null,
+    chartCompProd: null,
+    chartCompAssert: null,
+
+    // --- FUNÇÃO CORE: Normalização de Datas ---
+    getKeyFromDate: function(dateInput, isMacro) {
+        if (!dateInput) return null;
+        let d;
+        if (typeof dateInput === 'string') {
+            const cleanDate = dateInput.split('T')[0]; 
+            d = new Date(cleanDate + 'T12:00:00');
+        } else {
+            d = new Date(dateInput);
+            d.setHours(12,0,0,0);
+        }
+
+        if (isMacro) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        } else {
+            const ano = d.getFullYear();
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+    },
+
+    mudarFiltroContrato: function(novoValor) {
+        this.currentFilterContract = novoValor;
+        this.carregar();
+    },
+
+    mudarSubAba: function(modo) {
+        this.activeSubTab = modo;
+        const btnProd = document.getElementById('btn-sub-prod');
+        const btnAssert = document.getElementById('btn-sub-assert');
+        
+        const styleActive = "px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm bg-blue-600 text-white transition flex items-center gap-2";
+        const styleActiveAssert = "px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm bg-emerald-600 text-white transition flex items-center gap-2";
+        const styleInactive = "px-4 py-1.5 text-xs font-bold rounded-lg hover:bg-slate-100 text-slate-500 transition flex items-center gap-2";
+
+        if (modo === 'PROD') {
+            if(btnProd) btnProd.className = styleActive;
+            if(btnAssert) btnAssert.className = styleInactive;
+        } else {
+            if(btnProd) btnProd.className = styleInactive;
+            if(btnAssert) btnAssert.className = styleActiveAssert;
+        }
+        this.reordenarEExibir();
+    },
+
+    reordenarEExibir: function() {
+        if (this.activeSubTab === 'PROD') {
+            this.cacheUsers.sort((a, b) => {
+                const statA = this.statsUsers[String(a.id)] || { prod: 0 };
+                const statB = this.statsUsers[String(b.id)] || { prod: 0 };
+                return statB.prod - statA.prod;
+            });
+        } else {
+            this.cacheUsers.sort((a, b) => {
+                const statA = this.statsUsers[String(a.id)] || { ok: 0, total: 0 };
+                const statB = this.statsUsers[String(b.id)] || { ok: 0, total: 0 };
+                const pctA = statA.total > 0 ? (statA.ok / statA.total) : 0;
+                const pctB = statB.total > 0 ? (statB.ok / statB.total) : 0;
+                return pctB - pctA;
+            });
+        }
+        this.renderizarMatriz();
+    },
+
+    prepararContainer: function() {
+        const containerPrincipal = document.getElementById('ma-tab-metas'); 
+        if (!containerPrincipal) return;
+
+        if (!document.getElementById('metas-grid-container')) {
+            const conteudoTabela = containerPrincipal.innerHTML;
+            containerPrincipal.innerHTML = '';
+
+            const divGrid = document.createElement('div');
+            divGrid.id = 'metas-grid-container';
+            divGrid.className = 'animate-enter flex flex-col h-full';
+            
+            const navHTML = `
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                        <button onclick="MinhaArea.Metas.mudarSubAba('PROD')" id="btn-sub-prod" class="px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm bg-blue-600 text-white transition flex items-center gap-2">
+                            <i class="fas fa-bolt"></i> Produção
+                        </button>
+                        <button onclick="MinhaArea.Metas.mudarSubAba('ASSERT')" id="btn-sub-assert" class="px-4 py-1.5 text-xs font-bold rounded-lg hover:bg-slate-100 text-slate-500 transition flex items-center gap-2">
+                            <i class="fas fa-check-circle"></i> Qualidade
+                        </button>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-medium italic">
+                        * Dados sincronizados com Dia a Dia
+                    </div>
+                </div>
+            `;
+
+            divGrid.innerHTML = navHTML + '<div class="flex-1 overflow-hidden flex flex-col relative">' + conteudoTabela + '</div>';
+            
+            const divDetail = document.createElement('div');
+            divDetail.id = 'metas-detail-container';
+            divDetail.className = 'hidden animate-enter space-y-6 pb-8';
+            divDetail.innerHTML = `
+                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200 mt-2">
+                    <div class="flex items-center gap-4">
+                        <button onclick="MinhaArea.Metas.voltarParaGrade()" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition shadow-sm border border-slate-200">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div>
+                            <h2 id="detalhe-nome" class="text-xl font-bold text-slate-700 leading-tight">--</h2>
+                            <div class="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                <span id="detalhe-funcao" class="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">--</span>
+                                <span id="detalhe-contrato" class="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-6 text-right">
+                         <div>
+                            <span class="block text-[10px] uppercase font-bold text-slate-400">Média/Dia</span>
+                            <span id="detalhe-kpi-media" class="text-2xl font-black text-blue-600">0</span>
+                         </div>
+                         <div class="border-l border-slate-200 pl-6">
+                            <span class="block text-[10px] uppercase font-bold text-slate-400">Total Período</span>
+                            <span id="detalhe-kpi-total" class="text-2xl font-black text-slate-700">0</span>
+                         </div>
+                         <div class="border-l border-slate-200 pl-6">
+                            <span class="block text-[10px] uppercase font-bold text-slate-400">Assertividade</span>
+                            <span id="detalhe-kpi-assert" class="text-2xl font-black text-emerald-600">0%</span>
+                         </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-blue-500"></i> Evolução Diária de Produção</h3>
+                    <div class="h-[300px] w-full relative"><canvas id="canvas-detail-prod"></canvas></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500"></i> Qualidade e Assertividade</h3>
+                    <div class="h-[200px] w-full relative"><canvas id="canvas-detail-assert"></canvas></div>
+                </div>
+            `;
+
+            containerPrincipal.appendChild(divGrid);
+            containerPrincipal.appendChild(divDetail);
+        }
+    },
+
+    voltarParaGrade: function() {
+        const grid = document.getElementById('metas-grid-container');
+        const detail = document.getElementById('metas-detail-container');
+        if(detail) detail.classList.add('hidden');
+        if(grid) grid.classList.remove('hidden');
+        this.viewState = 'GRID';
+        this.selectedUserId = null;
+        this.atualizarCardsTopo();
+    },
+
+    abrirDetalhe: function(uid) {
+        this.selectedUserId = uid;
+        this.viewState = 'DETAIL';
+        const grid = document.getElementById('metas-grid-container');
+        const detail = document.getElementById('metas-detail-container');
+        if(grid) grid.classList.add('hidden');
+        if(detail) detail.classList.remove('hidden');
+        this.renderizarDashboardAssistente(uid);
+    },
 
     carregar: async function() {
         if (this.isLocked) return;
         this.isLocked = true;
+        this.toggleLoading(true);
 
-        console.log("🚀 INICIANDO CARREGAMENTO DE METAS V6 (Safe Date)...");
+        this.prepararContainer();
 
         try {
             const datas = MinhaArea.getDatasFiltro();
             if (!datas) throw new Error("Datas do filtro não encontradas.");
             const { inicio, fim } = datas;
-
+            
             const diffDias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24);
-            const modoMensal = diffDias > 35; 
+            this.isMacroView = diffDias > 45;
 
-            this.resetarCards(true);
-            
-            // --- 1. GARANTIA DE USUÁRIO ---
-            let uid = MinhaArea.getUsuarioAlvo(); 
-            if (!uid) {
-                const sessao = Sistema.lerSessao();
-                if (sessao) uid = sessao.id;
-            }
+            const isAdmin = MinhaArea.isAdmin();
+            const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
+            const filtroContrato = this.currentFilterContract;
 
-            if (!uid) throw new Error("ID do Usuário não identificado.");
-            
-            const anoInicio = new Date(inicio).getFullYear();
-            const anoFim = new Date(fim).getFullYear();
-            const anosEnvolvidos = [anoInicio];
-            if (anoFim !== anoInicio) anosEnvolvidos.push(anoFim);
+            let queryUsers = Sistema.supabase.from('usuarios').select('id, nome, perfil, funcao, modelo_contrato').eq('ativo', true);
+            if (!isAdmin && myId) queryUsers = queryUsers.eq('id', myId);
 
-            // --- 2. BUSCA DE DADOS ---
-            const [kpisRes, metasRes, usersRes, abonosRes] = await Promise.all([
-                Sistema.supabase.rpc('get_kpis_minha_area', { p_inicio: inicio, p_fim: fim, p_usuario_id: uid }),
-                Sistema.supabase.from('metas').select('*').in('ano', anosEnvolvidos),
-                Sistema.supabase.from('usuarios').select('id, perfil, funcao').eq('ativo', true),
-                Sistema.supabase.from('producao')
-                    .select('data_referencia, usuario_id, fator, justificativa')
-                    .gte('data_referencia', inicio)
-                    .lte('data_referencia', fim)
-                    .eq('usuario_id', uid) 
-            ]);
+            const { data: users, error: errUser } = await queryUsers;
+            if (errUser) throw new Error("Erro permissão: " + errUser.message);
 
-            if (kpisRes.error) throw new Error("Erro KPIs: " + kpisRes.error.message);
-            if (abonosRes.error) throw new Error("Erro Abonos: " + abonosRes.error.message);
-
-            // --- 3. PROCESSAMENTO SEGURO DE DATAS ---
-            // Função auxiliar para gerar YYYY-MM-DD local sem fuso
-            const toDateStr = (dateObj) => {
-                const y = dateObj.getFullYear();
-                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const d = String(dateObj.getDate()).padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            };
-
-            // Mapeia Abonos (Fatores)
-            const mapaFatores = {};
-            (abonosRes.data || []).forEach(r => {
-                if(r.data_referencia) {
-                    // Pega os primeiros 10 chars (YYYY-MM-DD) ignorando hora
-                    const dataKey = r.data_referencia.substring(0, 10);
-                    mapaFatores[dataKey] = (r.fator !== null && r.fator !== undefined) ? Number(r.fator) : 1;
-                    
-                    // Log de Auditoria para o dia problemático
-                    if (dataKey.includes('2026-01-07')) {
-                        console.log(`🔎 ABONO ENCONTRADO NO BANCO: Dia ${dataKey} = Fator ${mapaFatores[dataKey]}`);
-                    }
-                }
-            });
-
-            // Configuração de Metas Mensais
-            const mapMetaMensal = {}; 
-            const termosGestao = ['GESTOR', 'AUDITOR', 'ADMIN', 'COORD', 'LIDER', 'LÍDER', 'SUPERVIS', 'GERENTE'];
-            const idsOperacionais = new Set();
-            (usersRes.data || []).forEach(u => {
+            const forbidden = ['GESTOR', 'AUDITOR', 'ADMIN', 'LIDER', 'COORDENADOR'];
+            const assistentes = users.filter(u => {
+                if (!isAdmin) return true; 
                 const p = (u.perfil || '').toUpperCase();
                 const f = (u.funcao || '').toUpperCase();
-                if (!termosGestao.some(t => p.includes(t) || f.includes(t))) idsOperacionais.add(u.id);
-            });
+                const isOperacao = !forbidden.some(word => p.includes(word) || f.includes(word));
+                if (!isOperacao) return false;
 
-            const idsValidos = new Set([parseInt(uid)]);
-
-            (metasRes.data || []).forEach(m => {
-                if (idsValidos.has(m.usuario_id)) {
-                    const key = `${m.ano}-${m.mes}`;
-                    if (!mapMetaMensal[key]) mapMetaMensal[key] = { prod: 0, assert_soma: 0, count: 0 };
-                    mapMetaMensal[key].prod += (m.meta_producao || 0);
-                    mapMetaMensal[key].assert_soma += (m.meta_assertividade || 98.0);
-                    mapMetaMensal[key].count++;
+                if (filtroContrato !== 'TODOS') {
+                    const userContrato = (u.modelo_contrato || 'CLT').trim().toUpperCase();
+                    if (filtroContrato === 'PJ' && !userContrato.includes('PJ')) return false;
+                    if (filtroContrato === 'CLT' && userContrato.includes('PJ')) return false; 
                 }
+                return true;
             });
+            
+            const userIds = assistentes.map(u => u.id);
 
-            // Médias de Assertividade
-            Object.keys(mapMetaMensal).forEach(k => {
-                const item = mapMetaMensal[k];
-                item.assert = item.count > 0 ? (item.assert_soma / item.count) : 98.0;
+            if (userIds.length === 0) {
+                this.cacheUsers = [];
+                this.statsUsers = {};
+                this.renderizarMatriz();
+                this.atualizarCardsTopo(); 
+                this.toggleLoading(false);
+                this.isLocked = false;
+                return;
+            }
+
+            const prodQuery = Sistema.supabase.from('producao').select('*').in('usuario_id', userIds).gte('data_referencia', inicio).lte('data_referencia', fim);
+            const assertQuery = Sistema.supabase.from('assertividade').select('usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val').in('usuario_id', userIds).gte('data_referencia', inicio).lte('data_referencia', fim);
+            const metasQuery = Sistema.supabase.from('metas').select('*').in('usuario_id', userIds).gte('ano', new Date(inicio).getFullYear()).lte('ano', new Date(fim).getFullYear());
+
+            const [resProd, resAssert, resMetas] = await Promise.all([prodQuery, assertQuery, metasQuery]);
+            if (resProd.error) throw new Error("Erro Prod: " + resProd.error.message);
+
+            this.cacheDados = {};
+            this.cacheColunas = [];
+            this.statsUsers = {}; 
+            
+            userIds.forEach(uid => { 
+                this.statsUsers[String(uid)] = { 
+                    prod: 0, 
+                    dias_efetivos: 0, 
+                    metaSum: 0, 
+                    ok: 0, 
+                    total: 0, 
+                    somaMediasMensais: 0, 
+                    somaMetasMensais: 0, 
+                    countMesesComDados: 0 
+                }; 
             });
-
-            const mapaDados = {};
-            (kpisRes.data || []).forEach(d => { mapaDados[d.data_ref || d.data] = d; });
-
-            // --- 4. LOOP CRONOLÓGICO ---
-            const chartData = { labels: [], prodReal: [], prodMeta: [], assReal: [], assMeta: [] };
-            let acc = { val: 0, meta: 0, audit: 0, nok: 0 };
-
-            // Inicializa datas ignorando hora (meio-dia para evitar problemas de virada)
+            
             let curr = new Date(inicio + 'T12:00:00');
             const end = new Date(fim + 'T12:00:00');
-            if (modoMensal) curr.setDate(1);
 
-            while (curr <= end) {
-                const mes = curr.getMonth() + 1;
-                const ano = curr.getFullYear();
-                const keyMeta = `${ano}-${mes}`;
-                const metaMesCfg = mapMetaMensal[keyMeta] || { prod: 0, assert: 98.0 };
-                
-                let pReal = 0, pMeta = 0, aAudit = 0, aNok = 0;
-
-                if (modoMensal) {
-                    const label = curr.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.','');
-                    const lastDay = new Date(ano, mes, 0).getDate();
-                    for(let d=1; d<=lastDay; d++) {
-                        // Constrói Data Manualmente
-                        const diaStr = `${ano}-${String(mes).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                        const diaObj = new Date(diaStr + 'T12:00:00');
-                        
-                        if (diaObj < new Date(inicio + 'T00:00:00') || diaObj > new Date(fim + 'T23:59:59')) continue;
-                        
-                        const isFDS = (diaObj.getDay()===0 || diaObj.getDay()===6);
-                        const reg = mapaDados[diaStr] || { total_producao: 0, total_auditados: 0, total_nok: 0 };
-                        
-                        // Busca Fator
-                        const fatorDia = mapaFatores[diaStr] !== undefined ? mapaFatores[diaStr] : 1;
-
-                        pReal += reg.total_producao;
-                        if(!isFDS) pMeta += (metaMesCfg.prod * fatorDia);
-                        aAudit += reg.total_auditados;
-                        aNok += reg.total_nok;
-                    }
-                    
-                    // Adiciona ao gráfico
-                    if (curr >= new Date(inicio + 'T00:00:00') || new Date(ano, mes, 0) <= end) {
-                        chartData.labels.push(label);
-                        chartData.prodReal.push(pReal);
-                        chartData.prodMeta.push(pMeta);
-                        chartData.assReal.push(aAudit>0 ? ((aAudit-aNok)/aAudit*100) : null);
-                        chartData.assMeta.push(metaMesCfg.assert);
+            if (this.isMacroView) {
+                curr.setDate(1);
+                while (curr <= end) {
+                    const key = this.getKeyFromDate(curr, true);
+                    if (!this.cacheColunas.find(c => c.key === key)) {
+                        this.cacheColunas.push({ key, label: curr.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase() });
+                        this.cacheDados[key] = {};
+                        userIds.forEach(uid => this.cacheDados[key][String(uid)] = this.novoItemVazio());
                     }
                     curr.setMonth(curr.getMonth() + 1);
-
-                } else {
-                    // MODO DIÁRIO
-                    // Chave de Data Segura (Manual)
-                    const iso = toDateStr(curr);
-                    const isFDS = (curr.getDay()===0 || curr.getDay()===6);
-                    const reg = mapaDados[iso] || { total_producao: 0, total_auditados: 0, total_nok: 0, media_assertividade: 0 };
-                    
-                    // Busca Fator
-                    const fatorDia = mapaFatores[iso] !== undefined ? mapaFatores[iso] : 1;
-
-                    // Aplica Abono
-                    pMeta = isFDS ? 0 : (metaMesCfg.prod * fatorDia);
-                    pReal = reg.total_producao;
-                    
-                    // Debug Visual no Console para o dia específico
-                    if (iso.includes('2026-01-07')) {
-                        console.log(`🎯 LOOP DIA 07: DataKey="${iso}", Fator=${fatorDia}, MetaCalc=${pMeta}`);
+                }
+            } else {
+                while (curr <= end) {
+                    const diaSemana = curr.getDay();
+                    if (diaSemana !== 0 && diaSemana !== 6) { 
+                        const key = this.getKeyFromDate(curr, false);
+                        const label = String(curr.getDate()).padStart(2,'0');
+                        this.cacheColunas.push({ key, label });
+                        this.cacheDados[key] = {};
+                        userIds.forEach(uid => this.cacheDados[key][String(uid)] = this.novoItemVazio());
                     }
-
-                    chartData.labels.push(`${curr.getDate()}/${mes}`);
-                    chartData.prodReal.push(pReal);
-                    chartData.prodMeta.push(pMeta);
-                    chartData.assReal.push(reg.media_assertividade > 0 ? reg.media_assertividade : null);
-                    chartData.assMeta.push(metaMesCfg.assert);
-                    
-                    aAudit = reg.total_auditados;
-                    aNok = reg.total_nok;
-                    
                     curr.setDate(curr.getDate() + 1);
                 }
-
-                acc.val += pReal; acc.meta += pMeta; acc.audit += aAudit; acc.nok += aNok;
             }
 
-            // ATUALIZAÇÃO VISUAL (CARDS)
-            // Lógica: Se Meta > 0, calcula %. Se Meta == 0 e Prod > 0, 100%. Se ambos 0, 100% (cumpriu).
-            let pctProd = 0;
-            if (acc.meta > 0) pctProd = (acc.val / acc.meta) * 100;
-            else pctProd = 100; // Meta zerada (abono) = 100% Ok
+            const mapMetas = {};
+            (resMetas.data || []).forEach(m => { mapMetas[`${m.usuario_id}-${m.ano}-${m.mes}`] = { p: m.meta_producao || 100, a: m.meta_assertividade || 97 }; });
 
-            const pctAssert = acc.audit > 0 ? ((acc.audit - acc.nok)/acc.audit*100) : 0;
-            const pctCob = acc.val > 0 ? (acc.audit/acc.val)*100 : 0;
-            const pctAprov = acc.audit > 0 ? ((acc.audit-acc.nok)/acc.audit*100) : 100;
+            // 1. PRODUÇÃO
+            (resProd.data || []).forEach(reg => {
+                const uidStr = String(reg.usuario_id);
+                const key = this.getKeyFromDate(reg.data_referencia, this.isMacroView);
+                
+                if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
+                    const qtd = Number(reg.quantidade || 0);
+                    const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
+                    const d = new Date(reg.data_referencia + 'T12:00:00');
+                    const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth()+1}`;
+                    const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 100; 
 
-            this.updateCard('prod', acc.val, acc.meta, pctProd, 'Atingimento');
-            this.updateCard('assert', pctAssert, 98, pctAssert, 'Índice Real', true);
-            
-            this.setTxt('auditoria-total-auditados', acc.audit.toLocaleString('pt-BR'));
-            this.setTxt('auditoria-total-validados', acc.val.toLocaleString('pt-BR'));
-            this.setBar('bar-auditoria-cov', pctCob, 'bg-purple-500');
-            this.atualizarPorcentagemCard('bar-auditoria-cov', pctCob, 'Cobertura');
+                    if (qtd > 0) { 
+                        this.cacheDados[key][uidStr].prod += qtd;
+                        this.cacheDados[key][uidStr].dias_efetivos += fator;
+                        
+                        if (this.statsUsers[uidStr]) { 
+                            this.statsUsers[uidStr].prod += qtd; 
+                            this.statsUsers[uidStr].dias_efetivos += fator; 
+                            this.statsUsers[uidStr].metaSum += (metaBase * fator); 
+                        }
+                    }
+                    this.cacheDados[key][uidStr].metaProd = metaBase; 
+                    if (mapMetas[mKey]) this.cacheDados[key][uidStr].metaAssert = mapMetas[mKey].a;
+                }
+            });
 
-            this.setTxt('auditoria-total-ok', (acc.audit - acc.nok).toLocaleString('pt-BR'));
-            this.setTxt('auditoria-total-nok', acc.nok.toLocaleString('pt-BR'));
-            this.setBar('bar-auditoria-res', pctAprov, 'bg-emerald-500');
-            this.atualizarPorcentagemCard('bar-auditoria-res', pctAprov, 'Aprovação');
+            // 2. ASSERTIVIDADE
+            (resAssert.data || []).forEach(reg => {
+                const uidStr = String(reg.usuario_id);
+                if(!this.statsUsers[uidStr]) return;
+                const key = this.getKeyFromDate(reg.data_referencia, this.isMacroView);
+                if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
+                    let ok = 0, total = 0;
+                    if (reg.qtd_campos > 0) {
+                        ok = Number(reg.qtd_ok || 0); total = Number(reg.qtd_campos || 0);
+                    } else {
+                        const val = reg.assertividade_val;
+                        if (val) {
+                            const pct = parseFloat(val.toString().replace('%','').replace(',','.'));
+                            if (!isNaN(pct)) { total = 100; ok = pct; }
+                        }
+                    }
+                    if (total > 0) {
+                        this.cacheDados[key][uidStr].ok += ok; 
+                        this.cacheDados[key][uidStr].total += total;
+                        this.statsUsers[uidStr].ok += ok;
+                        this.statsUsers[uidStr].total += total;
+                    }
+                }
+            });
 
-            const periodoTxt = this.getLabelPeriodo(inicio, fim);
-            document.querySelectorAll('.periodo-label').forEach(el => el.innerText = periodoTxt);
-            
-            // Renderização Segura do Gráfico
-            if (document.getElementById('graficoEvolucaoProducao')) {
-                this.renderizarGrafico('graficoEvolucaoProducao', chartData.labels, chartData.prodReal, chartData.prodMeta, 'Produção', '#3b82f6', false);
+            // 3. FINALIZAÇÃO E CÁLCULO DA MÉDIA DAS MÉDIAS (MACRO)
+            Object.keys(this.cacheDados).forEach(k => {
+                Object.keys(this.cacheDados[k]).forEach(uid => {
+                    const celula = this.cacheDados[k][uid];
+                    if (celula.total > 0) celula.assert = (celula.ok / celula.total); 
+                    
+                    const divisor = celula.dias_efetivos > 0 ? celula.dias_efetivos : 1;
+                    if (celula.prod > 0) {
+                        celula.velocidade = Math.round(celula.prod / divisor);
+                        
+                        // SE FOR MACRO, ACUMULA PARA A MÉDIA DAS MÉDIAS DO USUÁRIO
+                        if (this.isMacroView && this.statsUsers[uid]) {
+                            this.statsUsers[uid].somaMediasMensais += celula.velocidade;
+                            this.statsUsers[uid].somaMetasMensais += (celula.metaProd || 100);
+                            this.statsUsers[uid].countMesesComDados++;
+                        }
+                    } else {
+                        celula.velocidade = 0;
+                    }
+                });
+            });
+
+            this.cacheUsers = assistentes;
+            this.atualizarCardsTopo();
+
+            if (this.viewState === 'DETAIL' && this.selectedUserId) {
+                this.renderizarDashboardAssistente(this.selectedUserId);
+            } else {
+                this.reordenarEExibir();
             }
-            if (document.getElementById('graficoEvolucaoAssertividade')) {
-                this.renderizarGrafico('graficoEvolucaoAssertividade', chartData.labels, chartData.assReal, chartData.assMeta, 'Qualidade', '#10b981', true);
-            }
 
-            console.log("✅ Metas carregadas e interface atualizada.");
+            const elPeriodo = document.getElementById('metas-periodo-label');
+            const elTotal = document.getElementById('metas-total-users');
+            if(elPeriodo) elPeriodo.innerText = `Período: ${new Date(inicio).toLocaleDateString('pt-BR')} a ${new Date(fim).toLocaleDateString('pt-BR')}`;
+            if(elTotal) elTotal.innerText = `${assistentes.length} Assistentes no Ranking (${this.currentFilterContract})`;
 
         } catch (err) {
-            console.error("❌ ERRO METAS:", err);
-            this.resetarCards(false); 
+            console.error("❌ ERRO MATRIZ:", err);
+            const tbody = document.getElementById('grade-equipe-body');
+            if(tbody) tbody.innerHTML = `<tr><td colspan="100" class="p-8 text-center text-rose-500 font-bold">Erro: ${err.message}</td></tr>`;
         } finally {
+            this.toggleLoading(false);
             this.isLocked = false;
         }
     },
 
-    updateCard: function(type, real, meta, pct, subLabel, isPct = false) {
-        const elReal = document.getElementById(`meta-${type}-real`);
-        if(!elReal) return;
-        
-        const txtReal = isPct ? this.fmtPct(real) : real.toLocaleString('pt-BR');
-        const txtMeta = isPct ? `${meta}%` : meta.toLocaleString('pt-BR');
-        
-        this.setTxt(`meta-${type}-real`, txtReal);
-        this.setTxt(`meta-${type}-meta`, txtMeta);
-        const corBarra = type === 'prod' ? 'bg-blue-500' : 'bg-emerald-500';
-        this.setBar(`bar-meta-${type}`, pct, corBarra);
-        this.atualizarPorcentagemCard(`bar-meta-${type}`, pct, subLabel);
-    },
+    novoItemVazio: function() { return { prod: 0, dias_efetivos: 0, velocidade: 0, ok: 0, total: 0, assert: null, metaProd: 0, metaAssert: 97 }; },
 
-    atualizarPorcentagemCard: function(barId, pct, labelTxt) {
-        const bar = document.getElementById(barId);
-        if(!bar) return;
-        const container = bar.parentElement.parentElement;
-        if(!container) return;
-
-        let label = container.querySelector('.pct-dynamic-label');
-        if(!label) {
-            label = document.createElement('div');
-            label.className = 'flex justify-between items-center text-[10px] text-slate-500 font-bold pct-dynamic-label';
-            label.innerHTML = `<span class="pct-lbl"></span><span class="pct-val"></span>`;
-            container.appendChild(label);
-        }
-        label.querySelector('.pct-lbl').innerText = labelTxt;
-        const valSpan = label.querySelector('.pct-val');
-        valSpan.innerText = this.fmtPct(pct);
+    atualizarCardsTopo: function() {
+        let globalProd = 0;
+        let globalOk = 0;
+        let globalTotalAud = 0;
         
-        if (pct >= 100 || (labelTxt === 'Aprovação' && pct >= 95) || (labelTxt === 'Índice Real' && pct >= 98)) {
-            valSpan.className = 'pct-val text-emerald-600 font-black';
-        } else if (pct >= 80) {
-            valSpan.className = 'pct-val text-blue-600 font-bold';
+        let somaDasMediasIndividuais = 0;
+        let contadorUsuariosComDados = 0;
+        let globalDiasEfetivosMicro = 0;
+
+        Object.values(this.statsUsers).forEach(s => {
+            globalProd += s.prod;
+            globalOk += s.ok;
+            globalTotalAud += s.total;
+
+            if (this.isMacroView) {
+                // Cálculo da Média das Médias para o Card de Equipe
+                const divisor = s.countMesesComDados > 0 ? s.countMesesComDados : 1;
+                const mediaAcumuladaUsuario = s.somaMediasMensais / divisor;
+                if (s.prod > 0) {
+                    somaDasMediasIndividuais += mediaAcumuladaUsuario;
+                    contadorUsuariosComDados++;
+                }
+            } else {
+                globalDiasEfetivosMicro += s.dias_efetivos;
+            }
+        });
+
+        const kpiVolume = globalProd;
+        
+        // Média das Médias Global (Equipe)
+        let kpiVelocidade = 0;
+        if (this.isMacroView) {
+            kpiVelocidade = contadorUsuariosComDados > 0 ? Math.round(somaDasMediasIndividuais / contadorUsuariosComDados) : 0;
         } else {
-            valSpan.className = 'pct-val text-rose-600 font-bold';
+            kpiVelocidade = globalDiasEfetivosMicro > 0 ? Math.round(globalProd / globalDiasEfetivosMicro) : 0;
         }
+
+        const kpiAssert = globalTotalAud > 0 ? (globalOk / globalTotalAud) * 100 : 0;
+
+        const elProd = document.getElementById('card-ranking-prod');
+        const elMedia = document.getElementById('card-ranking-media');
+        const elAssert = document.getElementById('card-ranking-assert');
+
+        if(elProd) elProd.innerText = kpiVolume.toLocaleString('pt-BR');
+        if(elMedia) elMedia.innerText = kpiVelocidade.toLocaleString('pt-BR');
+        if(elAssert) elAssert.innerText = (globalTotalAud > 0) ? kpiAssert.toFixed(2) + '%' : '--%';
     },
 
-    renderizarGrafico: function(id, lbl, dReal, dMeta, label, corHex, isPct) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
+    renderizarMatriz: function() {
+        if (this.viewState === 'DETAIL') return;
+
+        const thead = document.getElementById('grade-equipe-header');
+        const tbody = document.getElementById('grade-equipe-body');
+        if(!thead || !tbody) return;
         
-        if (typeof Chart === 'undefined') return console.warn("Chart.js não carregado.");
+        const isAssert = this.activeSubTab === 'ASSERT';
+        const subLabel = isAssert ? '% Assertividade' : (this.isMacroView ? 'Média/Mês' : 'Média/Dia');
+        const bgHeader = isAssert ? 'bg-emerald-50' : 'bg-slate-100'; 
 
-        if(id.includes('Producao')) { if(this.chartProd) { this.chartProd.destroy(); this.chartProd = null; } } 
-        else { if(this.chartAssert) { this.chartAssert.destroy(); this.chartAssert = null; } }
+        let htmlHeader = `<th class="px-4 py-3 ${bgHeader} border-b border-r border-slate-300 min-w-[200px] sticky left-0 top-0 z-[60] text-left text-slate-700 shadow-md">
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                    <span>${isAssert ? 'RANKING (QUALIDADE)' : 'RANKING (VELOCIDADE)'}</span>
+                    <select onchange="MinhaArea.Metas.mudarFiltroContrato(this.value)" class="text-[10px] font-bold text-slate-600 bg-white border border-slate-300 rounded px-1 py-0.5 cursor-pointer">
+                        <option value="TODOS" ${this.currentFilterContract === 'TODOS' ? 'selected' : ''}>Todos</option>
+                        <option value="CLT" ${this.currentFilterContract === 'CLT' ? 'selected' : ''}>CLT</option>
+                        <option value="PJ" ${this.currentFilterContract === 'PJ' ? 'selected' : ''}>PJ</option>
+                    </select>
+                </div>
+                <span class="text-[9px] text-slate-400 font-normal">${subLabel}</span>
+            </div>
+        </th>`;
+        
+        const corAcum = isAssert ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-blue-50 text-blue-800 border-blue-200';
+        htmlHeader += `<th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">PROD. TOTAL</th>`;
+        htmlHeader += `<th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title="Média das Médias do Período">ACUMULADO</th>`;
 
-        const canvasCtx = ctx.getContext('2d');
-        const gradient = canvasCtx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, corHex + '40');
-        gradient.addColorStop(1, corHex + '00');
+        this.cacheColunas.forEach(col => {
+            htmlHeader += `<th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">${col.label}</th>`;
+        });
+        thead.innerHTML = htmlHeader;
 
-        const config = {
-            type: 'line',
-            data: {
-                labels: lbl,
-                datasets: [
-                    { 
-                        label: label, 
-                        data: dReal, 
-                        borderColor: corHex, 
-                        backgroundColor: gradient,
-                        borderWidth: 2,
-                        fill: true, 
-                        tension: 0.35, 
-                        pointRadius: lbl.length > 20 ? 0 : 4,
-                        pointBackgroundColor: '#fff',
-                        pointBorderColor: corHex,
-                        pointBorderWidth: 2
-                    },
-                    { 
-                        label: 'Meta', 
-                        data: dMeta, 
-                        borderColor: '#94a3b8', 
-                        borderDash: [6,6], 
-                        tension: 0, 
-                        fill: false, 
-                        pointRadius: 0,
-                        borderWidth: 1.5
-                    }
-                ]
-            },
-            options: {
-                responsive: true, 
-                maintainAspectRatio: false, 
-                interaction: { intersect: false, mode: 'index' },
-                plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', callbacks: { label: c => ` ${c.dataset.label}: ${c.raw?.toLocaleString('pt-BR') || '0'}${isPct ? '%' : ''}` } } },
-                scales: { 
-                    y: { beginAtZero: true, grid: { color: '#f1f5f9', drawBorder: false }, ticks: { callback: v => isPct ? v+'%' : v, color: '#94a3b8', font: { size: 10 } } }, 
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0, autoSkip: true } } 
+        let htmlBody = '';
+        this.cacheUsers.forEach((u, index) => {
+            const pos = index + 1;
+            let medalha = '';
+            if(pos===1) medalha = '🥇'; else if(pos===2) medalha = '🥈'; else if(pos===3) medalha = '🥉';
+
+            const stats = this.statsUsers[String(u.id)] || { prod: 0, dias_efetivos: 0, metaSum: 0, ok: 0, total: 0, somaMediasMensais: 0, somaMetasMensais: 0, countMesesComDados: 0 };
+            
+            let cellTotal = '<span class="text-slate-300">-</span>';
+            let cellMedia = '<span class="text-slate-300">-</span>';
+            
+            if (isAssert) {
+                if (stats.total > 0) cellTotal = `<span class="font-bold text-slate-600">${stats.total}</span>`;
+                const assertGeral = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+                if (stats.total > 0) {
+                    const corVal = assertGeral >= 97 ? 'text-emerald-700' : 'text-rose-600';
+                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${assertGeral.toFixed(1)}%</div>`;
+                }
+            } else {
+                if (stats.prod > 0) cellTotal = `<span class="font-bold text-slate-700">${stats.prod.toLocaleString('pt-BR')}</span>`;
+                
+                // LÓGICA DE MÉDIA ACUMULADA: MÉDIA DAS MÉDIAS (MACRO)
+                const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
+                const avgVel = this.isMacroView ? Math.round(stats.somaMediasMensais / divisor) : Math.round(stats.prod / divisor);
+                
+                // Meta Média
+                const avgMeta = this.isMacroView ? (stats.somaMetasMensais / divisor) : (stats.metaSum / divisor);
+                const avgPct = avgMeta > 0 ? (avgVel / avgMeta * 100) : 0;
+                
+                if (stats.prod > 0) {
+                    const corVal = avgVel >= avgMeta ? 'text-blue-700' : 'text-rose-700';
+                    const corBadge = avgPct >= 100 ? 'bg-blue-200 text-blue-800' : 'bg-rose-100 text-rose-700 border border-rose-200';
+                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${avgVel.toLocaleString('pt-BR')}</div>
+                                 <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(0)}%</span></div>`;
                 }
             }
-        };
+
+            htmlBody += `<tr class="hover:bg-slate-50 transition-colors group">
+                <td class="px-4 py-3 border-b border-r border-slate-300 sticky left-0 bg-white group-hover:bg-slate-50 z-50">
+                    <button onclick="MinhaArea.Metas.abrirDetalhe('${u.id}')" class="text-left w-full hover:text-blue-600 font-bold text-slate-700 text-xs transition flex items-center justify-between">
+                        <span class="truncate">${pos}. ${u.nome.split(' ')[0]} ${medalha}</span>
+                        <i class="fas fa-chart-line opacity-0 group-hover:opacity-100 text-blue-400"></i>
+                    </button>
+                </td>
+                <td class="px-2 py-2 border-b border-r border-slate-100 bg-white text-center align-middle">${cellTotal}</td>
+                <td class="px-2 py-2 border-b border-r border-slate-100 bg-slate-50/50 text-center align-middle">${cellMedia}</td>`;
+
+            this.cacheColunas.forEach(col => {
+                const dados = this.cacheDados[col.key][String(u.id)];
+                let cellHtml = '<span class="text-slate-200">-</span>';
+                let subHtml = '';
+                
+                if (isAssert) {
+                    if (dados && dados.total > 0 && dados.assert !== null) {
+                        const batido = (dados.assert * 100) >= (dados.metaAssert);
+                        cellHtml = `<div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold">${(dados.assert * 100).toFixed(0)}%</div>`;
+                    }
+                } else {
+                    if (dados && dados.velocidade > 0) {
+                        const batido = dados.velocidade >= dados.metaProd;
+                        cellHtml = `<div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold">${dados.velocidade}</div>`;
+                        if (dados.metaProd > 0) {
+                            const pct = (dados.velocidade / dados.metaProd) * 100;
+                            const corBadge = pct >= 100 ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 border border-rose-200';
+                            subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(0)}%</span></div>`;
+                        }
+                    }
+                }
+                htmlBody += `<td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12">${cellHtml}${subHtml}</td>`;
+            });
+            htmlBody += `</tr>`;
+        });
+        tbody.innerHTML = htmlBody;
+    },
+
+    renderizarDashboardAssistente: function(uid) {
+        if (!document.getElementById('detalhe-nome')) { this.prepararContainer(); }
+        const user = this.cacheUsers.find(u => String(u.id) === String(uid));
+        if (!user) return;
+
+        document.getElementById('detalhe-nome').innerText = user.nome;
+        document.getElementById('detalhe-funcao').innerText = user.funcao || 'Assistente';
+        document.getElementById('detalhe-contrato').innerText = user.modelo_contrato || 'CLT';
+
+        const labels = [];
+        const dataProd = [];
+        const dataMetaProd = [];
+        const dataAssert = [];
+        const dataMetaAssert = [];
+
+        this.cacheColunas.forEach(col => {
+            labels.push(col.label);
+            const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 97 };
+            dataProd.push(dados.velocidade);
+            dataMetaProd.push(dados.metaProd || 0);
+            dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null); 
+            dataMetaAssert.push(dados.metaAssert || 97);
+        });
+
+        const stats = this.statsUsers[String(uid)] || { prod: 0, dias_efetivos: 0, somaMediasMensais: 0, countMesesComDados: 0, ok: 0, total: 0 };
+        const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
+        const media = this.isMacroView ? Math.round(stats.somaMediasMensais / divisor) : Math.round(stats.prod / divisor);
+        const assertFinal = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+
+        document.getElementById('detalhe-kpi-media').innerText = media;
+        document.getElementById('detalhe-kpi-total').innerText = stats.prod.toLocaleString('pt-BR');
+        document.getElementById('detalhe-kpi-assert').innerText = assertFinal > 0 ? assertFinal.toFixed(1) + '%' : '-';
+
+        if (this.chartDetailProd) this.chartDetailProd.destroy();
+        const ctxProd = document.getElementById('canvas-detail-prod').getContext('2d');
+        this.chartDetailProd = new Chart(ctxProd, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Meta', data: dataMetaProd, type: 'line', borderColor: '#94a3b8', borderWidth: 2, pointRadius: 0, borderDash: [5, 5], order: 1 },
+                    { label: 'Produção', data: dataProd, backgroundColor: '#2563eb', borderRadius: 4, order: 2 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        });
+
+        if (this.chartDetailAssert) this.chartDetailAssert.destroy();
+        const ctxAssert = document.getElementById('canvas-detail-assert').getContext('2d');
+        this.chartDetailAssert = new Chart(ctxAssert, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                     { label: 'Meta Qualidade', data: dataMetaAssert, borderColor: '#10b981', borderWidth: 2, pointRadius: 0, borderDash: [2, 2], fill: false },
+                     { label: 'Real (%)', data: dataAssert, borderColor: '#059669', backgroundColor: '#d1fae5', borderWidth: 3, tension: 0.3, fill: true, spanGaps: true }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 80, max: 105 } } }
+        });
+    },
+
+    abrirComparativoVizinhos: function(selectedUid) {
+        if (!MinhaArea.isAdmin()) return;
+        const index = this.cacheUsers.findIndex(u => u.id == selectedUid);
+        if (index === -1) return;
+        let id1, id2, id3;
+        const total = this.cacheUsers.length;
+        if (total <= 1) { id1 = selectedUid; id2 = null; id3 = null; } 
+        else if (total <= 2) { id1 = this.cacheUsers[0].id; id2 = this.cacheUsers[1].id; id3 = null; } 
+        else {
+            if (index === 0) { id1 = this.cacheUsers[0].id; id2 = this.cacheUsers[1].id; id3 = this.cacheUsers[2].id; } 
+            else if (index === total - 1) { id1 = this.cacheUsers[total-3].id; id2 = this.cacheUsers[total-2].id; id3 = this.cacheUsers[total-1].id; } 
+            else { id1 = this.cacheUsers[index-1].id; id2 = this.cacheUsers[index].id; id3 = this.cacheUsers[index+1].id; }
+        }
+        this.popularSelectsManual();
+        const el1 = document.getElementById('comp-sel-1'); const el2 = document.getElementById('comp-sel-2'); const el3 = document.getElementById('comp-sel-3');
+        if(el1) el1.value = id1 || ''; if(el2) el2.value = id2 || ''; if(el3) el3.value = id3 || '';
+        this.atualizarComparativoManual();
+        const modal = document.getElementById('modal-comparativo-metas');
+        if(modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
+    },
+
+    popularSelectsManual: function() {
+        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+        ['comp-sel-1', 'comp-sel-2', 'comp-sel-3'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = createOpts(); });
+    },
+
+    atualizarComparativoManual: function() {
+        const id1 = document.getElementById('comp-sel-1')?.value;
+        const id2 = document.getElementById('comp-sel-2')?.value;
+        const id3 = document.getElementById('comp-sel-3')?.value;
+        const ids = [id1, id2, id3].filter(id => id); 
+        this.renderizarGraficosComparativos(ids);
+    },
+
+    fecharModalComparativo: function() {
+        const modal = document.getElementById('modal-comparativo-metas');
+        if(modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
+    },
+
+    renderizarGraficosComparativos: function(userIds) {
+        const labels = this.cacheColunas.map(c => c.label);
+        const slotColors = ['#3b82f6', '#10b981', '#f59e0b']; 
+        const datasetsProd = []; const datasetsAssert = [];
+
+        userIds.forEach((uid, idx) => {
+            const user = this.cacheUsers.find(u => String(u.id) === String(uid));
+            if (!user) return;
+            const color = slotColors[idx % 3]; 
+            const dataProd = []; const dataAssert = [];
+            this.cacheColunas.forEach(col => {
+                const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null };
+                dataProd.push(dados.velocidade); dataAssert.push(dados.assert * 100); 
+            });
+            const dsBase = { label: user.nome.split(' ')[0], borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 4, tension: 0.2, fill: false };
+            datasetsProd.push({ ...dsBase, data: dataProd });
+            datasetsAssert.push({ ...dsBase, data: dataAssert });
+        });
         
-        try {
-            const novoChart = new Chart(ctx, config);
-            if(id.includes('Producao')) this.chartProd = novoChart; 
-            else this.chartAssert = novoChart;
-        } catch(e) { console.warn("Erro ao desenhar gráfico:", e); }
+        this.createChartComp('chart-comp-prod', labels, datasetsProd, false);
+        this.createChartComp('chart-comp-assert', labels, datasetsAssert, true);
     },
 
-    resetarCards: function(showLoading) {
-        const ids = ['meta-prod-real','meta-assert-real','auditoria-total-auditados','auditoria-total-ok','auditoria-total-nok'];
-        ids.forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = showLoading ? '<i class="fas fa-spinner fa-spin text-slate-300"></i>' : '--'; });
-        ['bar-meta-prod','bar-meta-assert','bar-auditoria-cov','bar-auditoria-res'].forEach(id => { const el = document.getElementById(id); if(el) el.style.width = '0%'; });
-        document.querySelectorAll('.pct-dynamic-label').forEach(el => el.remove());
+    createChartComp: function(canvasId, labels, datasets, isPct) {
+        const ctx = document.getElementById(canvasId); if (!ctx) return;
+        if (canvasId === 'chart-comp-prod') { if (this.chartCompProd) this.chartCompProd.destroy(); } else { if (this.chartCompAssert) this.chartCompAssert.destroy(); }
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+        if (canvasId === 'chart-comp-prod') this.chartCompProd = chart; else this.chartCompAssert = chart;
     },
 
-    getLabelPeriodo: function(i, f) { return `${i.split('-').reverse().slice(0,2).join('/')} a ${f.split('-').reverse().slice(0,2).join('/')}`; },
-    getQtdAssistentesConfigurada: function() { const m = localStorage.getItem('gupy_config_qtd_assistentes'); return m ? parseInt(m) : 17; },
-    fmtPct: function(v) { return (v||0).toLocaleString('pt-BR',{maximumFractionDigits:1}) + '%'; },
-    setTxt: function(id, v) { const e = document.getElementById(id); if(e) e.innerText = v; },
-    setBar: function(id, v, c) { const e = document.getElementById(id); if(e) { e.style.width = Math.min(v||0, 100) + '%'; e.className = `h-full rounded-full transition-all duration-1000 ${c}`; } },
-    getDatasFiltro: function() { return MinhaArea.getDatasFiltro(); },
-    getUsuarioAlvo: function() { return MinhaArea.getUsuarioAlvo(); }
+    toggleLoading: function(show) {
+        const el = document.getElementById('loading-metas');
+        if(el) show ? el.classList.remove('hidden') : el.classList.add('hidden');
+    }
 };

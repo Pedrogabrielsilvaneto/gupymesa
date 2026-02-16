@@ -1,3 +1,7 @@
+/* ARQUIVO: js/gestao/importacao/usuarios.js
+   VERSÃO: V2.0 (Adaptado para CSV com colunas separadas: CONTRATO e FUNÇÃO)
+*/
+
 window.Gestao = window.Gestao || {};
 window.Gestao.Importacao = window.Gestao.Importacao || {};
 
@@ -12,7 +16,7 @@ Gestao.Importacao.Usuarios = {
         
         if (btnImportar) {
             originalText = btnImportar.innerHTML;
-            btnImportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Criptografando...';
+            btnImportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lendo CSV...';
             btnImportar.disabled = true;
             btnImportar.classList.add('opacity-75', 'cursor-not-allowed');
         }
@@ -47,12 +51,11 @@ Gestao.Importacao.Usuarios = {
         console.log(`📊 Linhas brutas: ${linhas.length}`);
         
         const mapUsuarios = new Map();
-        
-        // --- CRIPTOGRAFIA NA IMPORTAÇÃO 🔒 ---
-        // Geramos o hash da senha padrão UMA vez para usar em todos
+        // Gera o hash da senha padrão 'gupy123' uma única vez para performance
         const senhaPadraoHash = await Sistema.gerarHash("gupy123"); 
 
         for (const row of linhas) {
+            // Função auxiliar para evitar erros de undefined e trimar espaços
             const getVal = (key) => {
                 const val = row[key] || row[key.toUpperCase()] || '';
                 return val.toString().trim();
@@ -60,31 +63,38 @@ Gestao.Importacao.Usuarios = {
 
             const idRaw = getVal('ID ASSISTENTE');
             const nomeRaw = getVal('NOME ASSIST');
-            const contratoRaw = getVal('CONTRATO').toUpperCase();
+            
+            // --- MAPEAMENTO DIRETO DA NOVA PLANILHA ---
+            const contratoRaw = getVal('CONTRATO'); // Lê coluna CONTRATO (CLT/PJ)
+            const funcaoRaw = getVal('FUNÇÃO');     // Lê coluna FUNÇÃO (Assistente/Auditora/Gestora)
             const situacaoRaw = getVal('SITUAÇÃO').toUpperCase();
 
             if (!idRaw || !nomeRaw) continue;
 
             const id = parseInt(idRaw);
-            const ativo = situacaoRaw === 'ATIVO';
+            const ativo = situacaoRaw === 'ATIVO'; // Se for 'INATIVO' ou 'FINALIZADO', vira false
             
-            let funcao = 'ASSISTENTE';
-            if (contratoRaw.includes('AUDITORA')) funcao = 'AUDITORA';
-            if (contratoRaw.includes('GESTORA')) funcao = 'GESTORA';
+            // Tratamento Básico (caso venha vazio, aplica padrão)
+            const funcaoFinal = funcaoRaw ? funcaoRaw.toUpperCase() : 'ASSISTENTE';
+            let contratoFinal = contratoRaw ? contratoRaw.toUpperCase() : 'CLT';
+
+            // Pequeno ajuste para garantir consistência no banco (Ex: "PJ " vira "PJ")
+            if (contratoFinal.includes('PJ')) contratoFinal = 'PJ';
+            else if (contratoFinal.includes('TEMP')) contratoFinal = 'Temporário';
+            else contratoFinal = 'CLT';
 
             mapUsuarios.set(id, {
                 id: id,
                 nome: nomeRaw,
-                contrato: contratoRaw,
-                funcao: funcao,
+                funcao: funcaoFinal,          // Agora lê direto da coluna FUNÇÃO
+                modelo_contrato: contratoFinal, // Agora lê direto da coluna CONTRATO
                 ativo: ativo,
-                senha: senhaPadraoHash // Enviamos o Hash, não o texto
+                senha: senhaPadraoHash 
             });
         }
 
         const listaUpsert = Array.from(mapUsuarios.values());
-
-        console.log(`📉 Usuários únicos: ${listaUpsert.length}`);
+        console.log(`📉 Usuários processados: ${listaUpsert.length}`);
 
         if (listaUpsert.length > 0) {
             const { error } = await Sistema.supabase
@@ -95,11 +105,11 @@ Gestao.Importacao.Usuarios = {
                 console.error("Erro Supabase:", error);
                 alert("Erro ao salvar: " + error.message);
             } else {
-                alert(`✅ Sucesso! ${listaUpsert.length} usuários importados com criptografia.`);
+                alert(`✅ Importação Perfeita!\n\n${listaUpsert.length} usuários atualizados seguindo a nova planilha.`);
                 if (Gestao.Usuarios) Gestao.Usuarios.carregar(); 
             }
         } else {
-            alert("Nenhum dado válido encontrado.");
+            alert("Nenhum dado válido encontrado no CSV.");
         }
     }
 };

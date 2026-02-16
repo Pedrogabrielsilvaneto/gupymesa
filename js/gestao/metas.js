@@ -1,8 +1,13 @@
+/* ARQUIVO: js/gestao/metas.js */
 Gestao.Metas = {
-    estado: {
-        mes: new Date().getMonth() + 1, 
+    state: {
+        mes: new Date().getMonth() + 1,
         ano: new Date().getFullYear(),
-        lista: []
+        listaCompleta: [], 
+        listaVisivel: [],  
+        mostrarInativos: false,
+        mostrarGestao: false,
+        alteracoesPendentes: new Set()
     },
 
     init: function() {
@@ -11,71 +16,94 @@ Gestao.Metas = {
     },
 
     mudarMes: function(delta) {
-        let novoMes = this.estado.mes + delta;
-        if (novoMes > 12) {
-            novoMes = 1;
-            this.estado.ano++;
-        } else if (novoMes < 1) {
-            novoMes = 12;
-            this.estado.ano--;
-        }
-        this.estado.mes = novoMes;
+        let novoMes = this.state.mes + delta;
+        if (novoMes > 12) { novoMes = 1; this.state.ano++; } 
+        else if (novoMes < 1) { novoMes = 12; this.state.ano--; }
+        
+        this.state.mes = novoMes;
+        this.state.alteracoesPendentes.clear();
         this.atualizarLabelPeriodo();
         this.carregar();
     },
 
+    toggleFiltros: function() {
+        const elInativos = document.getElementById('check-mostrar-inativos');
+        const elGestao = document.getElementById('check-mostrar-gestao');
+        
+        this.state.mostrarInativos = elInativos ? elInativos.checked : false;
+        this.state.mostrarGestao = elGestao ? elGestao.checked : false;
+        
+        this.filtrarERenderizar();
+    },
+
     atualizarLabelPeriodo: function() {
-        const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        const label = document.getElementById('metas-periodo-label');
-        if (label) label.innerText = `${nomesMeses[this.estado.mes - 1]} de ${this.estado.ano}`;
+        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        const el = document.getElementById('header-meta-periodo');
+        if (el) el.innerText = `${meses[this.state.mes - 1]} ${this.state.ano}`;
     },
 
     carregar: async function() {
         const tbody = document.getElementById('lista-metas');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12"><i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i></td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-blue-500 text-2xl"></i><p class="text-xs text-slate-400 mt-2">Sincronizando metas...</p></td></tr>';
 
         try {
-            // 1. Busca TODOS os usuários (Sem filtros)
-            const { data: usuarios, error: errUser } = await Sistema.supabase
-                .from('usuarios')
-                .select('*')
-                .order('nome');
-            if (errUser) throw errUser;
+            const { data: users, error: errU } = await Sistema.supabase.from('usuarios').select('id, nome, ativo, contrato, perfil, funcao').order('nome');
+            if (errU) throw errU;
 
-            // 2. Busca Metas já cadastradas para este mês
-            const { data: metasExistentes, error: errMeta } = await Sistema.supabase
-                .from('metas')
+            const { data: metas, error: errM } = await Sistema.supabase.from('metas')
                 .select('*')
-                .eq('mes', this.estado.mes)
-                .eq('ano', this.estado.ano);
-            if (errMeta) throw errMeta;
+                .eq('mes', this.state.mes)
+                .eq('ano', this.state.ano);
+            if (errM) throw errM;
 
-            // 3. Monta a lista completa
-            this.estado.lista = usuarios.map(u => {
-                const meta = metasExistentes?.find(m => m.usuario_id === u.id);
+            this.state.listaCompleta = users.map(u => {
+                const m = metas.find(x => x.usuario_id === u.id);
+                
+                // Lógica Aprimorada de Identificação de Gestão
+                // Inclui: Gestora, Auditora, Admin, Super Admin e IDs 1/1000
+                const perfil = (u.perfil || '').toUpperCase();
+                const funcao = (u.funcao || '').toUpperCase();
+                
+                const isGestao = perfil.includes('GESTOR') || perfil.includes('AUDITOR') || perfil.includes('ADMIN') ||
+                                 funcao.includes('GESTOR') || funcao.includes('AUDITOR') || funcao.includes('ADMIN') ||
+                                 u.nome === 'Super Admin Gupy' || u.id === 1 || u.id === 1000;
+                
                 return {
                     ...u,
-                    meta_prod: meta ? meta.meta_producao : null,
-                    meta_assert: meta ? meta.meta_assertividade : null
+                    isGestao: !!isGestao,
+                    meta_prod: m ? m.meta_producao : null, 
+                    meta_assert: m ? m.meta_assertividade : null,
+                    id_meta: m ? m.id : null
                 };
             });
 
-            // 4. Ordenação: Ativos primeiro, depois Inativos (e alfabética dentro de cada grupo)
-            this.estado.lista.sort((a, b) => {
-                // Se o status for igual, ordena por nome
-                if (a.ativo === b.ativo) {
-                    return (a.nome || '').localeCompare(b.nome || '');
-                }
-                // Ativos (true) vêm antes de Inativos (false)
-                return a.ativo ? -1 : 1;
-            });
+            this.filtrarERenderizar();
 
-            this.renderizar();
-
-        } catch (error) {
-            console.error(error);
-            if(tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-500 py-4">Erro ao carregar: ${error.message}</td></tr>`;
+        } catch (e) {
+            console.error(e);
+            if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center text-rose-500 py-4">Erro: ${e.message}</td></tr>`;
         }
+    },
+
+    filtrarERenderizar: function() {
+        this.state.listaVisivel = this.state.listaCompleta.filter(u => {
+            // Filtro Inativos
+            if (!this.state.mostrarInativos && !u.ativo) return false;
+            
+            // Filtro Gestão (Default: Esconder)
+            if (!this.state.mostrarGestao && u.isGestao) return false;
+
+            return true;
+        });
+        
+        // Ordenação: Gestão > Ativos > Inativos > Nome
+        this.state.listaVisivel.sort((a,b) => {
+            if (a.isGestao !== b.isGestao) return a.isGestao ? 1 : -1; 
+            if (a.ativo !== b.ativo) return a.ativo ? -1 : 1;
+            return a.nome.localeCompare(b.nome);
+        });
+
+        this.renderizar();
     },
 
     renderizar: function() {
@@ -83,122 +111,127 @@ Gestao.Metas = {
         const footer = document.getElementById('resumo-metas-footer');
         if (!tbody) return;
 
-        let html = '';
-        this.estado.lista.forEach(item => {
-            const prodVal = item.meta_prod !== null ? item.meta_prod : '';
-            const assertVal = item.meta_assert !== null ? item.meta_assert : '';
-            
-            const contratoClass = item.contrato === 'PJ' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-600 border-slate-200';
-            
-            // Visual diferenciado para Inativos (mas editável)
-            const inativoClass = !item.ativo ? 'bg-gray-50' : '';
-            const nomeStyle = !item.ativo ? 'text-slate-500' : 'text-slate-700';
-            const badgeInativo = !item.ativo ? '<span class="ml-2 text-[9px] bg-slate-200 text-slate-500 px-1 rounded font-normal uppercase">Inativo</span>' : '';
+        if (this.state.listaVisivel.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400 italic">Nenhum registro encontrado.</td></tr>';
+            if(footer) footer.innerText = '0 registros';
+            return;
+        }
 
-            html += `
-            <tr class="hover:bg-slate-50 border-b border-slate-50 transition group ${inativoClass}">
-                <td class="px-6 py-4 text-center">
-                    <input type="checkbox" class="check-meta-item w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" value="${item.id}">
+        tbody.innerHTML = this.state.listaVisivel.map(u => {
+            const isInactive = !u.ativo;
+            let rowClass = 'hover:bg-slate-50';
+            if (isInactive) rowClass = 'bg-slate-50 opacity-60';
+            if (u.isGestao) rowClass = 'bg-purple-50/30 hover:bg-purple-50'; 
+
+            return `
+            <tr class="border-b border-slate-100 transition group ${rowClass}" id="row-${u.id}">
+                <td class="px-6 py-3 text-center text-slate-400 text-xs">
+                    <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center mx-auto text-slate-500 font-bold border border-slate-200 shadow-sm">
+                        ${u.nome.charAt(0)}
+                    </div>
                 </td>
-                <td class="px-6 py-4 font-mono text-slate-400 text-xs">#${item.id}</td>
-                <td class="px-6 py-4 font-bold ${nomeStyle}">
-                    ${item.nome}
-                    ${badgeInativo}
-                </td>
-                <td class="px-6 py-4">
-                    <span class="px-2 py-1 rounded text-[10px] font-bold border ${contratoClass}">${item.contrato || 'ND'}</span>
+                <td class="px-6 py-3">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-700 text-sm flex items-center gap-2">
+                            ${u.nome}
+                            ${u.isGestao ? '<span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 rounded uppercase font-bold tracking-wider">Gestão</span>' : ''}
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-mono flex items-center gap-2">
+                            ${u.contrato || 'ND'} 
+                            ${isInactive ? '<span class="text-rose-500 font-bold bg-rose-50 px-1 rounded">INATIVO</span>' : ''}
+                        </span>
+                    </div>
                 </td>
                 
-                <td class="px-4 py-3 text-center bg-blue-50/10 group-hover:bg-blue-50/30 transition border-x border-slate-100">
-                    <div class="relative max-w-[120px] mx-auto">
-                        <input type="number" id="prod-${item.id}" value="${prodVal}" placeholder="0"
-                            class="w-full text-center border border-slate-300 rounded-lg py-1.5 text-sm font-bold text-blue-700 focus:border-blue-500 outline-none focus:ring-2 focus:ring-blue-100 transition">
-                        <span class="absolute right-2 top-2 text-[10px] text-slate-300 font-bold select-none">qtd</span>
+                <td class="px-4 py-3 bg-blue-50/20 border-x border-slate-100/50">
+                    <div class="relative group/in">
+                        <input type="number" id="prod-${u.id}" 
+                            value="${u.meta_prod !== null ? u.meta_prod : ''}" 
+                            placeholder="0"
+                            onchange="Gestao.Metas.marcarAlterado(${u.id})"
+                            class="w-full text-center font-bold text-slate-700 bg-transparent border-b-2 border-transparent hover:border-blue-200 focus:border-blue-500 focus:bg-white outline-none py-1 transition text-sm">
                     </div>
                 </td>
 
-                <td class="px-4 py-3 text-center bg-emerald-50/10 group-hover:bg-emerald-50/30 transition border-r border-slate-100">
-                    <div class="relative max-w-[120px] mx-auto">
-                        <input type="number" id="assert-${item.id}" value="${assertVal}" step="0.1" placeholder="0.0"
-                            class="w-full text-center border border-slate-300 rounded-lg py-1.5 text-sm font-bold text-emerald-700 focus:border-emerald-500 outline-none focus:ring-2 focus:ring-emerald-100 transition">
-                        <span class="absolute right-2 top-2 text-[10px] text-slate-300 font-bold select-none">%</span>
+                <td class="px-4 py-3 bg-emerald-50/20 border-r border-slate-100/50">
+                    <div class="relative group/in">
+                        <input type="number" step="0.01" id="assert-${u.id}" 
+                            value="${u.meta_assert !== null ? u.meta_assert : ''}" 
+                            placeholder="0.00"
+                            onchange="Gestao.Metas.marcarAlterado(${u.id})"
+                            class="w-full text-center font-bold text-slate-700 bg-transparent border-b-2 border-transparent hover:border-emerald-200 focus:border-emerald-500 focus:bg-white outline-none py-1 transition text-sm">
                     </div>
                 </td>
 
-                <td class="px-6 py-4 text-right">
-                    <span class="text-xs text-slate-300 italic">
-                        ${!item.ativo ? 'Inativo' : 'Ativo'}
+                <td class="px-6 py-3 text-right">
+                    <span id="status-${u.id}" class="text-[10px] font-bold text-slate-300">
+                        ${u.id_meta ? '<i class="fas fa-check text-slate-300"></i> Salvo' : '-'}
                     </span>
                 </td>
             </tr>`;
-        });
+        }).join('');
 
-        tbody.innerHTML = html;
-        if(footer) footer.innerText = `${this.estado.lista.length} assistentes (Total cadastrado)`;
+        if(footer) footer.innerText = `${this.state.listaVisivel.length} registros listados`;
     },
 
-    toggleSelecionarTodos: function() {
-        const master = document.getElementById('check-meta-todos');
-        const checks = document.querySelectorAll('.check-meta-item');
-        checks.forEach(c => c.checked = master.checked);
-    },
-
-    aplicarEmMassa: function() {
-        const valProd = document.getElementById('input-massa-prod').value;
-        const valAssert = document.getElementById('input-massa-assert').value;
-
-        if (!valProd && !valAssert) return alert("Preencha ao menos um valor (Produção ou %) para aplicar.");
-
-        const checks = document.querySelectorAll('.check-meta-item:checked');
-        if (checks.length === 0) return alert("Selecione os assistentes na lista primeiro.");
-
-        checks.forEach(chk => {
-            const uid = chk.value;
-            if (valProd) {
-                const inp = document.getElementById(`prod-${uid}`);
-                if(inp) inp.value = valProd;
-            }
-            if (valAssert) {
-                const inp = document.getElementById(`assert-${uid}`);
-                if(inp) inp.value = valAssert;
-            }
-        });
+    marcarAlterado: function(uid) {
+        this.state.alteracoesPendentes.add(uid);
+        const status = document.getElementById(`status-${uid}`);
+        if(status) status.innerHTML = '<i class="fas fa-pen text-blue-500 animate-pulse"></i> <span class="text-blue-600">Editado</span>';
         
-        // alert(`Aplicado para ${checks.length} assistentes! Não esqueça de Salvar.`);
+        const row = document.getElementById(`row-${uid}`);
+        if(row) row.classList.add('bg-blue-50/30');
+    },
+
+    aplicarPadrao: function() {
+        const valProd = document.getElementById('padrao-prod-input')?.value || 650;
+        const valAssert = document.getElementById('padrao-assert-input')?.value || 97;
+
+        // Filtra para não aplicar em Gestão
+        const alvos = this.state.listaVisivel.filter(u => !u.isGestao);
+
+        if (!confirm(`Aplicar Produção=${valProd} e Assertividade=${valAssert}% para ${alvos.length} assistentes? (Gestão/Admin ignorados)`)) return;
+
+        alvos.forEach(u => {
+            const elProd = document.getElementById(`prod-${u.id}`);
+            const elAssert = document.getElementById(`assert-${u.id}`);
+            
+            if (elProd) { elProd.value = valProd; this.marcarAlterado(u.id); }
+            if (elAssert) { elAssert.value = valAssert; this.marcarAlterado(u.id); }
+        });
     },
 
     salvarTodas: async function() {
-        const btn = document.querySelector('button[onclick="Gestao.Metas.salvarTodas()"]');
-        const originalText = btn ? btn.innerHTML : 'Salvar';
+        if (this.state.alteracoesPendentes.size === 0) {
+            alert("Nenhuma alteração detectada para salvar.");
+            return;
+        }
+
+        const btn = document.querySelector('#actions-metas button[onclick="Gestao.Metas.salvarTodas()"]');
         if(btn) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+            var originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
             btn.disabled = true;
         }
 
         const upserts = [];
         
-        this.estado.lista.forEach(item => {
-            const valProd = document.getElementById(`prod-${item.id}`)?.value;
-            const valAssert = document.getElementById(`assert-${item.id}`)?.value;
+        this.state.alteracoesPendentes.forEach(uid => {
+            const u = this.state.listaCompleta.find(x => x.id === uid);
+            const valProd = document.getElementById(`prod-${uid}`)?.value;
+            const valAssert = document.getElementById(`assert-${uid}`)?.value;
 
-            // Salva se tiver qualquer dado preenchido (ou se já tinha meta e o usuário limpou/zerou)
-            // Lógica: se o campo existe na tela, pegamos o valor.
-            if (document.getElementById(`prod-${item.id}`)) {
+            if (u && valProd && valAssert) {
                 upserts.push({
-                    usuario_id: item.id,
-                    usuario_nome: item.nome,
-                    mes: this.estado.mes,
-                    ano: this.estado.ano,
-                    meta_producao: valProd ? parseInt(valProd) : 0,
-                    meta_assertividade: valAssert ? parseFloat(valAssert.replace(',', '.')) : 0
+                    usuario_id: uid,
+                    usuario_nome: u.nome,
+                    mes: this.state.mes,
+                    ano: this.state.ano,
+                    meta_producao: parseInt(valProd),
+                    meta_assertividade: parseFloat(valAssert.replace(',', '.'))
                 });
             }
         });
-
-        if (upserts.length === 0) {
-            if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
-            return alert("Nada para salvar.");
-        }
 
         try {
             const { error } = await Sistema.supabase
@@ -207,14 +240,18 @@ Gestao.Metas = {
 
             if (error) throw error;
 
-            alert("✅ Metas salvas com sucesso!");
-            this.carregar(); 
+            this.state.alteracoesPendentes.clear();
+            await this.carregar();
+            alert("✅ Metas atualizadas com sucesso!");
 
-        } catch (error) {
-            console.error(error);
-            alert("Erro ao salvar: " + error.message);
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao salvar: " + e.message);
         } finally {
-            if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+            if(btn) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
         }
     }
 };
