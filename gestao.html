@@ -193,18 +193,37 @@
                                 </div>
                             </div>
 
-                            <!-- Dias Úteis Embaixo -->
-                            <div class="flex items-center gap-2 justify-center bg-slate-50 border border-slate-200 rounded px-2 py-0.5 shadow-sm"
-                                title="Definir dias úteis manualmente">
+                            <!-- Dias Úteis -->
+                            <div class="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 shadow-sm h-[34px]"
+                                title="Definir dias úteis manualmente (Deixe vazio para automático)">
                                 <label for="input-dias-uteis-metas"
-                                    class="text-[9px] font-bold text-slate-400 uppercase cursor-help select-none">Dias
-                                    Úteis:</label>
+                                    class="text-[10px] font-bold text-slate-500 uppercase cursor-help select-none">D.
+                                    Úteis</label>
                                 <input type="number" id="input-dias-uteis-metas"
-                                    onchange="Gestao.Metas.salvarDiasUteis()"
-                                    class="w-8 text-[10px] font-bold text-blue-600 outline-none text-center bg-transparent placeholder-slate-300"
+                                    onchange="Gestao.Metas.salvarConfigMes()"
+                                    class="w-8 text-xs font-bold text-blue-600 outline-none text-center bg-transparent placeholder-slate-300"
                                     placeholder="Auto">
-                                <i class="fas fa-save text-[9px] text-emerald-500 hidden"
-                                    id="icon-saved-dias-uteis"></i>
+                            </div>
+
+                            <!-- HC CLT -->
+                            <div class="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 shadow-sm h-[34px]"
+                                title="Qtd. Assistentes CLT">
+                                <label for="input-hc-clt-metas"
+                                    class="text-[10px] font-bold text-slate-500 uppercase cursor-help select-none">CLT</label>
+                                <input type="number" id="input-hc-clt-metas" onchange="Gestao.Metas.salvarConfigMes()"
+                                    class="w-8 text-xs font-bold text-slate-600 outline-none text-center bg-transparent placeholder-slate-300"
+                                    placeholder="-">
+                            </div>
+
+                            <!-- HC Terceiros -->
+                            <div class="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 shadow-sm h-[34px]"
+                                title="Qtd. Assistentes Terceiros">
+                                <label for="input-hc-terc-metas"
+                                    class="text-[10px] font-bold text-slate-500 uppercase cursor-help select-none">Terc.</label>
+                                <input type="number" id="input-hc-terc-metas" onchange="Gestao.Metas.salvarConfigMes()"
+                                    class="w-8 text-xs font-bold text-slate-600 outline-none text-center bg-transparent placeholder-slate-300"
+                                    placeholder="-">
+                                <i class="fas fa-save text-[10px] text-emerald-500 hidden" id="icon-saved-config"></i>
                             </div>
                         </div>
                         <div class="h-6 w-px bg-slate-200"></div>
@@ -460,7 +479,7 @@
     <script src="js/gestao/usuarios.js"></script>
     <script src="js/gestao/empresas.js"></script>
     <script src="js/gestao/assertividade.js"></script>
-    <script src="js/gestao/dias_uteis.js"></script>
+    <script src="js/gestao/config_mes.js"></script>
     <script src="js/gestao/metas.js"></script>
 
     <script src="js/gestao/importacao/usuarios.js"></script>

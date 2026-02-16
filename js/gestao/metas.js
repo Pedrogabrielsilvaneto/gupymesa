@@ -23,38 +23,54 @@ Gestao.Metas = {
         const el = document.getElementById('input-mes-metas');
         if (el) el.value = String(this.state.mes).padStart(2, '0') + '/' + this.state.ano;
 
-        // Carrega dias úteis
-        this.carregarDiasUteis();
+        // Carrega Configuração do Mês (Dias Úteis + Headcount)
+        this.carregarConfigMes();
     },
 
-    carregarDiasUteis: async function () {
-        if (!Gestao.DiasUteis) return;
-        const input = document.getElementById('input-dias-uteis-metas');
-        if (!input) return;
+    carregarConfigMes: async function () {
+        if (!Gestao.ConfigMes) return;
+        const inputDias = document.getElementById('input-dias-uteis-metas');
+        const inputClt = document.getElementById('input-hc-clt-metas');
+        const inputTerc = document.getElementById('input-hc-terc-metas');
 
-        input.value = '';
-        input.placeholder = '...';
+        if (inputDias) { inputDias.value = ''; inputDias.placeholder = '...'; }
+        if (inputClt) { inputClt.value = ''; inputClt.placeholder = '...'; }
+        if (inputTerc) { inputTerc.value = ''; inputTerc.placeholder = '...'; }
 
-        const val = await Gestao.DiasUteis.obter(this.state.mes, this.state.ano);
-        input.value = val !== null ? val : '';
-        input.placeholder = val !== null ? '' : 'Auto';
+        const config = await Gestao.ConfigMes.obter(this.state.mes, this.state.ano);
+
+        if (inputDias) {
+            inputDias.value = (config && config.dias_uteis) ? config.dias_uteis : '';
+            inputDias.placeholder = (config && config.dias_uteis) ? '' : 'Auto';
+        }
+        if (inputClt) {
+            inputClt.value = (config && config.hc_clt) ? config.hc_clt : '';
+            inputClt.placeholder = (config && config.hc_clt) ? '' : '-';
+        }
+        if (inputTerc) {
+            inputTerc.value = (config && config.hc_terceiros) ? config.hc_terceiros : '';
+            inputTerc.placeholder = (config && config.hc_terceiros) ? '' : '-';
+        }
     },
 
-    salvarDiasUteis: async function () {
-        const input = document.getElementById('input-dias-uteis-metas');
-        const icon = document.getElementById('icon-saved-dias-uteis');
-        if (!input) return;
+    salvarConfigMes: async function () {
+        const inputDias = document.getElementById('input-dias-uteis-metas');
+        const inputClt = document.getElementById('input-hc-clt-metas');
+        const inputTerc = document.getElementById('input-hc-terc-metas');
+        const icon = document.getElementById('icon-saved-config'); // Atualizado ID
 
-        const val = input.value;
-        await Gestao.DiasUteis.salvar(this.state.mes, this.state.ano, val);
+        const dados = {
+            dias_uteis: inputDias ? (inputDias.value ? parseInt(inputDias.value) : null) : null,
+            hc_clt: inputClt ? (inputClt.value ? parseInt(inputClt.value) : 0) : 0,
+            hc_terceiros: inputTerc ? (inputTerc.value ? parseInt(inputTerc.value) : 0) : 0
+        };
+
+        await Gestao.ConfigMes.salvar(this.state.mes, this.state.ano, dados);
 
         if (icon) {
             icon.classList.remove('hidden');
             setTimeout(() => icon.classList.add('hidden'), 2000);
         }
-
-        // Recarrega se necessário (aqui talvez não precise recarregar a grade, mas é bom)
-        // this.carregar(); 
     },
 
     // --- Lógica do Seletor de Mês ---

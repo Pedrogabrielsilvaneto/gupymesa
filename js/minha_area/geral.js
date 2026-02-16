@@ -18,7 +18,8 @@ MinhaArea.Geral = {
         range: { inicio: null, fim: null },
         headerOriginal: null,
         editando: { uid: null, data: null },
-        isMacro: false
+        isMacro: false,
+        headcountConfig: null
     },
 
     els: {
@@ -131,10 +132,14 @@ MinhaArea.Geral = {
         const ultimoDia = new Date(d1.getFullYear(), d1.getMonth() + 1, 0).getDate();
         const isFullMonth = (d1.getDate() === 1) && (d2.getDate() === ultimoDia) && (d1.getMonth() === d2.getMonth());
 
+
         if (isFullMonth) {
-            diasUteisPeriodo = await Gestao.DiasUteis.getDiasUteisMes(d1.getMonth() + 1, d1.getFullYear());
+            diasUteisPeriodo = await Gestao.ConfigMes.getDiasUteisMes(d1.getMonth() + 1, d1.getFullYear());
+            const hcObj = await Gestao.ConfigMes.getHeadcount(d1.getMonth() + 1, d1.getFullYear());
+            this.state.headcountConfig = hcObj.total;
         } else {
             diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            this.state.headcountConfig = null;
         }
 
         this.state.dadosProducao.forEach(p => {
@@ -340,12 +345,36 @@ MinhaArea.Geral = {
             totalMeta = managerMeta;
         }
 
+        // Ajuste Headcount Configurado
+        if (this.state.headcountConfig && this.state.headcountConfig > 0) {
+            countUsers = this.state.headcountConfig;
+            // Recalcula meta total global baseada na capacidade teórica? 
+            // Meta = countUsers * meta_individual? 
+            // O usuário pediu para "prevalece o dela". Se o gestor setou meta global, já estamos usando (managerMeta).
+            // Se managerMeta == 0 (usando soma das individuais), então devemos projetar para o headcount?
+            // "somaMetasEquipe" é soma das metas dos presentes.
+            // Se HC=17 e temos 10, faltam 7 metas.
+            // Vamos manter a meta calculada anteriormente (Manager ou Soma) por enquanto, focando na Média (Divisor).
+
+            // Ajuste Capacidade Total (Dias Úteis * Headcount)
+            // Precisamos saber dias uteis do periodo.
+            // diasUteisPeriodo não está acessível aqui fácil, mas totalUteis era soma dos liquidos.
+            // Se usarmos HC, totalUteis = HC * DiasUteis do Mês?
+            // Sim, capacidade total da equipe.
+            // Acessando dias uteis via cache ou recalculo simples se for mes cheio?
+            // Assumindo mês cheio (pois headcountConfig só é setado em mês cheio):
+            // ... não temos diasUteisPeriodo aqui var local. 
+            // Mas podemos estimar totalUteis = (totalUteis / countReal) * HC? (Regra de 3)
+            // Ou melhor: totalUteis = this.state.headcountConfig * (totalUteis / (realCountUsers || 1));
+            // Vamos ajustar o denominador da velocidade.
+        }
+
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
-            capacidade: { diasReal: totalFator, diasTotal: totalUteis },
+            capacidade: { diasReal: totalFator, diasTotal: this.state.headcountConfig ? (totalUteis / (countUsers > 0 ? countUsers : 1) * this.state.headcountConfig) : totalUteis }, // Estima capacidade total
             velocidade: {
-                real: countUsers > 0 ? Math.round(somaMediasEquipe / countUsers) : 0,
+                real: countUsers > 0 ? Math.round(totalProd / countUsers) : 0,
                 meta: countUsers > 0 ? Math.round(somaMetasEquipe / countUsers) : 100
             }
         });
@@ -395,11 +424,18 @@ MinhaArea.Geral = {
         // Meta: Se gestor tem meta definida (>0), usa ela. Senão, soma das metas dos assistentes.
         const metaEquipe = item.meta_total_periodo > 0 ? item.meta_total_periodo : (somaMetasAssistentes || 1);
 
+        // Ajuste Headcount (Gestor View)
+        let totalHeadcount = Object.keys(diarioAgregado).length > 0 ? this.state.headcountConfig : null; // Só aplica se tiver dados
+        if (this.state.headcountConfig) totalHeadcount = this.state.headcountConfig;
+
+        const countUsersReal = this.state.listaTabela.filter(x => !this.ehGestao(x.uid)).length;
+        const denonimador = totalHeadcount || countUsersReal || 1;
+
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: metaEquipe },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
-            capacidade: { diasReal: totalFator, diasTotal: totalUteis },
-            velocidade: { real: 0, meta: 0 } // Velocidade média não faz sentido agregado assim simples
+            capacidade: { diasReal: totalFator, diasTotal: totalHeadcount ? (totalUteis / (countUsersReal || 1) * totalHeadcount) : totalUteis },
+            velocidade: { real: Math.round(totalProd / denonimador), meta: Math.round(metaEquipe / denonimador) }
         });
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
