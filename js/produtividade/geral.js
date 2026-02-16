@@ -603,6 +603,34 @@ Produtividade.Geral = {
         };
         renderItem(topProd, 'top-prod-list', false); renderItem(topAssert, 'top-assert-list', true);
     },
+    excluirDadosDia: async function () {
+        if (!this.ehGestao(window.Produtividade.usuario || {})) {
+            alert("Apenas gestores podem excluir dados.");
+            return;
+        }
+
+        const range = this.state.range;
+        if (!range.inicio || range.inicio !== range.fim) {
+            alert("⚠️ Selecione um dia específico no filtro 'Dia' para excluir.");
+            return;
+        }
+
+        if (!confirm(`🔴 PERIGO: Você está prestes a excluir TODOS os dados de produção do dia ${range.inicio}.\n\nIsso não pode ser desfeito.\n\nDeseja continuar?`)) return;
+
+        this.renderLoading();
+
+        try {
+            await Sistema.query("DELETE FROM producao WHERE data_referencia = ?", [range.inicio]);
+            alert("✅ Dados excluídos com sucesso!");
+            this.atualizarDados();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao excluir: " + e.message);
+            this.state.loading = false;
+            this.renderizarTabela(); // Restaura tabela
+        }
+    },
+
     abrirDetalhes: function (uid) { this.state.modoDetalhe = true; this.state.usuarioDetalhe = uid; this.renderizarDetalhes(uid); },
     voltarParaGrade: function () {
         this.state.modoDetalhe = false; this.state.usuarioDetalhe = null;
