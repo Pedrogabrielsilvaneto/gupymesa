@@ -3,7 +3,7 @@ window.Gestao = window.Gestao || {};
 Gestao.Empresas = {
     state: {
         page: 1,
-        pageSize: 1000, // Aumentado para mostrar mais empresas por vez
+        pageSize: 10, // 10 empresas por página para melhor performance
         total: 0,
         filtros: {
             nome: '',
@@ -102,25 +102,18 @@ Gestao.Empresas = {
             const totalRow = Array.isArray(countResult) && countResult.length > 0 ? countResult[0] : null;
             this.state.total = totalRow ? (totalRow.total || totalRow['COUNT(*)'] || 0) : 0;
 
-            // Busca dados paginados
-            // Se não há filtros, busca todas as empresas (sem paginação)
-            // Se há filtros, aplica paginação para melhor performance
-            const temFiltros = whereConditions.length > 0;
-            let sql = `
+            // Busca dados paginados (sempre aplica paginação para melhor performance)
+            const offset = (this.state.page - 1) * this.state.pageSize;
+            const limitValue = parseInt(this.state.pageSize) || 10;
+            const offsetValue = parseInt(offset) || 0;
+            
+            const sql = `
                 SELECT *
                 FROM empresas
                 ${whereClause}
                 ORDER BY nome ASC
+                LIMIT ${limitValue} OFFSET ${offsetValue}
             `;
-            
-            if (temFiltros) {
-                // Com filtros, aplica paginação
-                const offset = (this.state.page - 1) * this.state.pageSize;
-                const limitValue = parseInt(this.state.pageSize) || 1000;
-                const offsetValue = parseInt(offset) || 0;
-                sql += ` LIMIT ${limitValue} OFFSET ${offsetValue}`;
-            }
-            // Sem filtros, busca todas sem LIMIT
             
             const data = await Sistema.query(sql, params);
 
