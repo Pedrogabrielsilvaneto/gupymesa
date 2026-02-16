@@ -167,15 +167,45 @@
                     </div>
 
                     <div id="search-group-metas" class="header-search-group flex items-center gap-3">
-                        <div class="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1 shadow-sm h-[34px]"
-                            title="Definir dias úteis manualmente (Deixe vazio para automático)">
-                            <label for="input-dias-uteis-metas"
-                                class="text-[10px] font-bold text-slate-500 uppercase cursor-help select-none">Dias
-                                Úteis</label>
-                            <input type="number" id="input-dias-uteis-metas" onchange="Gestao.Metas.salvarDiasUteis()"
-                                class="w-10 text-xs font-bold text-blue-600 outline-none text-center bg-transparent placeholder-slate-300"
-                                placeholder="Auto">
-                            <i class="fas fa-save text-[10px] text-emerald-500 hidden" id="icon-saved-dias-uteis"></i>
+                        <div class="flex flex-col gap-1">
+                            <div class="relative">
+                                <i
+                                    class="fas fa-calendar-alt absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="input-mes-metas" readonly
+                                    class="pl-9 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm cursor-pointer hover:border-blue-400 focus:border-blue-500 outline-none w-32 text-center transition select-none"
+                                    onclick="Gestao.Metas.abrirSeletorMes()">
+                                <i
+                                    class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none"></i>
+
+                                <!-- Dropdown Mês -->
+                                <div id="dropdown-mes-metas"
+                                    class="hidden absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 w-64 animate-enter origin-top-left">
+                                    <div class="flex justify-between items-center mb-3 px-1">
+                                        <button onclick="Gestao.Metas.mudarAno(-1)"
+                                            class="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i
+                                                class="fas fa-chevron-left text-xs"></i></button>
+                                        <span id="label-ano-metas" class="font-bold text-slate-700 text-sm">2026</span>
+                                        <button onclick="Gestao.Metas.mudarAno(1)"
+                                            class="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i
+                                                class="fas fa-chevron-right text-xs"></i></button>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2" id="grid-meses-metas"></div>
+                                </div>
+                            </div>
+
+                            <!-- Dias Úteis Embaixo -->
+                            <div class="flex items-center gap-2 justify-center bg-slate-50 border border-slate-200 rounded px-2 py-0.5 shadow-sm"
+                                title="Definir dias úteis manualmente">
+                                <label for="input-dias-uteis-metas"
+                                    class="text-[9px] font-bold text-slate-400 uppercase cursor-help select-none">Dias
+                                    Úteis:</label>
+                                <input type="number" id="input-dias-uteis-metas"
+                                    onchange="Gestao.Metas.salvarDiasUteis()"
+                                    class="w-8 text-[10px] font-bold text-blue-600 outline-none text-center bg-transparent placeholder-slate-300"
+                                    placeholder="Auto">
+                                <i class="fas fa-save text-[9px] text-emerald-500 hidden"
+                                    id="icon-saved-dias-uteis"></i>
+                            </div>
                         </div>
                         <div class="h-6 w-px bg-slate-200"></div>
                         <div class="grid grid-cols-2 gap-x-3 gap-y-1">
