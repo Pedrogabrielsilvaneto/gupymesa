@@ -242,8 +242,17 @@ Gestao.Assertividade = {
         selectAuditora.innerHTML = '<option value="">Carregando...</option>';
 
         try {
-            const { data, error } = await Sistema.supabase.rpc('rpc_get_assistentes_com_dados');
-            if(error) throw error;
+            // Busca assistentes via TiDB (exclui gestão/admin)
+            const sql = `
+                SELECT id, nome
+                FROM usuarios
+                WHERE situacao = 'ATIVO'
+                  AND (funcao IS NULL OR UPPER(funcao) NOT LIKE '%GESTOR%' AND UPPER(funcao) NOT LIKE '%AUDITOR%' AND UPPER(funcao) NOT LIKE '%ADMIN%')
+                ORDER BY nome
+            `;
+            const data = await Sistema.query(sql);
+            
+            if (!data) throw new Error("Falha ao carregar assistentes.");
 
             selectAssistente.innerHTML = '<option value="">Todos</option>' + 
                 (data || []).map(u => `<option value="${u.id}">${u.nome} (ID: ${u.id})</option>`).join('');
