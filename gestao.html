@@ -186,6 +186,13 @@
                             <option value="">Todos</option>
                             <option value="INATIVO">Inativos</option>
                         </select>
+                        <select id="filtro-funcao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                            class="select-mini">
+                            <option value="">Função</option>
+                            <option value="ASSISTENTE">Assistente</option>
+                            <option value="GESTAO">Gestão</option>
+                            <option value="AUDITORIA">Auditoria</option>
+                        </select>
                     </div>
 
                     <div id="search-group-empresas" class="header-search-group relative w-64">
@@ -251,17 +258,6 @@
                                 <i class="fas fa-bolt text-[8px]"></i>
                             </button>
                         </div>
-
-                        <div class="h-4 w-px bg-slate-200"></div>
-
-                        <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                            <input type="checkbox" id="check-mostrar-gestao" class="sr-only peer"
-                                onchange="Gestao.Metas.filtrarERenderizar()">
-                            <div
-                                class="relative w-5 h-3 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-purple-500">
-                            </div>
-                            <span class="text-[9px] font-bold text-slate-400 uppercase">Gestão</span>
-                        </label>
 
                         <button onclick="Gestao.Metas.salvarTodas()"
                             class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-bold tracking-wide uppercase transition active:scale-95 flex items-center gap-1.5">

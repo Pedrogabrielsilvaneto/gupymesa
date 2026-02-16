@@ -1,7 +1,7 @@
 /* ARQUIVO: js/gestao/main.js */
 window.Gestao = window.Gestao || {};
 
-Gestao.init = async function() {
+Gestao.init = async function () {
     // 1. Inicializa Sistema (Se ainda não estiver)
     if (typeof Sistema === 'undefined') {
         console.error("ERRO CRÍTICO: js/sistema.js não foi carregado!");
@@ -9,7 +9,7 @@ Gestao.init = async function() {
     }
 
     // Sistema agora usa TiDB diretamente via Sistema.query() - não precisa mais de Supabase
-    
+
     // 2. Verifica Sessão Manualmente (Segurança da Página)
     let user = null;
     try {
@@ -32,23 +32,23 @@ Gestao.init = async function() {
     const id = parseInt(user.id);
 
     // Lista VIP
-    const temAcesso = 
-        perfil === 'admin' || 
+    const temAcesso =
+        perfil === 'admin' ||
         perfil === 'administrador' ||
-        funcao.includes('gestor') || 
-        funcao.includes('auditor') || 
-        id === 1 || 
-        id === 1000; 
+        funcao.includes('gestor') ||
+        funcao.includes('auditor') ||
+        id === 1 ||
+        id === 1000;
 
     if (!temAcesso) {
         console.warn("🚫 Acesso Negado (Perfil sem permissão). Perfil:", perfil, "ID:", id);
-        alert("Acesso restrito a gestores."); 
-        window.location.href = 'minha_area.html'; 
+        alert("Acesso restrito a gestores.");
+        window.location.href = 'minha_area.html';
         return;
     }
 
     console.log("✅ Gestão Iniciada. Usuário:", user.nome);
-    
+
     // Atualiza nome no topo se existir elemento
     const elNome = document.getElementById('usuario-nome-top');
     if (elNome) elNome.innerText = user.nome.split(' ')[0];
@@ -67,7 +67,7 @@ Gestao.init = async function() {
     setTimeout(() => Gestao.mudarAba(ultimaAba), 50);
 };
 
-Gestao.mudarAba = function(aba) {
+Gestao.mudarAba = function (aba) {
     localStorage.setItem('gestao_aba_ativa', aba);
 
     // 1. Atualiza Botões da Navegação (Esquerda)
@@ -75,7 +75,7 @@ Gestao.mudarAba = function(aba) {
         btn.classList.remove('active', 'bg-blue-50', 'text-blue-700');
         btn.classList.add('text-slate-600');
     });
-    const btnAtivo = document.getElementById(aba.startsWith('btn-') ? aba : `btn-${aba}`); 
+    const btnAtivo = document.getElementById(aba.startsWith('btn-') ? aba : `btn-${aba}`);
     if (btnAtivo) btnAtivo.classList.add('active', 'bg-blue-50', 'text-blue-700');
 
     // 2. Atualiza Views (Conteúdo)
@@ -105,7 +105,7 @@ Gestao.mudarAba = function(aba) {
     if (aba === 'usuarios' && Gestao.Usuarios) Gestao.Usuarios.carregar();
     else if (aba === 'empresas' && Gestao.Empresas) Gestao.Empresas.carregar();
     else if (aba === 'assertividade' && Gestao.Assertividade) Gestao.Assertividade.carregar();
-    else if (aba === 'metas' && Gestao.Metas) Gestao.Metas.carregar();
+    else if (aba === 'metas' && Gestao.Metas) Gestao.Metas.init();
 };
 
 document.addEventListener('DOMContentLoaded', Gestao.init);
