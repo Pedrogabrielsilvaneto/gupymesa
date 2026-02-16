@@ -243,6 +243,7 @@ Produtividade.Geral = {
 
         this.state.listaTabela = Array.from(mapa.values())
             .filter(r => !this.ehAdmin(r.uid) && !r.nome.toLowerCase().includes('admin'))
+            .filter(r => r.producao > 0) // Filtra quem não tem produtividade
             .sort((a, b) => a.nome.localeCompare(b.nome));
     },
 
