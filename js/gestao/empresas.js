@@ -56,23 +56,46 @@ Gestao.Empresas = {
         this.renderLoading();
 
         try {
-            let query = Sistema.supabase
-                .from('empresas')
-                .select('*', { count: 'exact' });
+            // Monta condições WHERE dinamicamente
+            const whereConditions = [];
+            const params = [];
 
-            if (this.state.filtros.nome) query = query.ilike('nome', `%${this.state.filtros.nome}%`);
-            if (this.state.filtros.subdominio) query = query.ilike('subdominio', `%${this.state.filtros.subdominio}%`);
-            if (this.state.filtros.obs) query = query.ilike('observacao', `%${this.state.filtros.obs}%`);
+            if (this.state.filtros.nome) {
+                whereConditions.push('nome LIKE ?');
+                params.push(`%${this.state.filtros.nome}%`);
+            }
+            if (this.state.filtros.subdominio) {
+                whereConditions.push('subdominio LIKE ?');
+                params.push(`%${this.state.filtros.subdominio}%`);
+            }
+            if (this.state.filtros.obs) {
+                whereConditions.push('observacao LIKE ?');
+                params.push(`%${this.state.filtros.obs}%`);
+            }
 
-            const from = (this.state.page - 1) * this.state.pageSize;
-            const to = from + this.state.pageSize - 1;
+            const whereClause = whereConditions.length > 0 
+                ? 'WHERE ' + whereConditions.join(' AND ')
+                : '';
 
-            query = query.order('nome', { ascending: true }).range(from, to);
+            // Busca total de registros (para paginação)
+            const sqlCount = `SELECT COUNT(*) as total FROM empresas ${whereClause}`;
+            const countResult = await Sistema.query(sqlCount, params);
+            this.state.total = countResult && countResult[0] ? countResult[0].total : 0;
 
-            const { data, count, error } = await query;
-            if (error) throw error;
+            // Busca dados paginados
+            const offset = (this.state.page - 1) * this.state.pageSize;
+            const sql = `
+                SELECT *
+                FROM empresas
+                ${whereClause}
+                ORDER BY nome ASC
+                LIMIT ? OFFSET ?
+            `;
+            const allParams = [...params, this.state.pageSize, offset];
+            const data = await Sistema.query(sql, allParams);
 
-            this.state.total = count || 0;
+            if (!data) throw new Error("Falha ao buscar empresas.");
+
             this.renderTabela(data || []);
             this.atualizarPaginacaoUI();
 
@@ -151,23 +174,22 @@ Gestao.Empresas = {
 
         if (id) {
             try {
-                const { data, error } = await Sistema.supabase
-                    .from('empresas')
-                    .select('*')
-                    .eq('id', id)
-                    .single();
+                const sql = `SELECT * FROM empresas WHERE id = ? LIMIT 1`;
+                const rows = await Sistema.query(sql, [id]);
                 
-                if (error) throw error;
-                if (data) {
-                    document.getElementById('emp-id').value = data.id;
-                    document.getElementById('emp-id-visual').value = data.id;
-                    document.getElementById('emp-id-visual').disabled = true;
-                    document.getElementById('emp-nome').value = data.nome || '';
-                    document.getElementById('emp-sub').value = data.subdominio || '';
-                    document.getElementById('emp-data').value = data.data_entrada || '';
-                    document.getElementById('emp-obs').value = data.observacao || '';
-                    document.getElementById('modal-titulo-emp').innerText = 'Editar Empresa';
+                if (!rows || rows.length === 0) {
+                    throw new Error("Empresa não encontrada.");
                 }
+                
+                const data = rows[0];
+                document.getElementById('emp-id').value = data.id;
+                document.getElementById('emp-id-visual').value = data.id;
+                document.getElementById('emp-id-visual').disabled = true;
+                document.getElementById('emp-nome').value = data.nome || '';
+                document.getElementById('emp-sub').value = data.subdominio || '';
+                document.getElementById('emp-data').value = data.data_entrada || '';
+                document.getElementById('emp-obs').value = data.observacao || '';
+                document.getElementById('modal-titulo-emp').innerText = 'Editar Empresa';
             } catch (e) {
                 alert("Erro: " + e.message);
                 return;
@@ -217,8 +239,41 @@ Gestao.Empresas = {
         btn.disabled = true;
 
         try {
-            const { error } = await Sistema.supabase.from('empresas').upsert(payload);
-            if (error) throw error;
+            if (idOculto) {
+                // Atualiza empresa existente
+                const sqlUpdate = `
+                    UPDATE empresas
+                    SET 
+                        nome         = ?,
+                        subdominio   = ?,
+                        data_entrada = ?,
+                        observacao   = ?
+                    WHERE id = ?
+                `;
+                const result = await Sistema.query(sqlUpdate, [
+                    payload.nome,
+                    payload.subdominio,
+                    payload.data_entrada,
+                    payload.observacao,
+                    payload.id
+                ]);
+                if (result === null) throw new Error("Falha ao atualizar empresa.");
+            } else {
+                // Cria nova empresa
+                const sqlInsert = `
+                    INSERT INTO empresas (id, nome, subdominio, data_entrada, observacao)
+                    VALUES (?, ?, ?, ?, ?)
+                `;
+                const result = await Sistema.query(sqlInsert, [
+                    payload.id,
+                    payload.nome,
+                    payload.subdominio,
+                    payload.data_entrada,
+                    payload.observacao
+                ]);
+                if (result === null) throw new Error("Falha ao criar empresa.");
+            }
+            
             this.fecharModal();
             this.carregar();
         } catch (e) {
@@ -232,8 +287,9 @@ Gestao.Empresas = {
     excluir: async function(id) {
         if (!confirm(`Deseja excluir a empresa ID ${id}?`)) return;
         try {
-            const { error } = await Sistema.supabase.from('empresas').delete().eq('id', id);
-            if (error) throw error;
+            const sql = `DELETE FROM empresas WHERE id = ?`;
+            const result = await Sistema.query(sql, [id]);
+            if (result === null) throw new Error("Falha ao excluir empresa.");
             this.carregar();
         } catch (e) {
             alert("Erro ao excluir: " + e.message);
