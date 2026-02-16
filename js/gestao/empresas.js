@@ -80,7 +80,14 @@ Gestao.Empresas = {
             // Busca total de registros (para paginação)
             const sqlCount = `SELECT COUNT(*) as total FROM empresas ${whereClause}`;
             const countResult = await Sistema.query(sqlCount, params);
-            this.state.total = countResult && countResult[0] ? countResult[0].total : 0;
+            
+            if (countResult === null) {
+                throw new Error("Tabela 'empresas' não encontrada. Execute o script criar_tabela_empresas.sql no TiDB.");
+            }
+            
+            // Extrai o total do resultado (pode vir como objeto {total: X} ou array)
+            const totalRow = Array.isArray(countResult) && countResult.length > 0 ? countResult[0] : null;
+            this.state.total = totalRow ? (totalRow.total || totalRow['COUNT(*)'] || 0) : 0;
 
             // Busca dados paginados
             const offset = (this.state.page - 1) * this.state.pageSize;
