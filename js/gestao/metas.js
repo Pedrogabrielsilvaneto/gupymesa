@@ -5,41 +5,27 @@ Gestao.Metas = {
         ano: new Date().getFullYear(),
         listaCompleta: [],
         listaVisivel: [],
-        mostrarInativos: false,
-        mostrarGestao: false,
         alteracoesPendentes: new Set()
     },
 
     init: function () {
-        this.atualizarLabelPeriodo();
+        // Inicializa o seletor de mês com o mês atual
+        const el = document.getElementById('header-meta-month');
+        if (el) {
+            const m = String(this.state.mes).padStart(2, '0');
+            el.value = `${this.state.ano}-${m}`;
+        }
         this.carregar();
     },
 
-    mudarMes: function (delta) {
-        let novoMes = this.state.mes + delta;
-        if (novoMes > 12) { novoMes = 1; this.state.ano++; }
-        else if (novoMes < 1) { novoMes = 12; this.state.ano--; }
-
-        this.state.mes = novoMes;
+    selecionarMes: function () {
+        const el = document.getElementById('header-meta-month');
+        if (!el || !el.value) return;
+        const [ano, mes] = el.value.split('-').map(Number);
+        this.state.mes = mes;
+        this.state.ano = ano;
         this.state.alteracoesPendentes.clear();
-        this.atualizarLabelPeriodo();
         this.carregar();
-    },
-
-    toggleFiltros: function () {
-        const elInativos = document.getElementById('check-mostrar-inativos');
-        const elGestao = document.getElementById('check-mostrar-gestao');
-
-        this.state.mostrarInativos = elInativos ? elInativos.checked : false;
-        this.state.mostrarGestao = elGestao ? elGestao.checked : false;
-
-        this.filtrarERenderizar();
-    },
-
-    atualizarLabelPeriodo: function () {
-        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        const el = document.getElementById('header-meta-periodo');
-        if (el) el.innerText = `${meses[this.state.mes - 1]} ${this.state.ano}`;
     },
 
     carregar: async function () {
@@ -80,8 +66,12 @@ Gestao.Metas = {
                 const perfil = (u.perfil || '').toUpperCase();
                 const funcao = (u.funcao || '').toUpperCase();
 
-                // Lógica Aprimorada de Identificação de Gestão
-                // Inclui: Gestora, Auditora, Admin, Super Admin e IDs 1/1000
+                // Normaliza contrato
+                let contrato = (u.contrato || '').toUpperCase().trim();
+                if (contrato === 'PJ' || contrato.includes('PJ')) contrato = 'TERCEIROS';
+                else if (contrato === 'CLT' || contrato.includes('CLT')) contrato = 'CLT';
+
+                // Lógica de Identificação de Gestão
                 const isGestao = perfil.includes('GESTOR') || perfil.includes('AUDITOR') || perfil.includes('ADMIN') ||
                     funcao.includes('GESTOR') || funcao.includes('AUDITOR') || funcao.includes('ADMIN') ||
                     u.nome === 'Super Admin' || u.nome === 'Super Admin Gupy' ||
@@ -91,7 +81,8 @@ Gestao.Metas = {
                 return {
                     id: u.id,
                     nome: u.nome,
-                    contrato: u.contrato || '',
+                    contrato: contrato,
+                    situacao: (u.situacao || '').toUpperCase(),
                     ativo: ativo,
                     perfil: perfil,
                     funcao: funcao,
@@ -111,12 +102,23 @@ Gestao.Metas = {
     },
 
     filtrarERenderizar: function () {
+        const termo = (document.getElementById('header-search-metas')?.value || '').toLowerCase().trim();
+        const contratoFiltro = (document.getElementById('filtro-contrato-metas')?.value || '').toUpperCase();
+        const situacaoFiltro = (document.getElementById('filtro-situacao-metas')?.value || '').toUpperCase();
+        const mostrarGestao = document.getElementById('check-mostrar-gestao')?.checked || false;
+
         this.state.listaVisivel = this.state.listaCompleta.filter(u => {
-            // Filtro Inativos
-            if (!this.state.mostrarInativos && !u.ativo) return false;
+            // Filtro texto (busca por nome ou ID)
+            if (termo && !u.nome.toLowerCase().includes(termo) && !String(u.id).includes(termo)) return false;
+
+            // Filtro Contrato (CLT / TERCEIROS)
+            if (contratoFiltro && u.contrato !== contratoFiltro) return false;
+
+            // Filtro Situação (ATIVO / INATIVO)
+            if (situacaoFiltro && u.situacao !== situacaoFiltro) return false;
 
             // Filtro Gestão (Default: Esconder)
-            if (!this.state.mostrarGestao && u.isGestao) return false;
+            if (!mostrarGestao && u.isGestao) return false;
 
             return true;
         });
@@ -148,6 +150,13 @@ Gestao.Metas = {
             if (isInactive) rowClass = 'bg-slate-50 opacity-60';
             if (u.isGestao) rowClass = 'bg-purple-50/30 hover:bg-purple-50';
 
+            const contratoLabel = u.contrato || 'ND';
+            const contratoBadge = u.contrato === 'CLT'
+                ? 'bg-sky-50 text-sky-700 border-sky-200'
+                : u.contrato === 'TERCEIROS'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-slate-50 text-slate-500 border-slate-200';
+
             return `
             <tr class="border-b border-slate-100 transition group ${rowClass}" id="row-${u.id}">
                 <td class="px-6 py-3 text-center text-slate-400 text-xs">
@@ -162,7 +171,7 @@ Gestao.Metas = {
                             ${u.isGestao ? '<span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 rounded uppercase font-bold tracking-wider">Gestão</span>' : ''}
                         </span>
                         <span class="text-[10px] text-slate-400 font-mono flex items-center gap-2">
-                            ${u.contrato || 'ND'} 
+                            <span class="px-1.5 py-0.5 rounded border text-[9px] font-bold ${contratoBadge}">${contratoLabel}</span>
                             ${isInactive ? '<span class="text-rose-500 font-bold bg-rose-50 px-1 rounded">INATIVO</span>' : ''}
                         </span>
                     </div>
@@ -278,7 +287,7 @@ Gestao.Metas = {
             const params = [];
             for (const m of upserts) {
                 params.push(
-                    Sistema.gerarUUID(), // Gera ID unico para cada registro (sera ignorado no update se chave unica bater, mas necessario pro insert)
+                    Sistema.gerarUUID(),
                     String(m.usuario_id),
                     this.state.mes,
                     this.state.ano,

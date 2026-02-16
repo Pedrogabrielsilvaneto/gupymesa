@@ -75,6 +75,23 @@
                         </select>
                     </div>
 
+                    <div id="search-group-metas" class="header-search-group flex items-center gap-2">
+                        <div class="relative w-48">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()" placeholder="Buscar assistente..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
+                        </div>
+                        <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                            <option value="">Contrato: Todos</option>
+                            <option value="CLT">CLT</option>
+                            <option value="TERCEIROS">Terceiros</option>
+                        </select>
+                        <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none">
+                            <option value="ATIVO">Ativos</option>
+                            <option value="">Todos</option>
+                            <option value="INATIVO">Inativos</option>
+                        </select>
+                    </div>
+
                     <div id="search-group-empresas" class="header-search-group relative w-64">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" id="header-search-empresas" onkeyup="Gestao.Empresas.atualizarFiltrosEBuscar()" placeholder="Buscar por nome, ID, subdomínio..." class="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-blue-500 outline-none transition shadow-sm bg-slate-50 focus:bg-white">
@@ -112,11 +129,7 @@
 
                     <div id="actions-metas" class="header-action-group items-center gap-3">
                         
-                        <div class="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-                            <button onclick="Gestao.Metas.mudarMes(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white text-slate-500 text-[10px] transition"><i class="fas fa-chevron-left"></i></button>
-                            <span id="header-meta-periodo" class="font-bold text-slate-700 w-24 text-center uppercase text-[10px] tracking-wide leading-none pt-0.5">--</span>
-                            <button onclick="Gestao.Metas.mudarMes(1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white text-slate-500 text-[10px] transition"><i class="fas fa-chevron-right"></i></button>
-                        </div>
+                        <input type="month" id="header-meta-month" onchange="Gestao.Metas.selecionarMes()" class="text-xs font-bold text-slate-700 border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none cursor-pointer shadow-sm">
 
                         <div class="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-lg p-1" title="Defina o padrão e clique no raio para aplicar (Ignora Gestão/Auditoria)">
                             <div class="relative group/tooltip">
@@ -133,18 +146,11 @@
                             </button>
                         </div>
 
-                        <div class="flex flex-col border-l border-slate-200 pl-2 gap-0.5">
-                            <label class="flex items-center gap-1 cursor-pointer select-none">
-                                <input type="checkbox" id="check-mostrar-inativos" class="sr-only peer" onchange="Gestao.Metas.toggleFiltros()">
-                                <div class="relative w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-slate-500"></div>
-                                <span class="text-[9px] font-bold text-slate-400 uppercase leading-none">Inativos</span>
-                            </label>
-                            <label class="flex items-center gap-1 cursor-pointer select-none">
-                                <input type="checkbox" id="check-mostrar-gestao" class="sr-only peer" onchange="Gestao.Metas.toggleFiltros()">
-                                <div class="relative w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-purple-500"></div>
-                                <span class="text-[9px] font-bold text-slate-400 uppercase leading-none">Gestão</span>
-                            </label>
-                        </div>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none border-l border-slate-200 pl-3">
+                            <input type="checkbox" id="check-mostrar-gestao" class="sr-only peer" onchange="Gestao.Metas.filtrarERenderizar()">
+                            <div class="relative w-5 h-3 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:start-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-purple-500"></div>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase leading-none">Gestão</span>
+                        </label>
 
                         <button onclick="Gestao.Metas.salvarTodas()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition transform active:scale-95 flex items-center gap-2 ml-1">
                             <i class="fas fa-save"></i> Salvar
