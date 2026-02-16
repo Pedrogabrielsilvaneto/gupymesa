@@ -145,17 +145,21 @@ Produtividade.Geral = {
     },
 
     buscarAssertividadeUnificada: async function (range) {
+        // Alinhado com o "Cérebro" da Gestão > Assertividade
+        // Filtros: auditora preenchida e valor de assertividade não nulo
         let sql = `
             SELECT usuario_id, COUNT(*) as qtd_auditorias, AVG(assertividade_val) as media_assertividade
             FROM assertividade
             WHERE data_referencia >= ? AND data_referencia <= ?
+              AND auditora_nome IS NOT NULL AND auditora_nome != ''
+              AND assertividade_val IS NOT NULL
             GROUP BY usuario_id
         `;
         let params = [range.inicio, range.fim];
 
         try {
             const data = await Sistema.query(sql, params);
-            // Filtrar permissão manualmente pois SQL grouped não temos join user aqui facil (ou temos usuario_id direto)
+            // Filtra apenas o próprio usuário se não for gestor
             this.state.dadosKPIAssertividade = this.filtrarDadosPermissao(data || []);
         } catch (e) {
             console.error("Erro Assertividade:", e);
@@ -222,9 +226,10 @@ Produtividade.Geral = {
         });
 
         this.state.dadosKPIAssertividade.forEach(kpi => {
-            const uid = parseInt(kpi.usuario_id);
+            const uid = kpi.usuario_id;
             if (uid && !this.ehAdmin(uid)) {
-                const chave = isPeriodo ? String(uid) : `${uid}_${this.state.range.inicio}`;
+                const uidStr = String(uid);
+                const chave = isPeriodo ? uidStr : `${uidStr}_${this.state.range.inicio}`;
                 if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid, isPeriodo ? 'Período' : this.state.range.inicio);
                 const item = mapa.get(chave);
                 item.qtd_assert = Number(kpi.qtd_auditorias || 0);
