@@ -196,6 +196,23 @@
                             </select>
                         </div>
                     </div>
+                    <div id="search-group-assertividade" class="header-search-group flex items-center gap-3">
+                        <div class="grid grid-cols-1 gap-y-1">
+                            <select id="filtro-contrato-assert" onchange="Gestao.Assertividade.aplicarFiltrosHeader()"
+                                class="select-mini" style="color:#0369a1">
+                                <option value="">Contrato</option>
+                                <option value="CLT">CLT</option>
+                                <option value="TERCEIROS">Terceiros</option>
+                            </select>
+                            <select id="filtro-funcao-assert" onchange="Gestao.Assertividade.aplicarFiltrosHeader()"
+                                class="select-mini" style="color:#7c3aed">
+                                <option value="">Função</option>
+                                <option value="ASSISTENTE">Assistente</option>
+                                <option value="GESTAO">Gestão</option>
+                                <option value="AUDITORIA">Auditoria</option>
+                            </select>
+                        </div>
+                    </div>
 
                     <div id="search-group-empresas" class="header-search-group relative w-64">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
