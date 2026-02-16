@@ -45,7 +45,7 @@ Gestao.Importacao.Assertividade = {
 
     // 🚀 LOTE TURBO: 5000 por lote (API usa connection.query, sem limite de placeholders)
     LOTE_SIZE: 5000,
-    PARALLEL_BATCHES: 5, // Envia 5 lotes por vez para máxima velocidade
+    PARALLEL_BATCHES: 10, // Envia 10 lotes por vez para máxima velocidade
 
     mesesMap: { 'janeiro': 1, 'jan': 1, 'fevereiro': 2, 'fev': 2, 'marco': 3, 'março': 3, 'mar': 3, 'abril': 4, 'abr': 4, 'maio': 5, 'mai': 5, 'junho': 6, 'jun': 6, 'julho': 7, 'jul': 7, 'agosto': 8, 'ago': 8, 'setembro': 9, 'set': 9, 'outubro': 10, 'out': 10, 'novembro': 11, 'nov': 11, 'dezembro': 12, 'dez': 12 },
 
