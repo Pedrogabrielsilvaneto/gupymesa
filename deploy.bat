@@ -32,7 +32,7 @@ echo.
 
 :: O comando 'vercel --prod' fara o deploy. 
 :: Se for a primeira vez, ele pedira login/link interativo.
-call vercel --prod
+call vercel --prod --yes
 
 if %errorlevel% equ 0 (
     echo.

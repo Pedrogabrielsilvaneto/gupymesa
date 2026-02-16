@@ -5,7 +5,7 @@ window.Gestao.Importacao = window.Gestao.Importacao || {};
 // --- MÓDULO DE INTELIGÊNCIA DE DATAS (Mantido V116) ---
 Gestao.Importacao.Datas = {
     feriadosFixos: ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'],
-    getFeriadosMoveis: function(ano) {
+    getFeriadosMoveis: function (ano) {
         const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
         const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
         const pascoa = new Date(ano, month - 1, day);
@@ -15,16 +15,16 @@ Gestao.Importacao.Datas = {
         const fmt = d => d.toISOString().split('T')[0].slice(5);
         return [fmt(carnaval), fmt(sextaSanta), fmt(corpus)];
     },
-    ehFimDeSemana: function(data) { const dia = data.getDay(); return dia === 0 || dia === 6; },
-    ehFeriado: function(data) {
+    ehFimDeSemana: function (data) { const dia = data.getDay(); return dia === 0 || dia === 6; },
+    ehFeriado: function (data) {
         const mesDia = data.toISOString().split('T')[0].slice(5);
         if (this.feriadosFixos.includes(mesDia)) return true;
         return this.getFeriadosMoveis(data.getFullYear()).includes(mesDia);
     },
-    ehDiaUtil: function(data) { return !this.ehFimDeSemana(data) && !this.ehFeriado(data); },
-    calcularCompetencia: function(dataISO) {
+    ehDiaUtil: function (data) { return !this.ehFimDeSemana(data) && !this.ehFeriado(data); },
+    calcularCompetencia: function (dataISO) {
         if (!dataISO) return null;
-        let data = new Date(dataISO + 'T12:00:00'); 
+        let data = new Date(dataISO + 'T12:00:00');
         if (this.ehDiaUtil(data)) return dataISO;
         let anterior = new Date(data);
         while (!this.ehDiaUtil(anterior)) anterior.setDate(anterior.getDate() - 1);
@@ -42,9 +42,9 @@ Gestao.Importacao.Datas = {
 // --- IMPORTADOR PRINCIPAL ---
 
 Gestao.Importacao.Assertividade = {
-    
-    // 🚀 LOTE TURBO: 5.000 para velocidade (com Retry se falhar)
-    LOTE_SIZE: 5000, 
+
+    // 🚀 LOTE TURBO: 500 por lote (limite TiDB: 65535 placeholders / 25 cols)
+    LOTE_SIZE: 500,
 
     mesesMap: { 'janeiro': 1, 'jan': 1, 'fevereiro': 2, 'fev': 2, 'marco': 3, 'março': 3, 'mar': 3, 'abril': 4, 'abr': 4, 'maio': 5, 'mai': 5, 'junho': 6, 'jun': 6, 'julho': 7, 'jul': 7, 'agosto': 8, 'ago': 8, 'setembro': 9, 'set': 9, 'outubro': 10, 'out': 10, 'novembro': 11, 'nov': 11, 'dezembro': 12, 'dez': 12 },
 
@@ -55,11 +55,11 @@ Gestao.Importacao.Assertividade = {
         'Apontamentos/obs': 'observacao', 'Fila': 'fila', 'Revalidação': 'revalidacao',
         'nº Campos': 'qtd_campos', 'Ok': 'qtd_ok', 'Nok': 'qtd_nok',
         'Quantidade_documentos_validados': 'qtd_docs_validados', '% Assert': 'porcentagem_assertividade',
-        'id_assistente': 'usuario_id', 'Data da Auditoria': 'data_auditoria' 
+        'id_assistente': 'usuario_id', 'Data da Auditoria': 'data_auditoria'
     },
 
     // --- UI: MODAL DE PROGRESSO ---
-    injetarModal: function() {
+    injetarModal: function () {
         if (document.getElementById('modal-progresso-impt')) return;
         const html = `
         <div id="modal-progresso-impt" class="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center hidden">
@@ -81,7 +81,7 @@ Gestao.Importacao.Assertividade = {
         document.body.insertAdjacentHTML('beforeend', html);
     },
 
-    mostrarProgresso: async function(percentual, texto, tipo = 'normal') {
+    mostrarProgresso: async function (percentual, texto, tipo = 'normal') {
         this.injetarModal();
         const modal = document.getElementById('modal-progresso-impt');
         const barra = document.getElementById('barra-progresso');
@@ -118,7 +118,7 @@ Gestao.Importacao.Assertividade = {
         await new Promise(r => setTimeout(r, 10));
     },
 
-    fecharModal: function() {
+    fecharModal: function () {
         const modal = document.getElementById('modal-progresso-impt');
         if (modal) modal.classList.add('hidden');
         const input = document.getElementById('file-upload-assertividade') || document.querySelector('input[type="file"]');
@@ -127,7 +127,7 @@ Gestao.Importacao.Assertividade = {
 
     // --- FLUXO PRINCIPAL ---
 
-    processarArquivo: async function(input) {
+    processarArquivo: async function (input) {
         const arquivo = input.files[0];
         if (!arquivo) return;
 
@@ -165,7 +165,7 @@ Gestao.Importacao.Assertividade = {
         });
     },
 
-    executarFluxoCompleto: async function(linhasBrutas, inputElement, infoPeriodo) {
+    executarFluxoCompleto: async function (linhasBrutas, inputElement, infoPeriodo) {
         await this.limparCompetenciaDiaADia(infoPeriodo);
 
         await this.mostrarProgresso(16, "Calculando Datas (Inteligência Artificial)...", 'normal');
@@ -197,10 +197,10 @@ Gestao.Importacao.Assertividade = {
                     const idAssistenteCsv = this.limparInteiro(getVal('id_assistente'));
                     const idPpc = this.limparBigIntString(getVal('ID PPC'));
 
-                    if (!dataCompetencia || !idPpc) return; 
+                    if (!dataCompetencia || !idPpc) return;
 
                     const registro = {
-                        id_ppc: idPpc, data_referencia: dataCompetencia, end_time_raw: rawTime, usuario_id: idAssistenteCsv, 
+                        id_ppc: idPpc, data_referencia: dataCompetencia, end_time_raw: rawTime, usuario_id: idAssistenteCsv,
                         company_id: this.limparBigIntString(getVal('Company_id')), schema_id: this.limparBigIntString(getVal('Schema_id')),
                         empresa_nome: this.limparTexto(getVal('Empresa')), assistente_nome: this.limparTexto(getVal('Assistente')),
                         auditora_nome: this.limparTexto(getVal('Auditora')), doc_name: this.limparTexto(getVal('doc_name') || getVal('DOCUMENTO')),
@@ -209,7 +209,7 @@ Gestao.Importacao.Assertividade = {
                         revalidacao: this.limparTexto(getVal('Revalidação')), tipo_documento: this.limparTexto(getVal('DOCUMENTO')),
                         data_auditoria: this.limparTexto(getVal('Data da Auditoria')), qtd_campos: this.limparInteiro(getVal('nº Campos')),
                         qtd_ok: this.limparInteiro(getVal('Ok')), qtd_nok: this.limparInteiro(getVal('Nok')),
-                        qtd_docs_validados: this.limparInteiro(getVal('Quantidade_documentos_validados')), porcentagem_assertividade: getVal('% Assert'), 
+                        qtd_docs_validados: this.limparInteiro(getVal('Quantidade_documentos_validados')), porcentagem_assertividade: getVal('% Assert'),
                         assertividade_val: this.limparDecimal(getVal('% Assert'))
                     };
 
@@ -225,7 +225,7 @@ Gestao.Importacao.Assertividade = {
         await this.inserirLotesComProgresso(dadosValidos);
     },
 
-    limparCompetenciaDiaADia: async function(info) {
+    limparCompetenciaDiaADia: async function (info) {
         const dataInicial = new Date(info.inicio + 'T00:00:00');
         const dataFinal = new Date(info.fim + 'T00:00:00');
         const diffTime = Math.abs(dataFinal - dataInicial);
@@ -233,7 +233,7 @@ Gestao.Importacao.Assertividade = {
         let diaAtual = 1;
 
         for (let d = new Date(dataInicial); d <= dataFinal; d.setDate(d.getDate() + 1)) {
-            const dataStr = d.toISOString().split('T')[0]; 
+            const dataStr = d.toISOString().split('T')[0];
             const diaDisplay = dataStr.split('-').reverse().join('/');
             const progressoFase = (diaAtual / totalDias) * 15;
             await this.mostrarProgresso(progressoFase, `Limpando histórico: <b>${diaDisplay}</b>`);
@@ -257,7 +257,7 @@ Gestao.Importacao.Assertividade = {
         }
     },
 
-    inserirLotesComProgresso: async function(dados) {
+    inserirLotesComProgresso: async function (dados) {
         let processados = 0;
         let erros = 0;
         const total = dados.length;
@@ -269,13 +269,13 @@ Gestao.Importacao.Assertividade = {
             const qtdLote = lote.length;
             const numLote = Math.floor(i / this.LOTE_SIZE) + 1;
             const percGlobal = BASE_PERC + ((processados / total) * RANGE_PERC);
-            
+
             await this.mostrarProgresso(percGlobal, `Gravando Lote <b>${numLote}/${totalLotes}</b> (${qtdLote} reg)...`);
 
             // --- TENTATIVA COM RETRY ---
             let sucesso = false;
             let tentativas = 0;
-            
+
             while (!sucesso && tentativas < 3) {
                 try {
                     // Monta SQL INSERT para TiDB com múltiplos valores
@@ -284,21 +284,21 @@ Gestao.Importacao.Assertividade = {
                         sucesso = true;
                         continue;
                     }
-                    
+
                     const sql = `
                         INSERT INTO assertividade (
                             ${campos.join(', ')}
                         ) VALUES
                         ${lote.map(() => `(${campos.map(() => '?').join(', ')})`).join(', ')}
                     `;
-                    
+
                     const params = [];
                     for (const registro of lote) {
                         campos.forEach(campo => {
                             params.push(registro[campo] !== undefined && registro[campo] !== '' ? registro[campo] : null);
                         });
                     }
-                    
+
                     const result = await Sistema.query(sql, params);
                     if (result === null) throw new Error("Falha ao inserir lote.");
                     sucesso = true;
@@ -321,32 +321,32 @@ Gestao.Importacao.Assertividade = {
 
         if (erros === 0) {
             await this.mostrarProgresso(100, `Sucesso! <b>${processados.toLocaleString()}</b> registros importados.`, 'sucesso');
-            if(window.Gestao && Gestao.Assertividade) Gestao.Assertividade.carregar();
+            if (window.Gestao && Gestao.Assertividade) Gestao.Assertividade.carregar();
         } else {
             await this.mostrarProgresso(100, `Finalizado com <b>${erros}</b> erros (veja console).`, 'erro');
         }
     },
 
-    extrairDataPura: function(v) {
+    extrairDataPura: function (v) {
         if (!v) return null;
         const str = String(v).trim();
         if (str.includes('T')) return str.split('T')[0];
         if (str.includes('/')) {
-            const p = str.split('/'); 
+            const p = str.split('/');
             if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
         }
         return str.match(/^\d{4}-\d{2}-\d{2}$/) ? str : null;
     },
-    
-    limparTexto: function(v) { return (v === null || v === undefined || String(v).trim() === '') ? null : String(v).trim(); },
-    
-    limparBigIntString: function(v) { if (!v) return null; const str = String(v).replace(/\D/g, ''); return str === "" ? null : str; },
-    
-    limparInteiro: function(v) { if (!v) return null; const n = parseInt(String(v).replace(/\D/g, ''), 10); return isNaN(n) ? null : n; },
-    
-    limparDecimal: function(v) { if (!v) return null; const s = String(v).replace('%', '').replace(',', '.').trim(); const f = parseFloat(s); return isNaN(f) ? null : f; },
 
-    extrairPeriodoDoNome: function(nomeArquivo) {
+    limparTexto: function (v) { return (v === null || v === undefined || String(v).trim() === '') ? null : String(v).trim(); },
+
+    limparBigIntString: function (v) { if (!v) return null; const str = String(v).replace(/\D/g, ''); return str === "" ? null : str; },
+
+    limparInteiro: function (v) { if (!v) return null; const n = parseInt(String(v).replace(/\D/g, ''), 10); return isNaN(n) ? null : n; },
+
+    limparDecimal: function (v) { if (!v) return null; const s = String(v).replace('%', '').replace(',', '.').trim(); const f = parseFloat(s); return isNaN(f) ? null : f; },
+
+    extrairPeriodoDoNome: function (nomeArquivo) {
         const nomeLimpo = nomeArquivo.replace(/\.csv$/i, '').trim().toLowerCase();
         const regex = /^([a-zç]+)[\s_-]+(\d{2,4})$/;
         const match = nomeLimpo.match(regex);
@@ -358,7 +358,7 @@ Gestao.Importacao.Assertividade = {
         const mes = this.mesesMap[nomeMes];
         if (!mes) return null;
         const dataInicio = new Date(ano, mes - 1, 1);
-        const dataFim = new Date(ano, mes, 0); 
+        const dataFim = new Date(ano, mes, 0);
         const fmt = (d) => d.toISOString().split('T')[0];
         return { mes, ano, texto: `${nomeMes.toUpperCase()}/${ano}`, inicio: fmt(dataInicio), fim: fmt(dataFim) };
     }
