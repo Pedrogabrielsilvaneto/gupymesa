@@ -90,16 +90,19 @@ Gestao.Empresas = {
             this.state.total = totalRow ? (totalRow.total || totalRow['COUNT(*)'] || 0) : 0;
 
             // Busca dados paginados
+            // LIMIT e OFFSET são inseridos diretamente no SQL (valores seguros, não vêm de input do usuário)
             const offset = (this.state.page - 1) * this.state.pageSize;
+            const limitValue = parseInt(this.state.pageSize) || 10;
+            const offsetValue = parseInt(offset) || 0;
+            
             const sql = `
                 SELECT *
                 FROM empresas
                 ${whereClause}
                 ORDER BY nome ASC
-                LIMIT ? OFFSET ?
+                LIMIT ${limitValue} OFFSET ${offsetValue}
             `;
-            const allParams = [...params, this.state.pageSize, offset];
-            const data = await Sistema.query(sql, allParams);
+            const data = await Sistema.query(sql, params);
 
             if (!data) throw new Error("Falha ao buscar empresas.");
 
