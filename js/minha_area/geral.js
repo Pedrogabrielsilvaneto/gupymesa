@@ -91,33 +91,79 @@ MinhaArea.Geral = {
 
     buscarUsuarios: async function () {
         if (Object.keys(this.state.mapaUsuarios).length > 0) return;
-        const { data } = await Sistema.supabase.from('usuarios').select('id, nome, perfil, funcao, ativo');
-        if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
+        try {
+            const data = await Sistema.query('SELECT id, nome, perfil, funcao, ativo FROM usuarios');
+            if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
+        } catch (e) {
+            console.error("Erro ao buscar usuários:", e);
+        }
     },
 
     buscarProducao: async function (range, uid) {
-        let query = Sistema.supabase.from('producao').select('*').gte('data_referencia', range.inicio).lte('data_referencia', range.fim);
-        if (uid) query = query.eq('usuario_id', uid);
-        const { data, error } = await query;
-        if (error) throw new Error("Erro Prod: " + error.message);
-        this.state.dadosProducao = data || [];
+        let sql = 'SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?';
+        let params = [range.inicio, range.fim];
+
+        if (uid) {
+            sql += ' AND usuario_id = ?';
+            params.push(uid);
+        }
+
+        try {
+            const data = await Sistema.query(sql, params);
+            this.state.dadosProducao = data || [];
+        } catch (error) {
+            console.error("Erro Prod:", error);
+            throw new Error("Erro Prod: " + error.message);
+        }
     },
 
     buscarAssertividadeDiariaSQL: async function (range, uid) {
-        const { data, error } = await Sistema.supabase.rpc('rpc_kpi_assertividade_diaria', { p_inicio: range.inicio, p_fim: range.fim });
-        if (error) { this.state.dadosAssertividadeDiaria = []; return; }
-        let res = data || [];
-        if (uid) res = res.filter(d => String(d.usuario_id) === String(uid));
-        this.state.dadosAssertividadeDiaria = res;
+        let sql = `
+            SELECT usuario_id, data_referencia, COUNT(*) as qtd_auditorias, AVG(assertividade_val) as media_assertividade
+            FROM assertividade
+            WHERE data_referencia >= ? AND data_referencia <= ?
+        `;
+        let params = [range.inicio, range.fim];
+
+        if (uid) {
+            sql += ' AND usuario_id = ?';
+            params.push(uid);
+        }
+
+        sql += ' GROUP BY usuario_id, data_referencia';
+
+        try {
+            const data = await Sistema.query(sql, params);
+            let res = data || [];
+            // O filtro de UID já foi feito no SQL, mas mantemos a logica original se necessario (aqui nao precisa mais filtrar de novo)
+            this.state.dadosAssertividadeDiaria = res;
+        } catch (error) {
+            console.error("Erro Assertividade SQL:", error);
+            this.state.dadosAssertividadeDiaria = [];
+        }
     },
 
     buscarMetas: async function (range, uid) {
         if (!range.inicio) return;
         const partes = range.inicio.split('-');
-        let query = Sistema.supabase.from('metas').select('*').gte('ano', parseInt(partes[0])).lte('ano', new Date(range.fim).getFullYear());
-        if (uid) query = query.eq('usuario_id', uid);
-        const { data } = await query;
-        this.state.dadosMetas = data || [];
+        const anoInicio = parseInt(partes[0]);
+        const anoFim = new Date(range.fim).getFullYear();
+
+        let sql = 'SELECT * FROM metas WHERE ano >= ? AND ano <= ?';
+        let params = [anoInicio, anoFim];
+
+        if (uid) {
+            sql += ' AND usuario_id = ?';
+            params.push(uid);
+        }
+
+        try {
+            const data = await Sistema.query(sql, params);
+            this.state.dadosMetas = data || [];
+        } catch (e) {
+            console.error("Erro Metas:", e);
+            this.state.dadosMetas = [];
+        }
     },
 
     processarDadosUnificados: async function () {
@@ -544,14 +590,32 @@ MinhaArea.Geral = {
         const btn = document.getElementById('btn-salvar-obs');
         if (!uid || !data) return;
         const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; btn.disabled = true;
+
         try {
-            const { data: existente } = await Sistema.supabase.from('producao').select('*').eq('usuario_id', uid).eq('data_referencia', data).maybeSingle();
-            const payload = existente ? { ...existente } : { usuario_id: uid, data_referencia: data, quantidade: 0, fator: 1.0 };
-            payload.observacao_assistente = texto;
-            if (!existente) delete payload.id;
-            const { error } = await Sistema.supabase.from('producao').upsert(payload, { onConflict: 'usuario_id, data_referencia' });
-            if (error) throw error;
-            this.fecharModalObs(); this.carregar();
-        } catch (e) { console.error(e); alert("Erro ao salvar observação: " + e.message); } finally { btn.innerHTML = originalText; btn.disabled = false; }
+            // Verifica se existe registro
+            const existenteRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, data]);
+            const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
+
+            if (existente) {
+                // Update
+                await Sistema.query('UPDATE producao SET observacao_assistente = ? WHERE id = ?', [texto, existente.id]);
+            } else {
+                // Insert novo (quantidade 0, fator 1.0)
+                const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
+                await Sistema.query(
+                    'INSERT INTO producao (id, usuario_id, data_referencia, quantidade, fator, observacao_assistente) VALUES (?, ?, ?, 0, 1.0, ?)',
+                    [uuid, uid, data, texto]
+                );
+            }
+
+            this.fecharModalObs();
+            this.carregar();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao salvar observação: " + e.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     }
 };
