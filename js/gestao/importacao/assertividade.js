@@ -43,8 +43,8 @@ Gestao.Importacao.Datas = {
 
 Gestao.Importacao.Assertividade = {
 
-    // 🚀 LOTE TURBO: 500 por lote (limite TiDB: 65535 placeholders / 25 cols)
-    LOTE_SIZE: 500,
+    // 🚀 LOTE TURBO: 2000 por lote (2000×25=50000 placeholders, limite TiDB: 65535)
+    LOTE_SIZE: 2000,
 
     mesesMap: { 'janeiro': 1, 'jan': 1, 'fevereiro': 2, 'fev': 2, 'marco': 3, 'março': 3, 'mar': 3, 'abril': 4, 'abr': 4, 'maio': 5, 'mai': 5, 'junho': 6, 'jun': 6, 'julho': 7, 'jul': 7, 'agosto': 8, 'ago': 8, 'setembro': 9, 'set': 9, 'outubro': 10, 'out': 10, 'novembro': 11, 'nov': 11, 'dezembro': 12, 'dez': 12 },
 
