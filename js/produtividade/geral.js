@@ -206,15 +206,29 @@ Produtividade.Geral = {
     // ... (processarDadosUnificados, renderizarTabela, calcularKpisGlobal e auxiliares mantidos, foco na lógica de Abono abaixo) ...
     processarDadosUnificados: function () {
         const mapa = new Map();
-        const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-        const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-        const getChave = (uid, data) => isPeriodo ? String(uid) : `${uid}_${data}`;
+        const range = this.state.range;
+        const isPeriodo = range.inicio !== range.fim;
+        const diasUteisPeriodo = this.contarDiasUteis(range.inicio, range.fim);
+
+        // Helper para normalizar datas do banco (ISO ou string parcial) para YYYY-MM-DD
+        const normalizarData = (d) => {
+            if (!d) return null;
+            const str = String(d).trim();
+            return str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
+        };
+
+        const getChave = (uid, dataRaw) => {
+            const date = normalizarData(dataRaw);
+            return isPeriodo ? String(uid) : `${uid}_${date}`;
+        };
 
         this.state.dadosProducao.forEach(p => {
-            const uid = parseInt(p.usuario_id);
-            if (this.ehAdmin(uid)) return;
-            const chave = getChave(uid, p.data_referencia);
-            if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid, isPeriodo ? 'Período' : p.data_referencia);
+            const uidStr = String(p.usuario_id);
+            if (this.ehAdmin(uidStr)) return;
+
+            const chave = getChave(uidStr, p.data_referencia);
+            if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : normalizarData(p.data_referencia));
+
             const item = mapa.get(chave);
             item.producao += Number(p.quantidade) || 0;
             item.fifo += Number(p.fifo) || 0;
@@ -227,11 +241,14 @@ Produtividade.Geral = {
         });
 
         this.state.dadosKPIAssertividade.forEach(kpi => {
-            const uid = kpi.usuario_id;
-            if (uid && !this.ehAdmin(uid)) {
-                const uidStr = String(uid);
-                const chave = isPeriodo ? uidStr : `${uidStr}_${this.state.range.inicio}`;
-                if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid, isPeriodo ? 'Período' : this.state.range.inicio);
+            const uidStr = String(kpi.usuario_id);
+            if (uidStr && !this.ehAdmin(uidStr)) {
+                // Para assertividade, se for período o mapa usa apenas UID. 
+                // Se for dia único, usamos a data do filtro (inicio) pois o query já filtrou por ela
+                const chave = isPeriodo ? uidStr : `${uidStr}_${range.inicio}`;
+
+                if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : range.inicio);
+
                 const item = mapa.get(chave);
                 item.qtd_assert = Number(kpi.qtd_auditorias || 0);
                 item.media_final = Number(kpi.media_assertividade || 0);
@@ -249,7 +266,7 @@ Produtividade.Geral = {
 
         this.state.listaTabela = Array.from(mapa.values())
             .filter(r => !this.ehAdmin(r.uid) && !r.nome.toLowerCase().includes('admin'))
-            .filter(r => r.producao > 0) // Filtra quem não tem produtividade
+            .filter(r => r.producao > 0)
             .sort((a, b) => a.nome.localeCompare(b.nome));
     },
 
