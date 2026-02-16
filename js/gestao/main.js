@@ -61,6 +61,12 @@ Gestao.init = async function() {
     // Renderiza Menu
     if (window.Menu && Menu.Gestao) Menu.Gestao.renderizar();
 
+    // Garante que todos os grupos de busca estão escondidos inicialmente
+    document.querySelectorAll('.header-search-group').forEach(el => {
+        el.classList.remove('active');
+        el.style.display = 'none';
+    });
+
     // Restaura última aba
     const ultimaAba = localStorage.getItem('gestao_aba_ativa') || 'usuarios';
     setTimeout(() => Gestao.mudarAba(ultimaAba), 50);
@@ -88,9 +94,15 @@ Gestao.mudarAba = function(aba) {
     if (headerAction) headerAction.classList.add('active');
 
     // 4. Atualiza Buscas do Header (Novo)
-    document.querySelectorAll('.header-search-group').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.header-search-group').forEach(el => {
+        el.classList.remove('active');
+        el.style.display = 'none';
+    });
     const searchGroup = document.getElementById(`search-group-${aba}`);
-    if (searchGroup) searchGroup.classList.add('active');
+    if (searchGroup) {
+        searchGroup.classList.add('active');
+        searchGroup.style.display = 'flex';
+    }
 
     if (window.Menu && Menu.Gestao) Menu.Gestao.atualizarAcao(aba);
 
