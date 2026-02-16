@@ -14,14 +14,21 @@ window.Produtividade.Importacao.Validacao = {
      * MANTIDO CONFORME REGRA DE NEGÓCIO:
      * A data DEVE vir do nome do arquivo (ex: 01122025.csv).
      */
+    /**
+     * Extrai a data do nome do arquivo (Formato ESTRITO: ddmmaaaa.csv)
+     */
     extrairDataDoNome: function (nome) {
-        // Regex estrita para capturar DDMMAAAA no nome do arquivo
-        const match = nome.match(/(\d{1,2})[\.\-\/]?(\d{1,2})[\.\-\/]?(\d{4})/);
+        // Regex ESTRITA para DDMMAAAA (8 dígitos seguidos)
+        const match = nome.match(/^(\d{2})(\d{2})(\d{4})\.csv$/i);
         if (match) {
             let [_, dia, mes, ano] = match;
-            dia = dia.padStart(2, '0');
-            mes = mes.padStart(2, '0');
-            return `${ano}-${mes}-${dia}`; // Formato ISO para banco
+            return `${ano}-${mes}-${dia}`;
+        }
+        // Tenta pegar apenas ocorrência de 8 dígitos se não for exato o nome
+        const matchLoose = nome.match(/(\d{2})(\d{2})(\d{4})/);
+        if (matchLoose) {
+            let [_, dia, mes, ano] = matchLoose;
+            return `${ano}-${mes}-${dia}`;
         }
         return null;
     },
@@ -34,18 +41,29 @@ window.Produtividade.Importacao.Validacao = {
         const statusEl = document.getElementById('status-importacao-prod');
         if (statusEl) {
             statusEl.classList.remove('hidden');
-            statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Processando ${files.length} arquivos...</span>`;
+            statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Validando arquivos...</span>`;
         }
 
         let arquivosIgnorados = 0;
+        let arquivosDuplicados = 0;
         let arquivosProcessados = 0;
 
         for (const file of files) {
+            // 1. Validação de Nome (Formato)
             const dataRef = this.extrairDataDoNome(file.name);
-
             if (!dataRef) {
-                console.warn(`⚠️ Ignorado (Nome sem data): ${file.name}`);
+                console.warn(`⚠️ Ignorado (Nome inválido): ${file.name}`);
+                alert(`Arquivo "${file.name}" ignorado.\nO nome deve conter a data no formato DDMMAAAA (ex: 01012026.csv).`);
                 arquivosIgnorados++;
+                continue;
+            }
+
+            // 2. Validação de Duplicidade (Banco de Dados)
+            const jaExiste = await this.verificarDuplicidade(dataRef);
+            if (jaExiste) {
+                console.warn(`⚠️ Bloqueado (Data já existe): ${dataRef}`);
+                alert(`BLOQUEADO: Já existem dados importados para a data ${dataRef} (Arquivo: ${file.name}).\n\nSe deseja reimportar, exclua os dados dessa data primeiro.`);
+                arquivosDuplicados++;
                 continue;
             }
 
@@ -54,7 +72,7 @@ window.Produtividade.Importacao.Validacao = {
                     header: true,
                     skipEmptyLines: true,
                     encoding: "UTF-8",
-                    transformHeader: h => h.trim().toLowerCase() // Normaliza headers
+                    transformHeader: h => h.trim().toLowerCase()
                         .replace(/[áàãâ]/g, 'a')
                         .replace(/[éê]/g, 'e')
                         .replace(/[í]/g, 'i')
@@ -70,8 +88,19 @@ window.Produtividade.Importacao.Validacao = {
             });
         }
 
-        this.finalizarAnalise(files.length, arquivosIgnorados);
+        this.finalizarAnalise(files.length, arquivosIgnorados, arquivosDuplicados);
         input.value = '';
+    },
+
+    verificarDuplicidade: async function (data) {
+        try {
+            // Verifica se existe pelo menos 1 registro para essa data
+            const res = await Sistema.query("SELECT id FROM producao WHERE data_referencia = ? LIMIT 1", [data]);
+            return res && res.length > 0;
+        } catch (e) {
+            console.error("Erro ao verificar duplicidade:", e);
+            return false; // Na dúvida, deixa passar (ou bloqueia, dependo da segurança)
+        }
     },
 
     prepararDados: function (linhas, dataFixa, fileName) {
@@ -115,11 +144,15 @@ window.Produtividade.Importacao.Validacao = {
         });
     },
 
-    finalizarAnalise: function (totalArquivos, ignorados) {
+    finalizarAnalise: function (totalArquivos, ignorados, duplicados) {
         const statusEl = document.getElementById('status-importacao-prod');
 
         if (this.dadosProcessados.length === 0) {
-            alert("❌ Nenhum dado válido encontrado!\n\nVerifique:\n1. O nome do arquivo tem data (ex: 01122025.csv)?\n2. O arquivo CSV tem as colunas corretas?");
+            let msgErro = "❌ Nenhum dado válido para importar!";
+            if (ignorados > 0) msgErro += `\n\n• ${ignorados} arquivo(s) com nome inválido (Use DDMMAAAA.csv).`;
+            if (duplicados > 0) msgErro += `\n• ${duplicados} arquivo(s) já importados anteriormente (Bloqueados).`;
+
+            alert(msgErro);
             if (statusEl) statusEl.innerHTML = "";
             return;
         }
@@ -130,11 +163,12 @@ window.Produtividade.Importacao.Validacao = {
             : datasUnicas[0];
 
         let msg = `Resumo da Importação:\n\n` +
-            `✅ Arquivos Processados: ${totalArquivos - ignorados}\n` +
+            `✅ Arquivos Prontos: ${totalArquivos - ignorados - duplicados}\n` +
             `📅 Datas Identificadas: ${range}\n` +
             `📊 Linhas de Produção: ${this.dadosProcessados.length}\n`;
 
-        if (ignorados > 0) msg += `⚠️ Arquivos Ignorados (Sem data no nome): ${ignorados}\n`;
+        if (ignorados > 0) msg += `⚠️ Ignorados (Nome Inválido): ${ignorados}\n`;
+        if (duplicados > 0) msg += `⛔ Bloqueados (Já Existem): ${duplicados}\n`;
 
         msg += `\nConfirmar gravação no banco de dados?`;
 
