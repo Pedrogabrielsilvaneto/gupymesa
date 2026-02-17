@@ -35,8 +35,8 @@ Produtividade.Filtros = {
             const funcoes = await Sistema.query("SELECT DISTINCT funcao FROM usuarios WHERE funcao IS NOT NULL AND funcao != '' ORDER BY funcao ASC");
             const selFuncao = document.getElementById('filtro-funcao-prod');
             if (selFuncao && funcoes) {
-                // Mantém o "Todas Funções"
-                selFuncao.innerHTML = '<option value="todos">Todas Funções</option>';
+                // Mantém a opção "Função" como label padrão (valor vazio)
+                selFuncao.innerHTML = '<option value="">Função</option>';
                 funcoes.forEach(f => {
                     const opt = document.createElement('option');
                     opt.value = f.funcao.toUpperCase();
@@ -102,6 +102,10 @@ Produtividade.Filtros = {
             this.estado.funcao = document.getElementById('filtro-funcao-prod')?.value || 'todos';
             this.estado.contrato = document.getElementById('filtro-contrato-prod')?.value || 'todos';
 
+            // Ajuste para o padrão de label (vazio = todos)
+            if (this.estado.funcao === '') this.estado.funcao = 'todos';
+            if (this.estado.contrato === '') this.estado.contrato = 'todos';
+
             switch (this.abaAtiva) {
                 case 'geral': this.filtrarGeral(); break;
                 // Outras abas podem precisar de implementações específicas se não usarem a mesma lógica de filtro
@@ -117,8 +121,8 @@ Produtividade.Filtros = {
         const elContrato = document.getElementById('filtro-contrato-prod');
 
         if (elNome) elNome.value = '';
-        if (elFuncao) elFuncao.value = 'todos';
-        if (elContrato) elContrato.value = 'todos';
+        if (elFuncao) elFuncao.value = '';
+        if (elContrato) elContrato.value = '';
 
         this.aplicar();
     },

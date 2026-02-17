@@ -74,6 +74,28 @@
             background: #94a3b8;
         }
 
+        .select-mini {
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            font-weight: 700;
+            color: #475569;
+            padding: 4px 18px 4px 6px;
+            font-size: 11px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24'%3E%3Cpath fill='%2394a3b8' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .select-mini:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
         .kpi-card {
             background: white;
             border-radius: 16px;
@@ -239,42 +261,41 @@
 
     <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28">
 
-        <!-- HUD de Filtros Dinâmicos -->
+        <!-- HUD de Filtros Dinâmicos (Padrão Gestão) -->
         <div id="container-filtros-hud"
-            class="hidden bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-wrap gap-4 items-center animate-fade-in mb-4">
-            <div id="wrap-filtro-nome" class="flex-1 min-w-[200px]">
-                <label class="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Pesquisar Assistente</label>
-                <div class="relative">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                    <input type="text" id="filtro-nome-prod" oninput="Produtividade.Filtros.aplicar()"
-                        placeholder="Nome ou ID..."
-                        class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition">
+            class="hidden bg-white border border-slate-200 rounded-xl p-2 shadow-sm flex flex-wrap gap-4 items-center animate-fade-in mb-4">
+
+            <!-- Busca -->
+            <div id="wrap-filtro-nome" class="flex-1 min-w-[200px] relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
+                <input type="text" id="filtro-nome-prod" oninput="Produtividade.Filtros.aplicar()"
+                    placeholder="Pesquisar por nome ou ID..."
+                    class="w-full pl-8 pr-3 py-1.5 bg-transparent border-b border-transparent focus:border-slate-200 text-xs font-bold outline-none transition placeholder-slate-300">
+            </div>
+
+            <div class="flex items-center gap-1 border-l border-slate-100 pl-4">
+                <!-- Contrato -->
+                <div id="wrap-filtro-contrato">
+                    <select id="filtro-contrato-prod" onchange="Produtividade.Filtros.aplicar()" class="select-mini"
+                        style="color:#0369a1">
+                        <option value="">Contrato</option>
+                        <option value="CLT">CLT</option>
+                        <option value="PJ">PJ</option>
+                        <option value="TERCEIROS">Terceiros</option>
+                    </select>
                 </div>
-            </div>
 
-            <div id="wrap-filtro-contrato" class="w-40">
-                <label class="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Contrato</label>
-                <select id="filtro-contrato-prod" onchange="Produtividade.Filtros.aplicar()"
-                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition cursor-pointer">
-                    <option value="todos">Todos Contratos</option>
-                    <option value="CLT">CLT</option>
-                    <option value="PJ">PJ</option>
-                    <option value="TERCEIROS">Terceiros (PJ/TER)</option>
-                </select>
-            </div>
+                <!-- Função -->
+                <div id="wrap-filtro-funcao">
+                    <select id="filtro-funcao-prod" onchange="Produtividade.Filtros.aplicar()" class="select-mini"
+                        style="color:#7c3aed">
+                        <option value="">Função</option>
+                    </select>
+                </div>
 
-            <div id="wrap-filtro-funcao" class="w-48">
-                <label class="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Função / Cargo</label>
-                <select id="filtro-funcao-prod" onchange="Produtividade.Filtros.aplicar()"
-                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition cursor-pointer">
-                    <option value="todos">Todas Funções</option>
-                </select>
-            </div>
-
-            <div class="flex items-end h-full pt-4">
                 <button onclick="Produtividade.Filtros.resetar()"
-                    class="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition flex items-center gap-1">
-                    <i class="fas fa-undo"></i> Limpar Filtros
+                    class="ml-2 text-slate-300 hover:text-rose-500 transition text-[10px] font-bold uppercase tracking-tight flex items-center gap-1">
+                    <i class="fas fa-times-circle"></i> Limpar
                 </button>
             </div>
         </div>

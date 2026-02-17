@@ -112,7 +112,7 @@ Produtividade.Geral = {
     buscarUsuarios: async function () {
         if (Object.keys(this.state.mapaUsuarios).length > 0) return;
         try {
-            const data = await Sistema.query('SELECT id, nome, perfil, funcao, ativo FROM usuarios');
+            const data = await Sistema.query('SELECT id, nome, perfil, funcao, contrato, ativo FROM usuarios');
             if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
         } catch (e) {
             console.error("Erro ao buscar usuários:", e);
