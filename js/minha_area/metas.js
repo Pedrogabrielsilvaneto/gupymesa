@@ -223,12 +223,21 @@ MinhaArea.Metas = {
             if (!users) throw new Error("Erro ao buscar usuários.");
 
             const forbidden = ['GESTOR', 'AUDITOR', 'ADMIN', 'LIDER', 'COORDENADOR'];
-            const assistentes = users.filter(u => {
-                if (!isAdmin) return true;
+
+            // [SYNC v4.35] Include all active users for volume calculation
+            const allActiveUsers = users.map(u => {
                 const p = (u.perfil || '').toUpperCase();
                 const f = (u.funcao || '').toUpperCase();
-                const isOperacao = !forbidden.some(word => p.includes(word) || f.includes(word));
-                if (!isOperacao) return false;
+                u.isManagement = forbidden.some(word => p.includes(word) || f.includes(word));
+                return u;
+            });
+
+            // Filter for the RANKING (Grid visibility)
+            const assistentes = allActiveUsers.filter(u => {
+                if (!isAdmin) return true;
+
+                // Only show Operation/Assistants in the ranking by default unless they have production
+                // Wait, if we want to sync volume, we should query everyone.
 
                 if (filtroContrato !== 'TODOS') {
                     const userContrato = (u.contrato || 'CLT').trim().toUpperCase();
@@ -238,7 +247,7 @@ MinhaArea.Metas = {
                 return true;
             });
 
-            const userIds = assistentes.map(u => u.id);
+            const userIds = allActiveUsers.map(u => u.id);
 
             if (userIds.length === 0) {
                 this.cacheUsers = [];
@@ -295,7 +304,9 @@ MinhaArea.Metas = {
                     countMesesComDados: 0,
                     // [ALIGNMENT v4.34] New counters for average of averages logic
                     acc_assert_ratio: 0,
-                    qtd_auditorias: 0
+                    qtd_auditorias: 0,
+                    // [SYNC v4.35] Identity flag
+                    isManagement: allActiveUsers.find(u => String(u.id) === String(uid))?.isManagement || false
                 };
             });
 
@@ -408,7 +419,12 @@ MinhaArea.Metas = {
                 });
             });
 
-            this.cacheUsers = assistentes;
+            // [SYNC v4.35] Filter cacheUsers for the ranking: Assistants OR Anyone with production > 0
+            this.cacheUsers = allActiveUsers.filter(u => {
+                const s = this.statsUsers[String(u.id)];
+                return !u.isManagement || (s && s.prod > 0);
+            });
+
             this.atualizarCardsTopo();
 
             if (this.viewState === 'DETAIL' && this.selectedUserId) {
@@ -455,21 +471,26 @@ MinhaArea.Metas = {
         let globalDiasEfetivosMicro = 0;
 
         Object.values(this.statsUsers).forEach(s => {
+            // [SYNC v4.35] Volume is GLOBAL (All production)
             globalProd += s.prod;
-            // [ALIGNMENT v4.34] Aggregate Global Assertiveness
-            globalOk += s.acc_assert_ratio; // Sum of ratios
-            globalTotalAud += s.qtd_auditorias; // Count of audits
 
-            if (this.isMacroView) {
-                // Cálculo da Média das Médias para o Card de Equipe
-                const divisor = s.countMesesComDados > 0 ? s.countMesesComDados : 1;
-                const mediaAcumuladaUsuario = s.somaMediasMensais / divisor;
-                if (s.prod > 0) {
-                    somaDasMediasIndividuais += mediaAcumuladaUsuario;
-                    contadorUsuariosComDados++;
+            // [ALIGNMENT v4.34] Aggregate Global Assertiveness
+            globalOk += s.acc_assert_ratio;
+            globalTotalAud += s.qtd_auditorias;
+
+            // [SYNC v4.35] Divisor for Velocity (Effort) is only for ASSISTANTS (Non-Management)
+            if (!s.isManagement) {
+                if (this.isMacroView) {
+                    // Cálculo da Média das Médias para o Card de Equipe
+                    const divisor = s.countMesesComDados > 0 ? s.countMesesComDados : 1;
+                    const mediaAcumuladaUsuario = s.somaMediasMensais / divisor;
+                    if (s.prod > 0) {
+                        somaDasMediasIndividuais += mediaAcumuladaUsuario;
+                        contadorUsuariosComDados++;
+                    }
+                } else {
+                    globalDiasEfetivosMicro += s.dias_efetivos;
                 }
-            } else {
-                globalDiasEfetivosMicro += s.dias_efetivos;
             }
         });
 
