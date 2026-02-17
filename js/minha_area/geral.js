@@ -506,12 +506,15 @@ MinhaArea.Geral = {
             diarioAgregado[d.data_referencia].fator += (d.fator !== null ? Number(d.fator) : 1.0);
         });
 
-        // Agrega Assertividade Diária (média da equipe por dia)
+        // Agrega Assertividade Diária (média SIMPLES da equipe por dia - conforme regra de negócio)
         this.state.dadosAssertividadeDiaria.forEach(a => {
             const dataRef = a.data_referencia;
+            // Só considera se houver produção/registro naquele dia (ou se quisermos considerar assertividade mesmo sem produção, mas o diário é guiado pela produção)
+            // A lógica anterior ligava ao diarioAgregado que é montado via produção.
             if (diarioAgregado[dataRef] && a.qtd_auditorias > 0) {
-                diarioAgregado[dataRef].somaAssert += (Number(a.media_assertividade) * Number(a.qtd_auditorias));
-                diarioAgregado[dataRef].countAssert += Number(a.qtd_auditorias);
+                // Média Simples: Soma as médias dos assistentes e divide pelo número de assistentes
+                diarioAgregado[dataRef].somaAssert += Number(a.media_assertividade);
+                diarioAgregado[dataRef].countAssert += 1; // Conta +1 colaborador
             }
         });
 
