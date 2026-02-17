@@ -205,7 +205,13 @@ MinhaArea.Metas = {
             const diffDias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24);
             this.isMacroView = diffDias > 45;
 
-            const isAdmin = MinhaArea.isAdmin();
+            const uLogado = MinhaArea.usuario || {};
+            const pLogado = (uLogado.perfil || '').toUpperCase();
+            const fLogado = (uLogado.funcao || '').toUpperCase();
+            const termosGestao = ['GESTOR', 'AUDITOR', 'ADMIN', 'LIDER', 'COORDENADOR', 'GERENTE', 'SUPERVISOR'];
+            const isManager = termosGestao.some(t => pLogado.includes(t) || fLogado.includes(t)) || MinhaArea.isAdmin();
+
+            const isAdmin = isManager;
             const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
             const filtroContrato = this.currentFilterContract;
 
