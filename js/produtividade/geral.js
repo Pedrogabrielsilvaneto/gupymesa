@@ -97,7 +97,6 @@ Produtividade.Geral = {
             } else {
                 this.calcularKpisGlobal();
                 this.renderizarTabela();
-                this.atualizarDestaques();
             }
 
         } catch (error) {
@@ -940,7 +939,7 @@ Produtividade.Geral = {
         this.state.modoDetalhe = false; this.state.usuarioDetalhe = null;
         if (this.els.tabelaHeader && this.state.headerOriginal) this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
         if (this.els.selectionHeader) { this.els.selectionHeader.classList.add('hidden'); this.els.selectionHeader.innerHTML = ''; }
-        this.calcularKpisGlobal(); this.renderizarTabela(); this.atualizarDestaques();
+        this.calcularKpisGlobal(); this.renderizarTabela();
     },
     renderizarDetalhes: function (uid) {
         const itemConsolidado = this.state.listaTabela.find(i => String(i.uid) === String(uid));
