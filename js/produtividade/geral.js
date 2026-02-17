@@ -314,8 +314,22 @@ Produtividade.Geral = {
             ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
             : listaOriginal;
 
-        // FILTRO SOLICITADO: Apenas quem produziu aparece na grade
-        listaExibicao = listaExibicao.filter(item => item.producao > 0);
+        // FILTRO SOLICITADO: Apenas quem produziu aparece na grade + Esconde Gestão se não filtrado especificamente
+        const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
+        listaExibicao = listaExibicao.filter(item => {
+            const u = this.state.mapaUsuarios[item.uid] || {};
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+
+            // Se filtro for 'todos', esconde gestão
+            if (filtroFuncao === 'todos') {
+                const ehGestora = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
+                if (ehGestora) return false;
+            }
+
+            return item.producao > 0;
+        });
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
@@ -405,13 +419,12 @@ Produtividade.Geral = {
 
         const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
 
-        // RECUPERA HEADCOUNT: Prioridade para o definido pela gestora, senão usa o total de ativos do banco
-        const config = this.state.configMes;
         const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
         const totalAssistentesAtivosNoBanco = this.contarAssistentesElegiveis(filtroContrato);
 
         let totalHeadcountDefinido = totalAssistentesAtivosNoBanco;
 
+        const config = this.state.configMes;
         if (config) {
             if (filtroContrato === 'CLT' && config.hc_clt > 0) {
                 totalHeadcountDefinido = Number(config.hc_clt);
@@ -426,20 +439,24 @@ Produtividade.Geral = {
 
         let somaMetasConfiguradas = 0;
         let countMetasConfiguradas = 0;
+        let assistentesReaisComProducao = 0;
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
 
-        for (const uid in this.state.mapaUsuarios) {
-            const u = this.state.mapaUsuarios[uid];
-            if (this.ehAdmin(parseInt(uid))) continue;
-            if (u.ativo === false) continue;
+        // Reprocessa para contar apenas assistentes (excluindo gestão) para as médias e contagem de ativos
+        listaExibicao.forEach(i => {
+            const u = this.state.mapaUsuarios[i.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            if (termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) continue;
+            const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
 
-            const metaObj = this.state.dadosMetas.find(m => m.usuario_id == uid);
-            somaMetasConfiguradas += metaObj ? Number(metaObj.meta_producao) : 100;
-            countMetasConfiguradas++;
-        }
+            if (!ehGestao && !this.ehAdmin(i.uid)) {
+                if (i.producao > 0) assistentesReaisComProducao++;
+
+                const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
+                somaMetasConfiguradas += metaObj ? Number(metaObj.meta_producao) : 100;
+                countMetasConfiguradas++;
+            }
+        });
 
         const safeCount = countMetasConfiguradas || 1;
         const mediaMetaVelocidade = Math.round(somaMetasConfiguradas / safeCount);
@@ -452,7 +469,7 @@ Produtividade.Geral = {
             capacidade: {
                 diasReal: datasComProducao.size,
                 diasTotal: totalDiasUteis,
-                assisReal: assistentesComProducao.size,
+                assisReal: assistentesReaisComProducao,
                 assisTotal: totalHeadcountDefinido
             },
             velocidade: { real: mediaVelocidadeReal, meta: mediaMetaVelocidade }
@@ -692,7 +709,7 @@ Produtividade.Geral = {
         if (this.els.kpiDiasUteis) this.els.kpiDiasUteis.textContent = kpi.capacidade.diasTotal;
         updateBar(null, this.els.barDias, this.els.kpiDiasPct, kpi.capacidade.diasReal, kpi.capacidade.diasTotal, false, 'purple');
         if (this.els.kpiAssisAtivos) this.els.kpiAssisAtivos.textContent = kpi.capacidade.assisReal;
-        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal + ' Assis.';
+        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal;
         updateBar(this.els.kpiAssisAtivos, this.els.barAssis, this.els.kpiAssisPct, kpi.capacidade.assisReal, kpi.capacidade.assisTotal, false, 'purple');
         if (this.els.kpiVelocReal) this.els.kpiVelocReal.textContent = kpi.velocidade.real.toLocaleString('pt-BR');
         if (this.els.kpiVelocEsperada) this.els.kpiVelocEsperada.textContent = kpi.velocidade.meta.toLocaleString('pt-BR');
