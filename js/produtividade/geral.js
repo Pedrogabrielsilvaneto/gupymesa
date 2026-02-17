@@ -251,16 +251,17 @@ Produtividade.Geral = {
             return isPeriodo ? String(uid) : `${uid}_${date}`;
         };
 
-        // 1. Inicializar mapa com TODOS os assistentes elegíveis E GESTORA
-        const termosExcluidos = ['admin', 'auditor', 'lider', 'líder', 'coordenador']; // GESTOR removido da exclusão
+        // 1. Inicializar mapa com TODOS os assistentes elegíveis E GESTÃO (Auditores/Líderes para soma)
+        const termosExcluidos = ['admin']; // Apenas admin é excluído rigidamente
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
-            if (this.ehAdmin(uid)) continue;
+            if (this.ehAdmin(uid) && u.perfil === 'admin') continue; // Filtra apenas se for perfil admin
             if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
 
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            if (termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) continue;
+            // Mantém filtragem básica de termos se necessário, mas permite auditores/lideres
+            if (perfil === 'admin' || perfil === 'administrador') continue;
 
             // Chave padrão
             const chave = isPeriodo ? String(uid) : `${uid}_${range.inicio}`;
@@ -272,7 +273,9 @@ Produtividade.Geral = {
         // 2. Processar Produção (Individual)
         this.state.dadosProducao.forEach(p => {
             const uidStr = String(p.usuario_id);
-            if (this.ehAdmin(uidStr)) return;
+            // Permite produção de gestores/auditores/lidere, ignora apenas Admin Sistema
+            const uProd = this.state.mapaUsuarios[uidStr];
+            if (uProd && (uProd.perfil === 'admin' || uidStr === '1' || uidStr === '1000')) return;
 
             const chave = getChave(uidStr, p.data_referencia);
             if (!isPeriodo && this.normalizarData(p.data_referencia) !== range.inicio) return;
@@ -292,7 +295,8 @@ Produtividade.Geral = {
         // 3. Processar Assertividade (Individual)
         this.state.dadosKPIAssertividade.forEach(kpi => {
             const uidStr = String(kpi.usuario_id);
-            if (uidStr && !this.ehAdmin(uidStr)) {
+            const uAssert = this.state.mapaUsuarios[uidStr];
+            if (uidStr && !(uAssert && uAssert.perfil === 'admin')) {
                 const chave = isPeriodo ? uidStr : `${uidStr}_${range.inicio}`;
                 if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : range.inicio);
 
