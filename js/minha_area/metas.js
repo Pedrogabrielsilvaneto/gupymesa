@@ -284,6 +284,8 @@ MinhaArea.Metas = {
                 Sistema.query(sqlMetas, paramsMetas)
             ]);
 
+            this._lastDadosProd = dadosProd || []; // [FIX v4.36] Store raw data for consistent global total
+
             if (!dadosProd) throw new Error("Erro ao buscar dados de produção.");
             if (!dadosAssert) throw new Error("Erro ao buscar dados de assertividade.");
             // Metas podem vir vazias, ok.
@@ -462,6 +464,9 @@ MinhaArea.Metas = {
     novoItemVazio: function () { return { prod: 0, dias_efetivos: 0, velocidade: 0, acc_assert_ratio: 0, qtd_auditorias: 0, assert: null, metaProd: 0, metaAssert: 97 }; },
 
     atualizarCardsTopo: function () {
+        let rawGlobalProd = 0;
+        (this._lastDadosProd || []).forEach(p => rawGlobalProd += (Number(p.quantidade) || 0));
+
         let globalProd = 0;
         let globalOk = 0;
         let globalTotalAud = 0;
@@ -494,7 +499,7 @@ MinhaArea.Metas = {
             }
         });
 
-        const kpiVolume = globalProd;
+        const kpiVolume = rawGlobalProd;
 
         // Média das Médias Global (Equipe)
         let kpiVelocidade = 0;

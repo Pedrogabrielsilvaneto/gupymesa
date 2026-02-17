@@ -586,18 +586,13 @@ Produtividade.Geral = {
             ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
             : listaOriginal;
 
-        let totalProd = 0, totalMeta = 0;
-        let somaPontosAssert = 0, totalDocsAssert = 0;
-        let somaMetaAssert = 0, countUsersMeta = 0;
-        let assistentesComProducao = new Set();
-        let datasComProducao = new Set();
-        let totalDiasUteis = this.getDiasUteisConfig();
-        let totalAbonoEquipe = 0;
+        // [FIX v4.36] Sum directly from raw production array to avoid missing filtered individuals (managers/auditors)
+        let totalProd = this.state.dadosProducao.reduce((acc, p) => acc + (Number(p.quantidade) || 0), 0);
+        let totalMeta = 0;
 
-        // Adiciona Gestora Explicitamente (Sempre somada, independente de filtros)
+        // Adiciona Meta da Gestora Explicitamente
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         if (gestoraItem) {
-            totalProd += (gestoraItem._ownProd || 0);
             // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
             const metaIndiv = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem.meta_base_diaria || 0);
             totalMeta += metaIndiv * totalDiasUteis;
@@ -608,7 +603,7 @@ Produtividade.Geral = {
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
 
-            totalProd += i.producao;
+            // totalProd += i.producao; // REMOVIDO: Já somado o bruto acima
             totalMeta += i.meta_real_calculada;
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
             if (i.producao > 0) assistentesComProducao.add(i.uid);
