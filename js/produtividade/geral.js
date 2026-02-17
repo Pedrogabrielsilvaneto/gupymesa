@@ -220,9 +220,8 @@ Produtividade.Geral = {
 
     // Helper centralizado para Headcount
     getHeadcountConfig: function () {
-        // [MODIFIED] Lê o filtro da UI ou do estado global
-        const el = document.getElementById('filtro-contrato-prod');
-        const filtroContrato = el ? el.value : (window.Produtividade.Filtros?.estado?.contrato || 'todos');
+        // [FIX v4.31] Use centralized HUD filter state
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         const config = this.state.configMes;
         let hc = 17; // Padrão fixo
@@ -232,7 +231,7 @@ Produtividade.Geral = {
                 hc = Number(config.hc_clt);
             } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
                 hc = Number(config.hc_terceiros);
-            } else if (filtroContrato === 'todos') {
+            } else if (filtroContrato === 'TODOS') {
                 const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
                 if (total > 0) hc = total;
             }
@@ -241,9 +240,10 @@ Produtividade.Geral = {
     },
 
     // Helper centralizado para Dias Úteis
+    // Helper centralizado para Dias Úteis
     getDiasUteisConfig: function () {
-        const el = document.getElementById('filtro-contrato-prod');
-        const filtroContrato = el ? el.value : (window.Produtividade.Filtros?.estado?.contrato || 'todos');
+        // [FIX v4.31] Use centralized HUD filter state
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         const config = this.state.configMes;
         const range = this.state.range;
@@ -258,6 +258,8 @@ Produtividade.Geral = {
         if (filtroContrato === 'CLT') return vClt;
 
         // Se "Tudo", exibe Terceiros no KPI de topo por padrão
+        return vTerc;
+
         return vTerc;
     },
 
@@ -411,28 +413,17 @@ Produtividade.Geral = {
         const listaOriginal = this.state.listaTabela || [];
 
         // 1. Separa Gestora
+        // 1. Separa Gestora
         let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
 
-        // [MODIFIED] Ler Filtro de Contrato
-        const elContrato = document.getElementById('filtro-contrato-prod');
-        const filtroContrato = elContrato ? elContrato.value : 'todos';
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         // 2. Filtra Staff Base (Contrato, Nome)
+        // [FIX v4.31] Rely on centralized preFiltrar (which handles contract filtering via HUD)
         let listaBase = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
-
-        // [MODIFIED] Aplicar Filtro de Contrato na lista de Staff (além do pré-filtro genérico)
-        if (filtroContrato !== 'todos') {
-            listaBase = listaBase.filter(item => {
-                const u = this.state.mapaUsuarios[item.uid] || {};
-                const c = (u.contrato || '').toUpperCase();
-                if (filtroContrato === 'CLT' && (c === 'CLT' || c.includes('CLT'))) return true;
-                if (filtroContrato === 'TERCEIROS' && (c === 'PJ' || c === 'TERCEIROS' || c.includes('PJ'))) return true;
-                return false;
-            });
-        }
 
         // 3. Filtro de Produção > 0 (Para listas de Soma)
         // Lista Full = Inclui Auditores/Gestores/Coord (Para Soma de Produção)
