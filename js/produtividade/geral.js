@@ -221,11 +221,33 @@ Produtividade.Geral = {
             return isPeriodo ? String(uid) : `${uid}_${date}`;
         };
 
+        // 1. Inicializar mapa com TODOS os assistentes elegíveis
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        for (const uid in this.state.mapaUsuarios) {
+            const u = this.state.mapaUsuarios[uid];
+            if (this.ehAdmin(uid)) continue;
+            if (u.ativo === false) continue;
+
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            if (termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) continue;
+
+            // Chave padrão para o assistente no contexto atual
+            const chave = isPeriodo ? String(uid) : `${uid}_${range.inicio}`;
+            if (!mapa.has(chave)) {
+                this.iniciarItemMapa(mapa, chave, uid, isPeriodo ? 'Período' : range.inicio);
+            }
+        }
+
+        // 2. Processar Produção
         this.state.dadosProducao.forEach(p => {
             const uidStr = String(p.usuario_id);
             if (this.ehAdmin(uidStr)) return;
 
             const chave = getChave(uidStr, p.data_referencia);
+            // Se for dia único e a data da produção for diferente do filtro, ignoramos para esta visão
+            if (!isPeriodo && this.normalizarData(p.data_referencia) !== range.inicio) return;
+
             if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : this.normalizarData(p.data_referencia));
 
             const item = mapa.get(chave);
@@ -239,13 +261,11 @@ Produtividade.Geral = {
             if (!isPeriodo) item.id_prod = p.id;
         });
 
+        // 3. Processar Assertividade
         this.state.dadosKPIAssertividade.forEach(kpi => {
             const uidStr = String(kpi.usuario_id);
             if (uidStr && !this.ehAdmin(uidStr)) {
-                // Para assertividade, se for período o mapa usa apenas UID. 
-                // Se for dia único, usamos a data do filtro (inicio) pois o query já filtrou por ela
                 const chave = isPeriodo ? uidStr : `${uidStr}_${range.inicio}`;
-
                 if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : range.inicio);
 
                 const item = mapa.get(chave);
@@ -254,11 +274,11 @@ Produtividade.Geral = {
             }
         });
 
+        // 4. Calcular Metas Finais
         for (const item of mapa.values()) {
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
 
-            // Garantir que metas sejam números para evitar erro .toFixed()
             item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 100) : 100);
             item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
 
@@ -266,9 +286,8 @@ Produtividade.Geral = {
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
+        // 5. Gerar Lista da Tabela (Sem filtrar produção > 0 para garantir KPIs corretos)
         this.state.listaTabela = Array.from(mapa.values())
-            .filter(r => !this.ehAdmin(r.uid) && !r.nome.toLowerCase().includes('admin'))
-            .filter(r => r.producao > 0)
             .sort((a, b) => a.nome.localeCompare(b.nome));
     },
 
@@ -404,7 +423,7 @@ Produtividade.Geral = {
     },
 
     // Funções Auxiliares
-    ehAdmin: function (id) { return id === 1 || id === 1000; },
+    ehAdmin: function (id) { return id == 1 || id == 1000; },
     iniciarItemMapa: function (mapa, chave, uid, dataLabel) {
         const u = this.state.mapaUsuarios[uid];
         const nomeUser = u ? u.nome : 'ID: ' + uid;
