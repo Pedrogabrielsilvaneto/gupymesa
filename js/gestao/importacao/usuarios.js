@@ -6,14 +6,14 @@ window.Gestao = window.Gestao || {};
 window.Gestao.Importacao = window.Gestao.Importacao || {};
 
 Gestao.Importacao.Usuarios = {
-    executar: async function(input) {
+    executar: async function (input) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
 
-        const parentDiv = input.closest('div'); 
+        const parentDiv = input.closest('div');
         const btnImportar = parentDiv ? parentDiv.querySelector('button') : null;
         let originalText = '';
-        
+
         if (btnImportar) {
             originalText = btnImportar.innerHTML;
             btnImportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lendo CSV...';
@@ -28,7 +28,7 @@ Gestao.Importacao.Usuarios = {
                 encoding: "UTF-8",
                 complete: async (results) => {
                     await this.processarDados(results.data);
-                    input.value = ""; 
+                    input.value = "";
                     if (btnImportar) {
                         btnImportar.innerHTML = originalText;
                         btnImportar.disabled = false;
@@ -47,12 +47,12 @@ Gestao.Importacao.Usuarios = {
         }
     },
 
-    processarDados: async function(linhas) {
+    processarDados: async function (linhas) {
         console.log(`📊 Linhas brutas: ${linhas.length}`);
-        
+
         const mapUsuarios = new Map();
         // Gera o hash da senha padrão 'gupy123' uma única vez para performance
-        const senhaPadraoHash = await Sistema.gerarHash("gupy123"); 
+        const senhaPadraoHash = await Sistema.gerarHash("gupy123");
 
         for (const row of linhas) {
             // Função auxiliar para evitar erros de undefined e trimar espaços
@@ -63,7 +63,7 @@ Gestao.Importacao.Usuarios = {
 
             const idRaw = getVal('ID ASSISTENTE');
             const nomeRaw = getVal('NOME ASSIST');
-            
+
             // --- MAPEAMENTO DIRETO DA NOVA PLANILHA ---
             const contratoRaw = getVal('CONTRATO'); // Lê coluna CONTRATO (CLT/PJ)
             const funcaoRaw = getVal('FUNÇÃO');     // Lê coluna FUNÇÃO (Assistente/Auditora/Gestora)
@@ -73,7 +73,7 @@ Gestao.Importacao.Usuarios = {
 
             const id = parseInt(idRaw);
             const ativo = situacaoRaw === 'ATIVO'; // Se for 'INATIVO' ou 'FINALIZADO', vira false
-            
+
             // Tratamento Básico (caso venha vazio, aplica padrão)
             const funcaoFinal = funcaoRaw ? funcaoRaw.toUpperCase() : 'ASSISTENTE';
             let contratoFinal = contratoRaw ? contratoRaw.toUpperCase() : 'CLT';
@@ -103,16 +103,17 @@ Gestao.Importacao.Usuarios = {
                 // ON DUPLICATE KEY UPDATE usa a PK 'id' da tabela usuarios
                 const sql = `
                     INSERT INTO usuarios (
-                        id, nome, contrato, situacao, funcao, senha, nivel_acesso
+                        id, nome, contrato, situacao, funcao, senha, nivel_acesso, ativo
                     ) VALUES
-                    ${listaUpsert.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}
+                    ${listaUpsert.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}
                     ON DUPLICATE KEY UPDATE
                         nome         = VALUES(nome),
                         contrato     = VALUES(contrato),
                         situacao     = VALUES(situacao),
                         funcao       = VALUES(funcao),
                         senha        = VALUES(senha),
-                        nivel_acesso = VALUES(nivel_acesso)
+                        nivel_acesso = VALUES(nivel_acesso),
+                        ativo        = VALUES(ativo)
                 `;
 
                 const params = [];
@@ -124,7 +125,8 @@ Gestao.Importacao.Usuarios = {
                         u.situacao,
                         u.funcao,
                         u.senha,
-                        u.nivel_acesso
+                        u.nivel_acesso,
+                        u.situacao === 'ATIVO' ? 1 : 0
                     );
                 }
 
@@ -132,7 +134,7 @@ Gestao.Importacao.Usuarios = {
                 if (result === null) throw new Error("Falha ao salvar usuários.");
 
                 alert(`✅ Importação concluída!\n\n${listaUpsert.length} usuários inseridos/atualizados no TiDB.`);
-                if (Gestao.Usuarios) Gestao.Usuarios.carregar(); 
+                if (Gestao.Usuarios) Gestao.Usuarios.carregar();
             } catch (e) {
                 console.error("Erro ao importar usuários (TiDB):", e);
                 alert("Erro ao salvar: " + (e.message || "Falha na importação."));

@@ -240,7 +240,7 @@ Produtividade.Geral = {
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
             if (this.ehAdmin(uid)) continue;
-            if (u.ativo === false) continue;
+            if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
 
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
@@ -510,7 +510,7 @@ Produtividade.Geral = {
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
             if (this.ehAdmin(uid)) continue;
-            if (u.ativo === false) continue;
+            if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
 
             const contratoUser = (u.contrato || '').toUpperCase();
 
