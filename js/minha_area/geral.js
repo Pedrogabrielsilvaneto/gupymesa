@@ -616,8 +616,13 @@ MinhaArea.Geral = {
     ehGestao: function (uid) {
         const u = this.state.mapaUsuarios[uid];
         if (!u) return false;
+
         const p = (u.perfil || '').toUpperCase();
-        return ['ADMIN', 'GESTOR', 'AUDITOR', 'COORDENADOR', 'LIDER'].some(t => p.includes(t));
+        const f = (u.funcao || '').toUpperCase();
+        const id = parseInt(u.id);
+
+        // Verifica Perfil, Função e IDs Administrativos (mesma lógica do main.js)
+        return ['ADMIN', 'GESTOR', 'AUDITOR', 'COORDENADOR', 'LIDER'].some(t => p.includes(t) || f.includes(t)) || id === 1 || id === 1000;
     },
 
     renderLoading: function () { if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-600"></i></td></tr>`; },
