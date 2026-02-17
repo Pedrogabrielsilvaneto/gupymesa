@@ -483,6 +483,8 @@ Produtividade.Geral = {
             velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
         };
 
+        this.state.totalDiasUteisConfig = totalDiasUteis;
+        this.state.totalHeadcountConfig = totalHeadcountDefinido;
         this.atualizarCardsKPI(dadosKPI);
     },
 
@@ -785,7 +787,7 @@ Produtividade.Geral = {
             this.atualizarCardsKPI({
                 prod: { real: itemConsolidado.producao, meta: itemConsolidado.meta_real_calculada },
                 assert: { real: itemConsolidado.media_final || 0, meta: itemConsolidado.meta_assert },
-                capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: this.contarDiasUteis(this.state.range.inicio, this.state.range.fim), assisReal: 1, assisTotal: 1 },
+                capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim), assisReal: 1, assisTotal: 1 },
                 velocidade: { real: Math.round(itemConsolidado.producao / (itemConsolidado.count_fator || 1)), meta: itemConsolidado.meta_base_diaria }
             });
         }
