@@ -596,6 +596,7 @@ Produtividade.Geral = {
 
         let maxMetaProducao = 0;
         let assistentesReaisComProducao = 0;
+        let totalAbonoParticipante = 0; // Abono apenas de quem teve produção > 0
 
         // Reprocessa para contar assistentes e achar a MAIOR META (Velocity Target)
         listaExibicao.forEach(i => {
@@ -605,7 +606,11 @@ Produtividade.Geral = {
             const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
 
             if (!ehGestao && !this.ehAdmin(i.uid)) {
-                if (i.producao > 0) assistentesReaisComProducao++;
+                if (i.producao > 0) {
+                    assistentesReaisComProducao++;
+                    // Se teve produção mas teve abono (ex: meio dia), soma para abater do count real
+                    if (i.fator < 1.0) totalAbonoParticipante += (1.0 - i.fator);
+                }
 
                 const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
                 const metaVal = metaObj ? Number(metaObj.meta_producao) : 100;
@@ -615,7 +620,8 @@ Produtividade.Geral = {
 
         if (maxMetaProducao === 0) maxMetaProducao = 100;
 
-        const assistentesReaisFinal = Math.max(0, assistentesReaisComProducao - reducaoHcAbono);
+        // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
+        const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 
         const mediaProducaoDiariaGlobal = totalDiasUteis > 0 ? (totalProd / totalDiasUteis) : 0;
         const denominadorVelocidade = headcountEfetivo;
@@ -627,8 +633,8 @@ Produtividade.Geral = {
             capacidade: {
                 diasReal: datasComProducao.size,
                 diasTotal: totalDiasUteis,
-                assisReal: assistentesReaisFinal,
-                assisTotal: headcountEfetivo
+                assisReal: assisRealFinal,
+                assisTotal: totalHeadcountDefinido // Mantém o headcount original como meta (ex: 17)
             },
             velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
         };
