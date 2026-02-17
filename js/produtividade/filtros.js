@@ -111,7 +111,9 @@ Produtividade.Filtros = {
 
             switch (this.abaAtiva) {
                 case 'geral': this.filtrarGeral(); break;
-                // Outras abas podem precisar de implementações específicas se não usarem a mesma lógica de filtro
+                case 'consolidado':
+                    if (Produtividade.Consolidado) Produtividade.Consolidado.carregar(true);
+                    break;
             }
         } catch (err) {
             console.error("[HUD] Erro ao aplicar filtro:", err);

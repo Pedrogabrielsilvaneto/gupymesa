@@ -10,6 +10,7 @@ Produtividade.Consolidado = {
     // Cache de dados de usuários (ID -> info)
     mapaFuncoes: {},
     mapaAtivo: {},
+    mapaContrato: {},
 
     // Headcount vindo da config_mes (definido pela gestora)
     headcountConfig: 0,
@@ -34,6 +35,7 @@ Produtividade.Consolidado = {
                 data.forEach(u => {
                     this.mapaFuncoes[u.id] = (u.funcao || '').toUpperCase();
                     this.mapaAtivo[u.id] = u.ativo;
+                    this.mapaContrato[u.id] = (u.contrato || '').toUpperCase();
                 });
             }
         } catch (e) { console.error("Erro carregando funções:", e); }
@@ -171,7 +173,19 @@ Produtividade.Consolidado = {
         st[99] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
 
         if (rawData) {
+            // Filtro de contrato ativo
+            const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
+                ? Produtividade.Filtros.estado.contrato || 'todos'
+                : 'todos';
+
             rawData.forEach(r => {
+                // Filtra por contrato
+                if (filtroContrato && filtroContrato !== 'todos') {
+                    const contrato = this.mapaContrato[r.usuario_id] || '';
+                    if (filtroContrato === 'CLT' && contrato !== 'CLT') return;
+                    if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && contrato !== 'PJ' && contrato !== 'TERCEIROS') return;
+                }
+
                 // Exclui gestão (AUDITORA, GESTORA)
                 const funcao = this.mapaFuncoes[r.usuario_id] || '';
                 const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
