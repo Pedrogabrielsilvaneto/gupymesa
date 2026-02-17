@@ -212,6 +212,8 @@ MinhaArea.Metas = {
             const isManager = termosGestao.some(t => pLogado.includes(t) || fLogado.includes(t)) || MinhaArea.isAdmin();
 
             const isAdmin = isManager;
+            console.log("🔍 [DEBUG] User:", uLogado.nome, "Perfil:", pLogado, "Funcao:", fLogado, "IsUniqueManager:", isManager);
+
             const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
             const filtroContrato = this.currentFilterContract;
 
@@ -273,9 +275,11 @@ MinhaArea.Metas = {
             // Otherwise, filter by specific user list
             let sqlProd, paramsProd;
             if (isAdmin) {
+                console.log("🔍 [DEBUG] Modo ADMIN/GESTOR: Buscando produção TOTAL do período.");
                 sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?`;
                 paramsProd = [inicio, fim];
             } else {
+                console.log("🔍 [DEBUG] Modo INDIVIDUAL: Buscando produção apenas dos usuários listados.");
                 sqlProd = `SELECT * FROM producao WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
                 paramsProd = [...userIds, inicio, fim];
             }
