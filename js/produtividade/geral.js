@@ -529,6 +529,7 @@ Produtividade.Geral = {
 
         this.els.tabela.innerHTML = html;
         this.atualizarBarraFlutuante();
+        this.atualizarDestaques(listaExibicao);
     },
 
     calcularKpisGlobal: function () {
@@ -891,13 +892,18 @@ Produtividade.Geral = {
         if (this.els.kpiVelocEsperada) this.els.kpiVelocEsperada.textContent = kpi.velocidade.meta.toLocaleString('pt-BR');
         updateBar(null, this.els.barVeloc, this.els.kpiVelocPct, kpi.velocidade.real, kpi.velocidade.meta, false, 'amber');
     },
-    atualizarDestaques: function () {
-        const topProd = [...this.state.listaTabela].sort((a, b) => b.producao - a.producao).slice(0, 3);
-        const topAssert = [...this.state.listaTabela].filter(i => i.qtd_assert >= 10).sort((a, b) => b.media_final - a.media_final).slice(0, 3);
+    atualizarDestaques: function (listaCustom) {
+        // Se não passar lista, usa a da tabela (filtrando a Gestora Agregada)
+        const base = listaCustom || (this.state.listaTabela || []);
+        const listaEquipe = base.filter(i => !i.isAggregatedManager);
+
+        const topProd = [...listaEquipe].sort((a, b) => b.producao - a.producao).slice(0, 3);
+        const topAssert = [...listaEquipe].filter(i => (i.qtd_assert || 0) >= 5).sort((a, b) => (b.media_final || 0) - (a.media_final || 0)).slice(0, 3);
+
         const renderItem = (list, elId, isPct) => {
             const el = document.getElementById(elId); if (!el) return;
             if (list.length === 0) { el.innerHTML = '<span class="text-[7px] text-slate-300 block text-center italic">Sem dados</span>'; return; }
-            el.innerHTML = list.map(i => `<div class="flex justify-between items-center bg-slate-50/50 px-1 py-0.5 rounded border border-slate-100 shadow-sm"><span class="text-[9px] truncate w-[70%] font-bold text-slate-600 tracking-tight leading-tight" title="${i.nome}">${i.nome.split(' ')[0]} ${i.nome.split(' ')[1] ? i.nome.split(' ')[1].charAt(0) + '.' : ''}</span><span class="text-[9px] font-black ${isPct ? 'text-emerald-600' : 'text-blue-600'} leading-tight">${isPct ? i.media_final.toFixed(1) + '%' : i.producao}</span></div>`).join('');
+            el.innerHTML = list.map(i => `<div class="flex justify-between items-center bg-slate-50/50 px-1 py-0.5 rounded border border-slate-100 shadow-sm"><span class="text-[9px] truncate w-[70%] font-bold text-slate-600 tracking-tight leading-tight" title="${i.nome}">${i.nome.split(' ')[0]} ${i.nome.split(' ')[1] ? i.nome.split(' ')[1].charAt(0) + '.' : ''}</span><span class="text-[9px] font-black ${isPct ? 'text-emerald-600' : 'text-blue-600'} leading-tight">${isPct ? (i.media_final || 0).toFixed(1) + '%' : i.producao}</span></div>`).join('');
         };
         renderItem(topProd, 'top-prod-list', false); renderItem(topAssert, 'top-assert-list', true);
     },
