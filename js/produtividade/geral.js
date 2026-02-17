@@ -338,25 +338,8 @@ Produtividade.Geral = {
             item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
         }
 
-        // 5. Aplicar Agregação na Gestora
-        if (gestoraItem) {
-            gestoraItem.producao = somaEquipe.producao;
-            gestoraItem.fifo = somaEquipe.fifo;
-            gestoraItem.gt = somaEquipe.gt;
-            gestoraItem.gp = somaEquipe.gp;
-            gestoraItem.qtd_assert = somaEquipe.qtd_assert;
-            gestoraItem.media_final = countEquipeAssert > 0 ? (somaEquipe.soma_media_assert / countEquipeAssert) : 0;
-
-            // Meta Gestora = Meta Diária * Headcount * Fator(sempre 1 pois é equipe?)
-            // A gestora "está presente" todos os dias, então fator = dias uteis
-            const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(gestoraItem.uid));
-            const metaDiariaGestora = Number(metaObj ? (metaObj.meta_producao || 650) : 650);
-            gestoraItem.meta_base_diaria = metaDiariaGestora; // Exibe 650
-            gestoraItem.meta_real_calculada = Math.round(metaDiariaGestora * HC * (isPeriodo ? diasUteisPeriodo : 1.0));
-            gestoraItem.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
-            gestoraItem.fator = 1.0; // Fator neutro para visualização
-            gestoraItem.justificativa = `Equipe (HC: ${HC})`;
-        }
+        // 5. Agregação da Gestora
+        // (Movida para renderizarTabela para suportar filtros dinâmicos)
 
         // 6. Gerar Lista
         this.state.listaTabela = Array.from(mapa.values())
@@ -370,13 +353,19 @@ Produtividade.Geral = {
     renderizarTabela: function () {
         if (!this.els.tabela) return;
 
-        // Aplica filtros se a engine estiver carregada
+        // Aplica filtros e agrega Gestora dinamicamente
         const listaOriginal = this.state.listaTabela || [];
-        let listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
-            ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
-            : listaOriginal;
 
-        // FILTRO SOLICITADO: Apenas quem produziu aparece na grade + Esconde Gestão se não filtrado especificamente
+        // 1. Separa Gestora
+        let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
+
+        // 2. Filtra Staff
+        let listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+            ? window.Produtividade.Filtros.preFiltrar(listaStaff)
+            : listaStaff;
+
+        // 3. Filtro Função/Produção
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
         listaExibicao = listaExibicao.filter(item => {
             const u = this.state.mapaUsuarios[item.uid] || {};
@@ -384,15 +373,50 @@ Produtividade.Geral = {
             const perfil = (u.perfil || '').toLowerCase();
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
 
-            // Se filtro for 'todos', esconde gestão, EXCETO se for a Gestora Agregada
             if (filtroFuncao === 'todos') {
-                if (item.isAggregatedManager) return true; // Sempre exibe a gestora agregada
                 const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
                 if (ehGestao) return false;
             }
 
             return item.producao > 0;
         });
+
+        // 4. Agrega Staff na Gestora
+        if (gestoraItem) {
+            let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
+            listaExibicao.forEach(i => {
+                soma.prod += i.producao;
+                soma.fifo += i.fifo;
+                soma.gt += i.gt;
+                soma.gp += i.gp;
+                soma.qtd_assert += i.qtd_assert;
+                if (i.media_final > 0) {
+                    soma.soma_media += (i.media_final * i.qtd_assert);
+                    soma.count_assert += i.qtd_assert;
+                }
+            });
+
+            gestoraItem.producao = soma.prod;
+            gestoraItem.fifo = soma.fifo;
+            gestoraItem.gt = soma.gt;
+            gestoraItem.gp = soma.gp;
+            gestoraItem.qtd_assert = soma.qtd_assert;
+            gestoraItem.media_final = soma.count_assert > 0 ? (soma.soma_media / soma.count_assert) : 0;
+            gestoraItem.fator = 1.0;
+
+            const HC = this.getHeadcountConfig();
+            const isPeriodo = this.state.range.inicio !== this.state.range.fim;
+            const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
+            // Garante Meta Base da Gestora (caso tenha vindo zerada do loop inicial)
+            const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(gestoraItem.uid));
+            gestoraItem.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 650) : 650);
+
+            gestoraItem.meta_real_calculada = Math.round(gestoraItem.meta_base_diaria * HC * (isPeriodo ? diasUteisPeriodo : 1.0));
+            gestoraItem.justificativa = `Equipe Filtrada (HC: ${HC})`;
+
+            listaExibicao.unshift(gestoraItem);
+        }
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
