@@ -178,6 +178,17 @@
 
             <div class="flex items-center gap-4">
                 <div class="flex items-center gap-2">
+                    <select id="filtro-contrato-prod" onchange="Produtividade.Geral.atualizarDados()"
+                        class="bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg px-2 py-1.5 outline-none hover:border-slate-300 transition shadow-sm h-[32px]">
+                        <option value="todos">Todos Contratos</option>
+                        <option value="CLT">CLT</option>
+                        <option value="TERCEIROS">Terceiros</option>
+                    </select>
+                    <div id="selection-count"
+                        class="hidden bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-100 animate-fade-in shadow-sm h-[32px] flex items-center">
+                        <span id="selection-number">0</span><span
+                            class="ml-1 font-normal opacity-70">selecionados</span>
+                    </div>
                     <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
                         <button onclick="Produtividade.mudarPeriodo('dia')" id="btn-periodo-dia"
                             class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-white hover:shadow-sm transition">Dia</button>
@@ -581,8 +592,8 @@
     <script src="js/produtividade/assertividade.js?v=20260216_rev9"></script>
     <script src="js/produtividade/main.js?v=20260216_rev9"></script>
     <script src="js/produtividade/filtros.js?v=20260216_rev9"></script>
-    <script src="js/produtividade/geral.js?v=4.15"></script>
-    <script src="js/produtividade/consolidado.js?v=20260216_rev9"></script>
+    <script src="js/produtividade/geral.js?v=4.25"></script>
+    <script src="js/produtividade/detalhes.js?v=4.0"></script>
     <script src="js/produtividade/performance.js?v=20260216_rev9"></script>
     <script src="js/produtividade/matriz.js?v=20260216_rev9"></script>
     <script src="js/produtividade/importacao/validacao.js?v=20260216_rev9"></script>

@@ -220,7 +220,10 @@ Produtividade.Geral = {
 
     // Helper centralizado para Headcount
     getHeadcountConfig: function () {
-        const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
+        // [MODIFIED] Lê o filtro da UI ou do estado global
+        const el = document.getElementById('filtro-contrato-prod');
+        const filtroContrato = el ? el.value : (window.Produtividade.Filtros?.estado?.contrato || 'todos');
+
         const config = this.state.configMes;
         let hc = 17; // Padrão fixo
 
@@ -239,7 +242,9 @@ Produtividade.Geral = {
 
     // Helper centralizado para Dias Úteis
     getDiasUteisConfig: function () {
-        const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
+        const el = document.getElementById('filtro-contrato-prod');
+        const filtroContrato = el ? el.value : (window.Produtividade.Filtros?.estado?.contrato || 'todos');
+
         const config = this.state.configMes;
         const range = this.state.range;
         const diasCalendario = this.contarDiasUteis(range.inicio, range.fim);
@@ -358,13 +363,15 @@ Produtividade.Geral = {
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
 
             // Meta Padrão: 100 para Assistentes, 0 para Gestão (Auditores/Líderes/Gestora)
+            // [MODIFIED] Permitimos que Gestores tenham meta base (ex: 650) gravada no objeto para uso posterior
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
             const defaultMeta = 100; // Base para assistentes
 
-            // Se for Gestão, FORÇA meta zero (ignora valor do banco)
+            // [MODIFIED] Se for Gestão, define meta zero PARA O INDIVIDUO (na lista), mas guarda a meta base
             if (ehGestao) {
                 item.meta_base_diaria = 0;
+                item._meta_gestor_base = Number(metaObj ? (metaObj.meta_producao || 0) : 0); // Guarda meta do gestor (ex 650)
                 item.meta_assert = 0;
             } else {
                 item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMeta) : defaultMeta);
@@ -407,10 +414,25 @@ Produtividade.Geral = {
         let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
 
+        // [MODIFIED] Ler Filtro de Contrato
+        const elContrato = document.getElementById('filtro-contrato-prod');
+        const filtroContrato = elContrato ? elContrato.value : 'todos';
+
         // 2. Filtra Staff Base (Contrato, Nome)
         let listaBase = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
+
+        // [MODIFIED] Aplicar Filtro de Contrato na lista de Staff (além do pré-filtro genérico)
+        if (filtroContrato !== 'todos') {
+            listaBase = listaBase.filter(item => {
+                const u = this.state.mapaUsuarios[item.uid] || {};
+                const c = (u.contrato || '').toUpperCase();
+                if (filtroContrato === 'CLT' && (c === 'CLT' || c.includes('CLT'))) return true;
+                if (filtroContrato === 'TERCEIROS' && (c === 'PJ' || c === 'TERCEIROS' || c.includes('PJ'))) return true;
+                return false;
+            });
+        }
 
         // 3. Filtro de Produção > 0 (Para listas de Soma)
         // Lista Full = Inclui Auditores/Gestores/Coord (Para Soma de Produção)
@@ -442,6 +464,7 @@ Produtividade.Geral = {
             if (gestoraItem._ownQtdAssert === undefined) gestoraItem._ownQtdAssert = gestoraItem.qtd_assert || 0;
             if (gestoraItem._ownMedia === undefined) gestoraItem._ownMedia = gestoraItem.media_final || 0;
             if (gestoraItem._ownMeta === undefined) gestoraItem._ownMeta = gestoraItem.meta_base_diaria || 0;
+            if (gestoraItem._rawBaseMeta === undefined) gestoraItem._rawBaseMeta = gestoraItem._meta_gestor_base || 0;
 
             let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
 
@@ -477,16 +500,17 @@ Produtividade.Geral = {
             gestoraItem.media_final = soma.count_assert > 0 ? (soma.soma_media / soma.count_assert) : 0;
             gestoraItem.fator = 1.0;
 
+            // [MODIFIED] Recalculo Dinâmico da Meta da Gestora com base no Filtro de Headcount
             const HC = this.getHeadcountConfig();
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
             const diasUteisEquipe = this.getDiasUteisConfig();
 
-            // Garante Meta Base da Gestora
-            const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(gestoraItem.uid));
-            gestoraItem.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 650) : 650);
+            // Usa a meta base que guardamos em `_meta_gestor_base` (ex: 650)
+            const metaBaseGestor = gestoraItem._rawBaseMeta || 650;
 
-            gestoraItem.meta_real_calculada = Math.round(gestoraItem.meta_base_diaria * HC * (isPeriodo ? diasUteisEquipe : 1.0));
-            gestoraItem.justificativa = `Equipe Filtrada (HC: ${HC}, DU: ${diasUteisEquipe})`;
+            gestoraItem.meta_base_diaria = metaBaseGestor; // Para exibição no grid na coluna Meta (Gestão)
+            gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * (isPeriodo ? diasUteisEquipe : 1.0));
+            gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${diasUteisEquipe}`;
 
             // Reinsere a Gestora no topo da lista final
             listaParaGrid.unshift(gestoraItem);
