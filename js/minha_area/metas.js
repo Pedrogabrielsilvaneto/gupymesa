@@ -292,7 +292,10 @@ MinhaArea.Metas = {
                     total: 0,
                     somaMediasMensais: 0,
                     somaMetasMensais: 0,
-                    countMesesComDados: 0
+                    countMesesComDados: 0,
+                    // [ALIGNMENT v4.34] New counters for average of averages logic
+                    acc_assert_ratio: 0,
+                    qtd_auditorias: 0
                 };
             });
 
@@ -355,27 +358,26 @@ MinhaArea.Metas = {
             });
 
             // 2. ASSERTIVIDADE
+            // [ALIGNMENT v4.34] Logic Aligned with Produtividade (Average of Averages)
             (dadosAssert || []).forEach(reg => {
                 const uidStr = String(reg.usuario_id);
                 if (!this.statsUsers[uidStr]) return;
+
+                // Alignment Filter: (auditora_nome IS NOT NULL OR assertividade_val IS NOT NULL)
+                if (!reg.auditora_nome && !reg.assertividade_val) return;
+
+                const valParsed = this.parseAssertiveness(reg.assertividade_val);
+                if (valParsed === null) return; // Skip invalid/empty values
+
+                const ratio = valParsed / 100.0;
                 const key = this.getKeyFromDate(reg.data_referencia, this.isMacroView);
+
                 if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
-                    let ok = 0, total = 0;
-                    if (reg.qtd_campos > 0) {
-                        ok = Number(reg.qtd_ok || 0); total = Number(reg.qtd_campos || 0);
-                    } else {
-                        const val = reg.assertividade_val;
-                        if (val) {
-                            const pct = parseFloat(val.toString().replace('%', '').replace(',', '.'));
-                            if (!isNaN(pct)) { total = 100; ok = pct; }
-                        }
-                    }
-                    if (total > 0) {
-                        this.cacheDados[key][uidStr].ok += ok;
-                        this.cacheDados[key][uidStr].total += total;
-                        this.statsUsers[uidStr].ok += ok;
-                        this.statsUsers[uidStr].total += total;
-                    }
+                    this.cacheDados[key][uidStr].acc_assert_ratio += ratio;
+                    this.cacheDados[key][uidStr].qtd_auditorias += 1;
+
+                    this.statsUsers[uidStr].acc_assert_ratio += ratio;
+                    this.statsUsers[uidStr].qtd_auditorias += 1;
                 }
             });
 
@@ -383,7 +385,12 @@ MinhaArea.Metas = {
             Object.keys(this.cacheDados).forEach(k => {
                 Object.keys(this.cacheDados[k]).forEach(uid => {
                     const celula = this.cacheDados[k][uid];
-                    if (celula.total > 0) celula.assert = (celula.ok / celula.total);
+                    // [ALIGNMENT v4.34] Calculate average from ratio sum
+                    if (celula.qtd_auditorias > 0) {
+                        celula.assert = (celula.acc_assert_ratio / celula.qtd_auditorias);
+                    } else {
+                        celula.assert = null;
+                    }
 
                     const divisor = celula.dias_efetivos > 0 ? celula.dias_efetivos : 1;
                     if (celula.prod > 0) {
@@ -425,7 +432,18 @@ MinhaArea.Metas = {
         }
     },
 
-    novoItemVazio: function () { return { prod: 0, dias_efetivos: 0, velocidade: 0, ok: 0, total: 0, assert: null, metaProd: 0, metaAssert: 97 }; },
+    // [ALIGNMENT v4.34] Helper for parsing percentage strings
+    parseAssertiveness: function (val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (typeof val === 'number') return val;
+        try {
+            const clean = String(val).replace('%', '').replace(',', '.').trim();
+            const num = parseFloat(clean);
+            return isNaN(num) ? null : num;
+        } catch (e) { return null; }
+    },
+
+    novoItemVazio: function () { return { prod: 0, dias_efetivos: 0, velocidade: 0, acc_assert_ratio: 0, qtd_auditorias: 0, assert: null, metaProd: 0, metaAssert: 97 }; },
 
     atualizarCardsTopo: function () {
         let globalProd = 0;
@@ -438,8 +456,9 @@ MinhaArea.Metas = {
 
         Object.values(this.statsUsers).forEach(s => {
             globalProd += s.prod;
-            globalOk += s.ok;
-            globalTotalAud += s.total;
+            // [ALIGNMENT v4.34] Aggregate Global Assertiveness
+            globalOk += s.acc_assert_ratio; // Sum of ratios
+            globalTotalAud += s.qtd_auditorias; // Count of audits
 
             if (this.isMacroView) {
                 // Cálculo da Média das Médias para o Card de Equipe
@@ -464,6 +483,7 @@ MinhaArea.Metas = {
             kpiVelocidade = globalDiasEfetivosMicro > 0 ? Math.round(globalProd / globalDiasEfetivosMicro) : 0;
         }
 
+        // [ALIGNMENT v4.34] Global Average = Sum(Ratios) / Count(Audits)
         const kpiAssert = globalTotalAud > 0 ? (globalOk / globalTotalAud) * 100 : 0;
 
         const elProd = document.getElementById('card-ranking-prod');
@@ -521,9 +541,12 @@ MinhaArea.Metas = {
             let cellMedia = '<span class="text-slate-300">-</span>';
 
             if (isAssert) {
-                if (stats.total > 0) cellTotal = `<span class="font-bold text-slate-600">${stats.total}</span>`;
-                const assertGeral = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
-                if (stats.total > 0) {
+                // [ALIGNMENT v4.34] Use new counters for display
+                if (stats.qtd_auditorias > 0) cellTotal = `<span class="font-bold text-slate-600">${stats.qtd_auditorias}</span>`;
+
+                const assertGeral = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
+
+                if (stats.qtd_auditorias > 0) {
                     const corVal = assertGeral >= 97 ? 'text-emerald-700' : 'text-rose-600';
                     cellMedia = `<div class="${corVal} font-black text-sm leading-none">${assertGeral.toFixed(1)}%</div>`;
                 }
@@ -608,10 +631,10 @@ MinhaArea.Metas = {
             dataMetaAssert.push(dados.metaAssert || 97);
         });
 
-        const stats = this.statsUsers[String(uid)] || { prod: 0, dias_efetivos: 0, somaMediasMensais: 0, countMesesComDados: 0, ok: 0, total: 0 };
+        const stats = this.statsUsers[String(uid)] || { prod: 0, dias_efetivos: 0, somaMediasMensais: 0, countMesesComDados: 0, acc_assert_ratio: 0, qtd_auditorias: 0 };
         const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
         const media = this.isMacroView ? Math.round(stats.somaMediasMensais / divisor) : Math.round(stats.prod / divisor);
-        const assertFinal = stats.total > 0 ? (stats.ok / stats.total) * 100 : 0;
+        const assertFinal = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
 
         document.getElementById('detalhe-kpi-media').innerText = media;
         document.getElementById('detalhe-kpi-total').innerText = stats.prod.toLocaleString('pt-BR');
