@@ -68,6 +68,17 @@ MinhaArea.Geral = {
         try {
             await this.buscarUsuarios();
 
+            // Migração Automática: Garantir coluna observacao_assistente
+            try {
+                const cols = await Sistema.query("SHOW COLUMNS FROM producao LIKE 'observacao_assistente'");
+                if (!cols || cols.length === 0) {
+                    await Sistema.query("ALTER TABLE producao ADD COLUMN observacao_assistente TEXT");
+                    console.log("Coluna 'observacao_assistente' criada com sucesso.");
+                }
+            } catch (e) {
+                console.warn("Erro ao verificar/criar coluna observacao_assistente:", e);
+            }
+
             await Promise.all([
                 this.buscarProducao(filtro, alvoReal),
                 this.buscarAssertividadeDiariaSQL(filtro, alvoReal),
