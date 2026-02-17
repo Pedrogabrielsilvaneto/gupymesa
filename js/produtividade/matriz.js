@@ -25,14 +25,20 @@ Produtividade.Matriz = {
         tbody.innerHTML = '<tr><td colspan="20" class="text-center py-12 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando dados anuais...</td></tr>';
 
         try {
-            // Busca dados do ano inteiro (Janeiro a Dezembro)
-            const { data, error } = await Sistema.supabase
-                .from('producao')
-                .select(`quantidade, data_referencia, usuario:usuarios ( id, nome, perfil, funcao, contrato )`)
-                .gte('data_referencia', `${ano}-01-01`)
-                .lte('data_referencia', `${ano}-12-31`);
+            // [MIGRATION v4.32] Supabase -> TiDB (Sistema.query)
+            const sql = `
+                SELECT 
+                    p.quantidade, p.data_referencia, p.usuario_id,
+                    u.id, u.nome, u.perfil, u.funcao, u.contrato
+                FROM producao p
+                INNER JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.data_referencia BETWEEN ? AND ?
+            `;
+            const params = [`${ano}-01-01`, `${ano}-12-31`];
 
-            if (error) throw error;
+            const data = await Sistema.query(sql, params);
+
+            if (data === null) throw new Error("Falha na consulta SQL.");
 
             const filtroFuncao = (window.Produtividade.Filtros?.estado?.funcao || 'todos').toUpperCase();
             const users = {};
@@ -48,13 +54,13 @@ Produtividade.Matriz = {
                 : data;
 
             dadosFiltrados.forEach(r => {
-                const u = r.usuario || {};
-                const uid = u.id || r.usuario_id;
+                // [ADAPTATION] Flat structure from SQL JOIN (no nested .usuario property)
+                const uid = r.id || r.usuario_id;
                 if (!uid) return;
 
-                const nome = u.nome || 'Sem Nome';
-                const cargo = u.funcao ? String(u.funcao).toUpperCase() : 'ASSISTENTE';
-                const perfil = u.perfil ? String(u.perfil).toUpperCase() : '';
+                const nome = r.nome || 'Sem Nome';
+                const cargo = r.funcao ? String(r.funcao).toUpperCase() : 'ASSISTENTE';
+                const perfil = r.perfil ? String(r.perfil).toUpperCase() : '';
 
                 // Filtro de cargos de Gestão (Esconde por padrão se filtro for 'TODOS')
                 if (filtroFuncao === 'TODOS') {
@@ -67,7 +73,7 @@ Produtividade.Matriz = {
                     users[uid] = {
                         nome: nome,
                         cargo: cargo,
-                        contrato: u.contrato || 'PJ',
+                        contrato: r.contrato || 'PJ',
                         months: new Array(12).fill(0)
                     };
                 }
