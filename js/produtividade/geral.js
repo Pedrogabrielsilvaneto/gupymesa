@@ -18,7 +18,8 @@ Produtividade.Geral = {
         listaTabela: [],
         range: { inicio: null, fim: null },
         selecionados: new Set(),
-        abonoAlvo: null
+        abonoAlvo: null,
+        configMes: null
     },
 
     init: function () {
@@ -175,12 +176,25 @@ Produtividade.Geral = {
         const ano = parseInt(partes[0]);
 
         try {
-            const data = await Sistema.query(
+            // Busca metas individuais
+            const dataMetas = await Sistema.query(
                 'SELECT usuario_id, meta_producao, meta_assertividade FROM metas WHERE mes = ? AND ano = ?',
                 [mes, ano]
             );
-            this.state.dadosMetas = data || [];
-        } catch (e) { console.error("Erro Metas:", e); this.state.dadosMetas = []; }
+            this.state.dadosMetas = dataMetas || [];
+
+            // Busca configuração global do mês (Dias Úteis e Headcount)
+            const dataConfig = await Sistema.query(
+                'SELECT * FROM config_mes WHERE mes = ? AND ano = ?',
+                [mes, ano]
+            );
+            this.state.configMes = (dataConfig && dataConfig.length > 0) ? dataConfig[0] : null;
+
+        } catch (e) {
+            console.error("Erro Metas/Config:", e);
+            this.state.dadosMetas = [];
+            this.state.configMes = null;
+        }
     },
 
     aplicarFiltroPermissao: async function (query) {
@@ -390,7 +404,24 @@ Produtividade.Geral = {
         this.state.dadosProducao.forEach(p => { if (p.quantidade > 0) datasComProducao.add(p.data_referencia); });
 
         const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
-        const totalAssistentesElegiveis = this.contarAssistentesElegiveis();
+
+        // RECUPERA HEADCOUNT: Prioridade para o definido pela gestora, senão usa o total de ativos do banco
+        const config = this.state.configMes;
+        const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
+        const totalAssistentesAtivosNoBanco = this.contarAssistentesElegiveis(filtroContrato);
+
+        let totalHeadcountDefinido = totalAssistentesAtivosNoBanco;
+
+        if (config) {
+            if (filtroContrato === 'CLT' && config.hc_clt > 0) {
+                totalHeadcountDefinido = Number(config.hc_clt);
+            } else if (filtroContrato === 'TERCEIROS' && config.hc_terceiros > 0) {
+                totalHeadcountDefinido = Number(config.hc_terceiros);
+            } else if (filtroContrato === 'todos' && (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) > 0) {
+                totalHeadcountDefinido = (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0));
+            }
+        }
+
         const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
 
         let somaMetasConfiguradas = 0;
@@ -418,7 +449,12 @@ Produtividade.Geral = {
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
-            capacidade: { diasReal: datasComProducao.size, diasTotal: totalDiasUteis, assisReal: assistentesComProducao.size, assisTotal: totalAssistentesElegiveis },
+            capacidade: {
+                diasReal: datasComProducao.size,
+                diasTotal: totalDiasUteis,
+                assisReal: assistentesComProducao.size,
+                assisTotal: totalHeadcountDefinido
+            },
             velocidade: { real: mediaVelocidadeReal, meta: mediaMetaVelocidade }
         };
 
@@ -443,18 +479,24 @@ Produtividade.Geral = {
         while (cur <= end) { const day = cur.getDay(); if (day !== 0 && day !== 6) count++; cur.setDate(cur.getDate() + 1); }
         return count || 1;
     },
-    contarAssistentesElegiveis: function () {
+    contarAssistentesElegiveis: function (filtroContrato = 'todos') {
         let count = 0;
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
-            if (this.ehAdmin(parseInt(uid))) continue;
+            if (this.ehAdmin(uid)) continue;
             if (u.ativo === false) continue;
+
+            // Filtro de contrato se especificado
+            const contratoUser = (u.contrato || '').toUpperCase();
+            if (filtroContrato === 'CLT' && !contratoUser.includes('CLT')) continue;
+            if (filtroContrato === 'TERCEIROS' && (contratoUser.includes('CLT'))) continue;
+
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
             if (!termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) count++;
         }
-        return count || 1;
+        return count || 0;
     },
     renderLoading: function () {
         if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-12 text-blue-600"><i class="fas fa-circle-notch fa-spin text-2xl"></i><p class="text-xs mt-2 text-slate-500">Calculando no banco de dados...</p></td></tr>`;
@@ -650,8 +692,8 @@ Produtividade.Geral = {
         if (this.els.kpiDiasUteis) this.els.kpiDiasUteis.textContent = kpi.capacidade.diasTotal;
         updateBar(null, this.els.barDias, this.els.kpiDiasPct, kpi.capacidade.diasReal, kpi.capacidade.diasTotal, false, 'purple');
         if (this.els.kpiAssisAtivos) this.els.kpiAssisAtivos.textContent = kpi.capacidade.assisReal;
-        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal;
-        updateBar(null, this.els.barAssis, this.els.kpiAssisPct, kpi.capacidade.assisReal, kpi.capacidade.assisTotal, false, 'purple');
+        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal + ' Assis.';
+        updateBar(this.els.kpiAssisAtivos, this.els.barAssis, this.els.kpiAssisPct, kpi.capacidade.assisReal, kpi.capacidade.assisTotal, false, 'purple');
         if (this.els.kpiVelocReal) this.els.kpiVelocReal.textContent = kpi.velocidade.real.toLocaleString('pt-BR');
         if (this.els.kpiVelocEsperada) this.els.kpiVelocEsperada.textContent = kpi.velocidade.meta.toLocaleString('pt-BR');
         updateBar(null, this.els.barVeloc, this.els.kpiVelocPct, kpi.velocidade.real, kpi.velocidade.meta, false, 'amber');
