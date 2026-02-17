@@ -513,8 +513,16 @@ Produtividade.Geral = {
             if (u.ativo === false) continue;
 
             const contratoUser = (u.contrato || '').toUpperCase();
-            if (filtroContrato === 'CLT' && !contratoUser.includes('CLT')) continue;
-            if (filtroContrato === 'TERCEIROS' && (contratoUser.includes('CLT'))) continue;
+
+            // Regra Estrita: Só conta se for explicitamente CLT ou TERCEIROS (Antiga PJ)
+            // Se o contrato for vazio ou outro tipo, não entra na conta de Capacidade.
+            const ehCLT = contratoUser.includes('CLT');
+            const ehTerceiro = contratoUser.includes('TERCEIRO') || contratoUser.includes('PJ') || contratoUser.includes('PRESTADOR');
+
+            if (!ehCLT && !ehTerceiro) continue;
+
+            if (filtroContrato === 'CLT' && !ehCLT) continue;
+            if (filtroContrato === 'TERCEIROS' && !ehTerceiro) continue;
 
             const cargo = (u.funcao || '').toUpperCase();
             if (filtroFuncao !== 'todos' && cargo !== filtroFuncao.toUpperCase()) continue;
