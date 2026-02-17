@@ -530,8 +530,15 @@ Produtividade.Geral = {
         let datasComProducao = new Set();
         let totalDiasUteis = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
+        // Adiciona Gestora Explicitamente (Sempre somada, independente de filtros)
+        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        if (gestoraItem) {
+            totalProd += (gestoraItem._ownProd || 0);
+            totalMeta += (gestoraItem.meta_base_diaria || 650) * totalDiasUteis;
+        }
+
         listaExibicao.forEach(i => {
-            if (i.isAggregatedManager) return; // Gestora não entra na soma global
+            if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
 
             totalProd += i.producao;
             totalMeta += i.meta_real_calculada;
