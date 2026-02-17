@@ -291,8 +291,7 @@ const MinhaArea = {
                 .order('nome');
 
             if (!error) {
-                let options = `<option value="${this.usuario.id}">👤 Minha Visão (Pessoal)</option>`;
-                options += `<option value="EQUIPE">👥 Visão Geral da Equipe</option>`;
+                let options = `<option value="${this.usuario.id}">👤 Visão Gestora</option>`;
                 options += `<option disabled>──────────────</option>`;
 
                 data.forEach(u => {

@@ -61,8 +61,8 @@ MinhaArea.Geral = {
         this.state.isMacro = (d2 - d1) / (1000 * 60 * 60 * 24) > 45;
 
         const uidAlvo = MinhaArea.getUsuarioAlvo();
-        // Se uidAlvo for 'EQUIPE', tratamos como null para cair na visão da Grade
-        const alvoReal = (uidAlvo === 'EQUIPE') ? null : uidAlvo;
+        // Se a gestora está vendo a si mesma (Visão Gestora), tratamos como null para buscar equipe completa
+        const alvoReal = (this.ehGestao(uidAlvo)) ? null : uidAlvo;
         this.renderLoading();
 
         try {
@@ -310,7 +310,7 @@ MinhaArea.Geral = {
     },
 
     renderizarDiario: function (uid) {
-        // Redireciona para visão consolidada se for gestor
+        // Redireciona para visão consolidada se for gestor logado vendo sua visão ou se for selecionado 'EQUIPE' (caso ainda exista no state)
         if (this.ehGestao(uid)) { this.renderizarDiarioGestor(uid); return; }
 
         if (this.state.headerOriginal && this.els.tabelaHeader) {
