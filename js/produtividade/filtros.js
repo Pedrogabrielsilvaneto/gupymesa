@@ -38,8 +38,11 @@ Produtividade.Filtros = {
                 // Mantém a opção "Função" como label padrão (valor vazio)
                 selFuncao.innerHTML = '<option value="">Função</option>';
                 funcoes.forEach(f => {
+                    const role = f.funcao.toUpperCase();
+                    if (role === 'ADMIN' || role.includes('ADMIN')) return;
+
                     const opt = document.createElement('option');
-                    opt.value = f.funcao.toUpperCase();
+                    opt.value = role;
                     opt.textContent = f.funcao;
                     selFuncao.appendChild(opt);
                 });
