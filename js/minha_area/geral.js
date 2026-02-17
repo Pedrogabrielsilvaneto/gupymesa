@@ -472,15 +472,15 @@ MinhaArea.Geral = {
         const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
         if (!item) return;
 
-        // Força o cabeçalho idêntico à visão do assistente
+        // Força o cabeçalho idêntico à visão do assistente (v4.22)
         if (this.els.tabelaHeader) {
             this.els.tabelaHeader.innerHTML = `
                 <tr class="divide-x divide-slate-200 border-b border-slate-300">
                     <th class="px-3 py-3 text-left bg-slate-50">Data</th>
-                    <th class="px-2 py-3 text-center bg-slate-50">Meta (Base)</th>
-                    <th class="px-2 py-3 text-center bg-slate-50">Meta (Dia)</th>
+                    <th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th>
+                    <th class="px-2 py-3 text-center bg-slate-50">Meta Real</th>
                     <th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção</th>
-                    <th class="px-2 py-3 text-center bg-slate-50">%</th>
+                    <th class="px-2 py-3 text-center bg-slate-50">% Prod.</th>
                     <th class="px-2 py-3 text-center bg-slate-50">Assertividade</th>
                     <th class="px-3 py-3 text-left bg-slate-50">Observação</th>
                 </tr>`;
