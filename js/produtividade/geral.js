@@ -307,6 +307,7 @@ Produtividade.Geral = {
             item.soma_fator += (p.fator !== null ? Number(p.fator) : 1.0);
             item.count_fator++;
             if (p.justificativa) item.justificativa = isPeriodo ? "Vários..." : p.justificativa;
+            if (p.observacao_assistente) item.observacao_assistente = isPeriodo ? "Vários..." : p.observacao_assistente;
             if (!isPeriodo) item.id_prod = p.id;
         });
 
@@ -549,7 +550,10 @@ Produtividade.Geral = {
                     <td class="px-2 py-3 text-center"><span class="font-bold ${pctProd >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pctProd}%</span></td>
                     <td class="px-2 py-3 text-center bg-emerald-50/20 border-x border-slate-100">${assertHtml}</td>
                     <td class="px-2 py-3 min-w-[200px]">
-                        <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação...'}" value="${row.justificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${row.data}', 'justificativa', this.value)">
+                        <div class="flex flex-col gap-1">
+                            <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação Gestão...'}" value="${row.justificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${row.data}', 'justificativa', this.value)">
+                            ${row.observacao_assistente ? `<div class="bg-blue-50/50 p-1 rounded text-[10px] text-blue-800 italic border border-blue-100 flex items-center gap-1" title="Observação do Assistente"><i class="fas fa-comment-dots text-blue-400"></i> ${row.observacao_assistente}</div>` : ''}
+                        </div>
                     </td>
                 </tr>
             `;
@@ -681,7 +685,7 @@ Produtividade.Geral = {
         mapa.set(chave, {
             chave: chave, uid: uid, data: dataLabel, nome: nomeUser,
             fator: 1.0, soma_fator: 0, count_fator: 0,
-            fifo: 0, gt: 0, gp: 0, producao: 0, justificativa: '', obs_assistente: '',
+            fifo: 0, gt: 0, gp: 0, producao: 0, justificativa: '', observacao_assistente: '',
             soma_notas_bruta: 0, qtd_assert: 0, media_final: null,
             meta_base_diaria: 100, meta_real_calculada: 100, meta_assert: 97, id_prod: null
         });
@@ -998,7 +1002,14 @@ Produtividade.Geral = {
             const fator = d.fator !== null ? Number(d.fator) : 1.0;
             const metaDia = Math.round((metaObj ? (metaObj.meta_producao || 100) : 100) * fator);
             const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
-            return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[200px]" title="${d.justificativa || ''}">${d.justificativa || '-'}</td></tr>`;
+            const obsHtml = `
+                <div class="flex flex-col gap-1">
+                    ${d.justificativa ? `<span class="text-amber-800 bg-amber-50 px-1 rounded border border-amber-100">[Gestão]: ${d.justificativa}</span>` : ''}
+                    ${d.observacao_assistente ? `<span class="text-blue-800 bg-blue-50 px-1 rounded border border-blue-100">[Eu]: ${d.observacao_assistente}</span>` : ''}
+                    ${!d.justificativa && !d.observacao_assistente ? '-' : ''}
+                </div>
+            `;
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr>`;
         }).join('');
     }
 };
