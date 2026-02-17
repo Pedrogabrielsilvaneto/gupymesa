@@ -61,8 +61,8 @@ MinhaArea.Geral = {
         this.state.isMacro = (d2 - d1) / (1000 * 60 * 60 * 24) > 45;
 
         const uidAlvo = MinhaArea.getUsuarioAlvo();
-        // Se a gestora está vendo a si mesma (Visão Gestora), tratamos como null para buscar equipe completa
-        const alvoReal = (this.ehGestao(uidAlvo)) ? null : uidAlvo;
+        // [FIX v4.23] Não forçamos null aqui. Mantemos o ID da gestora para que o sistema saiba que é VISÃO DE USUÁRIO (mas com dados agregados).
+        const alvoReal = uidAlvo;
         this.renderLoading();
 
         try {
@@ -87,6 +87,8 @@ MinhaArea.Geral = {
 
             await this.processarDadosUnificados();
 
+            // Renderiza Diário (Se for Gestor, o renderizarDiario detecta e chama renderizarDiarioGestor internamente ou a própria lógica se adapta)
+            // Como alvoReal agora sempre existe, ele sempre cairá no renderizarDiario
             if (alvoReal) {
                 this.renderizarDiario(alvoReal);
             } else {
@@ -116,7 +118,8 @@ MinhaArea.Geral = {
         let sql = 'SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?';
         let params = [range.inicio, range.fim];
 
-        if (uid) {
+        // [FIX v4.23] Se for gestor, NÃO filtramos pelo ID dele, pegamos TUDO para agregar.
+        if (uid && !this.ehGestao(uid)) {
             sql += ' AND usuario_id = ?';
             params.push(uid);
         }
@@ -132,13 +135,14 @@ MinhaArea.Geral = {
 
     buscarAssertividadeDiariaSQL: async function (range, uid) {
         let sql = `
-            SELECT usuario_id, data_referencia, COUNT(*) as qtd_auditorias, AVG(assertividade_val) as media_assertividade
-            FROM assertividade
+            SELECT usuario_id, data_referencia, COUNT(*) as qtd_auditorias, AVG(assertividade_val) as media_assertividade 
+            FROM assertividade 
             WHERE data_referencia >= ? AND data_referencia <= ?
         `;
         let params = [range.inicio, range.fim];
 
-        if (uid) {
+        // [FIX v4.23] Se for gestor, pegamos TUDO.
+        if (uid && !this.ehGestao(uid)) {
             sql += ' AND usuario_id = ?';
             params.push(uid);
         }
@@ -165,7 +169,8 @@ MinhaArea.Geral = {
         let sql = 'SELECT * FROM metas WHERE ano >= ? AND ano <= ?';
         let params = [anoInicio, anoFim];
 
-        if (uid) {
+        // [FIX v4.23] Se for gestor, pegamos TUDO (pois precisamos das metas da equipe para calcular esforço).
+        if (uid && !this.ehGestao(uid)) {
             sql += ' AND usuario_id = ?';
             params.push(uid);
         }
