@@ -3,17 +3,18 @@
 Produtividade.Consolidado = {
     initialized: false,
     ultimoCache: { key: null, data: null },
-    overridesHC: {},
     dadosCalculados: null,
     monthToColMap: null,
 
     // Cache de funções dos usuários (ID -> Funcao)
     mapaFuncoes: {},
+    mapaAtivo: {},
 
-    PADRAO_HC: 17,
+    // Headcount vindo da config_mes (definido pela gestora)
+    headcountConfig: 0,
 
     init: async function () {
-        console.log("🔧 Consolidado: Iniciando V9 (HC Limpo de Gestão)...");
+        console.log("🔧 Consolidado: Iniciando V10 (HC via Config Metas)...");
         if (!this.initialized) { this.initialized = true; }
         this.carregar();
     },
@@ -26,54 +27,70 @@ Produtividade.Consolidado = {
     },
 
     carregarMapas: async function () {
-        // Carrega mapa de funções apenas uma vez ou se vazio
+        // Carrega mapa de funções e ativo apenas uma vez ou se vazio
         if (Object.keys(this.mapaFuncoes).length > 0) return;
         try {
-            const { data } = await Sistema.supabase.from('usuarios').select('id, funcao');
+            const data = await Sistema.query('SELECT id, funcao, contrato, ativo FROM usuarios');
             if (data) {
-                data.forEach(u => this.mapaFuncoes[u.id] = (u.funcao || '').toUpperCase());
+                data.forEach(u => {
+                    this.mapaFuncoes[u.id] = (u.funcao || '').toUpperCase();
+                    this.mapaAtivo[u.id] = u.ativo;
+                });
             }
         } catch (e) { console.error("Erro carregando funções:", e); }
     },
 
-    carregarOverrides: async function () {
-        const chave = this.getContextKey();
-        this.overridesHC = {};
-        try {
-            const { data } = await Sistema.supabase.from('config_headcount').select('coluna_index, valor, motivo').eq('chave_contexto', chave);
-            if (data) data.forEach(item => this.overridesHC[item.coluna_index] = { valor: item.valor, motivo: item.motivo });
-        } catch (e) { console.error("Erro config:", e); }
-    },
+    carregarHeadcountConfig: async function () {
+        // Busca headcount da config_mes para o mês/ano atual do filtro
+        const datas = Produtividade.getDatasFiltro();
+        if (!datas.inicio) return;
 
-    salvarOverride: async function (colIndex, valor, motivo) {
-        const chave = this.getContextKey();
+        const partes = datas.inicio.split('-');
+        const mes = parseInt(partes[1]);
+        const ano = parseInt(partes[0]);
+
         try {
-            if (valor === null) {
-                await Sistema.supabase.from('config_headcount').delete().match({ chave_contexto: chave, coluna_index: colIndex });
-            } else {
-                await Sistema.supabase.from('config_headcount').upsert({ chave_contexto: chave, coluna_index: colIndex, valor: valor, motivo: motivo }, { onConflict: 'chave_contexto, coluna_index' });
+            const data = await Sistema.query(
+                'SELECT hc_clt, hc_terceiros FROM config_mes WHERE mes = ? AND ano = ?',
+                [mes, ano]
+            );
+
+            if (data && data.length > 0) {
+                const config = data[0];
+                const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.filtroContrato) || 'todos';
+
+                if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
+                    this.headcountConfig = Number(config.hc_clt);
+                } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
+                    this.headcountConfig = Number(config.hc_terceiros);
+                } else if (filtroContrato === 'todos') {
+                    const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
+                    this.headcountConfig = total > 0 ? total : 0;
+                }
             }
-        } catch (e) { alert("Erro ao salvar: " + e.message); }
+
+            // Fallback: se a gestora não definiu, conta assistentes ativos no banco
+            if (!this.headcountConfig || this.headcountConfig <= 0) {
+                this.headcountConfig = this.contarAssistentesAtivos();
+            }
+        } catch (e) {
+            console.error("Erro carregando config_mes:", e);
+            this.headcountConfig = this.contarAssistentesAtivos();
+        }
     },
 
-    atualizarHC: async function (colIndex, novoValor) {
-        const val = parseInt(novoValor);
-        if (isNaN(val) || val <= 0 || val === this.PADRAO_HC) {
-            delete this.overridesHC[colIndex];
-            await this.salvarOverride(colIndex, null);
-            this.renderizar(this.dadosCalculados);
-            return;
+    contarAssistentesAtivos: function () {
+        // Conta assistentes ativos nos dados carregados (exclui gestão e inativos)
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        let count = 0;
+        for (const uid in this.mapaFuncoes) {
+            const funcao = (this.mapaFuncoes[uid] || '').toLowerCase();
+            const ativo = this.mapaAtivo[uid];
+            if (ativo === false || ativo === 0 || ativo === '0') continue;
+            if (termosExcluidos.some(t => funcao.includes(t))) continue;
+            count++;
         }
-        const valorAtual = this.overridesHC[colIndex]?.valor;
-        if (valorAtual === val) return;
-
-        await new Promise(r => setTimeout(r, 50));
-        const motivo = prompt(`O padrão é ${this.PADRAO_HC}. Mudando para ${val}.\nMotivo (Obrigatório):`);
-        if (!motivo || motivo.trim() === "") { alert("❌ Cancelado: Motivo obrigatório."); this.renderizar(this.dadosCalculados); return; }
-
-        this.overridesHC[colIndex] = { valor: val, motivo: motivo.trim() };
-        await this.salvarOverride(colIndex, val, motivo.trim());
-        if (this.dadosCalculados) this.renderizar(this.dadosCalculados);
+        return count || 17; // Ultimo fallback
     },
 
     carregar: async function (forcar = false) {
@@ -85,14 +102,16 @@ Produtividade.Consolidado = {
         if (tbody) tbody.innerHTML = '<tr><td colspan="15" class="text-center py-10 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i></td></tr>';
 
         try {
-            await Promise.all([this.carregarOverrides(), this.carregarMapas()]);
+            await Promise.all([this.carregarHeadcountConfig(), this.carregarMapas()]);
 
-            const { data: rawData, error } = await Sistema.supabase
-                .from('producao')
-                .select('usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator')
-                .gte('data_referencia', s).lte('data_referencia', e);
+            const rawData = await Sistema.query(
+                `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
+                 FROM producao
+                 WHERE data_referencia >= ? AND data_referencia <= ?`,
+                [s, e]
+            );
 
-            if (error) throw error;
+            if (!rawData) throw new Error("Falha ao buscar dados de produção.");
 
             this.ultimoCache = { key: this.getContextKey(), data: rawData, tipo: t };
             this.processarEExibir(rawData, t, s, e);
@@ -167,7 +186,7 @@ Produtividade.Consolidado = {
                         st[k].gp += Number(r.gradual_parcial) || 0;
                         st[k].fc += Number(r.perfil_fc) || 0;
 
-                        // REGRA: SÓ CONTA NO HEADCOUNT/DIAS SE NÃO FOR GESTORA
+                        // REGRA: SÓ CONTA NO HEADCOUNT/DIAS SE NÃO FOR GESTÃO
                         const funcao = this.mapaFuncoes[r.usuario_id] || '';
                         const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
 
@@ -198,18 +217,15 @@ Produtividade.Consolidado = {
         const hRow = document.getElementById('cons-table-header');
         if (!tbody || !hRow) return;
 
+        const HC = this.headcountConfig;
+
         let headerHTML = `<tr class="bg-slate-50 border-b border-slate-200"><th class="px-6 py-4 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 text-left min-w-[250px]"><span class="text-xs font-black text-slate-400 uppercase tracking-widest">Indicador</span></th>`;
 
-        cols.forEach((c, index) => {
-            const colIdx = index + 1;
-            const override = this.overridesHC[colIdx];
-            const bgInput = override ? 'bg-amber-50 border-amber-300 text-amber-700 font-bold' : 'bg-white border-slate-200';
-            headerHTML += `<th class="px-2 py-2 text-center border-l border-slate-200 min-w-[80px]"><div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-slate-600 uppercase">${c}</span><input type="number" value="${override?.valor || ''}" placeholder="(${this.PADRAO_HC})" onchange="Produtividade.Consolidado.atualizarHC(${colIdx}, this.value)" class="w-full text-[10px] text-center rounded py-0.5 border ${bgInput} transition focus:ring-2 focus:ring-blue-200 outline-none"></div></th>`;
+        cols.forEach((c) => {
+            headerHTML += `<th class="px-2 py-3 text-center border-l border-slate-200 min-w-[80px]"><span class="text-xs font-bold text-slate-600 uppercase">${c}</span></th>`;
         });
 
-        const overrideTotal = this.overridesHC[99];
-        const bgInputTotal = overrideTotal ? 'bg-amber-50 border-amber-300 text-amber-700 font-bold' : 'bg-white border-blue-200';
-        headerHTML += `<th class="px-4 py-2 text-center bg-blue-50 border-l border-blue-100 min-w-[100px]"><div class="flex flex-col items-center gap-1"><span class="text-xs font-black text-blue-600 uppercase">TOTAL</span><input type="number" value="${overrideTotal?.valor || ''}" placeholder="(${this.PADRAO_HC})" onchange="Produtividade.Consolidado.atualizarHC(99, this.value)" class="w-full max-w-[60px] text-[10px] text-center rounded py-0.5 border ${bgInputTotal} outline-none"></div></th></tr>`;
+        headerHTML += `<th class="px-4 py-3 text-center bg-blue-50 border-l border-blue-100 min-w-[100px]"><span class="text-xs font-black text-blue-600 uppercase">TOTAL</span></th></tr>`;
         hRow.innerHTML = headerHTML;
 
         const mkRow = (label, icon, color, getter, isCalc = false, isBold = false) => {
@@ -217,23 +233,11 @@ Produtividade.Consolidado = {
 
             [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(i => {
                 const s = st[i];
-                const override = this.overridesHC[i];
-                const HF = override ? override.valor : this.PADRAO_HC;
-                const foundBySystem = s.users.size || 0; // Agora conta SÓ assistentes (graças ao filtro no loop)
 
-                const val = isCalc ? getter(s, s.diasUteis, HF) : getter(s);
+                const val = isCalc ? getter(s, s.diasUteis, HC) : getter(s);
                 let cellHTML = (val !== undefined && !isNaN(val)) ? Math.round(val).toLocaleString('pt-BR') : '-';
 
-                if (label === 'Total de assistentes') {
-                    if (override) {
-                        const tooltip = `Padrão: ${this.PADRAO_HC} | Ativos (Assistentes): ${foundBySystem} | Motivo: ${override.motivo}`;
-                        cellHTML = `<span title="${tooltip}" class="cursor-help text-amber-600 font-bold decoration-dotted underline decoration-amber-400 bg-amber-50 px-2 py-0.5 rounded text-[10px]">${cellHTML} <i class="fas fa-info-circle text-[8px] ml-0.5"></i></span>`;
-                    } else {
-                        cellHTML = `<span title="Assistentes Ativos: ${foundBySystem}" class="text-slate-400 cursor-default">${cellHTML}</span>`;
-                    }
-                } else {
-                    if (cellHTML === '0' || cellHTML === '-') cellHTML = `<span class="text-slate-300">-</span>`;
-                }
+                if (cellHTML === '0' || cellHTML === '-') cellHTML = `<span class="text-slate-300">-</span>`;
 
                 tr += `<td class="px-4 py-3 text-center text-xs ${i === 99 ? 'bg-blue-50/30 font-bold text-blue-800' : 'text-slate-600'}">${cellHTML}</td>`;
             });
@@ -252,6 +256,6 @@ Produtividade.Consolidado = {
         rows += mkRow('Média validação diária Por Assistentes', 'fas fa-user-tag', 'text-pink-600', (s, d, HF) => (d > 0 && HF > 0) ? s.qty / d / HF : 0, true);
 
         tbody.innerHTML = rows;
-        document.getElementById('total-consolidado-footer').innerText = this.overridesHC[99]?.valor || this.PADRAO_HC;
+        document.getElementById('total-consolidado-footer').innerText = HC;
     }
 };
