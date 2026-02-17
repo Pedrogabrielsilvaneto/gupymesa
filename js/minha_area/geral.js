@@ -249,6 +249,8 @@ MinhaArea.Geral = {
                     const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mes && mt.ano == ano);
                     const metaBase = metaObj ? (metaObj.meta_producao || 100) : 100;
 
+                    if (metaObj && metaObj.meta_assertividade) item.meta_assert = metaObj.meta_assertividade;
+
                     if (m.dias > 0) {
                         somaMedias += (m.prod / m.dias);
                         somaMetas += metaBase;
@@ -260,8 +262,15 @@ MinhaArea.Geral = {
                 item.meta_velocidade_media = qtdMeses > 0 ? Math.round(somaMetas / qtdMeses) : 100;
             } else {
                 item.velocidade_acumulada = item.soma_fator > 0 ? Math.round(item.producao / item.soma_fator) : 0;
-                const metaObj = this.state.dadosMetas[0];
+
+                // Mapeamento correto da Meta em visão Micro (Pega o mês do início do filtro)
+                const d1 = new Date(this.state.range.inicio + 'T12:00:00');
+                const mesRef = d1.getMonth() + 1;
+                const anoRef = d1.getFullYear();
+
+                const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mesRef && mt.ano == anoRef);
                 item.meta_velocidade_media = metaObj ? (metaObj.meta_producao || 100) : 100;
+                if (metaObj && metaObj.meta_assertividade) item.meta_assert = metaObj.meta_assertividade;
             }
 
             // Pega contrato do usuário
