@@ -23,7 +23,7 @@ Produtividade.Geral = {
     },
 
     init: function () {
-        console.log("🚀 Produtividade Geral V4.1 (Fix Abono) carregada.");
+        console.log("Produtividade Geral V5 carregada.");
         this.cacheSelectors();
 
         if (document.querySelector('#tab-geral thead')) {
@@ -78,7 +78,6 @@ Produtividade.Geral = {
         this.state.selecionados.clear();
         this.atualizarBarraFlutuante();
 
-        console.log("📅 Geral V4.1: Filtro", range);
         this.state.loading = true;
         this.renderLoading();
 
@@ -133,11 +132,9 @@ Produtividade.Geral = {
             params.push(user.id);
         }
 
-        console.log("🔍 [DEBUG] Buscando produção SQL:", sql, params);
 
         try {
             const data = await Sistema.query(sql, params);
-            console.log("🔍 [DEBUG] Produção retornada:", data ? data.length : 0, "registros.");
             this.state.dadosProducao = data || [];
         } catch (error) {
             console.error("Erro Prod:", error);
@@ -213,7 +210,6 @@ Produtividade.Geral = {
         const perfil = (user.perfil || '').toLowerCase();
         const funcao = (user.funcao || '').toLowerCase();
         const uid = parseInt(user.id);
-        console.log(`🔍 [DEBUG] Check Permissão: ID=${uid}, Perfil=${perfil}, Funcao=${funcao}`);
         return perfil === 'admin' || perfil === 'administrador' || funcao.includes('gestor') || funcao.includes('auditor') || uid === 1 || uid === 1000;
     },
 
