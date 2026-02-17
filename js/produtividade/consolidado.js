@@ -15,6 +15,7 @@ Produtividade.Consolidado = {
     // Configuração vinda da config_mes (definida pela gestora)
     headcountConfig: 0,
     diasUteisConfig: 0,
+    hasManualDU: false,
     configMes: null,
 
     init: async function () {
@@ -65,7 +66,20 @@ Produtividade.Consolidado = {
                 ? Produtividade.Filtros.estado.contrato || 'todos'
                 : 'todos';
 
+            this.hasManualDU = false; // Reset
+
             if (config) {
+                // Checa se há alteração manual baseada no filtro para exibir a linha depois
+                if (filtroContrato === 'CLT') {
+                    if (config.dias_uteis_clt !== null) this.hasManualDU = true;
+                } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+                    if (config.dias_uteis_terceiros !== null) this.hasManualDU = true;
+                } else {
+                    if (config.dias_uteis_clt !== null || config.dias_uteis_terceiros !== null || config.dias_uteis !== null) {
+                        this.hasManualDU = true;
+                    }
+                }
+
                 if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
                     this.headcountConfig = Number(config.hc_clt);
                 } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
@@ -305,8 +319,10 @@ Produtividade.Consolidado = {
         // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
         rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => s.dias.size);
 
-        // 2.1 Dias úteis configurados
-        rows += mkRow('Dias úteis do mês (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC) => this.diasUteisConfig, true, false, 'bg-emerald-50/30');
+        // 2.1 Dias úteis configurados (V38 - Ocultar se não houver alteração)
+        if (this.hasManualDU) {
+            rows += mkRow('Dias úteis do mês (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC) => this.diasUteisConfig, true, false, 'bg-emerald-50/30');
+        }
 
         // 3-6. Produção por tipo
         rows += mkRow('Total documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
