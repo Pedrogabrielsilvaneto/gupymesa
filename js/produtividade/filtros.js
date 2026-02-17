@@ -137,9 +137,6 @@ Produtividade.Filtros = {
 
         Produtividade.Geral.renderizarTabela();
         Produtividade.Geral.calcularKpisGlobal();
-        if (typeof Produtividade.Geral.atualizarDestaques === 'function') {
-            Produtividade.Geral.atualizarDestaques();
-        }
     },
 
     // Esta função será chamada de dentro dos métodos de renderização dos módulos
