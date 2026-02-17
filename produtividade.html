@@ -236,15 +236,6 @@
                 </div>
 
                 <div class="flex items-center gap-2 border-l border-slate-200 pl-4">
-                    <label class="inline-flex items-center cursor-pointer mr-3" title="Exibir Auditoras e Gestoras">
-                        <input type="checkbox" id="check-gestao" class="sr-only peer"
-                            onchange="Produtividade.atualizarTodasAbas()">
-                        <div
-                            class="relative w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-600">
-                        </div>
-                        <span class="ms-2 text-[10px] font-bold text-slate-500 uppercase">Gestão</span>
-                    </label>
-
                     <input type="file" id="input-excel" accept=".csv" multiple class="hidden"
                         onchange="Produtividade.Importacao.Validacao.processar(this)">
                     <button onclick="document.getElementById('input-excel').click()"

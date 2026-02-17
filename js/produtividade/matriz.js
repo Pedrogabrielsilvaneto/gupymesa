@@ -34,8 +34,7 @@ Produtividade.Matriz = {
 
             if (error) throw error;
 
-            const checkGestao = document.getElementById('check-gestao');
-            const mostrarGestao = checkGestao ? checkGestao.checked : false;
+            const filtroFuncao = (window.Produtividade.Filtros?.estado?.funcao || 'todos').toUpperCase();
             const users = {};
 
             if (!data || data.length === 0) {
@@ -55,9 +54,14 @@ Produtividade.Matriz = {
 
                 const nome = u.nome || 'Sem Nome';
                 const cargo = u.funcao ? String(u.funcao).toUpperCase() : 'ASSISTENTE';
+                const perfil = u.perfil ? String(u.perfil).toUpperCase() : '';
 
-                // Filtro de cargos de Gestão
-                if (!mostrarGestao && ['AUDITORA', 'GESTORA', 'COORDENADORA'].includes(cargo)) return;
+                // Filtro de cargos de Gestão (Esconde por padrão se filtro for 'TODOS')
+                if (filtroFuncao === 'TODOS') {
+                    const termosGestao = ['GESTOR', 'AUDITOR', 'LIDER', 'ADMIN', 'COORDENADOR'];
+                    const ehGestora = termosGestao.some(t => cargo.includes(t) || perfil.includes(t));
+                    if (ehGestora) return;
+                }
 
                 if (!users[uid]) {
                     users[uid] = {
