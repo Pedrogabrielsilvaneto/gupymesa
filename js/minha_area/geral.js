@@ -284,7 +284,8 @@ MinhaArea.Geral = {
             producao: 0, soma_fator: 0, soma_abono: 0,
             qtd_assert: 0, soma_notas_bruta: 0, media_final: null,
             meses: {}, velocidade_acumulada: 0, meta_velocidade_media: 100,
-            meta_total_periodo: 0, dias_uteis_liquidos: 0, meta_assert: 97
+            meta_total_periodo: 0, dias_uteis_liquidos: 0, meta_assert: 97,
+            justificativa_gestao: '', observacao_assistente: ''
         });
     },
 
@@ -333,27 +334,31 @@ MinhaArea.Geral = {
                 assertHtml = `<span class="${cor} font-bold">${Number(assertDia.media_assertividade).toFixed(2)}%</span>`;
             }
 
+            // Lógica de Observação em duas partes
+            const justGestao = d.justificativa ? `<span class="text-amber-600 font-bold">[Gestão]: ${d.justificativa}</span>` : '';
+            const obsAssis = d.observacao_assistente ? `<span class="text-slate-600"> | [Eu]: ${d.observacao_assistente}</span>` : '';
+            const obsHtml = justGestao || obsAssis ? (justGestao + obsAssis) : '<span class="text-slate-300">-</span>';
+
             return `
                 <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs">
                     <td class="px-3 py-2 font-bold text-slate-700">${new Date(d.data_referencia + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                    <td class="px-2 py-2 text-center text-slate-500">${fator.toFixed(2)}</td>
-                    <td class="px-2 py-2 text-center text-slate-400">${d.fifo || 0}</td>
-                    <td class="px-2 py-2 text-center text-slate-400">${d.gradual_total || 0}</td>
-                    <td class="px-2 py-2 text-center text-slate-400">${d.gradual_parcial || 0}</td>
-                    <td class="px-2 py-2 text-center font-black text-blue-600">${d.quantidade || 0}</td>
-                    <td class="px-2 py-2 text-center text-slate-500">${metaDia}</td>
+                    <td class="px-2 py-2 text-center text-slate-500">${metaBase}</td>
+                    <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
+                    <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${d.quantidade || 0}</td>
                     <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
-                    <td class="px-2 py-2 text-center text-slate-400">${item?.meta_assert || 97}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
-                    <td class="px-3 py-2 cursor-pointer group" onclick="MinhaArea.Geral.abrirModalObs('${d.usuario_id}', '${d.data_referencia}')">
-                        <span class="text-slate-400 group-hover:text-blue-600"><i class="far fa-edit"></i></span>
+                    <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[300px]" onclick="MinhaArea.Geral.abrirModalObs('${d.usuario_id}', '${d.data_referencia}')" title="Clique para editar observação">
+                        <div class="flex items-center gap-2">
+                             <span class="text-slate-400 group-hover:text-blue-600"><i class="far fa-edit"></i></span>
+                             <div class="truncate">${obsHtml}</div>
+                        </div>
                     </td>
                 </tr>`;
         }).join('');
     },
 
     renderizarGradeEquipe: function () {
-        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Meta</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Real</th><th class="px-2 py-3 text-center bg-slate-50">Meta Ajust.</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assert.</th></tr>`;
+        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
         if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = headerGrade;
 
         const listaAssistentes = this.state.listaTabela.filter(row => !this.ehGestao(row.uid));
@@ -366,6 +371,12 @@ MinhaArea.Geral = {
                 const cor = row.media_final >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
                 assertHtml = `<span class="${cor} font-bold">${row.media_final.toFixed(2)}%</span>`;
             }
+
+            // Na grade de equipe, pegamos a observação agregada ou do último dia se pertinente
+            // Mas seguindo o pedido: mostrar observação
+            // Vamos apenas indicar se há algo ou mostrar um resumo se for visão período
+            const obsText = row.justificativa_gestao || row.observacao_assistente ? 'Sim' : '-';
+
             return `
                 <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
                     <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
@@ -374,6 +385,7 @@ MinhaArea.Geral = {
                     <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
                     <td class="px-2 py-3 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
                     <td class="px-2 py-3 text-center">${assertHtml}</td>
+                    <td class="px-3 py-3 text-slate-400 text-xs">${obsText}</td>
                 </tr>`;
         }).join('');
     },
