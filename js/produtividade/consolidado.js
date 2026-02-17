@@ -1,4 +1,5 @@
 // ARQUIVO: js/produtividade/consolidado.js
+// V11 — Audit completo: filtros corrigidos, inativos excluídos, fórmulas revisadas
 
 Produtividade.Consolidado = {
     initialized: false,
@@ -6,7 +7,7 @@ Produtividade.Consolidado = {
     dadosCalculados: null,
     monthToColMap: null,
 
-    // Cache de funções dos usuários (ID -> Funcao)
+    // Cache de dados de usuários (ID -> info)
     mapaFuncoes: {},
     mapaAtivo: {},
 
@@ -14,7 +15,6 @@ Produtividade.Consolidado = {
     headcountConfig: 0,
 
     init: async function () {
-        console.log("🔧 Consolidado: Iniciando V10 (HC via Config Metas)...");
         if (!this.initialized) { this.initialized = true; }
         this.carregar();
     },
@@ -27,7 +27,6 @@ Produtividade.Consolidado = {
     },
 
     carregarMapas: async function () {
-        // Carrega mapa de funções e ativo apenas uma vez ou se vazio
         if (Object.keys(this.mapaFuncoes).length > 0) return;
         try {
             const data = await Sistema.query('SELECT id, funcao, contrato, ativo FROM usuarios');
@@ -41,7 +40,6 @@ Produtividade.Consolidado = {
     },
 
     carregarHeadcountConfig: async function () {
-        // Busca headcount da config_mes para o mês/ano atual do filtro
         const datas = Produtividade.getDatasFiltro();
         if (!datas.inicio) return;
 
@@ -57,7 +55,10 @@ Produtividade.Consolidado = {
 
             if (data && data.length > 0) {
                 const config = data[0];
-                const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.filtroContrato) || 'todos';
+                // Usa Filtros.estado.contrato (consistente com filtros.js)
+                const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
+                    ? Produtividade.Filtros.estado.contrato || 'todos'
+                    : 'todos';
 
                 if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
                     this.headcountConfig = Number(config.hc_clt);
@@ -80,7 +81,6 @@ Produtividade.Consolidado = {
     },
 
     contarAssistentesAtivos: function () {
-        // Conta assistentes ativos nos dados carregados (exclui gestão e inativos)
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
         let count = 0;
         for (const uid in this.mapaFuncoes) {
@@ -90,7 +90,7 @@ Produtividade.Consolidado = {
             if (termosExcluidos.some(t => funcao.includes(t))) continue;
             count++;
         }
-        return count || 17; // Ultimo fallback
+        return count || 17;
     },
 
     carregar: async function (forcar = false) {
@@ -167,11 +167,19 @@ Produtividade.Consolidado = {
 
         const numCols = cols.length;
         let st = {};
-        for (let i = 1; i <= numCols; i++) st[i] = { users: new Set(), diasUteis: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
-        st[99] = { users: new Set(), diasUteis: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
+        for (let i = 1; i <= numCols; i++) st[i] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
+        st[99] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
 
         if (rawData) {
             rawData.forEach(r => {
+                // Exclui gestão (AUDITORA, GESTORA)
+                const funcao = this.mapaFuncoes[r.usuario_id] || '';
+                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
+
+                // Exclui inativos
+                const ativo = this.mapaAtivo[r.usuario_id];
+                const isInativo = (ativo === false || ativo === 0 || ativo === '0');
+
                 let b = -1;
                 if (t === 'dia') { for (let k = 1; k <= numCols; k++) if (datesMap[k].ini === r.data_referencia) b = k; }
                 else if (t === 'mes') { for (let k = 1; k <= numCols; k++) if (r.data_referencia >= datesMap[k].ini && r.data_referencia <= datesMap[k].fim) b = k; }
@@ -179,21 +187,19 @@ Produtividade.Consolidado = {
 
                 if (b >= 1 && b <= numCols) {
                     [b, 99].forEach(k => {
-                        // SOMA SEMPRE A PRODUÇÃO
+                        // Produção: soma SEMPRE (inclusive gestão, porque elas produziram)
                         st[k].qty += Number(r.quantidade) || 0;
                         st[k].fifo += Number(r.fifo) || 0;
                         st[k].gt += Number(r.gradual_total) || 0;
                         st[k].gp += Number(r.gradual_parcial) || 0;
                         st[k].fc += Number(r.perfil_fc) || 0;
 
-                        // REGRA: SÓ CONTA NO HEADCOUNT/DIAS SE NÃO FOR GESTÃO
-                        const funcao = this.mapaFuncoes[r.usuario_id] || '';
-                        const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
-
-                        if (!isManager) {
+                        // Headcount e dias: só assistentes ativos
+                        if (!isManager && !isInativo) {
                             st[k].users.add(r.usuario_id);
+                            st[k].dias.add(r.data_referencia);
                             const fatorDb = (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
-                            st[k].diasUteis += fatorDb;
+                            st[k].diasFator += fatorDb;
                         }
                     });
                 }
@@ -203,7 +209,6 @@ Produtividade.Consolidado = {
     },
 
     processarEExibir: function (rawData, t, s, e) {
-        // Aplica filtros se a engine estiver carregada
         const dadosFiltrados = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(rawData)
             : rawData;
@@ -234,7 +239,7 @@ Produtividade.Consolidado = {
             [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(i => {
                 const s = st[i];
 
-                const val = isCalc ? getter(s, s.diasUteis, HC) : getter(s);
+                const val = isCalc ? getter(s, HC) : getter(s);
                 let cellHTML = (val !== undefined && !isNaN(val)) ? Math.round(val).toLocaleString('pt-BR') : '-';
 
                 if (cellHTML === '0' || cellHTML === '-') cellHTML = `<span class="text-slate-300">-</span>`;
@@ -244,18 +249,36 @@ Produtividade.Consolidado = {
             return tr + '</tr>';
         };
 
-        let rows = mkRow('Total de assistentes', 'fas fa-users-cog', 'text-indigo-400', (s, d, HF) => HF, true);
-        rows += mkRow('Total de dias úteis trabalhado', 'fas fa-calendar-day', 'text-cyan-500', s => s.diasUteis);
-        rows += mkRow('Total de documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
-        rows += mkRow('Total de documentos Gradual Parcial', 'fas fa-chart-area', 'text-teal-500', s => s.gp);
-        rows += mkRow('Total de documentos Gradual Total', 'fas fa-chart-line', 'text-emerald-500', s => s.gt);
-        rows += mkRow('Total de documentos Perfil Fc', 'fas fa-id-card', 'text-purple-500', s => s.fc);
-        rows += mkRow('Total de documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
-        rows += mkRow('Total validação diária Dias úteis', 'fas fa-calendar-check', 'text-amber-600', (s, d, HF) => (d > 0) ? s.qty / d : 0, true);
-        rows += mkRow('Média validação diária Todas assistentes', 'fas fa-users', 'text-orange-600', (s, d, HF) => (HF > 0) ? s.qty / HF : 0, true);
-        rows += mkRow('Média validação diária Por Assistentes', 'fas fa-user-tag', 'text-pink-600', (s, d, HF) => (d > 0 && HF > 0) ? s.qty / d / HF : 0, true);
+        // === LINHAS DA TABELA ===
+        // 1. HC: Definido pela gestora
+        let rows = mkRow('Total de assistentes', 'fas fa-users-cog', 'text-indigo-400', (s, HC) => HC, true);
+
+        // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
+        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => s.dias.size);
+
+        // 3-6. Produção por tipo
+        rows += mkRow('Total documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
+        rows += mkRow('Total documentos Gradual Parcial', 'fas fa-chart-area', 'text-teal-500', s => s.gp);
+        rows += mkRow('Total documentos Gradual Total', 'fas fa-chart-line', 'text-emerald-500', s => s.gt);
+        rows += mkRow('Total documentos Perfil FC', 'fas fa-id-card', 'text-purple-500', s => s.fc);
+
+        // 7. Total geral de documentos
+        rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
+
+        // 8. Média de produção por dia útil trabalhado: total / dias únicos
+        rows += mkRow('Média diária (por dia útil)', 'fas fa-calendar-check', 'text-amber-600',
+            (s, HC) => (s.dias.size > 0) ? s.qty / s.dias.size : 0, true);
+
+        // 9. Média de produção por assistente (período inteiro): total / HC
+        rows += mkRow('Média por assistente (período)', 'fas fa-users', 'text-orange-600',
+            (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
+
+        // 10. Média diária por assistente: total / dias / HC
+        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-pink-600',
+            (s, HC) => (s.dias.size > 0 && HC > 0) ? s.qty / s.dias.size / HC : 0, true);
 
         tbody.innerHTML = rows;
-        document.getElementById('total-consolidado-footer').innerText = HC;
+        const footerEl = document.getElementById('total-consolidado-footer');
+        if (footerEl) footerEl.innerText = HC;
     }
 };
