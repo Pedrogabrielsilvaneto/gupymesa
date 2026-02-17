@@ -310,8 +310,8 @@ MinhaArea.Geral = {
     },
 
     renderizarDiario: function (uid) {
-        // Remove trava: Gestor pode ver seu diário individual se selecionado
-        // if (this.ehGestao(uid)) { this.renderizarDiarioGestor(uid); return; }
+        // Redireciona para visão consolidada se for gestor
+        if (this.ehGestao(uid)) { this.renderizarDiarioGestor(uid); return; }
 
         if (this.state.headerOriginal && this.els.tabelaHeader) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
@@ -472,19 +472,44 @@ MinhaArea.Geral = {
         const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
         if (!item) return;
 
-        // Recalcula totais da equipe (simular calcularKpisGlobal mas focado no contexto do gestor)
-        let totalProd = 0;
-        let totalDocs = 0, somaAssertGlobal = 0;
-        let totalFator = 0, totalUteis = 0;
+        // Cabeçalho original se necessário
+        if (this.state.headerOriginal && this.els.tabelaHeader) {
+            this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
+        }
+
+        let totalProd = 0, totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
+        const diarioAgregado = {};
 
         // Agrupa produção diária de todos os assistentes
-        const diarioAgregado = {};
-        let somaMetasAssistentes = 0;
+        this.state.dadosProducao.forEach(d => {
+            if (this.ehGestao(d.usuario_id)) return;
 
+            if (!diarioAgregado[d.data_referencia]) {
+                diarioAgregado[d.data_referencia] = {
+                    data: d.data_referencia,
+                    prod: 0,
+                    fator: 0,
+                    somaAssert: 0,
+                    countAssert: 0
+                };
+            }
+            diarioAgregado[d.data_referencia].prod += Number(d.quantidade) || 0;
+            diarioAgregado[d.data_referencia].fator += (d.fator !== null ? Number(d.fator) : 1.0);
+        });
+
+        // Agrega Assertividade Diária (média da equipe por dia)
+        this.state.dadosAssertividadeDiaria.forEach(a => {
+            const dataRef = a.data_referencia;
+            if (diarioAgregado[dataRef] && a.qtd_auditorias > 0) {
+                diarioAgregado[dataRef].somaAssert += (Number(a.media_assertividade) * Number(a.qtd_auditorias));
+                diarioAgregado[dataRef].countAssert += Number(a.qtd_auditorias);
+            }
+        });
+
+        // Calcula Totais Período (KPI Cards)
         this.state.listaTabela.forEach(i => {
-            if (this.ehGestao(i.uid)) return; // Ignora outros gestores/si mesmo
+            if (this.ehGestao(i.uid)) return;
             totalProd += i.producao;
-            somaMetasAssistentes += i.meta_total_periodo;
             totalFator += i.soma_fator;
             totalUteis += i.dias_uteis_liquidos;
             if (i.qtd_assert > 0) {
@@ -493,36 +518,16 @@ MinhaArea.Geral = {
             }
         });
 
-        // Agrega dadosProducao
-        this.state.dadosProducao.forEach(d => {
-            if (this.ehGestao(d.usuario_id)) return;
-            if (!diarioAgregado[d.data_referencia]) {
-                diarioAgregado[d.data_referencia] = {
-                    data: d.data_referencia,
-                    prod: 0,
-                    meta: 0, // Dificil calcular meta diária agregada sem iterar users...
-                    fator: 0
-                };
-            }
-            diarioAgregado[d.data_referencia].prod += Number(d.quantidade) || 0;
-            diarioAgregado[d.data_referencia].fator += (Number(d.fator) || 1); // Soma de dias trabalhados na equipe
-        });
-
-        // Meta: Se gestor tem meta definida (>0), usa ela. Senão, soma das metas dos assistentes.
-        const metaEquipe = item.meta_total_periodo > 0 ? item.meta_total_periodo : (somaMetasAssistentes || 1);
-
-        // Ajuste Headcount (Gestor View)
-        let totalHeadcount = Object.keys(diarioAgregado).length > 0 ? this.state.headcountConfig : null; // Só aplica se tiver dados
-        if (this.state.headcountConfig) totalHeadcount = this.state.headcountConfig;
-
-        const countUsersReal = this.state.listaTabela.filter(x => !this.ehGestao(x.uid)).length;
-        const denonimador = totalHeadcount || countUsersReal || 1;
+        const HC = this.state.headcountConfig || 1;
+        const metaIndiv = item.meta_velocidade_media || 0;
+        const metaEquipePeriodo = metaIndiv * HC * item.dias_uteis_liquidos;
+        const denonimadorKPI = HC;
 
         this.atualizarCardsKPI({
-            prod: { real: totalProd, meta: metaEquipe },
+            prod: { real: totalProd, meta: metaEquipePeriodo },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
-            capacidade: { diasReal: totalFator, diasTotal: totalHeadcount ? (totalUteis / (countUsersReal || 1) * totalHeadcount) : totalUteis },
-            velocidade: { real: Math.round(totalProd / denonimador), meta: Math.round(metaEquipe / denonimador) }
+            capacidade: { diasReal: totalFator, diasTotal: totalUteis * HC },
+            velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv * HC }
         });
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
@@ -535,22 +540,25 @@ MinhaArea.Geral = {
         }
 
         this.els.tabela.innerHTML = listaDias.map(d => {
-            // Estimar meta do dia proporcional? 
-            // Meta Equipe / Dias Uteis = Meta Dia Média?
-            // Vamos simplificar: mostrar apenas produção total
+            const metaDia = Math.round(metaIndiv * HC * (d.fator / HC)); // Meta proporcional ao esforço da equipe no dia
+            const pct = metaDia > 0 ? Math.round((d.prod / metaDia) * 100) : 0;
+            const mediaAssertDia = d.countAssert > 0 ? (d.somaAssert / d.countAssert) : null;
+
+            let assertHtml = '<span class="text-slate-300">-</span>';
+            if (mediaAssertDia !== null) {
+                const cor = mediaAssertDia >= (item.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
+                assertHtml = `<span class="${cor} font-bold">${mediaAssertDia.toFixed(2)}%</span>`;
+            }
+
             return `
                 <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs bg-purple-50/10">
                     <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data)} (Equipe)</td>
-                    <td class="px-2 py-2 text-center text-slate-500">-</td>
-                    <td class="px-2 py-2 text-center text-slate-400">-</td>
-                    <td class="px-2 py-2 text-center text-slate-400">-</td>
-                    <td class="px-2 py-2 text-center text-slate-400">-</td>
-                    <td class="px-2 py-2 text-center font-black text-blue-600">${d.prod}</td>
-                    <td class="px-2 py-2 text-center text-slate-500">-</td>
-                    <td class="px-2 py-2 text-center font-bold text-slate-400">-</td>
-                    <td class="px-2 py-2 text-center text-slate-400">-</td>
-                    <td class="px-2 py-2 text-center">-</td>
-                    <td class="px-3 py-2 text-center"></td>
+                    <td class="px-2 py-2 text-center text-slate-500">${metaIndiv * HC}</td>
+                    <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
+                    <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${d.prod}</td>
+                    <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
+                    <td class="px-2 py-2 text-center">${assertHtml}</td>
+                    <td class="px-3 py-2 text-slate-400 text-[10px] italic">Soma de ${HC} assistentes</td>
                 </tr>`;
         }).join('');
     },
