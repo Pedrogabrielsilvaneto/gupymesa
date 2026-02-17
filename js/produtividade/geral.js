@@ -337,9 +337,20 @@ Produtividade.Geral = {
             // Meta Individual
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
-            item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 100) : 100);
-            item.meta_real_calculada = Math.round(item.meta_base_diaria * (isPeriodo ? diasUteisPeriodo : 1.0) * item.fator);
+
+            // Meta Padrão: 100 para Assistentes, 0 para Gestão (Auditores/Líderes/Gestora)
+            const u = this.state.mapaUsuarios[item.uid] || {};
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+            const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
+            const defaultMeta = ehGestao ? 0 : 100;
+
+            item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMeta) : defaultMeta);
             item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
+
+            const multiplicador = isPeriodo ? diasUteisPeriodo : 1;
+            item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
         // 5. Agregação da Gestora
@@ -398,6 +409,7 @@ Produtividade.Geral = {
             if (gestoraItem._ownGp === undefined) gestoraItem._ownGp = gestoraItem.gp || 0;
             if (gestoraItem._ownQtdAssert === undefined) gestoraItem._ownQtdAssert = gestoraItem.qtd_assert || 0;
             if (gestoraItem._ownMedia === undefined) gestoraItem._ownMedia = gestoraItem.media_final || 0;
+            if (gestoraItem._ownMeta === undefined) gestoraItem._ownMeta = gestoraItem.meta_base_diaria || 0;
 
             let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
 
@@ -534,7 +546,9 @@ Produtividade.Geral = {
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         if (gestoraItem) {
             totalProd += (gestoraItem._ownProd || 0);
-            totalMeta += (gestoraItem.meta_base_diaria || 650) * totalDiasUteis;
+            // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
+            const metaIndiv = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem.meta_base_diaria || 0);
+            totalMeta += metaIndiv * totalDiasUteis;
         }
 
         listaExibicao.forEach(i => {
