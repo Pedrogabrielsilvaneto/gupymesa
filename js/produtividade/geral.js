@@ -478,7 +478,7 @@ Produtividade.Geral = {
                 diasReal: datasComProducao.size,
                 diasTotal: totalDiasUteis,
                 assisReal: assistentesReaisComProducao,
-                assisTotal: totalAssistentesAtivosNoBanco
+                assisTotal: totalHeadcountDefinido
             },
             velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
         };
