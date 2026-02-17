@@ -184,7 +184,9 @@ Gestao.Metas = {
 
                 // Categoriza função
                 let categFuncao = 'ASSISTENTE';
-                if (funcao.includes('GESTOR') || funcao.includes('ADMIN') || u.nome === 'Super Admin' || u.nome === 'Super Admin Gupy' || String(u.id) === '1' || String(u.id) === '1000' || (u.nivel_acesso && parseInt(u.nivel_acesso) >= 2)) {
+                const termosGestao = ['GESTOR', 'ADMIN', 'LIDER', 'LÍDER', 'COORDENADOR', 'COORDENA'];
+
+                if (termosGestao.some(t => funcao.includes(t)) || u.nome === 'Super Admin' || u.nome === 'Super Admin Gupy' || String(u.id) === '1' || String(u.id) === '1000' || (u.nivel_acesso && parseInt(u.nivel_acesso) >= 2)) {
                     categFuncao = 'GESTAO';
                 } else if (funcao.includes('AUDITOR')) {
                     categFuncao = 'AUDITORIA';
