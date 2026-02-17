@@ -263,8 +263,16 @@ MinhaArea.Metas = {
             const placeholders = this.gerarPlaceholders(userIds);
 
             // Query Produção
-            const sqlProd = `SELECT * FROM producao WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
-            const paramsProd = [...userIds, inicio, fim];
+            // [FIX v4.36.3] If Admin/Manager, fetch ALL production for the period to ensure Global Total matches Produtividade (234146)
+            // Otherwise, filter by specific user list
+            let sqlProd, paramsProd;
+            if (isAdmin) {
+                sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?`;
+                paramsProd = [inicio, fim];
+            } else {
+                sqlProd = `SELECT * FROM producao WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
+                paramsProd = [...userIds, inicio, fim];
+            }
 
             // Query Assertividade
             const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
