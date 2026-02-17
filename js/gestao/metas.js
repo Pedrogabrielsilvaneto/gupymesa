@@ -323,7 +323,8 @@ Gestao.Metas = {
 
         const upserts = [];
         this.state.alteracoesPendentes.forEach(uid => {
-            const u = this.state.listaCompleta.find(x => x.id === uid);
+            // [FIX v4.29] Type safety: Compare IDs as strings to avoid mismatch (Number vs String)
+            const u = this.state.listaCompleta.find(x => String(x.id) === String(uid));
             const valProd = document.getElementById(`prod-${uid}`)?.value;
             const valAssert = document.getElementById(`assert-${uid}`)?.value;
 
