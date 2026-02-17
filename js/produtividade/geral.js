@@ -544,6 +544,7 @@ Produtividade.Geral = {
         let assistentesComProducao = new Set();
         let datasComProducao = new Set();
         let totalDiasUteis = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+        let totalAbonoEquipe = 0;
 
         // Adiciona Gestora Explicitamente (Sempre somada, independente de filtros)
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
@@ -553,6 +554,8 @@ Produtividade.Geral = {
             const metaIndiv = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem.meta_base_diaria || 0);
             totalMeta += metaIndiv * totalDiasUteis;
         }
+
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
 
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
@@ -565,19 +568,34 @@ Produtividade.Geral = {
                 somaPontosAssert += (i.media_final * i.qtd_assert);
                 totalDocsAssert += i.qtd_assert;
             }
+
+            // Cálculo para redução de HC por Abono (Apenas Equipe)
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
+
+            if (!ehGestao && !this.ehAdmin(i.uid)) {
+                if (i.fator < 1.0) {
+                    totalAbonoEquipe += (1.0 - i.fator);
+                }
+            }
         });
 
         this.state.dadosProducao.forEach(p => { if (p.quantidade > 0) datasComProducao.add(p.data_referencia); });
 
         const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
 
-        const totalHeadcountDefinido = this.getHeadcountConfig();
+        let totalHeadcountDefinido = this.getHeadcountConfig();
+
+        // Aplica Redução Efetiva de Abonos (Regra: soma abonos e tira o floor)
+        const reducaoHcAbono = Math.floor(totalAbonoEquipe + 0.001); // 0.001 evita problemas de float (ex: 0.99999)
+        const headcountEfetivo = Math.max(1, totalHeadcountDefinido - reducaoHcAbono);
 
         const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
 
         let maxMetaProducao = 0;
         let assistentesReaisComProducao = 0;
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
 
         // Reprocessa para contar assistentes e achar a MAIOR META (Velocity Target)
         listaExibicao.forEach(i => {
@@ -597,8 +615,10 @@ Produtividade.Geral = {
 
         if (maxMetaProducao === 0) maxMetaProducao = 100;
 
+        const assistentesReaisFinal = Math.max(0, assistentesReaisComProducao - reducaoHcAbono);
+
         const mediaProducaoDiariaGlobal = totalDiasUteis > 0 ? (totalProd / totalDiasUteis) : 0;
-        const denominadorVelocidade = totalHeadcountDefinido || 1;
+        const denominadorVelocidade = headcountEfetivo;
         const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
 
         const dadosKPI = {
@@ -607,8 +627,8 @@ Produtividade.Geral = {
             capacidade: {
                 diasReal: datasComProducao.size,
                 diasTotal: totalDiasUteis,
-                assisReal: assistentesReaisComProducao,
-                assisTotal: totalHeadcountDefinido
+                assisReal: assistentesReaisFinal,
+                assisTotal: headcountEfetivo
             },
             velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
         };
