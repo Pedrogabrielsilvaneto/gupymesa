@@ -420,7 +420,8 @@ Produtividade.Geral = {
         const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
 
         const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
-        const totalAssistentesAtivosNoBanco = this.contarAssistentesElegiveis(filtroContrato);
+        const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
+        const totalAssistentesAtivosNoBanco = this.contarAssistentesElegiveis(filtroContrato, filtroFuncao);
 
         let totalHeadcountDefinido = totalAssistentesAtivosNoBanco;
 
@@ -430,19 +431,23 @@ Produtividade.Geral = {
                 totalHeadcountDefinido = Number(config.hc_clt);
             } else if (filtroContrato === 'TERCEIROS' && config.hc_terceiros > 0) {
                 totalHeadcountDefinido = Number(config.hc_terceiros);
-            } else if (filtroContrato === 'todos' && (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) > 0) {
+            } else if (filtroContrato === 'todos' && filtroFuncao === 'todos' && (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) > 0) {
                 totalHeadcountDefinido = (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0));
             }
         }
 
+        // Regra Especial: Se estiver sem filtros e sem configuração, assume 17 assistentes padrão
+        if (filtroContrato === 'todos' && filtroFuncao === 'todos' && (!config || (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) <= 0)) {
+            totalHeadcountDefinido = Math.max(17, totalAssistentesAtivosNoBanco);
+        }
+
         const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
 
-        let somaMetasConfiguradas = 0;
-        let countMetasConfiguradas = 0;
+        let maxMetaProducao = 0;
         let assistentesReaisComProducao = 0;
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
 
-        // Reprocessa para contar apenas assistentes (excluindo gestão) para as médias e contagem de ativos
+        // Reprocessa para contar assistentes e achar a MAIOR META (Velocity Target)
         listaExibicao.forEach(i => {
             const u = this.state.mapaUsuarios[i.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
@@ -453,15 +458,16 @@ Produtividade.Geral = {
                 if (i.producao > 0) assistentesReaisComProducao++;
 
                 const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
-                somaMetasConfiguradas += metaObj ? Number(metaObj.meta_producao) : 100;
-                countMetasConfiguradas++;
+                const metaVal = metaObj ? Number(metaObj.meta_producao) : 100;
+                if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
             }
         });
 
-        const safeCount = countMetasConfiguradas || 1;
-        const mediaMetaVelocidade = Math.round(somaMetasConfiguradas / safeCount);
+        if (maxMetaProducao === 0) maxMetaProducao = 100;
+
         const mediaProducaoDiariaGlobal = totalDiasUteis > 0 ? (totalProd / totalDiasUteis) : 0;
-        const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / safeCount);
+        const denominadorVelocidade = totalHeadcountDefinido || 1;
+        const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
 
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
@@ -472,7 +478,7 @@ Produtividade.Geral = {
                 assisReal: assistentesReaisComProducao,
                 assisTotal: totalHeadcountDefinido
             },
-            velocidade: { real: mediaVelocidadeReal, meta: mediaMetaVelocidade }
+            velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
         };
 
         this.atualizarCardsKPI(dadosKPI);
@@ -496,18 +502,20 @@ Produtividade.Geral = {
         while (cur <= end) { const day = cur.getDay(); if (day !== 0 && day !== 6) count++; cur.setDate(cur.getDate() + 1); }
         return count || 1;
     },
-    contarAssistentesElegiveis: function (filtroContrato = 'todos') {
+    contarAssistentesElegiveis: function (filtroContrato = 'todos', filtroFuncao = 'todos') {
         let count = 0;
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
             if (this.ehAdmin(uid)) continue;
             if (u.ativo === false) continue;
 
-            // Filtro de contrato se especificado
             const contratoUser = (u.contrato || '').toUpperCase();
             if (filtroContrato === 'CLT' && !contratoUser.includes('CLT')) continue;
             if (filtroContrato === 'TERCEIROS' && (contratoUser.includes('CLT'))) continue;
+
+            const cargo = (u.funcao || '').toUpperCase();
+            if (filtroFuncao !== 'todos' && cargo !== filtroFuncao.toUpperCase()) continue;
 
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
