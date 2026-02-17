@@ -547,12 +547,17 @@ MinhaArea.Geral = {
     atualizarCardsKPI: function (kpi) {
         const setVal = (id, val, isPct) => {
             const el = document.getElementById(id);
-            if (el) el.textContent = isPct ? val.toFixed(2) + '%' : Math.round(val).toLocaleString('pt-BR');
+            if (el) {
+                const safeVal = (typeof val === 'number' && !isNaN(val)) ? val : 0;
+                el.textContent = isPct ? safeVal.toFixed(2) + '%' : Math.round(safeVal).toLocaleString('pt-BR');
+            }
         };
         const setBar = (idBar, idPct, real, meta) => {
             const bar = document.getElementById(idBar);
             const pctText = document.getElementById(idPct);
-            const calculo = meta > 0 ? Math.round((real / meta) * 100) : 0;
+            const r = (typeof real === 'number' && !isNaN(real)) ? real : 0;
+            const m = (typeof meta === 'number' && !isNaN(meta)) ? meta : 0;
+            const calculo = m > 0 ? Math.round((r / m) * 100) : 0;
             if (bar) bar.style.width = Math.min(calculo, 100) + '%';
             if (pctText) pctText.textContent = calculo + '%';
         };
