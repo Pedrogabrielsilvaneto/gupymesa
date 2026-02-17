@@ -11,11 +11,17 @@ Gestao.ConfigMes = {
                 mes INT NOT NULL,
                 ano INT NOT NULL,
                 dias_uteis INT,
+                dias_uteis_clt INT,
+                dias_uteis_terceiros INT,
                 hc_clt INT DEFAULT 0,
                 hc_terceiros INT DEFAULT 0,
                 PRIMARY KEY (mes, ano)
             )`;
             await Sistema.query(sql);
+
+            // Garantir que as colunas novas existam caso a tabela já tenha sido criada anteriormente
+            try { await Sistema.query("ALTER TABLE config_mes ADD COLUMN dias_uteis_clt INT AFTER dias_uteis"); } catch (e) { }
+            try { await Sistema.query("ALTER TABLE config_mes ADD COLUMN dias_uteis_terceiros INT AFTER dias_uteis_clt"); } catch (e) { }
             console.log("📅 Gestão Config Mês: Tabela verificada.");
         } catch (e) {
             console.warn("Erro ao verificar tabela config_mes:", e);
@@ -48,16 +54,22 @@ Gestao.ConfigMes = {
 
             const novo = {
                 dias_uteis: dados.dias_uteis !== undefined ? dados.dias_uteis : atual.dias_uteis,
+                dias_uteis_clt: dados.dias_uteis_clt !== undefined ? dados.dias_uteis_clt : atual.dias_uteis_clt,
+                dias_uteis_terceiros: dados.dias_uteis_terceiros !== undefined ? dados.dias_uteis_terceiros : atual.dias_uteis_terceiros,
                 hc_clt: dados.hc_clt !== undefined ? dados.hc_clt : atual.hc_clt,
                 hc_terceiros: dados.hc_terceiros !== undefined ? dados.hc_terceiros : atual.hc_terceiros
             };
 
-            // Se tudo vazio/null, deleta? Opcional. Vamos fazer UPSERT.
-
             await Sistema.query(
-                `INSERT INTO config_mes (mes, ano, dias_uteis, hc_clt, hc_terceiros) VALUES (?, ?, ?, ?, ?) 
-                 ON DUPLICATE KEY UPDATE dias_uteis = VALUES(dias_uteis), hc_clt = VALUES(hc_clt), hc_terceiros = VALUES(hc_terceiros)`,
-                [mes, ano, novo.dias_uteis || null, novo.hc_clt || 0, novo.hc_terceiros || 0]
+                `INSERT INTO config_mes (mes, ano, dias_uteis, dias_uteis_clt, dias_uteis_terceiros, hc_clt, hc_terceiros) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?) 
+                 ON DUPLICATE KEY UPDATE 
+                    dias_uteis = VALUES(dias_uteis), 
+                    dias_uteis_clt = VALUES(dias_uteis_clt), 
+                    dias_uteis_terceiros = VALUES(dias_uteis_terceiros),
+                    hc_clt = VALUES(hc_clt), 
+                    hc_terceiros = VALUES(hc_terceiros)`,
+                [mes, ano, novo.dias_uteis || null, novo.dias_uteis_clt || null, novo.dias_uteis_terceiros || null, novo.hc_clt || 0, novo.hc_terceiros || 0]
             );
 
             // Atualiza cache
@@ -69,12 +81,28 @@ Gestao.ConfigMes = {
         }
     },
 
-    // Retorna os dias úteis do mês (Manual OU Calendário Simples)
-    getDiasUteisMes: async function (mes, ano) {
+    // Retorna os dias úteis baseados no tipo de contrato (CLT vs TERCEIROS)
+    getDiasUteisMes: async function (mes, ano, tipo) {
         const config = await this.obter(mes, ano);
-        if (config && config.dias_uteis) return config.dias_uteis;
 
-        // Fallback: Calendário
+        // Pega valor base do calendário para o mês
+        const diasCalendario = this.calcularDiasUteisCalendario(mes, ano);
+
+        // Se o tipo for TERCEIROS ou não especificado
+        let vTerc = (config && config.dias_uteis_terceiros) ? config.dias_uteis_terceiros : (config && config.dias_uteis ? config.dias_uteis : diasCalendario);
+
+        if (tipo === 'TERCEIROS') return vTerc;
+
+        // Se o tipo for CLT
+        let vClt = (config && config.dias_uteis_clt) ? config.dias_uteis_clt : (vTerc - 1);
+
+        if (tipo === 'CLT') return vClt;
+
+        // Se não filtrar, retorna o de terceiros por padrão ou média? Vamos retornar Terceiros.
+        return vTerc;
+    },
+
+    calcularDiasUteisCalendario: function (mes, ano) {
         const i = new Date(ano, mes - 1, 1);
         const f = new Date(ano, mes, 0);
         let c = 0;

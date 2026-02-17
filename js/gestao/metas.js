@@ -29,19 +29,25 @@ Gestao.Metas = {
 
     carregarConfigMes: async function () {
         if (!Gestao.ConfigMes) return;
-        const inputDias = document.getElementById('input-dias-uteis-metas');
+        const inputDiasClt = document.getElementById('input-dias-clt-metas');
+        const inputDiasTerc = document.getElementById('input-dias-terc-metas');
         const inputClt = document.getElementById('input-hc-clt-metas');
         const inputTerc = document.getElementById('input-hc-terc-metas');
 
-        if (inputDias) { inputDias.value = ''; inputDias.placeholder = '...'; }
+        if (inputDiasClt) { inputDiasClt.value = ''; inputDiasClt.placeholder = '...'; }
+        if (inputDiasTerc) { inputDiasTerc.value = ''; inputDiasTerc.placeholder = '...'; }
         if (inputClt) { inputClt.value = ''; inputClt.placeholder = '...'; }
         if (inputTerc) { inputTerc.value = ''; inputTerc.placeholder = '...'; }
 
         const config = await Gestao.ConfigMes.obter(this.state.mes, this.state.ano);
 
-        if (inputDias) {
-            inputDias.value = (config && config.dias_uteis) ? config.dias_uteis : '';
-            inputDias.placeholder = (config && config.dias_uteis) ? '' : 'Auto';
+        if (inputDiasClt) {
+            inputDiasClt.value = (config && config.dias_uteis_clt) ? config.dias_uteis_clt : '';
+            inputDiasClt.placeholder = (config && config.dias_uteis_clt) ? '' : 'Auto';
+        }
+        if (inputDiasTerc) {
+            inputDiasTerc.value = (config && config.dias_uteis_terceiros) ? config.dias_uteis_terceiros : '';
+            inputDiasTerc.placeholder = (config && config.dias_uteis_terceiros) ? '' : 'Auto';
         }
         if (inputClt) {
             inputClt.value = (config && config.hc_clt) ? config.hc_clt : '';
@@ -54,13 +60,15 @@ Gestao.Metas = {
     },
 
     salvarConfigMes: async function () {
-        const inputDias = document.getElementById('input-dias-uteis-metas');
+        const inputDiasClt = document.getElementById('input-dias-clt-metas');
+        const inputDiasTerc = document.getElementById('input-dias-terc-metas');
         const inputClt = document.getElementById('input-hc-clt-metas');
         const inputTerc = document.getElementById('input-hc-terc-metas');
-        const icon = document.getElementById('icon-saved-config'); // Atualizado ID
+        const icon = document.getElementById('icon-saved-config');
 
         const dados = {
-            dias_uteis: inputDias ? (inputDias.value ? parseInt(inputDias.value) : null) : null,
+            dias_uteis_clt: inputDiasClt ? (inputDiasClt.value ? parseInt(inputDiasClt.value) : null) : null,
+            dias_uteis_terceiros: inputDiasTerc ? (inputDiasTerc.value ? parseInt(inputDiasTerc.value) : null) : null,
             hc_clt: inputClt ? (inputClt.value ? parseInt(inputClt.value) : 0) : 0,
             hc_terceiros: inputTerc ? (inputTerc.value ? parseInt(inputTerc.value) : 0) : 0
         };

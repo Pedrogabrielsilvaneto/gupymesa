@@ -237,6 +237,25 @@ Produtividade.Geral = {
         return hc;
     },
 
+    // Helper centralizado para Dias Úteis
+    getDiasUteisConfig: function () {
+        const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
+        const config = this.state.configMes;
+        const range = this.state.range;
+        const diasCalendario = this.contarDiasUteis(range.inicio, range.fim);
+
+        if (!config) return diasCalendario;
+
+        const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
+
+        const vClt = config.dias_uteis_clt || (vTerc - 1);
+        if (filtroContrato === 'CLT') return vClt;
+
+        // Se "Tudo", exibe Terceiros no KPI de topo por padrão
+        return vTerc;
+    },
+
     // ... (processarDadosUnificados, renderizarTabela, calcularKpisGlobal e auxiliares mantidos, foco na lógica de Abono abaixo) ...
     processarDadosUnificados: function () {
         const mapa = new Map();
@@ -333,7 +352,7 @@ Produtividade.Geral = {
                 }
             }
 
-            // Meta Individual
+            // Meta Individual sensível ao tipo de contrato (CLT vs Terc)
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
 
@@ -351,7 +370,17 @@ Produtividade.Geral = {
                 item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
             }
 
-            const multiplicador = isPeriodo ? diasUteisPeriodo : 1;
+            // Cálculo de Dias Úteis individuais para a meta
+            let diasUsuario = diasUteisPeriodo;
+            if (this.state.configMes) {
+                const c = this.state.configMes;
+                const vTerc = c.dias_uteis_terceiros || c.dias_uteis || diasUteisPeriodo;
+                const vClt = c.dias_uteis_clt || (vTerc - 1);
+                const contrato = (u.contrato || '').toUpperCase();
+                diasUsuario = (contrato === 'CLT') ? vClt : vTerc;
+            }
+
+            const multiplicador = isPeriodo ? diasUsuario : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
@@ -449,14 +478,14 @@ Produtividade.Geral = {
 
             const HC = this.getHeadcountConfig();
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-            const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            const diasUteisEquipe = this.getDiasUteisConfig();
 
             // Garante Meta Base da Gestora
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(gestoraItem.uid));
             gestoraItem.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 650) : 650);
 
-            gestoraItem.meta_real_calculada = Math.round(gestoraItem.meta_base_diaria * HC * (isPeriodo ? diasUteisPeriodo : 1.0));
-            gestoraItem.justificativa = `Equipe Filtrada (HC: ${HC})`;
+            gestoraItem.meta_real_calculada = Math.round(gestoraItem.meta_base_diaria * HC * (isPeriodo ? diasUteisEquipe : 1.0));
+            gestoraItem.justificativa = `Equipe Filtrada (HC: ${HC}, DU: ${diasUteisEquipe})`;
 
             // Reinsere a Gestora no topo da lista final
             listaParaGrid.unshift(gestoraItem);
@@ -543,7 +572,7 @@ Produtividade.Geral = {
         let somaMetaAssert = 0, countUsersMeta = 0;
         let assistentesComProducao = new Set();
         let datasComProducao = new Set();
-        let totalDiasUteis = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+        let totalDiasUteis = this.getDiasUteisConfig();
         let totalAbonoEquipe = 0;
 
         // Adiciona Gestora Explicitamente (Sempre somada, independente de filtros)
