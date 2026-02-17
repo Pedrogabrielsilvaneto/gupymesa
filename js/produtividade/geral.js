@@ -363,7 +363,7 @@ Produtividade.Geral = {
             .sort((a, b) => {
                 if (a.isAggregatedManager) return -1; // Gestora sempre no topo
                 if (b.isAggregatedManager) return 1;
-                return a.nome.localeCompare(b.nome);
+                return b.producao - a.producao; // Melhores (maior produção) primeiro
             });
     },
 
