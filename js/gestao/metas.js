@@ -248,6 +248,7 @@ Gestao.Metas = {
         const funcaoBadge = { GESTAO: 'bg-purple-50 text-purple-600', AUDITORIA: 'bg-amber-50 text-amber-600', ASSISTENTE: '' };
 
         tbody.innerHTML = this.state.listaVisivel.map(u => {
+            const isInactive = !u.ativo;
             const isGestao = u.categFuncao === 'GESTAO';
             let rowClass = 'hover:bg-slate-50/50';
             if (isInactive) rowClass = 'opacity-40';
