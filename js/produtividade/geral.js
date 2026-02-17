@@ -320,18 +320,18 @@ Produtividade.Geral = {
             if (isGestor) {
                 gestoraItem = item;
                 item.isAggregatedManager = true; // Marca para renderização
-                continue; // Pula soma da própria gestora
-            }
-
-            // Somatória da Equipe
-            somaEquipe.producao += item.producao;
-            somaEquipe.fifo += item.fifo;
-            somaEquipe.gt += item.gt;
-            somaEquipe.gp += item.gp;
-            somaEquipe.qtd_assert += item.qtd_assert;
-            if (item.media_final > 0) {
-                somaEquipe.soma_media_assert += (item.media_final * item.qtd_assert);
-                countEquipeAssert += item.qtd_assert;
+                // REMOVIDO CONTINUE para permitir cálculo de Meta Zero abaixo
+            } else {
+                // Somatória da Equipe apenas se não for gestor (para legacy, mas aggregation real é no renderizarTabela)
+                somaEquipe.producao += item.producao;
+                somaEquipe.fifo += item.fifo;
+                somaEquipe.gt += item.gt;
+                somaEquipe.gp += item.gp;
+                somaEquipe.qtd_assert += item.qtd_assert;
+                if (item.media_final > 0) {
+                    somaEquipe.soma_media_assert += (item.media_final * item.qtd_assert);
+                    countEquipeAssert += item.qtd_assert;
+                }
             }
 
             // Meta Individual
