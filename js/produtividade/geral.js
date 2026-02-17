@@ -296,9 +296,12 @@ Produtividade.Geral = {
 
         // Aplica filtros se a engine estiver carregada
         const listaOriginal = this.state.listaTabela || [];
-        const listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+        let listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
             : listaOriginal;
+
+        // FILTRO SOLICITADO: Apenas quem produziu aparece na grade
+        listaExibicao = listaExibicao.filter(item => item.producao > 0);
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
