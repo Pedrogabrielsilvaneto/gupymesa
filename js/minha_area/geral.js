@@ -551,14 +551,14 @@ MinhaArea.Geral = {
             }
 
             return `
-                <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs bg-purple-50/10">
-                    <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data)} (Equipe)</td>
+                <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs">
+                    <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data)}</td>
                     <td class="px-2 py-2 text-center text-slate-500">${metaIndiv * HC}</td>
                     <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
                     <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${d.prod}</td>
                     <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
-                    <td class="px-3 py-2 text-slate-400 text-[10px] italic">Soma de ${HC} assistentes</td>
+                    <td class="px-3 py-2 text-slate-400 text-[10px] italic">Visão Agregada (${HC} Assistentes)</td>
                 </tr>`;
         }).join('');
     },
