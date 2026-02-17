@@ -168,9 +168,7 @@
                 <button onclick="MinhaArea.mudarAba('auditoria')" id="btn-ma-auditoria"
                     class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
                         class="fas fa-clipboard-check text-xs"></i> Auditoria</button>
-                <button onclick="MinhaArea.mudarAba('comparativo')" id="btn-ma-comparativo"
-                    class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
-                        class="fas fa-chart-pie text-xs"></i> Assertividade</button>
+
                 <button onclick="MinhaArea.mudarAba('feedback')" id="btn-ma-feedback"
                     class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
                         class="fas fa-comments text-xs"></i> Feedback</button>
@@ -534,98 +532,7 @@
             </div>
         </div>
 
-        <div id="ma-tab-comparativo" class="ma-view hidden animate-enter">
-            <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
-                <div class="w-full lg:w-1/3 flex flex-col gap-4 h-full">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="font-bold text-slate-700 flex items-center gap-2"><i
-                                        class="fas fa-chart-bar text-rose-500"></i> Onde estou errando?</h3>
-                                <p class="text-xs text-slate-400">Clique na barra para filtrar.</p>
-                            </div>
-                            <div class="flex flex-col items-end gap-2">
-                                <div class="flex bg-slate-100 rounded-lg p-1">
-                                    <button onclick="MinhaArea.Comparativo.mudarVisao('doc')" id="btn-view-doc"
-                                        class="px-3 py-1 text-[10px] font-bold rounded bg-white text-rose-600 shadow-sm transition">Docs</button>
-                                    <button onclick="MinhaArea.Comparativo.mudarVisao('empresa')" id="btn-view-empresa"
-                                        class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">Empresas</button>
-                                    <button onclick="MinhaArea.Comparativo.mudarVisao('ndf')" id="btn-view-ndf"
-                                        class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">NDF</button>
-                                </div>
-                                <button id="btn-ver-todos" onclick="MinhaArea.Comparativo.toggleMostrarTodos()"
-                                    class="text-[10px] font-bold text-blue-500 hover:underline">Ver Todos</button>
-                            </div>
-                        </div>
-                        <div class="flex-1 w-full relative min-h-[200px]"><canvas id="graficoTopOfensores"></canvas>
-                        </div>
-                        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                                <h3
-                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">
-                                    Visão Geral</h3>
-                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                    <span class="text-[10px] font-bold text-slate-600">Total Auditados</span><span
-                                        id="card-total-auditados" class="text-xs font-black text-blue-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                    <span class="text-[10px] font-bold text-slate-600">Total de Acertos</span><span
-                                        id="card-total-acertos" class="text-xs font-black text-emerald-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center py-1.5"><span
-                                        class="text-[10px] font-bold text-slate-600">Total de Erros</span><span
-                                        id="card-total-erros" class="text-xs font-black text-rose-600">--</span></div>
-                            </div>
-                            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                                <h3
-                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">
-                                    Detalhamento</h3>
-                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                    <span class="text-[10px] font-bold text-slate-600">Erros Gupy</span><span
-                                        id="card-erros-gupy" class="text-xs font-black text-rose-600">--</span>
-                                </div>
-                                <div class="flex justify-between items-center py-1.5"><span
-                                        class="text-[10px] font-bold text-slate-600">Erros NDF</span><span
-                                        id="card-erros-ndf" class="text-xs font-black text-amber-600">--</span></div>
-                                <div class="flex justify-between items-center pl-2 mt-0.5"><span
-                                        class="text-[9px] font-bold text-amber-500/80 flex items-center gap-1"><i
-                                            class="fas fa-level-up-alt rotate-90 text-[8px]"></i> Empresa
-                                        Valida</span><span id="card-empresa-validar"
-                                        class="text-[10px] font-bold text-amber-500">--</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="w-full lg:w-2/3 flex flex-col h-full">
-                    <div
-                        class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden relative">
-                        <div
-                            class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center z-10 relative">
-                            <div>
-                                <h3 class="font-bold text-slate-700 flex items-center gap-2"><i
-                                        class="fas fa-exclamation-triangle text-amber-500"></i> Feed de Atenção</h3>
-                                <p class="text-xs text-slate-500">Documentos reprovados (NOK).</p>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="relative"><input type="text" placeholder="Buscar..."
-                                        onkeyup="MinhaArea.Comparativo.filtrarPorBusca(this.value)"
-                                        class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-blue-500 w-40 transition"><i
-                                        class="fas fa-search absolute left-2.5 top-2 text-slate-400 text-xs"></i></div>
-                                <button id="btn-limpar-filtro" onclick="MinhaArea.Comparativo.limparFiltro()"
-                                    class="hidden px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition flex items-center gap-2"><i
-                                        class="fas fa-times text-rose-500"></i> Limpar</button>
-                            </div>
-                        </div>
-                        <div id="feed-erros-container"
-                            class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50">
-                            <div class="text-center py-12 text-slate-400"><i
-                                    class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Carregando feed de erros...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
 
         <div id="ma-tab-feedback" class="ma-view hidden animate-enter space-y-4">
             <div

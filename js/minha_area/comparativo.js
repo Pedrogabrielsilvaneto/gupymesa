@@ -18,32 +18,32 @@ const FRIENDLY_NAMES_MAP = {
 
 MinhaArea.Comparativo = {
     chartOfensores: null,
-    dadosBrutosCache: [], 
-    listaErrosCache: [], 
-    visaoAtual: 'doc', 
+    dadosBrutosCache: [],
+    listaErrosCache: [],
+    visaoAtual: 'doc',
     mostrarTodos: false,
 
-    carregar: async function() {
+    carregar: async function () {
         console.time("PerformanceTotal");
         console.log("🚀 UX Dashboard: Iniciando Carga (Lógica: 2 Cards)...");
         const uid = MinhaArea.getUsuarioAlvo();
-        
+
         if (!uid && typeof MinhaArea.isAdmin === 'function' && !MinhaArea.isAdmin()) return;
 
         const { inicio, fim } = MinhaArea.getDatasFiltro();
         const containerFeed = document.getElementById('feed-erros-container');
-        
+
         // SELETORES DOS CARDS
         const elTotalAuditados = document.getElementById('card-total-auditados');
         const elTotalAcertos = document.getElementById('card-total-acertos');
         const elTotalErros = document.getElementById('card-total-erros');
-        const elErrosGupy = document.getElementById('card-erros-gupy'); 
-        const elErrosNdf = document.getElementById('card-erros-ndf'); 
-        const elEmpresaValidar = document.getElementById('card-empresa-validar'); 
+        const elErrosGupy = document.getElementById('card-erros-gupy');
+        const elErrosNdf = document.getElementById('card-erros-ndf');
+        const elEmpresaValidar = document.getElementById('card-empresa-validar');
         const btnLimpar = document.getElementById('btn-limpar-filtro');
-        
-        if(btnLimpar) btnLimpar.classList.add('hidden');
-        if(containerFeed) containerFeed.innerHTML = '<div class="text-center py-12 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Analisando auditorias...</div>';
+
+        if (btnLimpar) btnLimpar.classList.add('hidden');
+        if (containerFeed) containerFeed.innerHTML = '<div class="text-center py-12 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Analisando auditorias...</div>';
 
         try {
             // 1. BUSCA DADOS
@@ -53,12 +53,12 @@ MinhaArea.Comparativo = {
             console.log(`📦 Base Total: ${dados.length} registros auditados.`);
 
             // 2. REGRAS DE NEGÓCIO
-            let countTotalAuditados = 0; 
-            let countErrosGupy = 0;      
-            let countErrosNdf = 0;       
-            let countNdfEmpresa = 0;     
+            let countTotalAuditados = 0;
+            let countErrosGupy = 0;
+            let countErrosNdf = 0;
+            let countNdfEmpresa = 0;
 
-            const listaErros = []; 
+            const listaErros = [];
 
             for (let i = 0; i < dados.length; i++) {
                 const d = dados[i];
@@ -69,32 +69,32 @@ MinhaArea.Comparativo = {
                 const isErro = (d.qtd_nok && Number(d.qtd_nok) > 0);
 
                 if (isErro) {
-                    listaErros.push(d); 
+                    listaErros.push(d);
 
                     const tipoDocUpper = (d.tipo_documento || '').toUpperCase();
                     const isNdf = tipoDocUpper.startsWith('DOC_NDF_');
 
                     if (isNdf) {
-                        countErrosNdf++; 
-                        if (tipoDocUpper === 'DOC_NDF_OUTROS') countNdfEmpresa++; 
+                        countErrosNdf++;
+                        if (tipoDocUpper === 'DOC_NDF_OUTROS') countNdfEmpresa++;
                     } else {
                         countErrosGupy++;
                     }
                 }
             }
-            
+
             this.listaErrosCache = listaErros;
 
             // 3. ATUALIZAÇÃO CARDS
             const totalErrosReais = countErrosGupy + countErrosNdf;
             const totalAcertos = countTotalAuditados - totalErrosReais;
 
-            if(elTotalAuditados) elTotalAuditados.innerText = countTotalAuditados.toLocaleString('pt-BR');
-            if(elTotalAcertos) elTotalAcertos.innerText = totalAcertos.toLocaleString('pt-BR');
-            if(elTotalErros) elTotalErros.innerText = totalErrosReais.toLocaleString('pt-BR');
-            if(elErrosGupy) elErrosGupy.innerText = countErrosGupy.toLocaleString('pt-BR'); 
-            if(elErrosNdf) elErrosNdf.innerText = countErrosNdf.toLocaleString('pt-BR'); 
-            if(elEmpresaValidar) elEmpresaValidar.innerText = countNdfEmpresa.toLocaleString('pt-BR');
+            if (elTotalAuditados) elTotalAuditados.innerText = countTotalAuditados.toLocaleString('pt-BR');
+            if (elTotalAcertos) elTotalAcertos.innerText = totalAcertos.toLocaleString('pt-BR');
+            if (elTotalErros) elTotalErros.innerText = totalErrosReais.toLocaleString('pt-BR');
+            if (elErrosGupy) elErrosGupy.innerText = countErrosGupy.toLocaleString('pt-BR');
+            if (elErrosNdf) elErrosNdf.innerText = countErrosNdf.toLocaleString('pt-BR');
+            if (elEmpresaValidar) elEmpresaValidar.innerText = countNdfEmpresa.toLocaleString('pt-BR');
 
             // 4. RENDERIZAÇÃO FEED
             if (listaErros.length === 0) {
@@ -104,40 +104,40 @@ MinhaArea.Comparativo = {
                 return;
             }
 
-            this.mudarVisao(this.visaoAtual); 
+            this.mudarVisao(this.visaoAtual);
             console.timeEnd("PerformanceTotal");
 
         } catch (err) {
             console.error("Erro Comparativo:", err);
-            if(containerFeed) containerFeed.innerHTML = `<div class="text-rose-500 text-center py-8">Erro ao carregar: ${err.message}</div>`;
+            if (containerFeed) containerFeed.innerHTML = `<div class="text-rose-500 text-center py-8">Erro ao carregar: ${err.message}</div>`;
         }
     },
 
-    getFriendlyName: function(technicalName) {
+    getFriendlyName: function (technicalName) {
         if (!technicalName) return 'Sem Nome';
         return FRIENDLY_NAMES_MAP[technicalName] || technicalName;
     },
 
-    isNDF: function(d) {
+    isNDF: function (d) {
         return (d.tipo_documento || '').toUpperCase().startsWith('DOC_NDF_');
     },
 
-    getDocType: function(d) {
+    getDocType: function (d) {
         if (this.isNDF(d)) return d.tipo_documento || "DOC_NDF_GENERICO";
         return d.doc_name || d.tipo_documento || 'Documento Gupy';
     },
 
-    filtrarPorBusca: function(texto) {
+    filtrarPorBusca: function (texto) {
         if (!texto || texto.trim() === '') {
             this.limparFiltro(true);
             return;
         }
         const termo = texto.toLowerCase();
-        const base = this.listaErrosCache; 
-        
+        const base = this.listaErrosCache;
+
         const filtrados = [];
         let matches = 0;
-        
+
         for (let i = 0; i < base.length; i++) {
             if (matches >= 100) break;
             const d = base[i];
@@ -147,14 +147,14 @@ MinhaArea.Comparativo = {
             const obs = (d.observacao || '').toLowerCase();
             const emp = (d.empresa_nome || '').toLowerCase();
             const idppc = (d.id_ppc || '').toLowerCase(); // Permite buscar pelo ID também
-            
-            if (nome.includes(termo) || 
-                tipoTecnico.toLowerCase().includes(termo) || 
-                tipoAmigavel.includes(termo) || 
-                obs.includes(termo) || 
+
+            if (nome.includes(termo) ||
+                tipoTecnico.toLowerCase().includes(termo) ||
+                tipoAmigavel.includes(termo) ||
+                obs.includes(termo) ||
                 idppc.includes(termo) ||
                 emp.includes(termo)) {
-                
+
                 filtrados.push(d);
                 matches++;
             }
@@ -162,17 +162,17 @@ MinhaArea.Comparativo = {
 
         this.renderizarFeed(filtrados, document.getElementById('feed-erros-container'));
         const btn = document.getElementById('btn-limpar-filtro');
-        if(btn) { btn.classList.remove('hidden'); btn.innerHTML = `<i class="fas fa-times text-rose-500"></i> Limpar Busca`; }
+        if (btn) { btn.classList.remove('hidden'); btn.innerHTML = `<i class="fas fa-times text-rose-500"></i> Limpar Busca`; }
     },
 
-    toggleMostrarTodos: function() {
+    toggleMostrarTodos: function () {
         this.mostrarTodos = !this.mostrarTodos;
         const btn = document.getElementById('btn-ver-todos');
-        if(btn) btn.innerText = this.mostrarTodos ? 'Ver Top 5' : 'Ver Todos';
+        if (btn) btn.innerText = this.mostrarTodos ? 'Ver Top 5' : 'Ver Todos';
         this.mudarVisao(this.visaoAtual);
     },
 
-    mudarVisao: function(novaVisao) {
+    mudarVisao: function (novaVisao) {
         this.visaoAtual = novaVisao;
         const btnDoc = document.getElementById('btn-view-doc');
         const btnEmpresa = document.getElementById('btn-view-empresa');
@@ -181,19 +181,19 @@ MinhaArea.Comparativo = {
         const activeClass = "bg-white text-rose-600 shadow-sm";
         const inactiveClass = "text-slate-500 hover:bg-white";
 
-        if(btnDoc) btnDoc.className = baseClass + (novaVisao === 'doc' ? activeClass : inactiveClass);
-        if(btnEmpresa) btnEmpresa.className = baseClass + (novaVisao === 'empresa' ? activeClass : inactiveClass);
-        if(btnNdf) btnNdf.className = baseClass + (novaVisao === 'ndf' ? activeClass : inactiveClass);
+        if (btnDoc) btnDoc.className = baseClass + (novaVisao === 'doc' ? activeClass : inactiveClass);
+        if (btnEmpresa) btnEmpresa.className = baseClass + (novaVisao === 'empresa' ? activeClass : inactiveClass);
+        if (btnNdf) btnNdf.className = baseClass + (novaVisao === 'ndf' ? activeClass : inactiveClass);
 
         this.limparFiltro(false);
         const base = this.listaErrosCache;
         let filtrados = (novaVisao === 'ndf') ? base.filter(d => this.isNDF(d)) : base;
-        
+
         this.atualizarGrafico(filtrados);
         this.renderizarFeed(filtrados, document.getElementById('feed-erros-container'));
     },
 
-    filtrarPorSelecao: function(valorAmigavel) {
+    filtrarPorSelecao: function (valorAmigavel) {
         const base = this.listaErrosCache;
         const filtrados = [];
         let limit = 0;
@@ -210,12 +210,12 @@ MinhaArea.Comparativo = {
                 const nomeAmigavelItem = this.getFriendlyName(tipoTecnico);
                 match = (nomeAmigavelItem === valorAmigavel || nomeAmigavelItem.includes(valorAmigavel.replace('...', '')));
             }
-            if(match) { filtrados.push(d); limit++; }
+            if (match) { filtrados.push(d); limit++; }
         }
         this.aplicarFiltroVisual(filtrados, valorAmigavel);
     },
 
-    atualizarGrafico: function(dadosParaGrafico) {
+    atualizarGrafico: function (dadosParaGrafico) {
         const ctx = document.getElementById('graficoTopOfensores');
         if (!ctx) return;
         if (this.chartOfensores) this.chartOfensores.destroy();
@@ -235,7 +235,7 @@ MinhaArea.Comparativo = {
                 const codigoTecnico = this.getDocType(item);
                 chave = this.getFriendlyName(codigoTecnico);
             }
-            if(chave.length > 28) chave = chave.substring(0, 26) + '...';
+            if (chave.length > 28) chave = chave.substring(0, 26) + '...';
             agrupamento[chave] = (agrupamento[chave] || 0) + 1;
         }
 
@@ -246,35 +246,35 @@ MinhaArea.Comparativo = {
         this.renderizarGraficoOfensores(dadosGrafico);
     },
 
-    aplicarFiltroVisual: function(lista, nomeFiltro) {
+    aplicarFiltroVisual: function (lista, nomeFiltro) {
         const container = document.getElementById('feed-erros-container');
         this.renderizarFeed(lista, container);
         const btn = document.getElementById('btn-limpar-filtro');
-        if(btn) { btn.classList.remove('hidden'); btn.innerHTML = `<i class="fas fa-times text-rose-500"></i> Limpar: ${nomeFiltro}`; }
+        if (btn) { btn.classList.remove('hidden'); btn.innerHTML = `<i class="fas fa-times text-rose-500"></i> Limpar: ${nomeFiltro}`; }
     },
 
-    limparFiltro: function(renderizar = true) {
+    limparFiltro: function (renderizar = true) {
         const btn = document.getElementById('btn-limpar-filtro');
-        if(btn) btn.classList.add('hidden');
-        const inputBusca = document.querySelector('#ma-tab-comparativo input');
-        if(inputBusca) inputBusca.value = '';
+        if (btn) btn.classList.add('hidden');
+        const inputBusca = document.querySelector('#container-painel-assertividade input');
+        if (inputBusca) inputBusca.value = '';
         if (renderizar) this.mudarVisao(this.visaoAtual);
     },
 
-    renderizarFeed: function(lista, container) {
-        if(!container) return;
-        
+    renderizarFeed: function (lista, container) {
+        if (!container) return;
+
         const LIMITE_RENDER = 100;
         const totalItens = lista.length;
-        
+
         lista.sort((a, b) => new Date(b.data_referencia || 0) - new Date(a.data_referencia || 0));
         const itensVisiveis = lista.slice(0, LIMITE_RENDER);
-        
+
         if (totalItens === 0) {
             container.innerHTML = '<div class="text-center py-8 text-slate-400">Nenhum erro encontrado neste filtro.</div>';
             return;
         }
-        
+
         let html = '';
         if (totalItens > LIMITE_RENDER) {
             html += `<div class="bg-blue-50 text-blue-600 text-[10px] font-bold p-2 rounded mb-2 text-center border border-blue-100"><i class="fas fa-info-circle"></i> Exibindo os ${LIMITE_RENDER} erros mais recentes de um total de ${totalItens.toLocaleString()}.</div>`;
@@ -285,13 +285,13 @@ MinhaArea.Comparativo = {
             const nomeDocumentoOriginal = doc.doc_name || 'Sem Nome';
             const tipoTecnico = this.getDocType(doc);
             const subtitulo = this.getFriendlyName(tipoTecnico);
-            const empresa = doc.empresa_nome || ''; 
+            const empresa = doc.empresa_nome || '';
             const obs = doc.observacao || 'Sem observação.';
             const isNdf = this.isNDF(doc);
-            
+
             // --- NOVO: ID PPC ---
             const idPPC = doc.id_ppc || '-';
-            
+
             let badgeClass = 'bg-rose-50 text-rose-600';
             let badgeText = 'NOK';
             let borderClass = 'border-l-rose-500';
@@ -328,17 +328,17 @@ MinhaArea.Comparativo = {
         container.innerHTML = html;
     },
 
-    renderizarGraficoOfensores: function(dados) {
+    renderizarGraficoOfensores: function (dados) {
         const ctx = document.getElementById('graficoTopOfensores');
         if (!ctx) return;
         if (this.chartOfensores) this.chartOfensores.destroy();
-        
+
         const labels = dados.map(d => d[0]);
         const values = dados.map(d => d[1]);
         const _this = this;
-        let barColor = '#f43f5e'; 
-        if (this.visaoAtual === 'empresa') barColor = '#3b82f6'; 
-        if (this.visaoAtual === 'ndf') barColor = '#d97706'; 
+        let barColor = '#f43f5e';
+        if (this.visaoAtual === 'empresa') barColor = '#3b82f6';
+        if (this.visaoAtual === 'ndf') barColor = '#d97706';
 
         this.chartOfensores = new Chart(ctx, {
             type: 'bar',
@@ -352,16 +352,16 @@ MinhaArea.Comparativo = {
         });
     },
 
-    renderizarVazio: function(container) {
+    renderizarVazio: function (container) {
         container.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-center p-8"><div class="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4 text-emerald-500"><i class="fas fa-trophy text-3xl"></i></div><h3 class="text-lg font-bold text-slate-700">Parabéns!</h3><p class="text-sm text-slate-500">Nenhum erro encontrado nos registros auditados.</p></div>';
     },
 
-    renderizarGraficoVazio: function() {
+    renderizarGraficoVazio: function () {
         const ctx = document.getElementById('graficoTopOfensores');
         if (ctx && this.chartOfensores) this.chartOfensores.destroy();
     },
 
-    buscarTudoPaginado: async function(uid, inicio, fim) {
+    buscarTudoPaginado: async function (uid, inicio, fim) {
         let queryCount = Sistema.supabase.from('assertividade').select('*', { count: 'exact', head: true }).gte('data_referencia', inicio).lte('data_referencia', fim).neq('auditora_nome', null);
         if (uid) queryCount = queryCount.eq('usuario_id', uid);
         const { count, error: errCount } = await queryCount;
@@ -373,7 +373,7 @@ MinhaArea.Comparativo = {
         const promises = [];
         // ADICIONADO: id_ppc na query
         const colunas = 'id, id_ppc, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok';
-        const MAX_PAGES = 300; 
+        const MAX_PAGES = 300;
         const pagesToFetch = Math.min(totalPages, MAX_PAGES);
 
         for (let i = 0; i < pagesToFetch; i++) {

@@ -49,23 +49,116 @@ MinhaArea.Metas = {
         this.carregar();
     },
 
+    // [MERGE v4.39] HTML Template for Assertividade Dashboard (Moved from minha_area.html)
+    HTML_ASSERTIVIDADE: `
+        <div class="flex flex-col lg:flex-row gap-6 h-full">
+            <div class="w-full lg:w-1/3 flex flex-col gap-4 h-full">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-chart-bar text-rose-500"></i> Onde estou errando?</h3>
+                            <p class="text-xs text-slate-400">Clique na barra para filtrar.</p>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            <div class="flex bg-slate-100 rounded-lg p-1">
+                                <button onclick="MinhaArea.Comparativo.mudarVisao('doc')" id="btn-view-doc" class="px-3 py-1 text-[10px] font-bold rounded bg-white text-rose-600 shadow-sm transition">Docs</button>
+                                <button onclick="MinhaArea.Comparativo.mudarVisao('empresa')" id="btn-view-empresa" class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">Empresas</button>
+                                <button onclick="MinhaArea.Comparativo.mudarVisao('ndf')" id="btn-view-ndf" class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">NDF</button>
+                            </div>
+                            <button id="btn-ver-todos" onclick="MinhaArea.Comparativo.toggleMostrarTodos()" class="text-[10px] font-bold text-blue-500 hover:underline">Ver Todos</button>
+                        </div>
+                    </div>
+                    <div class="flex-1 w-full relative min-h-[200px]"><canvas id="graficoTopOfensores"></canvas></div>
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">Visão Geral</h3>
+                            <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
+                                <span class="text-[10px] font-bold text-slate-600">Total Auditados</span><span id="card-total-auditados" class="text-xs font-black text-blue-600">--</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
+                                <span class="text-[10px] font-bold text-slate-600">Total de Acertos</span><span id="card-total-acertos" class="text-xs font-black text-emerald-600">--</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Total de Erros</span><span id="card-total-erros" class="text-xs font-black text-rose-600">--</span></div>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">Detalhamento</h3>
+                            <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
+                                <span class="text-[10px] font-bold text-slate-600">Erros Gupy</span><span id="card-erros-gupy" class="text-xs font-black text-rose-600">--</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Erros NDF</span><span id="card-erros-ndf" class="text-xs font-black text-amber-600">--</span></div>
+                            <div class="flex justify-between items-center pl-2 mt-0.5"><span class="text-[9px] font-bold text-amber-500/80 flex items-center gap-1"><i class="fas fa-level-up-alt rotate-90 text-[8px]"></i> Empresa Valida</span><span id="card-empresa-validar" class="text-[10px] font-bold text-amber-500">--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="w-full lg:w-2/3 flex flex-col h-full"> 
+                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden relative">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center z-10 relative">
+                        <div>
+                            <h3 class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-exclamation-triangle text-amber-500"></i> Feed de Atenção</h3>
+                            <p class="text-xs text-slate-500">Documentos reprovados (NOK).</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="relative"><input type="text" placeholder="Buscar..." onkeyup="MinhaArea.Comparativo.filtrarPorBusca(this.value)" class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-blue-500 w-40 transition"><i class="fas fa-search absolute left-2.5 top-2 text-slate-400 text-xs"></i></div>
+                            <button id="btn-limpar-filtro" onclick="MinhaArea.Comparativo.limparFiltro()" class="hidden px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition flex items-center gap-2"><i class="fas fa-times text-rose-500"></i> Limpar</button>
+                        </div>
+                    </div>
+                    <div id="feed-erros-container" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50">
+                        <div class="text-center py-12 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Carregando feed de erros...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `,
+
     mudarSubAba: function (modo) {
         this.activeSubTab = modo;
         const btnProd = document.getElementById('btn-sub-prod');
         const btnAssert = document.getElementById('btn-sub-assert');
+        const btnDash = document.getElementById('btn-sub-dash');
 
         const styleActive = "px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm bg-blue-600 text-white transition flex items-center gap-2";
         const styleActiveAssert = "px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm bg-emerald-600 text-white transition flex items-center gap-2";
+        const styleActiveDash = "px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm bg-indigo-600 text-white transition flex items-center gap-2";
         const styleInactive = "px-4 py-1.5 text-xs font-bold rounded-lg hover:bg-slate-100 text-slate-500 transition flex items-center gap-2";
+
+        // Reset all
+        if (btnProd) btnProd.className = styleInactive;
+        if (btnAssert) btnAssert.className = styleInactive;
+        if (btnDash) btnDash.className = styleInactive;
 
         if (modo === 'PROD') {
             if (btnProd) btnProd.className = styleActive;
-            if (btnAssert) btnAssert.className = styleInactive;
-        } else {
-            if (btnProd) btnProd.className = styleInactive;
+            this.toggleContainerPrincipal(true);
+            this.reordenarEExibir();
+        } else if (modo === 'ASSERT') {
             if (btnAssert) btnAssert.className = styleActiveAssert;
+            this.toggleContainerPrincipal(true);
+            this.reordenarEExibir();
+        } else if (modo === 'DASH') {
+            if (btnDash) btnDash.className = styleActiveDash;
+            this.toggleContainerPrincipal(false); // Hide Grid
+            this.carregarDashboardAssertividade();
         }
-        this.reordenarEExibir();
+    },
+
+    toggleContainerPrincipal: function (mostrarGrid) {
+        const gridContainer = document.getElementById('metas-grid-container-inner');
+        const dashContainer = document.getElementById('container-painel-assertividade');
+
+        if (mostrarGrid) {
+            if (gridContainer) gridContainer.classList.remove('hidden');
+            if (dashContainer) dashContainer.classList.add('hidden');
+        } else {
+            if (gridContainer) gridContainer.classList.add('hidden');
+            if (dashContainer) dashContainer.classList.remove('hidden');
+        }
+    },
+
+    carregarDashboardAssertividade: function () {
+        if (MinhaArea.Comparativo && typeof MinhaArea.Comparativo.carregar === 'function') {
+            MinhaArea.Comparativo.carregar();
+        }
     },
 
     reordenarEExibir: function () {
@@ -91,13 +184,13 @@ MinhaArea.Metas = {
         const containerPrincipal = document.getElementById('ma-tab-metas');
         if (!containerPrincipal) return;
 
-        if (!document.getElementById('metas-grid-container')) {
+        if (!document.getElementById('metas-wrapper')) {
             const conteudoTabela = containerPrincipal.innerHTML;
             containerPrincipal.innerHTML = '';
 
-            const divGrid = document.createElement('div');
-            divGrid.id = 'metas-grid-container';
-            divGrid.className = 'animate-enter flex flex-col h-full';
+            const wrapper = document.createElement('div');
+            wrapper.id = 'metas-wrapper';
+            wrapper.className = 'flex flex-col h-full';
 
             const navHTML = `
                 <div class="flex items-center justify-between mb-4 px-1">
@@ -108,6 +201,9 @@ MinhaArea.Metas = {
                         <button onclick="MinhaArea.Metas.mudarSubAba('ASSERT')" id="btn-sub-assert" class="px-4 py-1.5 text-xs font-bold rounded-lg hover:bg-slate-100 text-slate-500 transition flex items-center gap-2">
                             <i class="fas fa-check-circle"></i> Qualidade
                         </button>
+                         <button onclick="MinhaArea.Metas.mudarSubAba('DASH')" id="btn-sub-dash" class="px-4 py-1.5 text-xs font-bold rounded-lg hover:bg-slate-100 text-slate-500 transition flex items-center gap-2">
+                            <i class="fas fa-chart-pie"></i> Assertividade
+                        </button>
                     </div>
                     <div class="text-[10px] text-slate-400 font-medium italic">
                         * Dados sincronizados com Dia a Dia
@@ -115,7 +211,28 @@ MinhaArea.Metas = {
                 </div>
             `;
 
-            divGrid.innerHTML = navHTML + '<div class="flex-1 overflow-hidden flex flex-col relative">' + conteudoTabela + '</div>';
+            // Grid Container
+            const divGridInner = document.createElement('div');
+            divGridInner.id = 'metas-grid-container-inner';
+            divGridInner.className = 'flex-1 overflow-hidden flex flex-col relative animate-enter';
+            divGridInner.innerHTML = conteudoTabela;
+
+            // Dashboard Container
+            const divDash = document.createElement('div');
+            divDash.id = 'container-painel-assertividade';
+            divDash.className = 'hidden flex-1 overflow-hidden animate-enter';
+            divDash.innerHTML = this.HTML_ASSERTIVIDADE;
+
+            // Container for everything
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'flex-1 overflow-hidden relative';
+            contentContainer.appendChild(divGridInner);
+            contentContainer.appendChild(divDash);
+
+            wrapper.innerHTML = navHTML;
+            wrapper.appendChild(contentContainer);
+
+            containerPrincipal.appendChild(wrapper);
 
             const divDetail = document.createElement('div');
             divDetail.id = 'metas-detail-container';
@@ -149,15 +266,20 @@ MinhaArea.Metas = {
                          </div>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div id="detalhe-content" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"></div>
+            `;
+            containerPrincipal.appendChild(divDetail);
+        }
+    },
+                < div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200" >
                     <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-blue-500"></i> Evolução Diária de Produção</h3>
                     <div class="h-[300px] w-full relative"><canvas id="canvas-detail-prod"></canvas></div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500"></i> Qualidade e Assertividade</h3>
-                    <div class="h-[200px] w-full relative"><canvas id="canvas-detail-assert"></canvas></div>
-                </div>
-            `;
+                </div >
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500"></i> Qualidade e Assertividade</h3>
+        <div class="h-[200px] w-full relative"><canvas id="canvas-detail-assert"></canvas></div>
+    </div>
+`;
 
             containerPrincipal.appendChild(divGrid);
             containerPrincipal.appendChild(divDetail);
@@ -227,7 +349,7 @@ MinhaArea.Metas = {
             let paramsUsers = [];
 
             if (!isAdmin && myId) {
-                sqlUsers += ` AND id = ?`;
+                sqlUsers += ` AND id = ? `;
                 paramsUsers.push(myId);
             }
 
@@ -278,21 +400,21 @@ MinhaArea.Metas = {
             let sqlProd, paramsProd;
             if (isManagerEffective) {
                 console.log("🔍 [v4.38] Modo GESTÃO Ativo: Buscando Global (Produtividade Logic)");
-                sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?`;
+                sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ? `;
                 paramsProd = [inicio, fim];
             } else {
-                sqlProd = `SELECT * FROM producao WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
+                sqlProd = `SELECT * FROM producao WHERE usuario_id IN(${ placeholders }) AND data_referencia >= ? AND data_referencia <= ? `;
                 paramsProd = [...userIds, inicio, fim];
             }
 
             // Query Assertividade
-            const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
+            const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN(${ placeholders }) AND data_referencia >= ? AND data_referencia <= ? `;
             const paramsAssert = [...userIds, inicio, fim];
 
             // Query Metas
             const anoInicio = new Date(inicio).getFullYear();
             const anoFim = new Date(fim).getFullYear();
-            const sqlMetas = `SELECT * FROM metas WHERE usuario_id IN (${placeholders}) AND ano >= ? AND ano <= ?`;
+            const sqlMetas = `SELECT * FROM metas WHERE usuario_id IN(${ placeholders }) AND ano >= ? AND ano <= ? `;
             const paramsMetas = [...userIds, anoInicio, anoFim];
 
             const [dadosProd, dadosAssert, dadosMetas] = await Promise.all([
@@ -358,7 +480,7 @@ MinhaArea.Metas = {
             }
 
             const mapMetas = {};
-            (dadosMetas || []).forEach(m => { mapMetas[`${m.usuario_id}-${m.ano}-${m.mes}`] = { p: m.meta_producao || 100, a: m.meta_assertividade || 97 }; });
+            (dadosMetas || []).forEach(m => { mapMetas[`${ m.usuario_id } -${ m.ano } -${ m.mes } `] = { p: m.meta_producao || 100, a: m.meta_assertividade || 97 }; });
 
             // 1. PRODUÇÃO
             (dadosProd || []).forEach(reg => {
@@ -369,7 +491,7 @@ MinhaArea.Metas = {
                     const qtd = Number(reg.quantidade || 0);
                     const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
                     const d = new Date(reg.data_referencia + 'T12:00:00');
-                    const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
+                    const mKey = `${ reg.usuario_id } -${ d.getFullYear() } -${ d.getMonth() + 1 } `;
                     const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 100;
 
                     if (qtd > 0) {
@@ -454,13 +576,13 @@ MinhaArea.Metas = {
 
             const elPeriodo = document.getElementById('metas-periodo-label');
             const elTotal = document.getElementById('metas-total-users');
-            if (elPeriodo) elPeriodo.innerText = `Período: ${new Date(inicio).toLocaleDateString('pt-BR')} a ${new Date(fim).toLocaleDateString('pt-BR')}`;
-            if (elTotal) elTotal.innerText = `${assistentes.length} Assistentes no Ranking (${this.currentFilterContract})`;
+            if (elPeriodo) elPeriodo.innerText = `Período: ${ new Date(inicio).toLocaleDateString('pt-BR') } a ${ new Date(fim).toLocaleDateString('pt-BR') } `;
+            if (elTotal) elTotal.innerText = `${ assistentes.length } Assistentes no Ranking(${ this.currentFilterContract })`;
 
         } catch (err) {
             console.error("❌ ERRO MATRIZ:", err);
             const tbody = document.getElementById('grade-equipe-body');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="100" class="p-8 text-center text-rose-500 font-bold">Erro: ${err.message}</td></tr>`;
+            if (tbody) tbody.innerHTML = `< tr > <td colspan="100" class="p-8 text-center text-rose-500 font-bold">Erro: ${err.message}</td></tr > `;
         } finally {
             this.toggleLoading(false);
             this.isLocked = false;
@@ -549,26 +671,26 @@ MinhaArea.Metas = {
         const subLabel = isAssert ? '% Assertividade' : (this.isMacroView ? 'Média/Mês' : 'Média/Dia');
         const bgHeader = isAssert ? 'bg-emerald-50' : 'bg-slate-100';
 
-        let htmlHeader = `<th class="px-4 py-3 ${bgHeader} border-b border-r border-slate-300 min-w-[200px] sticky left-0 top-0 z-[60] text-left text-slate-700 shadow-md">
-            <div class="flex flex-col gap-1">
-                <div class="flex items-center justify-between">
-                    <span>${isAssert ? 'RANKING (QUALIDADE)' : 'RANKING (VELOCIDADE)'}</span>
-                    <select onchange="MinhaArea.Metas.mudarFiltroContrato(this.value)" class="text-[10px] font-bold text-slate-600 bg-white border border-slate-300 rounded px-1 py-0.5 cursor-pointer">
-                        <option value="TODOS" ${this.currentFilterContract === 'TODOS' ? 'selected' : ''}>Todos</option>
-                        <option value="CLT" ${this.currentFilterContract === 'CLT' ? 'selected' : ''}>CLT</option>
-                        <option value="PJ" ${this.currentFilterContract === 'PJ' ? 'selected' : ''}>PJ</option>
-                    </select>
-                </div>
-                <span class="text-[9px] text-slate-400 font-normal">${subLabel}</span>
-            </div>
-        </th>`;
+        let htmlHeader = `< th class="px-4 py-3 ${bgHeader} border-b border-r border-slate-300 min-w-[200px] sticky left-0 top-0 z-[60] text-left text-slate-700 shadow-md" >
+    <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+            <span>${isAssert ? 'RANKING (QUALIDADE)' : 'RANKING (VELOCIDADE)'}</span>
+            <select onchange="MinhaArea.Metas.mudarFiltroContrato(this.value)" class="text-[10px] font-bold text-slate-600 bg-white border border-slate-300 rounded px-1 py-0.5 cursor-pointer">
+                <option value="TODOS" ${this.currentFilterContract === 'TODOS' ? 'selected' : ''}>Todos</option>
+                <option value="CLT" ${this.currentFilterContract === 'CLT' ? 'selected' : ''}>CLT</option>
+                <option value="PJ" ${this.currentFilterContract === 'PJ' ? 'selected' : ''}>PJ</option>
+            </select>
+        </div>
+        <span class="text-[9px] text-slate-400 font-normal">${subLabel}</span>
+    </div>
+        </th > `;
 
         const corAcum = isAssert ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-blue-50 text-blue-800 border-blue-200';
-        htmlHeader += `<th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">PROD. TOTAL</th>`;
-        htmlHeader += `<th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title="Média das Médias do Período">ACUMULADO</th>`;
+        htmlHeader += `< th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40" > PROD.TOTAL</th > `;
+        htmlHeader += `< th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title = "Média das Médias do Período" > ACUMULADO</th > `;
 
         this.cacheColunas.forEach(col => {
-            htmlHeader += `<th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">${col.label}</th>`;
+            htmlHeader += `< th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40" > ${ col.label }</th > `;
         });
         thead.innerHTML = htmlHeader;
 
@@ -585,16 +707,16 @@ MinhaArea.Metas = {
 
             if (isAssert) {
                 // [ALIGNMENT v4.34] Use new counters for display
-                if (stats.qtd_auditorias > 0) cellTotal = `<span class="font-bold text-slate-600">${stats.qtd_auditorias}</span>`;
+                if (stats.qtd_auditorias > 0) cellTotal = `< span class="font-bold text-slate-600" > ${ stats.qtd_auditorias }</span > `;
 
                 const assertGeral = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
 
                 if (stats.qtd_auditorias > 0) {
                     const corVal = assertGeral >= 97 ? 'text-emerald-700' : 'text-rose-600';
-                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${assertGeral.toFixed(1)}%</div>`;
+                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${ assertGeral.toFixed(1) }%</div > `;
                 }
             } else {
-                if (stats.prod > 0) cellTotal = `<span class="font-bold text-slate-700">${stats.prod.toLocaleString('pt-BR')}</span>`;
+                if (stats.prod > 0) cellTotal = `< span class="font-bold text-slate-700" > ${ stats.prod.toLocaleString('pt-BR') }</span > `;
 
                 // LÓGICA DE MÉDIA ACUMULADA: MÉDIA DAS MÉDIAS (MACRO)
                 const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
@@ -607,12 +729,12 @@ MinhaArea.Metas = {
                 if (stats.prod > 0) {
                     const corVal = avgVel >= avgMeta ? 'text-blue-700' : 'text-rose-700';
                     const corBadge = avgPct >= 100 ? 'bg-blue-200 text-blue-800' : 'bg-rose-100 text-rose-700 border border-rose-200';
-                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${avgVel.toLocaleString('pt-BR')}</div>
-                                 <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(0)}%</span></div>`;
+                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${ avgVel.toLocaleString('pt-BR') }</div >
+    <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(0)}%</span></div>`;
                 }
             }
 
-            htmlBody += `<tr class="hover:bg-slate-50 transition-colors group">
+            htmlBody += `< tr class="hover:bg-slate-50 transition-colors group" >
                 <td class="px-4 py-3 border-b border-r border-slate-300 sticky left-0 bg-white group-hover:bg-slate-50 z-50">
                     <button onclick="MinhaArea.Metas.abrirDetalhe('${u.id}')" class="text-left w-full hover:text-blue-600 font-bold text-slate-700 text-xs transition flex items-center justify-between">
                         <span class="truncate">${pos}. ${u.nome.split(' ')[0]} ${medalha}</span>
@@ -630,22 +752,22 @@ MinhaArea.Metas = {
                 if (isAssert) {
                     if (dados && dados.total > 0 && dados.assert !== null) {
                         const batido = (dados.assert * 100) >= (dados.metaAssert);
-                        cellHtml = `<div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold">${(dados.assert * 100).toFixed(0)}%</div>`;
+                        cellHtml = `< div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold" > ${ (dados.assert * 100).toFixed(0) }%</div > `;
                     }
                 } else {
                     if (dados && dados.velocidade > 0) {
                         const batido = dados.velocidade >= dados.metaProd;
-                        cellHtml = `<div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold">${dados.velocidade}</div>`;
+                        cellHtml = `< div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold" > ${ dados.velocidade }</div > `;
                         if (dados.metaProd > 0) {
                             const pct = (dados.velocidade / dados.metaProd) * 100;
                             const corBadge = pct >= 100 ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 border border-rose-200';
-                            subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(0)}%</span></div>`;
+                            subHtml = `< div class="mt-1" > <span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(0)}%</span></div > `;
                         }
                     }
                 }
-                htmlBody += `<td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12">${cellHtml}${subHtml}</td>`;
+                htmlBody += `< td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12" > ${ cellHtml }${ subHtml }</td > `;
             });
-            htmlBody += `</tr>`;
+            htmlBody += `</tr > `;
         });
         tbody.innerHTML = htmlBody;
     },
@@ -734,7 +856,7 @@ MinhaArea.Metas = {
     },
 
     popularSelectsManual: function () {
-        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `< option value = "${u.id}" > ${ u.nome }</option > `).join('');
         ['comp-sel-1', 'comp-sel-2', 'comp-sel-3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 
