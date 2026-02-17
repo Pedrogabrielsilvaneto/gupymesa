@@ -248,9 +248,10 @@ Gestao.Metas = {
         const funcaoBadge = { GESTAO: 'bg-purple-50 text-purple-600', AUDITORIA: 'bg-amber-50 text-amber-600', ASSISTENTE: '' };
 
         tbody.innerHTML = this.state.listaVisivel.map(u => {
-            const isInactive = !u.ativo;
+            const isGestao = u.categFuncao === 'GESTAO';
             let rowClass = 'hover:bg-slate-50/50';
             if (isInactive) rowClass = 'opacity-40';
+            else if (isGestao) rowClass = 'bg-blue-50/10 hover:bg-blue-50/30'; // Highlight gestora row
 
             const badge = funcaoBadge[u.categFuncao] || '';
             const badgeLabel = u.categFuncao === 'GESTAO' ? 'Gestão' : u.categFuncao === 'AUDITORIA' ? 'Auditoria' : '';
@@ -258,7 +259,7 @@ Gestao.Metas = {
             return `
             <tr class="border-b border-slate-100/80 transition ${rowClass}" id="row-${u.id}">
                 <td class="px-6 py-2.5 text-center">
-                    <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500 text-[10px] font-bold">
+                    <div class="w-7 h-7 rounded-full ${isGestao ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'} flex items-center justify-center mx-auto text-[10px] font-bold">
                         ${u.nome.charAt(0)}
                     </div>
                 </td>
@@ -324,10 +325,13 @@ Gestao.Metas = {
             const u = this.state.listaCompleta.find(x => x.id === uid);
             const valProd = document.getElementById(`prod-${uid}`)?.value;
             const valAssert = document.getElementById(`assert-${uid}`)?.value;
-            if (u && valProd && valAssert) {
+
+            // [FIX v4.27] Relaxed validation: Allow saving if at least one field is provided
+            if (u && (valProd !== "" || valAssert !== "")) {
                 upserts.push({
                     usuario_id: uid, mes: this.state.mes, ano: this.state.ano,
-                    meta_producao: parseInt(valProd), meta_assertividade: parseFloat(valAssert.replace(',', '.'))
+                    meta_producao: valProd !== "" ? parseInt(valProd) : null,
+                    meta_assertividade: valAssert !== "" ? parseFloat(valAssert.replace(',', '.')) : null
                 });
             }
         });
