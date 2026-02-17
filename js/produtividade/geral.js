@@ -360,14 +360,19 @@ Produtividade.Geral = {
         let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
 
-        // 2. Filtra Staff
-        let listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+        // 2. Filtra Staff Base (Contrato, Nome)
+        let listaBase = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
 
-        // 3. Filtro Função/Produção
+        // 3. Filtro de Produção > 0 (Para listas de Soma)
+        // Lista Full = Inclui Auditores/Gestores/Coord (Para Soma de Produção)
+        let listaParaSomaProducao = listaBase.filter(item => item.producao > 0);
+
+        // 4. Filtro de Gestão (Para Grid e Soma de Assertividade)
+        // Lista Grid = Apenas Assistentes (Para visualização e Média Assertividade)
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
-        listaExibicao = listaExibicao.filter(item => {
+        let listaParaGrid = listaParaSomaProducao.filter(item => {
             const u = this.state.mapaUsuarios[item.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
@@ -377,24 +382,44 @@ Produtividade.Geral = {
                 const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
                 if (ehGestao) return false;
             }
-
-            return item.producao > 0;
+            return true;
         });
 
-        // 4. Agrega Staff na Gestora
+        // 5. Agrega Staff na Gestora
         if (gestoraItem) {
+            // Preserva valores originais da gestora (Cache) para evitar acumulo infinito no re-render
+            if (gestoraItem._ownProd === undefined) gestoraItem._ownProd = gestoraItem.producao || 0;
+            if (gestoraItem._ownFifo === undefined) gestoraItem._ownFifo = gestoraItem.fifo || 0;
+            if (gestoraItem._ownGt === undefined) gestoraItem._ownGt = gestoraItem.gt || 0;
+            if (gestoraItem._ownGp === undefined) gestoraItem._ownGp = gestoraItem.gp || 0;
+            if (gestoraItem._ownQtdAssert === undefined) gestoraItem._ownQtdAssert = gestoraItem.qtd_assert || 0;
+            if (gestoraItem._ownMedia === undefined) gestoraItem._ownMedia = gestoraItem.media_final || 0;
+
             let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
-            listaExibicao.forEach(i => {
+
+            // A) Produção: Soma TODOS (Assistentes + Auditores + Própria Gestora)
+            // Soma da lista completa filtrada por produção
+            listaParaSomaProducao.forEach(i => {
                 soma.prod += i.producao;
                 soma.fifo += i.fifo;
                 soma.gt += i.gt;
                 soma.gp += i.gp;
+            });
+            // Adiciona produção própria da gestora
+            soma.prod += gestoraItem._ownProd;
+            soma.fifo += gestoraItem._ownFifo;
+            soma.gt += gestoraItem._ownGt;
+            soma.gp += gestoraItem._ownGp;
+
+            // B) Assertividade: Soma APENAS Grid (Assistentes)
+            listaParaGrid.forEach(i => {
                 soma.qtd_assert += i.qtd_assert;
                 if (i.media_final > 0) {
                     soma.soma_media += (i.media_final * i.qtd_assert);
                     soma.count_assert += i.qtd_assert;
                 }
             });
+            // NOTA: Assertividade própria da gestora NÃO entra na média ("somente na média que não conta")
 
             gestoraItem.producao = soma.prod;
             gestoraItem.fifo = soma.fifo;
@@ -408,15 +433,19 @@ Produtividade.Geral = {
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
             const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
-            // Garante Meta Base da Gestora (caso tenha vindo zerada do loop inicial)
+            // Garante Meta Base da Gestora
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(gestoraItem.uid));
             gestoraItem.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 650) : 650);
 
             gestoraItem.meta_real_calculada = Math.round(gestoraItem.meta_base_diaria * HC * (isPeriodo ? diasUteisPeriodo : 1.0));
             gestoraItem.justificativa = `Equipe Filtrada (HC: ${HC})`;
 
-            listaExibicao.unshift(gestoraItem);
+            // Reinsere a Gestora no topo da lista final
+            listaParaGrid.unshift(gestoraItem);
         }
+
+        // Define a lista final de exibição
+        const listaExibicao = listaParaGrid;
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
