@@ -350,7 +350,7 @@ MinhaArea.Geral = {
 
             return `
                 <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs">
-                    <td class="px-3 py-2 font-bold text-slate-700">${new Date(d.data_referencia + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                    <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data_referencia)}</td>
                     <td class="px-2 py-2 text-center text-slate-500">${metaBase}</td>
                     <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
                     <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${d.quantidade || 0}</td>
@@ -529,7 +529,7 @@ MinhaArea.Geral = {
             // Vamos simplificar: mostrar apenas produção total
             return `
                 <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs bg-purple-50/10">
-                    <td class="px-3 py-2 font-bold text-slate-700">${new Date(d.data + 'T12:00:00').toLocaleDateString('pt-BR')} (Equipe)</td>
+                    <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data)} (Equipe)</td>
                     <td class="px-2 py-2 text-center text-slate-500">-</td>
                     <td class="px-2 py-2 text-center text-slate-400">-</td>
                     <td class="px-2 py-2 text-center text-slate-400">-</td>
@@ -601,17 +601,31 @@ MinhaArea.Geral = {
         const elGestao = document.getElementById('obs-gestao-view');
         const elAssistente = document.getElementById('obs-assistente-text');
         const modal = document.getElementById('modal-obs-assistente');
-        if (elData) elData.innerText = new Date(dataRef + 'T12:00:00').toLocaleDateString('pt-BR');
+
+        if (elData) elData.innerText = this.formatarDataSegura(dataRef);
         const justGestao = dadoDia ? dadoDia.justificativa : '';
         const fator = dadoDia ? parseFloat(dadoDia.fator) : 1.0;
-        let htmlGestao = '<span class="text-slate-400 italic text-xs">Nenhuma observação da gestão.</span>';
-        if (justGestao) {
-            htmlGestao = `<span class="text-slate-700 font-medium">${justGestao}</span>`;
-            if (fator < 1.0) htmlGestao += `<div class="mt-1"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">Dia Abonado (Fator ${fator})</span></div>`;
+        if (elGestao) {
+            elGestao.innerHTML = justGestao
+                ? `<div class="bg-amber-50 border border-amber-200 p-2 rounded text-xs text-amber-800 mb-2"><strong>[Gestão]:</strong> ${justGestao}</div>`
+                : '<div class="text-xs text-slate-400 mb-2 italic">Nenhuma observação da gestão.</div>';
         }
-        if (elGestao) elGestao.innerHTML = htmlGestao;
-        if (elAssistente) elAssistente.value = (dadoDia ? dadoDia.observacao_assistente : '') || '';
+        if (elAssistente) elAssistente.value = dadoDia ? (dadoDia.observacao_assistente || '') : '';
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
+    },
+
+    formatarDataSegura: function (dataRaw) {
+        if (!dataRaw) return '-';
+        // Se já for DD/MM/YYYY
+        if (dataRaw.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dataRaw;
+
+        // Tenta processar YYYY-MM-DD
+        const partes = dataRaw.split('T')[0].split('-');
+        if (partes.length === 3) {
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        return dataRaw; // Fallback
     },
 
     fecharModalObs: function () {
