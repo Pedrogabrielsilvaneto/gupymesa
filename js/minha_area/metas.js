@@ -205,20 +205,24 @@ MinhaArea.Metas = {
             const diffDias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24);
             this.isMacroView = diffDias > 45;
 
+            // [FIX v4.38] Robust Manager Check & Decoupled Global Query
             const uLogado = MinhaArea.usuario || {};
-            const pLogado = (uLogado.perfil || '').toUpperCase();
-            const fLogado = (uLogado.funcao || '').toUpperCase();
-            const termosGestao = ['GESTOR', 'AUDITOR', 'ADMIN', 'LIDER', 'COORDENADOR', 'GERENTE', 'SUPERVISOR'];
-            const isManager = termosGestao.some(t => pLogado.includes(t) || fLogado.includes(t)) || MinhaArea.isAdmin();
+            const pLogado = (uLogado.perfil || '').toLowerCase();
+            const fLogado = (uLogado.funcao || '').toLowerCase();
+            const uidLogado = parseInt(uLogado.id);
 
-            const isAdmin = isManager;
-            console.log("🔍 [DEBUG] User:", uLogado.nome, "Perfil:", pLogado, "Funcao:", fLogado, "IsUniqueManager:", isManager);
+            // Matches Produtividade.ehGestao logic + extra minhare-area keywords
+            const isManagerEffective = pLogado === 'admin' || pLogado === 'administrador' ||
+                fLogado.includes('gestor') || fLogado.includes('auditor') ||
+                fLogado.includes('lider') || fLogado.includes('coordenador') ||
+                fLogado.includes('head') || fLogado.includes('diretor') ||
+                uidLogado === 1 || MinhaArea.isAdmin();
 
+            const isAdmin = isManagerEffective;
             const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
             const filtroContrato = this.currentFilterContract;
 
             // 1. Buscar Usuários via SQL
-            // [FIX v4.33] Corrected column name 'modelo_contrato' to 'contrato'
             let sqlUsers = `SELECT id, nome, perfil, funcao, contrato FROM usuarios WHERE ativo = TRUE`;
             let paramsUsers = [];
 
@@ -244,9 +248,6 @@ MinhaArea.Metas = {
             const assistentes = allActiveUsers.filter(u => {
                 if (!isAdmin) return true;
 
-                // Only show Operation/Assistants in the ranking by default unless they have production
-                // Wait, if we want to sync volume, we should query everyone.
-
                 if (filtroContrato !== 'TODOS') {
                     const userContrato = (u.contrato || 'CLT').trim().toUpperCase();
                     if (filtroContrato === 'PJ' && !userContrato.includes('PJ')) return false;
@@ -267,19 +268,19 @@ MinhaArea.Metas = {
                 return;
             }
 
-            // Preparar queries de dados (Produção, Assertividade, Metas)
+            // Preparar queries de dados
             const placeholders = this.gerarPlaceholders(userIds);
 
             // Query Produção
-            // [FIX v4.36.3] If Admin/Manager, fetch ALL production for the period to ensure Global Total matches Produtividade (234146)
-            // Otherwise, filter by specific user list
+            // [FIX v4.38] GLOBAL FETCH for Managers.
+            // If Manager: Fetch entire table (includes inactives/auditors) -> Matches Produtividade (234.146)
+            // If Individual: Fetch only their ID -> Matches filtered view
             let sqlProd, paramsProd;
-            if (isAdmin) {
-                console.log("🔍 [DEBUG] Modo ADMIN/GESTOR: Buscando produção TOTAL do período.");
+            if (isManagerEffective) {
+                console.log("🔍 [v4.38] Modo GESTÃO Ativo: Buscando Global (Produtividade Logic)");
                 sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?`;
                 paramsProd = [inicio, fim];
             } else {
-                console.log("🔍 [DEBUG] Modo INDIVIDUAL: Buscando produção apenas dos usuários listados.");
                 sqlProd = `SELECT * FROM producao WHERE usuario_id IN (${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`;
                 paramsProd = [...userIds, inicio, fim];
             }
@@ -289,8 +290,6 @@ MinhaArea.Metas = {
             const paramsAssert = [...userIds, inicio, fim];
 
             // Query Metas
-            // Nota: SQL TiDB/MySQL usa YEAR() para extrair ano, ou comparacao direta se 'ano' for INT
-            // Assumindo que 'ano' na tabela metas é INT (conforme código anterior parseInt(partes[0]))
             const anoInicio = new Date(inicio).getFullYear();
             const anoFim = new Date(fim).getFullYear();
             const sqlMetas = `SELECT * FROM metas WHERE usuario_id IN (${placeholders}) AND ano >= ? AND ano <= ?`;
