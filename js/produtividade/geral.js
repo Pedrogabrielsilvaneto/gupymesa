@@ -589,6 +589,12 @@ Produtividade.Geral = {
         // [FIX v4.36] Sum directly from raw production array to avoid missing filtered individuals (managers/auditors)
         let totalProd = this.state.dadosProducao.reduce((acc, p) => acc + (Number(p.quantidade) || 0), 0);
         let totalMeta = 0;
+        let somaPontosAssert = 0, totalDocsAssert = 0;
+        let somaMetaAssert = 0, countUsersMeta = 0;
+        let assistentesComProducao = new Set();
+        let datasComProducao = new Set();
+        let totalDiasUteis = this.getDiasUteisConfig();
+        let totalAbonoEquipe = 0;
 
         // Adiciona Meta da Gestora Explicitamente
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
