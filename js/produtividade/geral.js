@@ -339,9 +339,6 @@ Produtividade.Geral = {
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
 
             // Meta Padrão: 100 para Assistentes, 0 para Gestão (Auditores/Líderes/Gestora)
-            const u = this.state.mapaUsuarios[item.uid] || {};
-            const funcao = (u.funcao || '').toLowerCase();
-            const perfil = (u.perfil || '').toLowerCase();
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
             const defaultMeta = ehGestao ? 0 : 100;
