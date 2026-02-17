@@ -72,13 +72,13 @@ Produtividade.Consolidado = {
                 }
             }
 
-            // Fallback: se a gestora não definiu, conta assistentes ativos no banco
+            // Fallback: padrão fixo de 17
             if (!this.headcountConfig || this.headcountConfig <= 0) {
-                this.headcountConfig = this.contarAssistentesAtivos();
+                this.headcountConfig = 17;
             }
         } catch (e) {
             console.error("Erro carregando config_mes:", e);
-            this.headcountConfig = this.contarAssistentesAtivos();
+            this.headcountConfig = 17;
         }
     },
 

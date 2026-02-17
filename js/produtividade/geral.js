@@ -417,9 +417,7 @@ Produtividade.Geral = {
 
         const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
-        const totalAssistentesAtivosNoBanco = this.contarAssistentesElegiveis(filtroContrato, filtroFuncao);
-
-        let totalHeadcountDefinido = totalAssistentesAtivosNoBanco;
+        let totalHeadcountDefinido = 17; // Padrão fixo: 17 assistentes
 
         const config = this.state.configMes;
         if (config) {
@@ -433,11 +431,6 @@ Produtividade.Geral = {
             } else if (filtroContrato === 'todos' && filtroFuncao === 'todos' && (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) > 0) {
                 totalHeadcountDefinido = (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0));
             }
-        }
-
-        // Regra Especial: Se estiver sem filtros e sem configuração, assume 17 assistentes padrão
-        if (filtroContrato === 'todos' && filtroFuncao === 'todos' && (!config || (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) <= 0)) {
-            totalHeadcountDefinido = Math.max(17, totalAssistentesAtivosNoBanco);
         }
 
         const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
