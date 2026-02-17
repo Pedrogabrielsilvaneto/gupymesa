@@ -19,9 +19,16 @@ Gestao.ConfigMes = {
             )`;
             await Sistema.query(sql);
 
-            // Garantir que as colunas novas existam caso a tabela já tenha sido criada anteriormente
-            try { await Sistema.query("ALTER TABLE config_mes ADD COLUMN dias_uteis_clt INT AFTER dias_uteis"); } catch (e) { }
-            try { await Sistema.query("ALTER TABLE config_mes ADD COLUMN dias_uteis_terceiros INT AFTER dias_uteis_clt"); } catch (e) { }
+            // Garantir que as colunas novas existam caso a tabela já tenha sido criada anteriormente sem elas
+            const colunas = await Sistema.query("SHOW COLUMNS FROM config_mes");
+            const nomesColunas = colunas ? colunas.map(c => c.Field || c.column_name || '') : [];
+
+            if (!nomesColunas.includes('dias_uteis_clt')) {
+                try { await Sistema.query("ALTER TABLE config_mes ADD COLUMN dias_uteis_clt INT AFTER dias_uteis"); } catch (e) { }
+            }
+            if (!nomesColunas.includes('dias_uteis_terceiros')) {
+                try { await Sistema.query("ALTER TABLE config_mes ADD COLUMN dias_uteis_terceiros INT AFTER dias_uteis_clt"); } catch (e) { }
+            }
             console.log("📅 Gestão Config Mês: Tabela verificada.");
         } catch (e) {
             console.warn("Erro ao verificar tabela config_mes:", e);
