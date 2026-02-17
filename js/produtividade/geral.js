@@ -415,6 +415,12 @@ Produtividade.Geral = {
             const isAbonado = row.fator < 1.0;
             const isChecked = this.state.selecionados.has(String(row.uid));
 
+            // Estilo da linha: Gestora (Verde), Abonado (Amarelo), Selecionado (Azul)
+            let rowClass = 'hover:bg-slate-50';
+            if (row.isAggregatedManager) rowClass = 'bg-emerald-100 border-b-2 border-emerald-200';
+            else if (isAbonado) rowClass = 'bg-amber-50/40';
+            else if (isChecked) rowClass = 'bg-blue-50';
+
             let assertHtml = '<span class="text-slate-300">-</span>';
             if (mediaAssert !== null && row.qtd_assert > 0) {
                 const cor = mediaAssert >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
@@ -425,9 +431,9 @@ Produtividade.Geral = {
             }
 
             return `
-                <tr class="${isAbonado ? 'bg-amber-50/40' : (isChecked ? 'bg-blue-50' : 'hover:bg-slate-50')} border-b border-slate-200 text-xs transition-colors group">
-                    <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')"></td>
-                    <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500'}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
+                <tr class="${rowClass} border-b border-slate-200 text-xs transition-colors group">
+                    <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')" ${row.isAggregatedManager ? 'disabled' : ''}></td>
+                    <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : (row.isAggregatedManager ? 'hidden' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500')}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
                     <td class="px-3 py-3 w-[200px] truncate cursor-pointer group-hover:bg-white" onclick="Produtividade.Geral.abrirDetalhes('${row.uid}')" title="Clique para ver Análise Individual">
                         <div class="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
                             <i class="fas fa-search text-slate-300 group-hover:text-blue-500 text-[10px]"></i>
@@ -468,6 +474,8 @@ Produtividade.Geral = {
         let totalDiasUteis = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
         listaExibicao.forEach(i => {
+            if (i.isAggregatedManager) return; // Gestora não entra na soma global
+
             totalProd += i.producao;
             totalMeta += i.meta_real_calculada;
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
