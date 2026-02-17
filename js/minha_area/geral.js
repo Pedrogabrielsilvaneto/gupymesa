@@ -61,21 +61,23 @@ MinhaArea.Geral = {
         this.state.isMacro = (d2 - d1) / (1000 * 60 * 60 * 24) > 45;
 
         const uidAlvo = MinhaArea.getUsuarioAlvo();
+        // Se uidAlvo for 'EQUIPE', tratamos como null para cair na visão da Grade
+        const alvoReal = (uidAlvo === 'EQUIPE') ? null : uidAlvo;
         this.renderLoading();
 
         try {
             await this.buscarUsuarios();
 
             await Promise.all([
-                this.buscarProducao(filtro, uidAlvo),
-                this.buscarAssertividadeDiariaSQL(filtro, uidAlvo),
-                this.buscarMetas(filtro, uidAlvo)
+                this.buscarProducao(filtro, alvoReal),
+                this.buscarAssertividadeDiariaSQL(filtro, alvoReal),
+                this.buscarMetas(filtro, alvoReal)
             ]);
 
             await this.processarDadosUnificados();
 
-            if (uidAlvo) {
-                this.renderizarDiario(uidAlvo);
+            if (alvoReal) {
+                this.renderizarDiario(alvoReal);
             } else {
                 this.calcularKpisGlobal();
                 this.renderizarGradeEquipe();
@@ -92,7 +94,7 @@ MinhaArea.Geral = {
     buscarUsuarios: async function () {
         if (Object.keys(this.state.mapaUsuarios).length > 0) return;
         try {
-            const data = await Sistema.query('SELECT id, nome, perfil, funcao, ativo FROM usuarios');
+            const data = await Sistema.query('SELECT id, nome, perfil, funcao, contrato, ativo FROM usuarios');
             if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
         } catch (e) {
             console.error("Erro ao buscar usuários:", e);
@@ -169,22 +171,36 @@ MinhaArea.Geral = {
     processarDadosUnificados: async function () {
         const mapa = new Map();
 
-        let diasUteisPeriodo;
+        // Lógica de Dias Úteis Diferenciada (CLT vs Terc)
         const d1 = new Date(this.state.range.inicio + 'T12:00:00');
         const d2 = new Date(this.state.range.fim + 'T12:00:00');
 
-        // Verifica se é mês cheio (aprox) para usar config manual
-        // Ex: 2023-01-01 a 2023-01-31
-        const ultimoDia = new Date(d1.getFullYear(), d1.getMonth() + 1, 0).getDate();
-        const isFullMonth = (d1.getDate() === 1) && (d2.getDate() === ultimoDia) && (d1.getMonth() === d2.getMonth());
+        let configMes = null;
 
+        // Tenta carregar config se for mes cheio
+        if (this.state.range.inicio.endsWith('01') && this.state.range.fim === new Date(d1.getFullYear(), d1.getMonth() + 1, 0).toISOString().split('T')[0]) {
+            configMes = await Gestao.ConfigMes.obter(d1.getMonth() + 1, d1.getFullYear());
+        }
 
-        if (isFullMonth) {
-            diasUteisPeriodo = await Gestao.ConfigMes.getDiasUteisMes(d1.getMonth() + 1, d1.getFullYear());
-            const hcObj = await Gestao.ConfigMes.getHeadcount(d1.getMonth() + 1, d1.getFullYear());
-            this.state.headcountConfig = hcObj.total;
+        // Helper para Dias Uteis
+        const getDU = (contrato) => {
+            const diasCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            if (!configMes) return diasCal;
+
+            const vTerc = configMes.dias_uteis_terceiros || configMes.dias_uteis || diasCal;
+            if (contrato === 'TERCEIROS' || contrato === 'PJ') return vTerc;
+
+            const vClt = configMes.dias_uteis_clt || (vTerc - 1);
+            if (contrato === 'CLT') return vClt;
+
+            return vTerc; // Default
+        };
+
+        // Se tiver config, define headcount base (embora aqui usemos contagem real)
+        if (configMes) {
+            const hcTotal = Number(configMes.hc_clt || 0) + Number(configMes.hc_terceiros || 0);
+            this.state.headcountConfig = hcTotal > 0 ? hcTotal : 0;
         } else {
-            diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
             this.state.headcountConfig = null;
         }
 
@@ -248,7 +264,12 @@ MinhaArea.Geral = {
                 item.meta_velocidade_media = metaObj ? (metaObj.meta_producao || 100) : 100;
             }
 
-            const diasUteisLiquidos = Math.max(0, diasUteisPeriodo - item.soma_abono);
+            // Pega contrato do usuário
+            const uInfo = this.state.mapaUsuarios[item.uid];
+            const contratoUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
+            const diastUteisUser = getDU(contratoUser);
+
+            const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
             item.dias_uteis_liquidos = diasUteisLiquidos;
         }
@@ -268,10 +289,8 @@ MinhaArea.Geral = {
     },
 
     renderizarDiario: function (uid) {
-        if (this.ehGestao(uid)) {
-            this.renderizarDiarioGestor(uid);
-            return;
-        }
+        // Remove trava: Gestor pode ver seu diário individual se selecionado
+        // if (this.ehGestao(uid)) { this.renderizarDiarioGestor(uid); return; }
 
         if (this.state.headerOriginal && this.els.tabelaHeader) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
@@ -391,37 +410,27 @@ MinhaArea.Geral = {
             totalMeta = managerMeta;
         }
 
+        let kpiDivisor = countUsers;
+        let realUserCount = countUsers;
+
         // Ajuste Headcount Configurado
         if (this.state.headcountConfig && this.state.headcountConfig > 0) {
-            countUsers = this.state.headcountConfig;
-            // Recalcula meta total global baseada na capacidade teórica? 
-            // Meta = countUsers * meta_individual? 
-            // O usuário pediu para "prevalece o dela". Se o gestor setou meta global, já estamos usando (managerMeta).
-            // Se managerMeta == 0 (usando soma das individuais), então devemos projetar para o headcount?
-            // "somaMetasEquipe" é soma das metas dos presentes.
-            // Se HC=17 e temos 10, faltam 7 metas.
-            // Vamos manter a meta calculada anteriormente (Manager ou Soma) por enquanto, focando na Média (Divisor).
-
-            // Ajuste Capacidade Total (Dias Úteis * Headcount)
-            // Precisamos saber dias uteis do periodo.
-            // diasUteisPeriodo não está acessível aqui fácil, mas totalUteis era soma dos liquidos.
-            // Se usarmos HC, totalUteis = HC * DiasUteis do Mês?
-            // Sim, capacidade total da equipe.
-            // Acessando dias uteis via cache ou recalculo simples se for mes cheio?
-            // Assumindo mês cheio (pois headcountConfig só é setado em mês cheio):
-            // ... não temos diasUteisPeriodo aqui var local. 
-            // Mas podemos estimar totalUteis = (totalUteis / countReal) * HC? (Regra de 3)
-            // Ou melhor: totalUteis = this.state.headcountConfig * (totalUteis / (realCountUsers || 1));
-            // Vamos ajustar o denominador da velocidade.
+            kpiDivisor = this.state.headcountConfig;
         }
+
+        // Estima dias úteis totais da equipe (Capacity) baseada na proporção
+        const diasUteisTotais = this.state.headcountConfig
+            ? (totalUteis / (realUserCount > 0 ? realUserCount : 1) * this.state.headcountConfig)
+            : totalUteis;
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
-            capacidade: { diasReal: totalFator, diasTotal: this.state.headcountConfig ? (totalUteis / (countUsers > 0 ? countUsers : 1) * this.state.headcountConfig) : totalUteis }, // Estima capacidade total
+            capacidade: { diasReal: totalFator, diasTotal: diasUteisTotais },
             velocidade: {
-                real: countUsers > 0 ? Math.round(totalProd / countUsers) : 0,
-                meta: countUsers > 0 ? Math.round(somaMetasEquipe / countUsers) : 100
+                real: kpiDivisor > 0 ? Math.round(totalProd / kpiDivisor) : 0,
+                // Meta por pessoa baseada nos usuários reais, para manter o alvo justo
+                meta: realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100
             }
         });
     },

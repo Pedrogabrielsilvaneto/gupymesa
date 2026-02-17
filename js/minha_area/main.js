@@ -8,21 +8,24 @@ const MinhaArea = {
     usuarioAlvoId: null,
     filtroPeriodo: 'ano', // Alterado de 'mes' para 'ano' para iniciar no modo semestral
 
-    init: async function() {
+    init: async function () {
         if (!Sistema.supabase) await Sistema.inicializar(false);
-        
+
         const storedUser = localStorage.getItem('usuario_logado');
         if (!storedUser) { window.location.href = 'index.html'; return; }
         this.usuario = JSON.parse(storedUser);
-        
+
         await this.setupAdminAccess();
 
         if (!this.isAdmin()) {
             this.usuarioAlvoId = this.usuario.id;
+        } else {
+            // Se for Admin, começa vendo a si mesmo (pedido do usuário)
+            this.usuarioAlvoId = this.usuario.id;
         }
 
         this.popularSeletoresFixos();
-        
+
         // Tenta carregar estado salvo, se não houver, define o semestre atual
         const salvo = localStorage.getItem('ma_filtro_state');
         if (!salvo) {
@@ -32,7 +35,7 @@ const MinhaArea = {
         }
 
         this.atualizarInterfaceFiltros();
-        
+
         if (this.filtroPeriodo === 'semana') {
             this.popularSemanasDoMes();
         }
@@ -42,7 +45,7 @@ const MinhaArea = {
         // Listeners
         ['sel-ano', 'sel-mes'].forEach(id => {
             const el = document.getElementById(id);
-            if(el) {
+            if (el) {
                 el.addEventListener('change', () => {
                     if (this.filtroPeriodo === 'semana') {
                         this.popularSemanasDoMes();
@@ -54,12 +57,12 @@ const MinhaArea = {
 
         ['sel-semana', 'sel-subperiodo-ano'].forEach(id => {
             const el = document.getElementById(id);
-            if(el) el.addEventListener('change', () => this.salvarEAtualizar());
+            if (el) el.addEventListener('change', () => this.salvarEAtualizar());
         });
     },
 
     // Define automaticamente S1 ou S2 com base na data atual
-    configurarSemestreAtual: function() {
+    configurarSemestreAtual: function () {
         const mesAtual = new Date().getMonth(); // 0-11
         const seletorSub = document.getElementById('sel-subperiodo-ano');
         if (seletorSub) {
@@ -69,32 +72,32 @@ const MinhaArea = {
         }
     },
 
-    isAdmin: function() {
+    isAdmin: function () {
         const p = (this.usuario.perfil || '').toUpperCase();
         const f = (this.usuario.funcao || '').toUpperCase();
         const id = parseInt(this.usuario.id);
-        return p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || id === 1 || id === 1000;
+        return p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || f.includes('COORDENADOR') || f.includes('LIDER') || id === 1 || id === 1000;
     },
 
-    setupAdminAccess: async function() {
+    setupAdminAccess: async function () {
         if (this.isAdmin()) {
             const container = document.getElementById('admin-selector-container');
             if (container) container.classList.remove('hidden');
         }
     },
 
-    mudarPeriodo: function(tipo) {
+    mudarPeriodo: function (tipo) {
         this.filtroPeriodo = tipo;
         this.atualizarInterfaceFiltros();
         if (tipo === 'semana') this.popularSemanasDoMes();
         this.salvarEAtualizar();
     },
 
-    atualizarInterfaceFiltros: function() {
+    atualizarInterfaceFiltros: function () {
         ['mes', 'semana', 'ano'].forEach(t => {
             const btn = document.getElementById(`btn-periodo-${t}`);
-            if(btn) {
-                btn.className = (t === this.filtroPeriodo) 
+            if (btn) {
+                btn.className = (t === this.filtroPeriodo)
                     ? "px-3 py-1.5 text-xs font-bold rounded shadow-sm text-blue-600 bg-white border border-blue-200 transition-all"
                     : "px-3 py-1.5 text-xs font-bold rounded text-slate-500 hover:bg-slate-100 transition-all";
             }
@@ -104,56 +107,56 @@ const MinhaArea = {
         const elSemana = document.getElementById('sel-semana');
         const elSubAno = document.getElementById('sel-subperiodo-ano');
 
-        if(elMes) elMes.classList.add('hidden');
-        if(elSemana) elSemana.classList.add('hidden');
-        if(elSubAno) elSubAno.classList.add('hidden');
+        if (elMes) elMes.classList.add('hidden');
+        if (elSemana) elSemana.classList.add('hidden');
+        if (elSubAno) elSubAno.classList.add('hidden');
 
         if (this.filtroPeriodo === 'mes') {
-            if(elMes) elMes.classList.remove('hidden');
-        } 
+            if (elMes) elMes.classList.remove('hidden');
+        }
         else if (this.filtroPeriodo === 'semana') {
-            if(elMes) elMes.classList.remove('hidden');
-            if(elSemana) elSemana.classList.remove('hidden');
-        } 
+            if (elMes) elMes.classList.remove('hidden');
+            if (elSemana) elSemana.classList.remove('hidden');
+        }
         else if (this.filtroPeriodo === 'ano') {
-            if(elSubAno) elSubAno.classList.remove('hidden');
+            if (elSubAno) elSubAno.classList.remove('hidden');
         }
     },
 
-    popularSeletoresFixos: function() {
+    popularSeletoresFixos: function () {
         const anoAtual = new Date().getFullYear();
         const mesAtual = new Date().getMonth();
 
         const elAno = document.getElementById('sel-ano');
-        if(elAno) {
+        if (elAno) {
             elAno.innerHTML = `
                 <option value="${anoAtual}">${anoAtual}</option>
-                <option value="${anoAtual-1}">${anoAtual-1}</option>
-                <option value="${anoAtual+1}">${anoAtual+1}</option>
+                <option value="${anoAtual - 1}">${anoAtual - 1}</option>
+                <option value="${anoAtual + 1}">${anoAtual + 1}</option>
             `;
             elAno.value = anoAtual;
         }
 
         const elMes = document.getElementById('sel-mes');
-        if(elMes) elMes.value = mesAtual;
+        if (elMes) elMes.value = mesAtual;
     },
 
-    popularSemanasDoMes: function() {
+    popularSemanasDoMes: function () {
         const elSemana = document.getElementById('sel-semana');
         const elAno = document.getElementById('sel-ano');
         const elMes = document.getElementById('sel-mes');
-        
+
         if (!elSemana || !elAno || !elMes) return;
 
         const ano = parseInt(elAno.value);
-        const mes = parseInt(elMes.value); 
+        const mes = parseInt(elMes.value);
 
         const primeiroDiaMes = new Date(ano, mes, 1);
         const ultimoDiaMes = new Date(ano, mes + 1, 0);
 
-        let diaSemana = primeiroDiaMes.getDay(); 
-        if (diaSemana === 0) diaSemana = 7; 
-        
+        let diaSemana = primeiroDiaMes.getDay();
+        if (diaSemana === 0) diaSemana = 7;
+
         let segundaFeiraAtual = new Date(primeiroDiaMes);
         segundaFeiraAtual.setDate(primeiroDiaMes.getDate() - (diaSemana - 1));
 
@@ -186,15 +189,15 @@ const MinhaArea = {
         }
     },
 
-    getDatasFiltro: function() {
+    getDatasFiltro: function () {
         const fmt = (d) => d.toISOString().split('T')[0];
         const ano = parseInt(document.getElementById('sel-ano').value);
 
         if (this.filtroPeriodo === 'mes') {
             const mes = parseInt(document.getElementById('sel-mes').value);
-            return { 
-                inicio: fmt(new Date(ano, mes, 1)), 
-                fim: fmt(new Date(ano, mes + 1, 0)) 
+            return {
+                inicio: fmt(new Date(ano, mes, 1)),
+                fim: fmt(new Date(ano, mes + 1, 0))
             };
         }
         else if (this.filtroPeriodo === 'semana') {
@@ -208,20 +211,20 @@ const MinhaArea = {
         else if (this.filtroPeriodo === 'ano') {
             const tipo = document.getElementById('sel-subperiodo-ano').value;
             let inicio, fim;
-            switch(tipo) {
+            switch (tipo) {
                 case 'S1': inicio = new Date(ano, 0, 1); fim = new Date(ano, 5, 30); break;
                 case 'S2': inicio = new Date(ano, 6, 1); fim = new Date(ano, 11, 31); break;
                 case 'T1': inicio = new Date(ano, 0, 1); fim = new Date(ano, 2, 31); break;
                 case 'T2': inicio = new Date(ano, 3, 1); fim = new Date(ano, 5, 30); break;
                 case 'T3': inicio = new Date(ano, 6, 1); fim = new Date(ano, 8, 30); break;
                 case 'T4': inicio = new Date(ano, 9, 1); fim = new Date(ano, 11, 31); break;
-                default:   inicio = new Date(ano, 0, 1); fim = new Date(ano, 11, 31); break;
+                default: inicio = new Date(ano, 0, 1); fim = new Date(ano, 11, 31); break;
             }
             return { inicio: fmt(inicio), fim: fmt(fim) };
         }
     },
 
-    salvarEAtualizar: function() {
+    salvarEAtualizar: function () {
         const estado = {
             tipo: this.filtroPeriodo,
             ano: document.getElementById('sel-ano')?.value,
@@ -232,20 +235,20 @@ const MinhaArea = {
         this.atualizarTudo();
     },
 
-    carregarEstadoSalvo: function() {
+    carregarEstadoSalvo: function () {
         const salvo = localStorage.getItem('ma_filtro_state');
         if (salvo) {
             try {
                 const s = JSON.parse(salvo);
                 if (s.tipo) this.filtroPeriodo = s.tipo;
-                if(s.ano && document.getElementById('sel-ano')) document.getElementById('sel-ano').value = s.ano;
-                if(s.mes && document.getElementById('sel-mes')) document.getElementById('sel-mes').value = s.mes;
-                if(s.sub && document.getElementById('sel-subperiodo-ano')) document.getElementById('sel-subperiodo-ano').value = s.sub;
-            } catch(e) {}
+                if (s.ano && document.getElementById('sel-ano')) document.getElementById('sel-ano').value = s.ano;
+                if (s.mes && document.getElementById('sel-mes')) document.getElementById('sel-mes').value = s.mes;
+                if (s.sub && document.getElementById('sel-subperiodo-ano')) document.getElementById('sel-subperiodo-ano').value = s.sub;
+            } catch (e) { }
         }
     },
 
-    atualizarTudo: function() {
+    atualizarTudo: function () {
         this.atualizarListaAssistentes();
         const abaAtiva = document.querySelector('.tab-btn.active');
         if (abaAtiva) {
@@ -254,28 +257,28 @@ const MinhaArea = {
         }
     },
 
-    mudarAba: function(abaId) {
+    mudarAba: function (abaId) {
         document.querySelectorAll('.ma-view').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
 
         const aba = document.getElementById(`ma-tab-${abaId}`);
         const btn = document.getElementById(`btn-ma-${abaId}`);
-        
-        if(aba) aba.classList.remove('hidden');
-        if(btn) btn.classList.add('active');
-        
+
+        if (aba) aba.classList.remove('hidden');
+        if (btn) btn.classList.add('active');
+
         this.carregarDadosAba(abaId);
     },
 
-    carregarDadosAba: function(abaId) {
+    carregarDadosAba: function (abaId) {
         if (abaId === 'diario' && this.Geral) this.Geral.carregar();
         if (abaId === 'metas' && this.Metas) this.Metas.carregar();
         if (abaId === 'auditoria' && this.Auditoria) this.Auditoria.carregar();
         if (abaId === 'comparativo' && this.Comparativo) this.Comparativo.carregar();
         if (abaId === 'feedback' && this.Feedback) this.Feedback.carregar();
     },
-    
-    atualizarListaAssistentes: async function() {
+
+    atualizarListaAssistentes: async function () {
         if (!this.isAdmin()) return;
         const select = document.getElementById('admin-user-selector');
         if (!select || select.options.length > 1) return;
@@ -286,28 +289,35 @@ const MinhaArea = {
                 .select('id, nome')
                 .eq('ativo', true)
                 .order('nome');
-                
+
             if (!error) {
-                let options = `<option value="">👥 Visão Geral da Equipe</option>`;
+                let options = `<option value="${this.usuario.id}">👤 Minha Visão (Pessoal)</option>`;
+                options += `<option value="EQUIPE">👥 Visão Geral da Equipe</option>`;
+                options += `<option disabled>──────────────</option>`;
+
                 data.forEach(u => {
                     if (u.id != this.usuario.id) {
                         options += `<option value="${u.id}">${u.nome}</option>`;
                     }
                 });
                 select.innerHTML = options;
-                select.value = this.usuarioAlvoId || "";
+                select.value = this.usuarioAlvoId || this.usuario.id;
             }
-        } catch(e) {}
+        } catch (e) { }
     },
 
-    mudarUsuarioAlvo: function(novoId) {
-        this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
+    mudarUsuarioAlvo: function (novoId) {
+        if (novoId === 'EQUIPE') {
+            this.usuarioAlvoId = 'EQUIPE';
+        } else {
+            this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
+        }
         this.atualizarTudo();
     },
 
-    getUsuarioAlvo: function() { return this.usuarioAlvoId; }
+    getUsuarioAlvo: function () { return this.usuarioAlvoId; }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => { if(typeof MinhaArea !== 'undefined') MinhaArea.init(); }, 100);
+    setTimeout(() => { if (typeof MinhaArea !== 'undefined') MinhaArea.init(); }, 100);
 });
