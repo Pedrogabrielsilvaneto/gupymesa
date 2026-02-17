@@ -233,8 +233,9 @@ Produtividade.Consolidado = {
         headerHTML += `<th class="px-4 py-3 text-center bg-blue-50 border-l border-blue-100 min-w-[100px]"><span class="text-xs font-black text-blue-600 uppercase">TOTAL</span></th></tr>`;
         hRow.innerHTML = headerHTML;
 
-        const mkRow = (label, icon, color, getter, isCalc = false, isBold = false) => {
-            let tr = `<tr class="${isBold ? 'bg-slate-50/50' : ''} border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-6 py-3 sticky left-0 bg-white z-10 border-r border-slate-200"><div class="flex items-center gap-3"><i class="${icon} ${color} text-sm w-4 text-center"></i><span class="text-xs uppercase ${isBold ? 'font-black' : 'font-medium'} text-slate-600">${label}</span></div></td>`;
+        const mkRow = (label, icon, color, getter, isCalc = false, isBold = false, rowClass = '') => {
+            const bgLabel = rowClass ? rowClass : (isBold ? 'bg-slate-50/50' : '');
+            let tr = `<tr class="${bgLabel} border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-6 py-3 sticky left-0 ${rowClass || 'bg-white'} z-10 border-r border-slate-200"><div class="flex items-center gap-3"><i class="${icon} ${color} text-sm w-4 text-center"></i><span class="text-xs uppercase ${isBold ? 'font-black' : 'font-medium'} text-slate-600">${label}</span></div></td>`;
 
             [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(i => {
                 const s = st[i];
@@ -274,8 +275,8 @@ Produtividade.Consolidado = {
             (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
 
         // 10. Média diária por assistente: total / dias / HC
-        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-pink-600',
-            (s, HC) => (s.dias.size > 0 && HC > 0) ? s.qty / s.dias.size / HC : 0, true);
+        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700',
+            (s, HC) => (s.dias.size > 0 && HC > 0) ? s.qty / s.dias.size / HC : 0, true, true, 'bg-emerald-50 border-emerald-200');
 
         tbody.innerHTML = rows;
         const footerEl = document.getElementById('total-consolidado-footer');

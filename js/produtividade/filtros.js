@@ -12,7 +12,7 @@ Produtividade.Filtros = {
     // CONFIGURAÇÃO: Define quais filtros aparecem em cada aba
     configVisibilidade: {
         'geral': ['nome', 'funcao', 'contrato'],
-        'consolidado': [],
+        'consolidado': ['funcao', 'contrato'],
         'performance': ['nome', 'funcao'],
         'matriz': ['nome', 'funcao']
     },
