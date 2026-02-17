@@ -210,7 +210,8 @@ MinhaArea.Metas = {
             const filtroContrato = this.currentFilterContract;
 
             // 1. Buscar Usuários via SQL
-            let sqlUsers = `SELECT id, nome, perfil, funcao, modelo_contrato FROM usuarios WHERE ativo = TRUE`;
+            // [FIX v4.33] Corrected column name 'modelo_contrato' to 'contrato'
+            let sqlUsers = `SELECT id, nome, perfil, funcao, contrato FROM usuarios WHERE ativo = TRUE`;
             let paramsUsers = [];
 
             if (!isAdmin && myId) {
@@ -230,7 +231,7 @@ MinhaArea.Metas = {
                 if (!isOperacao) return false;
 
                 if (filtroContrato !== 'TODOS') {
-                    const userContrato = (u.modelo_contrato || 'CLT').trim().toUpperCase();
+                    const userContrato = (u.contrato || 'CLT').trim().toUpperCase();
                     if (filtroContrato === 'PJ' && !userContrato.includes('PJ')) return false;
                     if (filtroContrato === 'CLT' && userContrato.includes('PJ')) return false;
                 }
@@ -590,7 +591,7 @@ MinhaArea.Metas = {
 
         document.getElementById('detalhe-nome').innerText = user.nome;
         document.getElementById('detalhe-funcao').innerText = user.funcao || 'Assistente';
-        document.getElementById('detalhe-contrato').innerText = user.modelo_contrato || 'CLT';
+        document.getElementById('detalhe-contrato').innerText = user.contrato || 'CLT';
 
         const labels = [];
         const dataProd = [];
