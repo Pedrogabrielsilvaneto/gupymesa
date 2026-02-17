@@ -423,7 +423,8 @@ Produtividade.Geral = {
 
         const config = this.state.configMes;
         if (config) {
-            if (config.dias_uteis > 0) totalDiasUteis = Number(config.dias_uteis); // Prioritize manager config
+            const periodo = Produtividade.filtroPeriodo || 'mes';
+            if (config.dias_uteis > 0 && periodo === 'mes') totalDiasUteis = Number(config.dias_uteis); // Só aplica config no período mensal
 
             if (filtroContrato === 'CLT' && config.hc_clt > 0) {
                 totalHeadcountDefinido = Number(config.hc_clt);
