@@ -12,8 +12,10 @@ Produtividade.Consolidado = {
     mapaAtivo: {},
     mapaContrato: {},
 
-    // Headcount vindo da config_mes (definido pela gestora)
+    // Configuração vinda da config_mes (definida pela gestora)
     headcountConfig: 0,
+    diasUteisConfig: 0,
+    configMes: null,
 
     init: async function () {
         if (!this.initialized) { this.initialized = true; }
@@ -51,17 +53,19 @@ Produtividade.Consolidado = {
 
         try {
             const data = await Sistema.query(
-                'SELECT hc_clt, hc_terceiros FROM config_mes WHERE mes = ? AND ano = ?',
+                'SELECT * FROM config_mes WHERE mes = ? AND ano = ?',
                 [mes, ano]
             );
 
-            if (data && data.length > 0) {
-                const config = data[0];
-                // Usa Filtros.estado.contrato (consistente com filtros.js)
-                const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
-                    ? Produtividade.Filtros.estado.contrato || 'todos'
-                    : 'todos';
+            this.configMes = (data && data.length > 0) ? data[0] : null;
+            const config = this.configMes;
 
+            // Resolve Headcount
+            const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
+                ? Produtividade.Filtros.estado.contrato || 'todos'
+                : 'todos';
+
+            if (config) {
                 if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
                     this.headcountConfig = Number(config.hc_clt);
                 } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
@@ -72,14 +76,44 @@ Produtividade.Consolidado = {
                 }
             }
 
-            // Fallback: padrão fixo de 17
+            // Fallback Headcount
             if (!this.headcountConfig || this.headcountConfig <= 0) {
                 this.headcountConfig = 17;
             }
+
+            // Resolve Dias Úteis Configurados
+            this.diasUteisConfig = this.getDiasUteisConfig();
+
         } catch (e) {
             console.error("Erro carregando config_mes:", e);
             this.headcountConfig = 17;
+            this.diasUteisConfig = 22; // Fallback genérico
         }
+    },
+
+    getDiasUteisConfig: function () {
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
+        const config = this.configMes;
+        const datas = Produtividade.getDatasFiltro();
+
+        // Função local para contar dias úteis (Seg-Sex)
+        const contarSimples = (ini, fim) => {
+            if (!ini || !fim) return 22;
+            let d = new Date(ini + 'T12:00:00'), end = new Date(fim + 'T12:00:00'), c = 0;
+            while (d <= end) { if (d.getDay() !== 0 && d.getDay() !== 6) c++; d.setDate(d.getDate() + 1); }
+            return c;
+        };
+
+        const diasCalendario = contarSimples(datas.inicio, datas.fim);
+        if (!config) return diasCalendario;
+
+        const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
+
+        const vClt = config.dias_uteis_clt || (vTerc - 1);
+        if (filtroContrato === 'CLT') return vClt;
+
+        return vTerc; // Padrão
     },
 
     contarAssistentesAtivos: function () {
@@ -270,6 +304,9 @@ Produtividade.Consolidado = {
 
         // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
         rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => s.dias.size);
+
+        // 2.1 Dias úteis configurados
+        rows += mkRow('Dias úteis do mês (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC) => this.diasUteisConfig, true, false, 'bg-emerald-50/30');
 
         // 3-6. Produção por tipo
         rows += mkRow('Total documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
