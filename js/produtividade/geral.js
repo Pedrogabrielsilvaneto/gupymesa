@@ -341,10 +341,16 @@ Produtividade.Geral = {
             // Meta Padrão: 100 para Assistentes, 0 para Gestão (Auditores/Líderes/Gestora)
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
-            const defaultMeta = ehGestao ? 0 : 100;
+            const defaultMeta = 100; // Base para assistentes
 
-            item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMeta) : defaultMeta);
-            item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
+            // Se for Gestão, FORÇA meta zero (ignora valor do banco)
+            if (ehGestao) {
+                item.meta_base_diaria = 0;
+                item.meta_assert = 0;
+            } else {
+                item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMeta) : defaultMeta);
+                item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
+            }
 
             const multiplicador = isPeriodo ? diasUteisPeriodo : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
