@@ -370,110 +370,118 @@
 
             <!-- Barra de Configuração do Mês -->
             <div
-                class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex flex-wrap items-center justify-between gap-6 shadow-sm">
+                class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex flex-wrap items-center gap-y-6 gap-x-0 shadow-sm">
 
-                <!-- Filtros Dinâmicos -->
-                <div class="flex flex-wrap items-center gap-3 border-r border-indigo-100 pr-6">
-                    <div class="relative">
-                        <i
-                            class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
-                        <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()"
-                            placeholder="Buscar assistente..."
-                            class="pl-8 pr-3 py-1.5 bg-white border border-indigo-100 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 w-44 transition shadow-sm placeholder-slate-300">
-                    </div>
-
-                    <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()"
-                        class="bg-white border border-indigo-100 text-slate-700 text-[11px] font-bold rounded-lg px-2 py-1.5 outline-none hover:border-indigo-300 transition cursor-pointer shadow-sm">
-                        <option value="">Contrato</option>
-                        <option value="CLT">CLT</option>
-                        <option value="TERCEIROS">Terceiros</option>
-                    </select>
-
-                    <select id="filtro-funcao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
-                        class="bg-white border border-indigo-100 text-slate-700 text-[11px] font-bold rounded-lg px-2 py-1.5 outline-none hover:border-indigo-300 transition cursor-pointer shadow-sm">
-                        <option value="">Função</option>
-                        <option value="ASSISTENTE">Assistente</option>
-                        <option value="GESTAO">Gestão</option>
-                        <option value="AUDITORIA">Auditoria</option>
-                    </select>
-
-                    <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
-                        class="bg-white border border-indigo-100 text-slate-700 text-[11px] font-bold rounded-lg px-2 py-1.5 outline-none hover:border-indigo-300 transition cursor-pointer shadow-sm">
-                        <option value="ATIVO">Ativos</option>
-                        <option value="">Todos</option>
-                        <option value="INATIVO">Inativos</option>
-                    </select>
-                </div>
-
-                <!-- Seletor de Mês -->
-                <div class="flex items-center gap-3 border-r border-indigo-100 pr-6">
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-indigo-800 uppercase tracking-wide">Mês de
-                            Referência</span>
-                        <span class="text-[9px] text-indigo-400">Selecione para carregar</span>
-                    </div>
-                    <div class="relative">
-                        <i class="fas fa-calendar-alt absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400"></i>
-                        <input type="text" id="input-mes-metas" readonly
-                            class="pl-9 pr-8 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-bold text-indigo-700 shadow-sm cursor-pointer hover:border-indigo-400 focus:border-indigo-500 outline-none w-36 text-center transition select-none"
-                            onclick="Gestao.Metas.abrirSeletorMes()">
-                        <i
-                            class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-indigo-300 pointer-events-none"></i>
-
-                        <!-- Dropdown Mês -->
-                        <div id="dropdown-mes-metas"
-                            class="hidden absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 w-64 animate-enter origin-top-left">
-                            <div class="flex justify-between items-center mb-3 px-1">
-                                <button onclick="Gestao.Metas.mudarAno(-1)"
-                                    class="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i
-                                        class="fas fa-chevron-left text-xs"></i></button>
-                                <span id="label-ano-metas" class="font-bold text-slate-700 text-sm">2026</span>
-                                <button onclick="Gestao.Metas.mudarAno(1)"
-                                    class="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i
-                                        class="fas fa-chevron-right text-xs"></i></button>
+                <!-- GRUPO 1: Busca e Filtros Rápidos -->
+                <div class="flex flex-wrap items-center gap-3 pr-6 border-r border-indigo-100">
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[9px] font-bold text-indigo-400 uppercase tracking-wider ml-1">Busca e
+                            Filtros</span>
+                        <div class="flex items-center gap-2">
+                            <div class="relative">
+                                <i
+                                    class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
+                                <input type="text" id="header-search-metas" onkeyup="Gestao.Metas.filtrarERenderizar()"
+                                    placeholder="Buscar assistente..."
+                                    class="pl-8 pr-3 py-1.5 bg-white border border-indigo-100 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 w-44 transition shadow-sm placeholder-slate-300">
                             </div>
-                            <div class="grid grid-cols-3 gap-2" id="grid-meses-metas"></div>
+
+                            <select id="filtro-contrato-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                                class="bg-white border border-indigo-100 text-slate-700 text-[11px] font-bold rounded-lg px-2 py-1.5 outline-none hover:border-indigo-300 transition cursor-pointer shadow-sm">
+                                <option value="">Contrato</option>
+                                <option value="CLT">CLT</option>
+                                <option value="TERCEIROS">Terceiros</option>
+                            </select>
+
+                            <select id="filtro-funcao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                                class="bg-white border border-indigo-100 text-slate-700 text-[11px] font-bold rounded-lg px-2 py-1.5 outline-none hover:border-indigo-300 transition cursor-pointer shadow-sm">
+                                <option value="">Função</option>
+                                <option value="ASSISTENTE">Assistente</option>
+                                <option value="GESTAO">Gestão</option>
+                                <option value="AUDITORIA">Auditoria</option>
+                            </select>
+
+                            <select id="filtro-situacao-metas" onchange="Gestao.Metas.filtrarERenderizar()"
+                                class="bg-white border border-indigo-100 text-slate-700 text-[11px] font-bold rounded-lg px-2 py-1.5 outline-none hover:border-indigo-300 transition cursor-pointer shadow-sm">
+                                <option value="ATIVO">Ativos</option>
+                                <option value="">Todos</option>
+                                <option value="INATIVO">Inativos</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
-                <div class="w-px h-10 bg-indigo-200/50"></div>
+                <!-- GRUPO 2: Período de Trabalho -->
+                <div class="flex items-center gap-6 px-6 border-r border-indigo-100">
+                    <!-- Seletor de Mês -->
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Período</span>
+                        <div class="relative">
+                            <i
+                                class="fas fa-calendar-alt absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-[10px]"></i>
+                            <input type="text" id="input-mes-metas" readonly
+                                class="pl-8 pr-8 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-700 shadow-sm cursor-pointer hover:border-indigo-400 focus:border-indigo-500 outline-none w-32 text-center transition select-none"
+                                onclick="Gestao.Metas.abrirSeletorMes()">
+                            <i
+                                class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[8px] text-indigo-300 pointer-events-none"></i>
 
-                <!-- Configurações (Dias Úteis e Headcount) -->
-                <div class="flex items-center gap-6">
+                            <!-- Dropdown Mês -->
+                            <div id="dropdown-mes-metas"
+                                class="hidden absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 w-64 animate-enter origin-top-left">
+                                <div class="flex justify-between items-center mb-3 px-1">
+                                    <button onclick="Gestao.Metas.mudarAno(-1)"
+                                        class="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i
+                                            class="fas fa-chevron-left text-xs"></i></button>
+                                    <span id="label-ano-metas" class="font-bold text-slate-700 text-sm">2026</span>
+                                    <button onclick="Gestao.Metas.mudarAno(1)"
+                                        class="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i
+                                            class="fas fa-chevron-right text-xs"></i></button>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2" id="grid-meses-metas"></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Dias Úteis -->
-                    <div class="flex flex-col items-center gap-1">
-                        <label for="input-dias-uteis-metas" class="text-[9px] font-bold text-slate-500 uppercase">Dias
-                            Úteis</label>
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[9px] font-bold text-indigo-400 uppercase tracking-wider text-center">Dias
+                            Úteis</span>
                         <div
-                            class="bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm w-20 flex items-center justify-center gap-1">
+                            class="bg-white border border-indigo-100 rounded-lg px-2 py-1.5 shadow-sm w-20 flex items-center justify-center gap-1">
+                            <i class="fas fa-business-time text-indigo-300 text-[10px]"></i>
                             <input type="number" id="input-dias-uteis-metas" onchange="Gestao.Metas.salvarConfigMes()"
                                 class="w-full text-xs font-bold text-blue-600 outline-none text-center bg-transparent placeholder-slate-300"
                                 placeholder="Auto">
                         </div>
                     </div>
+                </div>
 
-                    <!-- Headcount Group -->
-                    <div
-                        class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1.5 shadow-sm px-3">
-                        <div class="flex flex-col items-center gap-0.5 border-r border-slate-100 pr-3">
-                            <label for="input-hc-clt-metas"
-                                class="text-[9px] font-bold text-slate-500 uppercase">CLT</label>
-                            <input type="number" id="input-hc-clt-metas" onchange="Gestao.Metas.salvarConfigMes()"
-                                class="w-12 text-xs font-bold text-slate-600 outline-none text-center bg-transparent placeholder-slate-300"
-                                placeholder="-">
-                        </div>
-                        <div class="flex flex-col items-center gap-0.5 pl-1">
-                            <label for="input-hc-terc-metas"
-                                class="text-[9px] font-bold text-slate-500 uppercase">Terceiros</label>
-                            <input type="number" id="input-hc-terc-metas" onchange="Gestao.Metas.salvarConfigMes()"
-                                class="w-12 text-xs font-bold text-slate-600 outline-none text-center bg-transparent placeholder-slate-300"
-                                placeholder="-">
+                <!-- GRUPO 3: Headcount da Equipe -->
+                <div class="flex items-center gap-4 px-6">
+                    <div class="flex flex-col gap-1.5">
+                        <span
+                            class="text-[9px] font-bold text-indigo-400 uppercase tracking-wider text-center">Equipe</span>
+                        <div
+                            class="flex items-center gap-2 bg-white border border-indigo-100 rounded-xl p-1 shadow-sm px-3 h-[31px]">
+                            <div class="flex items-center gap-2 border-r border-slate-100 pr-3">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">CLT</span>
+                                <input type="number" id="input-hc-clt-metas" onchange="Gestao.Metas.salvarConfigMes()"
+                                    class="w-8 text-xs font-bold text-slate-600 outline-none text-center bg-transparent placeholder-slate-300"
+                                    placeholder="-">
+                            </div>
+                            <div class="flex items-center gap-2 pl-1">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Terc.</span>
+                                <input type="number" id="input-hc-terc-metas" onchange="Gestao.Metas.salvarConfigMes()"
+                                    class="w-8 text-xs font-bold text-slate-600 outline-none text-center bg-transparent placeholder-slate-300"
+                                    placeholder="-">
+                            </div>
                         </div>
                     </div>
 
-                    <i class="fas fa-check-circle text-emerald-500 text-xl hidden animate-bounce" id="icon-saved-config"
-                        title="Salvo com sucesso!"></i>
+                    <div class="pt-4">
+                        <i class="fas fa-check-circle text-emerald-500 text-lg hidden animate-bounce"
+                            id="icon-saved-config" title="Salvo com sucesso!"></i>
+                    </div>
                 </div>
 
                 <div class="flex-1"></div>
