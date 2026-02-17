@@ -277,10 +277,6 @@ Gestao.Metas = {
                         onchange="Gestao.Metas.marcarAlterado(${u.id})"
                         class="w-full text-center font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-slate-400 outline-none py-0.5 transition text-xs">
                 </td>
-
-                <td class="px-4 py-2.5 text-right">
-                    <span id="status-${u.id}" class="text-[9px] font-medium text-slate-300">${u.id_meta ? '✓' : '—'}</span>
-                </td>
             </tr>`;
         }).join('');
 
@@ -289,8 +285,6 @@ Gestao.Metas = {
 
     marcarAlterado: function (uid) {
         this.state.alteracoesPendentes.add(uid);
-        const status = document.getElementById(`status-${uid}`);
-        if (status) status.innerHTML = '<span class="text-blue-500">●</span>';
         const row = document.getElementById(`row-${uid}`);
         if (row) row.classList.add('bg-blue-50/20');
     },
