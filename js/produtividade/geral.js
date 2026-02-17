@@ -219,20 +219,40 @@ Produtividade.Geral = {
         return str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
     },
 
+    // Helper centralizado para Headcount
+    getHeadcountConfig: function () {
+        const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
+        const config = this.state.configMes;
+        let hc = 17; // Padrão fixo
+
+        if (config) {
+            if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
+                hc = Number(config.hc_clt);
+            } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
+                hc = Number(config.hc_terceiros);
+            } else if (filtroContrato === 'todos') {
+                const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
+                if (total > 0) hc = total;
+            }
+        }
+        return hc;
+    },
+
     // ... (processarDadosUnificados, renderizarTabela, calcularKpisGlobal e auxiliares mantidos, foco na lógica de Abono abaixo) ...
     processarDadosUnificados: function () {
         const mapa = new Map();
         const range = this.state.range;
         const isPeriodo = range.inicio !== range.fim;
         const diasUteisPeriodo = this.contarDiasUteis(range.inicio, range.fim);
+        const HC = this.getHeadcountConfig();
 
         const getChave = (uid, dataRaw) => {
             const date = this.normalizarData(dataRaw);
             return isPeriodo ? String(uid) : `${uid}_${date}`;
         };
 
-        // 1. Inicializar mapa com TODOS os assistentes elegíveis
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        // 1. Inicializar mapa com TODOS os assistentes elegíveis E GESTORA
+        const termosExcluidos = ['admin', 'auditor', 'lider', 'líder', 'coordenador']; // GESTOR removido da exclusão
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
             if (this.ehAdmin(uid)) continue;
@@ -242,22 +262,20 @@ Produtividade.Geral = {
             const perfil = (u.perfil || '').toLowerCase();
             if (termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) continue;
 
-            // Chave padrão para o assistente no contexto atual
+            // Chave padrão
             const chave = isPeriodo ? String(uid) : `${uid}_${range.inicio}`;
             if (!mapa.has(chave)) {
                 this.iniciarItemMapa(mapa, chave, uid, isPeriodo ? 'Período' : range.inicio);
             }
         }
 
-        // 2. Processar Produção
+        // 2. Processar Produção (Individual)
         this.state.dadosProducao.forEach(p => {
             const uidStr = String(p.usuario_id);
             if (this.ehAdmin(uidStr)) return;
 
             const chave = getChave(uidStr, p.data_referencia);
-            // Se for dia único e a data da produção for diferente do filtro, ignoramos para esta visão
             if (!isPeriodo && this.normalizarData(p.data_referencia) !== range.inicio) return;
-
             if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : this.normalizarData(p.data_referencia));
 
             const item = mapa.get(chave);
@@ -271,7 +289,7 @@ Produtividade.Geral = {
             if (!isPeriodo) item.id_prod = p.id;
         });
 
-        // 3. Processar Assertividade
+        // 3. Processar Assertividade (Individual)
         this.state.dadosKPIAssertividade.forEach(kpi => {
             const uidStr = String(kpi.usuario_id);
             if (uidStr && !this.ehAdmin(uidStr)) {
@@ -284,21 +302,69 @@ Produtividade.Geral = {
             }
         });
 
-        // 4. Calcular Metas Finais
+        // 4. Calcular Metas Individuais e Identificar Gestora
+        let gestoraItem = null;
+        let somaEquipe = { producao: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media_assert: 0 };
+        let countEquipeAssert = 0;
+
         for (const item of mapa.values()) {
+            const u = this.state.mapaUsuarios[item.uid] || {};
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const isGestor = funcao.includes('gestor') || perfil.includes('gestor');
+
+            if (isGestor) {
+                gestoraItem = item;
+                item.isAggregatedManager = true; // Marca para renderização
+                continue; // Pula soma da própria gestora
+            }
+
+            // Somatória da Equipe
+            somaEquipe.producao += item.producao;
+            somaEquipe.fifo += item.fifo;
+            somaEquipe.gt += item.gt;
+            somaEquipe.gp += item.gp;
+            somaEquipe.qtd_assert += item.qtd_assert;
+            if (item.media_final > 0) {
+                somaEquipe.soma_media_assert += (item.media_final * item.qtd_assert);
+                countEquipeAssert += item.qtd_assert;
+            }
+
+            // Meta Individual
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
-
             item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || 100) : 100);
+            item.meta_real_calculada = Math.round(item.meta_base_diaria * (isPeriodo ? diasUteisPeriodo : 1.0) * item.fator);
             item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
-
-            const multiplicador = isPeriodo ? diasUteisPeriodo : 1;
-            item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
-        // 5. Gerar Lista da Tabela (Sem filtrar produção > 0 para garantir KPIs corretos)
+        // 5. Aplicar Agregação na Gestora
+        if (gestoraItem) {
+            gestoraItem.producao = somaEquipe.producao;
+            gestoraItem.fifo = somaEquipe.fifo;
+            gestoraItem.gt = somaEquipe.gt;
+            gestoraItem.gp = somaEquipe.gp;
+            gestoraItem.qtd_assert = somaEquipe.qtd_assert;
+            gestoraItem.media_final = countEquipeAssert > 0 ? (somaEquipe.soma_media_assert / countEquipeAssert) : 0;
+
+            // Meta Gestora = Meta Diária * Headcount * Fator(sempre 1 pois é equipe?)
+            // A gestora "está presente" todos os dias, então fator = dias uteis
+            const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(gestoraItem.uid));
+            const metaDiariaGestora = Number(metaObj ? (metaObj.meta_producao || 650) : 650);
+            gestoraItem.meta_base_diaria = metaDiariaGestora; // Exibe 650
+            gestoraItem.meta_real_calculada = Math.round(metaDiariaGestora * HC * (isPeriodo ? diasUteisPeriodo : 1.0));
+            gestoraItem.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
+            gestoraItem.fator = 1.0; // Fator neutro para visualização
+            gestoraItem.justificativa = `Equipe (HC: ${HC})`;
+        }
+
+        // 6. Gerar Lista
         this.state.listaTabela = Array.from(mapa.values())
-            .sort((a, b) => a.nome.localeCompare(b.nome));
+            .sort((a, b) => {
+                if (a.isAggregatedManager) return -1; // Gestora sempre no topo
+                if (b.isAggregatedManager) return 1;
+                return a.nome.localeCompare(b.nome);
+            });
     },
 
     renderizarTabela: function () {
@@ -318,10 +384,11 @@ Produtividade.Geral = {
             const perfil = (u.perfil || '').toLowerCase();
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
 
-            // Se filtro for 'todos', esconde gestão
+            // Se filtro for 'todos', esconde gestão, EXCETO se for a Gestora Agregada
             if (filtroFuncao === 'todos') {
-                const ehGestora = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
-                if (ehGestora) return false;
+                if (item.isAggregatedManager) return true; // Sempre exibe a gestora agregada
+                const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
+                if (ehGestao) return false;
             }
 
             return item.producao > 0;
@@ -415,23 +482,7 @@ Produtividade.Geral = {
 
         const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
 
-        const filtroContrato = window.Produtividade.Filtros?.estado?.contrato || 'todos';
-        const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
-        let totalHeadcountDefinido = 17; // Padrão fixo: 17 assistentes
-
-        const config = this.state.configMes;
-        if (config) {
-            const periodo = Produtividade.filtroPeriodo || 'mes';
-            if (config.dias_uteis > 0 && periodo === 'mes') totalDiasUteis = Number(config.dias_uteis); // Só aplica config no período mensal
-
-            if (filtroContrato === 'CLT' && config.hc_clt > 0) {
-                totalHeadcountDefinido = Number(config.hc_clt);
-            } else if (filtroContrato === 'TERCEIROS' && config.hc_terceiros > 0) {
-                totalHeadcountDefinido = Number(config.hc_terceiros);
-            } else if (filtroContrato === 'todos' && filtroFuncao === 'todos' && (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) > 0) {
-                totalHeadcountDefinido = (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0));
-            }
-        }
+        const totalHeadcountDefinido = this.getHeadcountConfig();
 
         const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
 
