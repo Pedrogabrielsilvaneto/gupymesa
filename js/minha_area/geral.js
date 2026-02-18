@@ -386,28 +386,32 @@ MinhaArea.Geral = {
         if (this.els.totalFooter) this.els.totalFooter.textContent = listaAssistentes.length;
 
         this.els.tabela.innerHTML = listaAssistentes.map(row => {
-            const pct = row.meta_total_periodo > 0 ? Math.round((row.producao / row.meta_total_periodo) * 100) : 0;
-            let assertHtml = '<span class="text-slate-300">-</span>';
-            if (row.media_final !== null) {
-                const cor = row.media_final >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
-                assertHtml = `<span class="${cor} font-bold">${row.media_final.toFixed(2)}%</span>`;
+            try {
+                const pct = row.meta_total_periodo > 0 ? Math.round((row.producao / row.meta_total_periodo) * 100) : 0;
+                let assertHtml = '<span class="text-slate-300">-</span>';
+
+                // Safety check for media_final
+                if (row.media_final !== null && typeof row.media_final === 'number' && !isNaN(row.media_final)) {
+                    const cor = row.media_final >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
+                    assertHtml = `<span class="${cor} font-bold">${row.media_final.toFixed(2)}%</span>`;
+                }
+
+                const obsText = row.justificativa_gestao || row.observacao_assistente ? 'Sim' : '-';
+
+                return `
+                    <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
+                        <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
+                        <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
+                        <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
+                        <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
+                        <td class="px-2 py-3 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
+                        <td class="px-2 py-3 text-center">${assertHtml}</td>
+                        <td class="px-3 py-3 text-slate-400 text-xs">${obsText}</td>
+                    </tr>`;
+            } catch (e) {
+                console.error("Erro ao renderizar linha de assistente:", row, e);
+                return `<tr><td colspan="7" class="text-rose-500 text-xs p-2">Erro ao renderizar ${row.nome}</td></tr>`;
             }
-
-            // Na grade de equipe, pegamos a observação agregada ou do último dia se pertinente
-            // Mas seguindo o pedido: mostrar observação
-            // Vamos apenas indicar se há algo ou mostrar um resumo se for visão período
-            const obsText = row.justificativa_gestao || row.observacao_assistente ? 'Sim' : '-';
-
-            return `
-                <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
-                    <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
-                    <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
-                    <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
-                    <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
-                    <td class="px-2 py-3 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
-                    <td class="px-2 py-3 text-center">${assertHtml}</td>
-                    <td class="px-3 py-3 text-slate-400 text-xs">${obsText}</td>
-                </tr>`;
         }).join('');
     },
 
