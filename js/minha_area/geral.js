@@ -83,7 +83,11 @@ MinhaArea.Geral = {
                 this.buscarMetas(filtro, alvoReal)
             ]);
 
+            console.log("✅ [Geral.js] Promises resolvidas. Processando dados...");
+
             await this.processarDadosUnificados();
+
+            console.log("✅ [Geral.js] Dados processados. Renderizando...");
 
             // Renderiza Diário (Se for Gestor, o renderizarDiario detecta e chama renderizarDiarioGestor internamente ou a própria lógica se adapta)
             // Como alvoReal agora sempre existe, ele sempre cairá no renderizarDiario
@@ -93,9 +97,9 @@ MinhaArea.Geral = {
                 this.calcularKpisGlobal();
                 this.renderizarGradeEquipe();
             }
-
+            console.log("🏁 [Geral.js] Renderização finalizada.");
         } catch (error) {
-            console.error("Erro MA Geral:", error);
+            console.error("❌ [Geral.js] Erro MA Geral:", error);
             if (this.els.tabela) {
                 this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-4 text-rose-500">Erro: ${error.message}</td></tr>`;
             }
@@ -183,6 +187,7 @@ MinhaArea.Geral = {
     },
 
     processarDadosUnificados: async function () {
+        console.log("⚙️ [Geral.js] processarDadosUnificados: Iniciando...");
         const mapa = new Map();
 
         // Lógica de Dias Úteis Diferenciada (CLT vs Terc)
@@ -192,8 +197,14 @@ MinhaArea.Geral = {
         let configMes = null;
 
         // Tenta carregar config se for mes cheio
-        if (this.state.range.inicio.endsWith('01') && this.state.range.fim === new Date(d1.getFullYear(), d1.getMonth() + 1, 0).toISOString().split('T')[0]) {
-            configMes = await Gestao.ConfigMes.obter(d1.getMonth() + 1, d1.getFullYear());
+        if (this.state.range.inicio.endsWith('01')) {
+            try {
+                console.log("⚙️ [Geral.js] Buscando ConfigMes...");
+                configMes = await Gestao.ConfigMes.obter(d1.getMonth() + 1, d1.getFullYear());
+                console.log("⚙️ [Geral.js] ConfigMes carregado.");
+            } catch (e) {
+                console.warn("⚠️ [Geral.js] Falha ao carregar ConfigMes (não bloqueante):", e);
+            }
         }
 
         // Helper para Dias Uteis
