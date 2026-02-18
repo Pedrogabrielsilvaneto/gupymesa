@@ -266,22 +266,17 @@ MinhaArea.Metas = {
                          </div>
                     </div>
                 </div>
-                <div id="detalhe-content" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"></div>
+                <div id="detalhe-content" class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-blue-500"></i> Evolução Diária de Produção</h3>
+                        <div class="h-[300px] w-full relative"><canvas id="canvas-detail-prod"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500"></i> Qualidade e Assertividade</h3>
+                        <div class="h-[200px] w-full relative"><canvas id="canvas-detail-assert"></canvas></div>
+                    </div>
+                </div>
             `;
-            containerPrincipal.appendChild(divDetail);
-        }
-    },
-                < div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200" >
-                    <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-blue-500"></i> Evolução Diária de Produção</h3>
-                    <div class="h-[300px] w-full relative"><canvas id="canvas-detail-prod"></canvas></div>
-                </div >
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h3 class="text-sm font-bold text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500"></i> Qualidade e Assertividade</h3>
-        <div class="h-[200px] w-full relative"><canvas id="canvas-detail-assert"></canvas></div>
-    </div>
-`;
-
-            containerPrincipal.appendChild(divGrid);
             containerPrincipal.appendChild(divDetail);
         }
     },
@@ -403,18 +398,18 @@ MinhaArea.Metas = {
                 sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ? `;
                 paramsProd = [inicio, fim];
             } else {
-                sqlProd = `SELECT * FROM producao WHERE usuario_id IN(${ placeholders }) AND data_referencia >= ? AND data_referencia <= ? `;
+                sqlProd = `SELECT * FROM producao WHERE usuario_id IN(${placeholders}) AND data_referencia >= ? AND data_referencia <= ? `;
                 paramsProd = [...userIds, inicio, fim];
             }
 
             // Query Assertividade
-            const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN(${ placeholders }) AND data_referencia >= ? AND data_referencia <= ? `;
+            const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN(${placeholders}) AND data_referencia >= ? AND data_referencia <= ? `;
             const paramsAssert = [...userIds, inicio, fim];
 
             // Query Metas
             const anoInicio = new Date(inicio).getFullYear();
             const anoFim = new Date(fim).getFullYear();
-            const sqlMetas = `SELECT * FROM metas WHERE usuario_id IN(${ placeholders }) AND ano >= ? AND ano <= ? `;
+            const sqlMetas = `SELECT * FROM metas WHERE usuario_id IN(${placeholders}) AND ano >= ? AND ano <= ? `;
             const paramsMetas = [...userIds, anoInicio, anoFim];
 
             const [dadosProd, dadosAssert, dadosMetas] = await Promise.all([
@@ -480,7 +475,7 @@ MinhaArea.Metas = {
             }
 
             const mapMetas = {};
-            (dadosMetas || []).forEach(m => { mapMetas[`${ m.usuario_id } -${ m.ano } -${ m.mes } `] = { p: m.meta_producao || 100, a: m.meta_assertividade || 97 }; });
+            (dadosMetas || []).forEach(m => { mapMetas[`${m.usuario_id} -${m.ano} -${m.mes} `] = { p: m.meta_producao || 100, a: m.meta_assertividade || 97 }; });
 
             // 1. PRODUÇÃO
             (dadosProd || []).forEach(reg => {
@@ -491,7 +486,7 @@ MinhaArea.Metas = {
                     const qtd = Number(reg.quantidade || 0);
                     const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
                     const d = new Date(reg.data_referencia + 'T12:00:00');
-                    const mKey = `${ reg.usuario_id } -${ d.getFullYear() } -${ d.getMonth() + 1 } `;
+                    const mKey = `${reg.usuario_id} -${d.getFullYear()} -${d.getMonth() + 1} `;
                     const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 100;
 
                     if (qtd > 0) {
@@ -576,8 +571,8 @@ MinhaArea.Metas = {
 
             const elPeriodo = document.getElementById('metas-periodo-label');
             const elTotal = document.getElementById('metas-total-users');
-            if (elPeriodo) elPeriodo.innerText = `Período: ${ new Date(inicio).toLocaleDateString('pt-BR') } a ${ new Date(fim).toLocaleDateString('pt-BR') } `;
-            if (elTotal) elTotal.innerText = `${ assistentes.length } Assistentes no Ranking(${ this.currentFilterContract })`;
+            if (elPeriodo) elPeriodo.innerText = `Período: ${new Date(inicio).toLocaleDateString('pt-BR')} a ${new Date(fim).toLocaleDateString('pt-BR')} `;
+            if (elTotal) elTotal.innerText = `${assistentes.length} Assistentes no Ranking(${this.currentFilterContract})`;
 
         } catch (err) {
             console.error("❌ ERRO MATRIZ:", err);
@@ -690,7 +685,7 @@ MinhaArea.Metas = {
         htmlHeader += `< th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title = "Média das Médias do Período" > ACUMULADO</th > `;
 
         this.cacheColunas.forEach(col => {
-            htmlHeader += `< th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40" > ${ col.label }</th > `;
+            htmlHeader += `< th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40" > ${col.label}</th > `;
         });
         thead.innerHTML = htmlHeader;
 
@@ -707,16 +702,16 @@ MinhaArea.Metas = {
 
             if (isAssert) {
                 // [ALIGNMENT v4.34] Use new counters for display
-                if (stats.qtd_auditorias > 0) cellTotal = `< span class="font-bold text-slate-600" > ${ stats.qtd_auditorias }</span > `;
+                if (stats.qtd_auditorias > 0) cellTotal = `< span class="font-bold text-slate-600" > ${stats.qtd_auditorias}</span > `;
 
                 const assertGeral = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
 
                 if (stats.qtd_auditorias > 0) {
                     const corVal = assertGeral >= 97 ? 'text-emerald-700' : 'text-rose-600';
-                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${ assertGeral.toFixed(1) }%</div > `;
+                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${assertGeral.toFixed(1)}%</div > `;
                 }
             } else {
-                if (stats.prod > 0) cellTotal = `< span class="font-bold text-slate-700" > ${ stats.prod.toLocaleString('pt-BR') }</span > `;
+                if (stats.prod > 0) cellTotal = `< span class="font-bold text-slate-700" > ${stats.prod.toLocaleString('pt-BR')}</span > `;
 
                 // LÓGICA DE MÉDIA ACUMULADA: MÉDIA DAS MÉDIAS (MACRO)
                 const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
@@ -729,7 +724,7 @@ MinhaArea.Metas = {
                 if (stats.prod > 0) {
                     const corVal = avgVel >= avgMeta ? 'text-blue-700' : 'text-rose-700';
                     const corBadge = avgPct >= 100 ? 'bg-blue-200 text-blue-800' : 'bg-rose-100 text-rose-700 border border-rose-200';
-                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${ avgVel.toLocaleString('pt-BR') }</div >
+                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${avgVel.toLocaleString('pt-BR')}</div >
     <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(0)}%</span></div>`;
                 }
             }
@@ -752,12 +747,12 @@ MinhaArea.Metas = {
                 if (isAssert) {
                     if (dados && dados.total > 0 && dados.assert !== null) {
                         const batido = (dados.assert * 100) >= (dados.metaAssert);
-                        cellHtml = `< div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold" > ${ (dados.assert * 100).toFixed(0) }%</div > `;
+                        cellHtml = `< div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold" > ${(dados.assert * 100).toFixed(0)}%</div > `;
                     }
                 } else {
                     if (dados && dados.velocidade > 0) {
                         const batido = dados.velocidade >= dados.metaProd;
-                        cellHtml = `< div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold" > ${ dados.velocidade }</div > `;
+                        cellHtml = `< div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold" > ${dados.velocidade}</div > `;
                         if (dados.metaProd > 0) {
                             const pct = (dados.velocidade / dados.metaProd) * 100;
                             const corBadge = pct >= 100 ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 border border-rose-200';
@@ -765,7 +760,7 @@ MinhaArea.Metas = {
                         }
                     }
                 }
-                htmlBody += `< td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12" > ${ cellHtml }${ subHtml }</td > `;
+                htmlBody += `< td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12" > ${cellHtml}${subHtml}</td > `;
             });
             htmlBody += `</tr > `;
         });
@@ -856,7 +851,7 @@ MinhaArea.Metas = {
     },
 
     popularSelectsManual: function () {
-        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `< option value = "${u.id}" > ${ u.nome }</option > `).join('');
+        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `< option value = "${u.id}" > ${u.nome}</option > `).join('');
         ['comp-sel-1', 'comp-sel-2', 'comp-sel-3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 

@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Área - GupyMesa</title>
+    <title>Minha Ãrea - GupyMesa</title>
     <link rel="shortcut icon" href="img/favicon.png" type="image/x-icon">
 
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
@@ -184,7 +184,7 @@
                 <div class="flex items-center gap-2">
                     <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                         <button onclick="MinhaArea.mudarPeriodo('mes')" id="btn-periodo-mes"
-                            class="px-3 py-1 text-xs font-bold rounded shadow-sm text-blue-600 bg-white transition">Mês</button>
+                            class="px-3 py-1 text-xs font-bold rounded shadow-sm text-blue-600 bg-white transition">MÃªs</button>
                         <button onclick="MinhaArea.mudarPeriodo('semana')" id="btn-periodo-semana"
                             class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-white hover:text-slate-700 transition">Semana</button>
                         <button onclick="MinhaArea.mudarPeriodo('ano')" id="btn-periodo-ano"
@@ -198,7 +198,7 @@
                             class="bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded px-2 py-1 outline-none cursor-pointer min-w-[100px] hover:border-blue-300 transition">
                             <option value="0">Janeiro</option>
                             <option value="1">Fevereiro</option>
-                            <option value="2">Março</option>
+                            <option value="2">MarÃ§o</option>
                             <option value="3">Abril</option>
                             <option value="4">Maio</option>
                             <option value="5">Junho</option>
@@ -215,14 +215,14 @@
                             class="hidden bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold rounded px-2 py-1 outline-none cursor-pointer">
                             <option value="full">Ano Completo</option>
                             <optgroup label="Semestres">
-                                <option value="S1">1º Semestre</option>
-                                <option value="S2">2º Semestre</option>
+                                <option value="S1">1Âº Semestre</option>
+                                <option value="S2">2Âº Semestre</option>
                             </optgroup>
                             <optgroup label="Trimestres">
-                                <option value="T1">1º Trimestre</option>
-                                <option value="T2">2º Trimestre</option>
-                                <option value="T3">3º Trimestre</option>
-                                <option value="T4">4º Trimestre</option>
+                                <option value="T1">1Âº Trimestre</option>
+                                <option value="T2">2Âº Trimestre</option>
+                                <option value="T3">3Âº Trimestre</option>
+                                <option value="T4">4Âº Trimestre</option>
                             </optgroup>
                         </select>
                     </div>
@@ -263,7 +263,7 @@
                 </div>
                 <div class="kpi-card border-l-4 border-l-amber-500">
                     <i class="fas fa-bolt kpi-icon-bg text-amber-500"></i>
-                    <div class="kpi-title">Produção Diária</div>
+                    <div class="kpi-title">ProduÃ§Ã£o DiÃ¡ria</div>
                     <div class="kpi-fraction"><span class="kpi-val" id="kpi-dia-media">--</span><span
                             class="kpi-sep">/</span><span class="kpi-meta" id="kpi-dia-meta">--</span></div>
                     <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -295,14 +295,14 @@
                             class="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-wide sticky top-0 z-10 shadow-sm">
                             <tr class="divide-x divide-slate-200 border-b border-slate-300">
                                 <th class="px-3 py-3 w-[12%] text-left">Data</th>
-                                <th class="px-2 py-3 w-[10%] text-center">Meta (Gestão)</th>
+                                <th class="px-2 py-3 w-[10%] text-center">Meta (GestÃ£o)</th>
                                 <th class="px-2 py-3 w-[10%] text-center">Meta Real</th>
                                 <th
                                     class="px-2 py-3 w-[10%] text-center bg-blue-50/50 text-blue-700 border-x border-blue-100">
-                                    Produção</th>
+                                    ProduÃ§Ã£o</th>
                                 <th class="px-2 py-3 w-[8%] text-center">% Prod.</th>
                                 <th class="px-2 py-3 w-[10%] text-center">Assertividade</th>
-                                <th class="px-3 py-3 text-left">Observação</th>
+                                <th class="px-3 py-3 text-left">ObservaÃ§Ã£o</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-extrato" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -310,7 +310,7 @@
                 </div>
                 <div
                     class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500 font-bold flex justify-between items-center">
-                    <span><i class="fas fa-table mr-1"></i> Visão de Grade</span>
+                    <span><i class="fas fa-table mr-1"></i> VisÃ£o de Grade</span>
                     <span>Total Registros: <span id="total-registros-footer">--</span></span>
                 </div>
             </div>
@@ -325,7 +325,7 @@
                     <i
                         class="fas fa-check-double absolute -right-4 -bottom-4 text-7xl text-blue-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
                     <div class="flex justify-between items-start mb-2 relative z-10">
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Validação</p>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ValidaÃ§Ã£o</p>
                         <span
                             class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded border border-blue-100 shadow-sm">TOTAL</span>
                     </div>
@@ -339,13 +339,13 @@
                     <i
                         class="fas fa-calendar-day absolute -right-4 -bottom-4 text-7xl text-amber-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
                     <div class="flex justify-between items-start mb-2 relative z-10">
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Produção Diária</p>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ProduÃ§Ã£o DiÃ¡ria</p>
                         <span
-                            class="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-1 rounded border border-amber-100 shadow-sm">MÉDIA</span>
+                            class="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-1 rounded border border-amber-100 shadow-sm">MÃ‰DIA</span>
                     </div>
                     <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight" id="card-ranking-media">
                         --</h3>
-                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Média por pessoa no período</p>
+                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">MÃ©dia por pessoa no perÃ­odo</p>
                 </div>
 
                 <div
@@ -359,18 +359,18 @@
                     </div>
                     <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight"
                         id="card-ranking-assert">--%</h3>
-                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Índice global de acertos</p>
+                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Ãndice global de acertos</p>
                 </div>
             </div>
 
             <div class="mb-4 flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
                     <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fas fa-list-ol text-blue-600"></i> Ranking & Evolução
+                        <i class="fas fa-list-ol text-blue-600"></i> Ranking & EvoluÃ§Ã£o
                     </h2>
                     <p class="text-xs text-slate-500 mt-1">
-                        Visualize a performance dia a dia ou mês a mês. Valores em <span
-                            class="text-rose-600 font-bold">vermelho</span> estão abaixo da meta.<br>
+                        Visualize a performance dia a dia ou mÃªs a mÃªs. Valores em <span
+                            class="text-rose-600 font-bold">vermelho</span> estÃ£o abaixo da meta.<br>
                         Clique no nome para abrir o comparativo.
                     </p>
                 </div>
@@ -413,7 +413,7 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                     <h3 class="font-bold text-slate-700 flex items-center gap-2">
-                        <i class="fas fa-list-alt text-blue-600"></i> Histórico de Auditorias
+                        <i class="fas fa-list-alt text-blue-600"></i> HistÃ³rico de Auditorias
                     </h3>
                     <span id="auditoria-total-count"
                         class="text-xs font-bold text-slate-400 bg-slate-200 px-2 py-1 rounded-full">0 docs</span>
@@ -523,7 +523,7 @@
                                 <th class="px-4 py-2">Empresa</th>
                                 <th class="px-4 py-2">Categoria</th>
                                 <th class="px-4 py-2">Documento (Oculto)</th>
-                                <th class="px-4 py-2">Observação</th>
+                                <th class="px-4 py-2">ObservaÃ§Ã£o</th>
                             </tr>
                         </thead>
                         <tbody id="grid-detalhes-ok" class="text-slate-600 divide-y divide-emerald-100"></tbody>
@@ -543,7 +543,7 @@
                         <i class="fas fa-comments text-2xl"></i>
                     </div>
                     <h3 class="text-lg font-bold text-slate-700">Meus Feedbacks</h3>
-                    <p class="text-sm text-slate-500 mt-2">Histórico de feedbacks recebidos da gestão e planos de ação.
+                    <p class="text-sm text-slate-500 mt-2">HistÃ³rico de feedbacks recebidos da gestÃ£o e planos de aÃ§Ã£o.
                     </p>
                     <div id="feedback-content" class="mt-8 w-full"></div>
                 </div>
@@ -561,7 +561,7 @@
                         <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
                             <i class="fas fa-balance-scale text-blue-600"></i> Comparador de Performance
                         </h3>
-                        <p class="text-xs text-slate-500">Gráficos de colunas para facilitar a comparação visual.</p>
+                        <p class="text-xs text-slate-500">GrÃ¡ficos de colunas para facilitar a comparaÃ§Ã£o visual.</p>
                     </div>
                     <button onclick="MinhaArea.Metas.fecharModalComparativo()"
                         class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
@@ -591,7 +591,7 @@
             <div class="flex-1 p-6 overflow-y-auto bg-slate-50/50">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[400px]">
                     <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Validação</h4>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">ValidaÃ§Ã£o</h4>
                         <div class="flex-1 w-full min-h-0 relative">
                             <canvas id="chart-comp-prod"></canvas>
                         </div>
@@ -614,7 +614,7 @@
             class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform scale-95 transition-transform duration-300">
             <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
                 <h3 class="font-bold text-slate-700 text-lg flex items-center gap-2">
-                    <i class="fas fa-edit text-blue-500"></i> Observação
+                    <i class="fas fa-edit text-blue-500"></i> ObservaÃ§Ã£o
                 </h3>
                 <button onclick="MinhaArea.Geral.fecharModalObs()"
                     class="text-slate-400 hover:text-rose-500 transition outline-none">
@@ -624,14 +624,14 @@
 
             <div class="p-6 space-y-4">
                 <div class="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide">
-                    <span>Data Referência</span>
+                    <span>Data ReferÃªncia</span>
                     <span id="obs-data-ref"
                         class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">--/--/----</span>
                 </div>
 
                 <div class="space-y-2">
                     <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                        <i class="fas fa-user-tie"></i> Justificativa da Gestão
+                        <i class="fas fa-user-tie"></i> Justificativa da GestÃ£o
                     </label>
                     <div id="obs-gestao-view"
                         class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-600 italic min-h-[50px] flex items-center">
@@ -641,11 +641,11 @@
 
                 <div class="space-y-2">
                     <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                        <i class="fas fa-comment-dots"></i> Sua Observação
+                        <i class="fas fa-comment-dots"></i> Sua ObservaÃ§Ã£o
                     </label>
                     <textarea id="obs-assistente-text" rows="4"
                         class="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition resize-none placeholder:text-slate-300"
-                        placeholder="Escreva aqui sua observação sobre este dia..."></textarea>
+                        placeholder="Escreva aqui sua observaÃ§Ã£o sobre este dia..."></textarea>
                 </div>
             </div>
 
@@ -680,12 +680,12 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260218_rev1"></script>
-    <script src="js/minha_area/geral.js?v=20260218_rev1"></script>
-    <script src="js/minha_area/metas.js?v=20260218_rev1"></script>
-    <script src="js/minha_area/auditoria.js?v=20260218_rev1"></script>
-    <script src="js/minha_area/comparativo.js?v=20260218_rev1"></script>
-    <script src="js/minha_area/feedback.js?v=20260218_rev1"></script>
+    <script src="js/minha_area/main.js?v=20260218_1540"></script>
+    <script src="js/minha_area/geral.js?v=20260218_1540"></script>
+    <script src="js/minha_area/metas.js?v=20260218_1540"></script>
+    <script src="js/minha_area/auditoria.js?v=20260218_1540"></script>
+    <script src="js/minha_area/comparativo.js?v=20260218_1540"></script>
+    <script src="js/minha_area/feedback.js?v=20260218_1540"></script>
 </body>
 
 </html>
