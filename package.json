@@ -2,6 +2,8 @@
   "name": "performance-pro",
   "version": "1.0.0",
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.29",
+    "ai": "^6.0.90",
     "dotenv": "^17.3.1",
     "mysql2": "^3.9.0"
   }
