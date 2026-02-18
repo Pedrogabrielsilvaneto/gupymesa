@@ -24,7 +24,7 @@ MinhaArea.Geral = {
 
     els: {
         tabelaHeader: document.querySelector('#ma-tab-diario thead'),
-        tabela: document.getElementById('grade-equipe-body'),
+        tabela: document.getElementById('tabela-extrato'),
         totalFooter: document.getElementById('total-registros-footer'),
 
         kpiVolume: document.getElementById('kpi-prod-real'),
