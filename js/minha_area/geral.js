@@ -470,8 +470,18 @@ MinhaArea.Geral = {
 
     renderizarDiarioGestor: function (uid) {
         // Visão Consolidada da Equipe para o Gestor
-        const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
-        if (!item) return;
+        let item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
+
+        // [FIX] Se o gestor não tiver produção própria, cria um item dummy para não travar a renderização
+        if (!item) {
+            item = {
+                uid: uid,
+                nome: this.state.mapaUsuarios[uid]?.nome || 'Gestor',
+                meta_velocidade_media: 100,
+                meta_assert: 97,
+                dias_uteis_liquidos: 0
+            };
+        }
 
         // Força o cabeçalho idêntico à visão do assistente (v4.22)
         if (this.els.tabelaHeader) {
