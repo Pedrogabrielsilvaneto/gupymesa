@@ -291,7 +291,8 @@ window.MinhaArea = {
                 .order('nome');
 
             if (!error) {
-                let options = `<option value="${this.usuario.id}">👤 Visão Gestora</option>`;
+                let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
+                options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`;
                 options += `<option disabled>──────────────</option>`;
 
                 data.forEach(u => {
@@ -300,14 +301,16 @@ window.MinhaArea = {
                     }
                 });
                 select.innerHTML = options;
-                select.value = this.usuarioAlvoId || this.usuario.id;
+
+                // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
+                select.value = this.usuarioAlvoId || "";
             }
         } catch (e) { }
     },
 
     mudarUsuarioAlvo: function (novoId) {
-        if (novoId === 'EQUIPE') {
-            this.usuarioAlvoId = 'EQUIPE';
+        if (novoId === 'EQUIPE' || novoId === "") {
+            this.usuarioAlvoId = null;
         } else {
             this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
         }
