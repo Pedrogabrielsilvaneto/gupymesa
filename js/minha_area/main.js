@@ -271,16 +271,7 @@ const MinhaArea = {
     },
 
     carregarDadosAba: function (abaId) {
-        console.log(`🔄 [Main.js] Carregando aba: ${abaId}`);
-
-        if (abaId === 'diario') {
-            if (this.Geral) {
-                console.log("✅ [Main.js] Módulo Geral encontrado. Chamando carregar()...");
-                this.Geral.carregar();
-            } else {
-                console.error("❌ [Main.js] Módulo Geral NÃO encontrado (MinhaArea.Geral is undefined).");
-            }
-        }
+        if (abaId === 'diario' && this.Geral) this.Geral.carregar();
         if (abaId === 'metas' && this.Metas) this.Metas.carregar();
         if (abaId === 'auditoria' && this.Auditoria) this.Auditoria.carregar();
         if (abaId === 'comparativo' && this.Comparativo) this.Comparativo.carregar();
