@@ -46,13 +46,13 @@ MinhaArea.Geral = {
     },
 
     carregar: async function () {
+        console.log("🚀 [Geral.js] Iniciando carregar()...");
         if (!this.state.headerOriginal && this.els.tabelaHeader) {
             this.state.headerOriginal = this.els.tabelaHeader.innerHTML;
         }
 
         const filtro = MinhaArea.getDatasFiltro();
         if (!filtro) return;
-
         this.state.range = filtro;
 
         // Identifica se é visão macro (mais de 45 dias)
@@ -60,10 +60,8 @@ MinhaArea.Geral = {
         const d2 = new Date(filtro.fim);
         this.state.isMacro = (d2 - d1) / (1000 * 60 * 60 * 24) > 45;
 
-        const uidAlvo = MinhaArea.getUsuarioAlvo();
-        // [FIX v4.23] Não forçamos null aqui. Mantemos o ID da gestora para que o sistema saiba que é VISÃO DE USUÁRIO (mas com dados agregados).
-        const alvoReal = uidAlvo;
-        this.renderLoading();
+        const alvoReal = MinhaArea.getUsuarioAlvo();
+        this.toggleLoading(true);
 
         try {
             await this.buscarUsuarios();
