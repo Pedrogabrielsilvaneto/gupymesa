@@ -83,6 +83,13 @@ MinhaArea.Geral = {
                 this.buscarMetas(filtro, alvoReal)
             ]);
 
+            console.log(`📊 [Geral.js] Dados Recebidos:`);
+            console.log(`   - Produção: ${this.state.dadosProducao.length} registros`);
+            console.log(`   - Assertividade: ${this.state.dadosAssertividadeDiaria.length} registros`);
+            console.log(`   - Metas: ${this.state.dadosMetas.length} registros`);
+            console.log(`   - Filtro: ${filtro.inicio} até ${filtro.fim}`);
+
+
             console.log("✅ [Geral.js] Promises resolvidas. Processando dados...");
 
             await this.processarDadosUnificados();
