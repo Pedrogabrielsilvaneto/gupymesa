@@ -3,7 +3,7 @@
    REGRA: Inicia sempre exibindo o semestre atual (S1 ou S2).
 */
 
-const MinhaArea = {
+window.MinhaArea = {
     usuario: null,
     usuarioAlvoId: null,
     filtroPeriodo: 'ano', // Alterado de 'mes' para 'ano' para iniciar no modo semestral
