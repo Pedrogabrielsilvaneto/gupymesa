@@ -293,13 +293,6 @@ MinhaArea.Geral = {
                 // Busca Meta na tabela `metas`
                 const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mesRef && mt.ano == anoRef);
 
-                // [DEBUG]
-                if (this.ehGestao(item.uid)) {
-                    console.log(`[MA DEBUG] Buscando Meta Gestor ${item.uid} (${item.nome}) para ${mesRef}/${anoRef}`);
-                    console.log(`[MA DEBUG] Encontrado:`, metaObj);
-                    console.log(`[MA DEBUG] Dados Metas (Total):`, this.state.dadosMetas.length);
-                }
-
                 // [LOGIC] Meta Diária (Velocidade Esperada)
                 // Se não houver meta definida, usa 100 como fallback padrão
                 const rawMeta = metaObj ? (metaObj.meta_producao || metaObj.meta_prod) : null;
@@ -488,7 +481,6 @@ MinhaArea.Geral = {
         // Se houver meta de gestão definida, ela PREVALECE e é multiplicada pelo HC
         if (managerMeta > 0) {
             totalMeta = managerMeta * hcFinal;
-            console.log(`[MA] Meta Global Calculada: ${managerMeta} (Gestor) * ${hcFinal} (HC) = ${totalMeta}`);
         }
 
         // Estima dias úteis totais da equipe (Capacity)
