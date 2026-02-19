@@ -456,8 +456,9 @@ MinhaArea.Geral = {
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
         this.state.listaTabela.forEach(i => {
-            if (this.ehGestao(i.uid)) {
-                // Se for o gestor logado, sua meta é prioritária. Senão, pegamos a maior encontrada (evita fallback de 100 de outros admins)
+            // [FIX] Usar ehLiderancaReal para ignorar Auditoras no cálculo da Meta Global
+            if (this.ehLiderancaReal(i.uid)) {
+                // Se for o gestor logado, sua meta é prioritária. Senão, pegamos a maior encontrada
                 if (String(i.uid) === String(loggedInUid)) {
                     managerMeta = i.meta_total_periodo;
                 } else if (i.meta_total_periodo > managerMeta) {
@@ -685,6 +686,16 @@ MinhaArea.Geral = {
 
         // Verifica Perfil, Função e IDs Administrativos (mesma lógica do main.js)
         return ['ADMIN', 'GESTOR', 'AUDITOR', 'COORDENADOR', 'LIDER'].some(t => p.includes(t) || f.includes(t)) || id === 1 || id === 1000;
+    },
+
+    ehLiderancaReal: function (uid) {
+        const u = this.state.mapaUsuarios[uid];
+        if (!u) return false;
+        const p = (u.perfil || '').toUpperCase();
+        const f = (u.funcao || '').toUpperCase();
+        // Exclui Auditores explicitamente da definição de "Liderança" para fins de Meta Global
+        const isAuditor = f.includes('AUDITOR') || p.includes('AUDITOR');
+        return !isAuditor && (['ADMIN', 'GESTOR', 'COORDENADOR', 'LIDER'].some(t => p.includes(t) || f.includes(t)) || parseInt(u.id) === 1 || parseInt(u.id) === 1000);
     },
 
     renderLoading: function () { if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="11" class="text-center py-12"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-600"></i></td></tr>`; },
