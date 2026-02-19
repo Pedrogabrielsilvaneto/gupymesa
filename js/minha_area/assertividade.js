@@ -107,8 +107,9 @@ MinhaArea.Assertividade = {
         if (containerFeed) containerFeed.innerHTML = '<div class="text-center py-12 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Analisando auditorias...</div>';
 
         try {
-            // [FIX] Error neq.null:1 -> neq.null
+            console.log("Assertividade: Iniciando buscarTudoPaginado...");
             const dados = await this.buscarTudoPaginado(uid, inicio, fim);
+            console.log("Assertividade: buscarTudoPaginado retornou.", dados ? dados.length : "null");
             this.dadosBrutosCache = dados;
 
             console.log(`📦 Base Total: ${dados.length} registros auditados.`);
@@ -171,31 +172,24 @@ MinhaArea.Assertividade = {
     },
 
     buscarTudoPaginado: async function (uid, inicio, fim) {
-        // [FIX] Correct query syntax for neq null. Removed suspicious :1
+        console.log("Assertividade: Contando registros...", { uid, inicio, fim });
+
         let queryCount = Sistema.supabase.from('assertividade')
             .select('*', { count: 'exact', head: true })
             .gte('data_referencia', inicio)
             .lte('data_referencia', fim)
-            .neq('auditora_nome', 'null'); // Using string 'null' or js null in Supabase client works differently depending on version. Usually .not('auditora_nome', 'is', null) is clearer. Let's try standard neq first with null value.
-
-        // Supabase-js v2 syntax for IS NOT NULL is .not('col', 'is', null).
-        // .neq('col', null) sometimes fails.
-        // Let's use the safer .not('auditora_nome', 'is', null)
+            .not('auditora_nome', 'is', null);
 
         if (uid) queryCount = queryCount.eq('usuario_id', uid);
 
-        // Using filtered query directly as per original code logic but corrected
-        // The original code had: .neq('auditora_nome', null); 
-        // The error was "neq.null:1", likely due to internal conversion.
+        const { count, error: errCount } = await queryCount;
 
-        const { count, error: errCount } = await Sistema.supabase.from('assertividade')
-            .select('*', { count: 'exact', head: true })
-            .gte('data_referencia', inicio)
-            .lte('data_referencia', fim)
-            .not('auditora_nome', 'is', null) // Safer Check
-            .match(uid ? { usuario_id: uid } : {});
+        if (errCount) {
+            console.error("Assertividade: Erro no count", errCount);
+            throw errCount;
+        }
+        console.log("Assertividade: Count total", count);
 
-        if (errCount) throw errCount;
         if (count === 0) return [];
 
         const PAGE_SIZE = 1000;
@@ -204,6 +198,8 @@ MinhaArea.Assertividade = {
         const colunas = 'id, id_ppc, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok';
         const MAX_PAGES = 300;
         const pagesToFetch = Math.min(totalPages, MAX_PAGES);
+
+        console.log(`Assertividade: Buscando ${pagesToFetch} paginas...`);
 
         for (let i = 0; i < pagesToFetch; i++) {
             let query = Sistema.supabase.from('assertividade')
@@ -218,8 +214,10 @@ MinhaArea.Assertividade = {
         }
 
         const responses = await Promise.all(promises);
+        console.log("Assertividade: Promises resolvidas.");
         let todos = [];
         responses.forEach(({ data, error }) => { if (!error && data) todos = todos.concat(data); });
+        console.log("Assertividade: Total registros concatenados", todos.length);
         return todos;
     },
 
