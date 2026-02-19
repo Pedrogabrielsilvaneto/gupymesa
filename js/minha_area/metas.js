@@ -133,11 +133,14 @@ MinhaArea.Metas = {
             this.reordenarEExibir();
         } else if (modo === 'ASSERT') {
             if (btnAssert) btnAssert.className = styleActiveAssert;
-            this.toggleContainerPrincipal(true);
-            this.reordenarEExibir();
+            this.toggleContainerPrincipal(false); // Hide Grid, Show Dashboard
+            this.carregarDashboardAssertividade();
         } else if (modo === 'DASH') {
+            // Legacy or unused? Keeping for safety or removing if confirmed unused.
+            // If user clicks a "Dashboard" button, let it define behavior.
+            // But "Assertividade" button likely calls 'ASSERT'.
             if (btnDash) btnDash.className = styleActiveDash;
-            this.toggleContainerPrincipal(false); // Hide Grid
+            this.toggleContainerPrincipal(false);
             this.carregarDashboardAssertividade();
         }
     },
