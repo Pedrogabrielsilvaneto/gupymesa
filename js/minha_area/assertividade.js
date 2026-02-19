@@ -120,12 +120,22 @@ MinhaArea.Assertividade = {
             let countNdfEmpresa = 0;
             const listaErros = [];
 
+            // [DEBUG] Inspect first few records for qtd_nok structure
+            if (dados.length > 0) {
+                console.log("Amostra de dados (primeiros 3):", dados.slice(0, 3));
+            }
+
             for (let i = 0; i < dados.length; i++) {
                 const d = dados[i];
                 if (!d.auditora_nome || d.auditora_nome.trim() === '') continue;
 
                 countTotalAuditados++;
-                const isErro = (d.qtd_nok && Number(d.qtd_nok) > 0);
+
+                // [DEBUG LOGIC] Check strictly for qtd_nok
+                const valNok = d.qtd_nok;
+                const isErro = (valNok && Number(valNok) > 0);
+
+                if (i < 5) console.log(`Item ${i}: qtd_nok=${valNok} type=${typeof valNok} isErro=${isErro}`);
 
                 if (isErro) {
                     listaErros.push(d);
