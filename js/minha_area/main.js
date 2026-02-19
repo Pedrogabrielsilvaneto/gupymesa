@@ -258,20 +258,27 @@ window.MinhaArea = {
         // Highlight active button
         const btn = document.getElementById(`btn-ma-${aba}`);
         if (btn) btn.classList.add('active');
-
         // Show active view
         const view = document.getElementById(`ma-tab-${aba}`);
         if (view) view.classList.remove('hidden');
 
-        // Load specific data
+        const btnDiario = document.getElementById('btn-ma-diario');
+        const btnMetas = document.getElementById('btn-ma-metas');
+        const btnAuditoria = document.getElementById('btn-ma-auditoria');
+        const btnFeedback = document.getElementById('btn-ma-feedback');
+
         if (aba === 'diario') {
-            MinhaArea.Geral.carregar();
+            if (btnDiario) btnDiario.classList.add('active');
+            if (MinhaArea.Geral) MinhaArea.Geral.carregar();
         } else if (aba === 'metas') {
-            MinhaArea.Metas.carregar();
+            if (btnMetas) btnMetas.classList.add('active');
+            if (MinhaArea.Metas) MinhaArea.Metas.carregar();
         } else if (aba === 'auditoria') {
-            MinhaArea.Auditoria.carregar();
+            if (btnAuditoria) btnAuditoria.classList.add('active');
+            if (MinhaArea.Auditoria) MinhaArea.Auditoria.carregar();
         } else if (aba === 'feedback') {
-            MinhaArea.Feedback.carregar();
+            if (btnFeedback) btnFeedback.classList.add('active');
+            if (MinhaArea.Feedback) MinhaArea.Feedback.init();
         }
     },
 

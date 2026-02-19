@@ -101,6 +101,8 @@ MinhaArea.Feedback = {
             headerAvatar.innerHTML = '<i class="fas fa-users text-blue-500"></i>';
             headerAvatar.className = "w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center";
             this.destinatarioAtual = null; // Broadcast
+            // Hide status for General
+            document.getElementById('chat-header-status').classList.add('hidden');
         } else {
             const user = this.contatosCache.find(u => u.id === id);
             if (user) {
@@ -111,6 +113,11 @@ MinhaArea.Feedback = {
                     : `<span class="text-sm font-bold text-slate-600">${iniciais}</span>`;
                 headerAvatar.className = "w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden";
                 this.destinatarioAtual = user.id;
+
+                // Generic status
+                const statusEl = document.getElementById('chat-header-status');
+                statusEl.classList.remove('hidden');
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Disponível para mensagem';
             }
         }
 
