@@ -321,7 +321,7 @@ MinhaArea.Geral = {
                 console.log(`- DU Config/Calc: ${diastUteisUser}`);
                 console.log(`- Soma Abono: ${item.soma_abono}`);
                 console.log(`- DU Liquidos: ${diasUteisLiquidos}`);
-                console.log(`- Meta Obj Raw:`, metaObj);
+                console.log(`- Range: `, this.state.range);
                 console.log(`- Meta Velocidade Define: ${item.meta_velocidade_media}`);
             }
 
