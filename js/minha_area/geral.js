@@ -493,6 +493,16 @@ MinhaArea.Geral = {
         const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehGestao(i.uid)) || this.state.listaTabela.find(i => this.ehGestao(i.uid));
         const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (totalUteis / (realUserCount || 1) || 1);
 
+        // [DEBUG REQUESTED] Detalhamento do Cálculo
+        console.group("📊 [MA] Detalhes do Cálculo Global");
+        console.log("👤 Gestor Identificado (UID):", managerItemForDays ? managerItemForDays.uid : "N/A");
+        console.log("🎯 Meta Global (Total Periodo):", managerMeta);
+        console.log("📅 Dias Úteis Considerados:", diasPeriodo);
+        console.log("👥 Headcount (Assistentes Cons.):", hcFinal);
+        console.log("➗ Meta Diária (Estimada):", managerMeta > 0 ? (managerMeta / diasPeriodo / hcFinal).toFixed(2) : "N/A");
+        console.log("🔢 Fórmula Final:", `${managerMeta} (Meta) * ${hcFinal} (HC) = ${totalMeta} (Total)`);
+        console.groupEnd();
+
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
