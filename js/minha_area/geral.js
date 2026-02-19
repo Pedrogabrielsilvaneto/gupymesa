@@ -504,14 +504,21 @@ MinhaArea.Geral = {
             ? (totalUteis / (realUserCount > 0 ? realUserCount : 1) * hcFinal)
             : totalUteis;
 
+        // Cálculo de Dias Médios do Período (para Velocidade Diária)
+        const managerItem = this.state.listaTabela.find(i => this.ehGestao(i.uid));
+        const diasPeriodo = managerItem ? (managerItem.dias_uteis_liquidos || 1) : (totalUteis / (realUserCount || 1) || 1);
+
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: { diasReal: totalFator, diasTotal: diasUteisTotais },
             velocidade: {
-                real: hcFinal > 0 ? Math.round(totalProd / hcFinal) : 0,
-                // Meta por pessoa baseada nos usuários reais ou na meta da gestora
-                meta: managerMeta > 0 ? Math.round(managerMeta / (this.state.listaTabela.find(i => this.ehGestao(i.uid))?.dias_uteis_liquidos || 1)) : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
+                // Real = Produção Total / Dias do Período
+                real: Math.round(totalProd / diasPeriodo),
+                // Meta = (Meta Diária da Gestora) * Headcount
+                meta: managerMeta > 0
+                    ? Math.round((managerMeta / diasPeriodo) * hcFinal)
+                    : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
     },
