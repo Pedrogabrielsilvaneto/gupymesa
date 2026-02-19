@@ -212,12 +212,15 @@ MinhaArea.Assertividade = {
         console.log(`Assertividade: Buscando ${pagesToFetch} paginas...`);
 
         for (let i = 0; i < pagesToFetch; i++) {
+            const rangeStart = i * PAGE_SIZE;
+            const rangeEnd = (i + 1) * PAGE_SIZE - 1;
+
             let query = Sistema.supabase.from('assertividade')
                 .select(colunas)
                 .gte('data_referencia', inicio)
                 .lte('data_referencia', fim)
                 .not('auditora_nome', 'is', null)
-                .range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
+                .range(rangeStart, rangeEnd);
 
             if (uid) query = query.eq('usuario_id', uid);
             promises.push(query);
