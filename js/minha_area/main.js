@@ -286,55 +286,52 @@ window.MinhaArea = {
                 MinhaArea.Metas.carregar();
             } else if (!document.getElementById('ma-tab-auditoria').classList.contains('hidden')) {
                 MinhaArea.Auditoria.carregar();
-            } else if (!document.getElementById('ma-tab-feedback').classList.contains('hidden')) {
-                MinhaArea.Feedback.carregar();
             }
-            if (abaId === 'comparativo' && this.Comparativo) this.Comparativo.carregar();
-            if (abaId === 'feedback' && this.Feedback) this.Feedback.carregar();
-        },
+        }
+    },
 
-        atualizarListaAssistentes: async function () {
-            if (!this.isAdmin()) return;
-            const select = document.getElementById('admin-user-selector');
-            if (!select || select.options.length > 1) return;
+    atualizarListaAssistentes: async function () {
+        if (!this.isAdmin()) return;
+        const select = document.getElementById('admin-user-selector');
+        if (!select || select.options.length > 1) return;
 
-            try {
-                const { data, error } = await Sistema.supabase
-                    .from('usuarios')
-                    .select('id, nome')
-                    .eq('ativo', true)
-                    .order('nome');
+        try {
+            const { data, error } = await Sistema.supabase
+                .from('usuarios')
+                .select('id, nome')
+                .eq('ativo', true)
+                .order('nome');
 
-                if (!error) {
-                    let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
-                    // options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`; // Removido a pedido
-                    options += `<option disabled>──────────────</option>`;
+            if (!error) {
+                let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
+                // options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`; // Removido a pedido
+                options += `<option disabled>──────────────</option>`;
 
-                    data.forEach(u => {
-                        if (u.id != this.usuario.id) {
-                            options += `<option value="${u.id}">${u.nome}</option>`;
-                        }
-                    });
-                    select.innerHTML = options;
+                data.forEach(u => {
+                    if (u.id != this.usuario.id) {
+                        options += `<option value="${u.id}">${u.nome}</option>`;
+                    }
+                });
+                select.innerHTML = options;
 
-                    // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
-                    select.value = this.usuarioAlvoId || "";
-                }
-            } catch (e) { }
-        },
-
-        mudarUsuarioAlvo: function (novoId) {
-            if (novoId === 'EQUIPE' || novoId === "") {
-                this.usuarioAlvoId = null;
-            } else {
-                this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
+                // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
+                select.value = this.usuarioAlvoId || "";
             }
-            this.atualizarTudo();
-        },
+        } catch (e) { }
+    },
 
-        getUsuarioAlvo: function () { return this.usuarioAlvoId; }
-    };
+    mudarUsuarioAlvo: function (novoId) {
+        if (novoId === 'EQUIPE' || novoId === "") {
+            this.usuarioAlvoId = null;
+        } else {
+            this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
+        }
+        this.atualizarTudo();
+    },
 
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => { if (typeof MinhaArea !== 'undefined') MinhaArea.init(); }, 100);
-    });
+    getUsuarioAlvo: function () { return this.usuarioAlvoId; }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => { if (typeof MinhaArea !== 'undefined') MinhaArea.init(); }, 100);
+});
