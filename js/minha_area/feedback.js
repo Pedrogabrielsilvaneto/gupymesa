@@ -7,7 +7,6 @@ MinhaArea.Feedback = {
     anexoAtual: null,
 
     init: async function () {
-        console.log("💬 [Feedback] Iniciando módulo de Chat (TiDB)...");
         await this.carregarContatos();
         // Seleciona GERAL por padrão ao abrir
         this.selecionarChat('GERAL');

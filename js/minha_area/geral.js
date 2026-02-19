@@ -315,17 +315,9 @@ MinhaArea.Geral = {
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
             // [DEBUG] Monitorar Dias Excessivos
-            const ehPaty = String(item.uid) === String(window.MinhaArea?.usuario?.id);
-            if (ehPaty) {
-                console.log(`[MA DEBUG DAYS] ${item.nome}:`);
-                console.log(`- DU Config/Calc: ${diastUteisUser}`);
-                console.log(`- Soma Abono: ${item.soma_abono}`);
-                console.log(`- DU Liquidos: ${diasUteisLiquidos}`);
-                console.log(`- Range: `, this.state.range);
-                console.log(`- Meta Velocidade Define: ${item.meta_velocidade_media}`);
-            }
-
             // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
+            item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
+            item.dias_uteis_liquidos = diasUteisLiquidos;
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
             item.dias_uteis_liquidos = diasUteisLiquidos;
 
@@ -458,16 +450,6 @@ MinhaArea.Geral = {
         let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
         let managerMeta = 0;
         const loggedInUid = window.MinhaArea?.usuario?.id;
-
-        // [DEBUG] Verificar quem está sendo considerado Liderança
-        console.group("[MA DEBUG] Verificação de Liderança");
-        this.state.listaTabela.forEach(i => {
-            if (this.ehLiderancaReal(i.uid)) {
-                const u = this.state.mapaUsuarios[i.uid];
-                console.log(`User: ${i.nome} (${i.uid}) | Perfil: ${u?.perfil} | Função: ${u?.funcao} | Meta: ${i.meta_total_periodo}`);
-            }
-        });
-        console.groupEnd();
 
         this.state.listaTabela.forEach(i => {
             // [FIX] Usar ehLiderancaReal para ignorar Auditoras no cálculo da Meta Global
