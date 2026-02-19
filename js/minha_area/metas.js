@@ -555,10 +555,17 @@ MinhaArea.Metas = {
                 });
             });
 
-            // [SYNC v4.35] Filter cacheUsers for the ranking: Assistants OR Anyone with production > 0
+            // [SYNC v4.35] Filter cacheUsers for the ranking: Strictly Assistants
+            // Exclude Gestora, Auditora, Admin regardless of production
             this.cacheUsers = allActiveUsers.filter(u => {
-                const s = this.statsUsers[String(u.id)];
-                return !u.isManagement || (s && s.prod > 0);
+                const funcao = (u.funcao || '').toUpperCase();
+                const perfil = (u.perfil || '').toUpperCase();
+                const rolesToExclude = ['GESTORA', 'AUDITORA', 'ADMIN', 'ADMINISTRADOR'];
+
+                if (rolesToExclude.some(r => funcao.includes(r) || perfil.includes(r))) return false;
+                if (u.isManagement) return false; // Safety check if isManagement is set
+
+                return true;
             });
 
             this.atualizarCardsTopo();
