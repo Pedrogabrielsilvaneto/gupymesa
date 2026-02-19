@@ -445,12 +445,16 @@ MinhaArea.Geral = {
     calcularKpisGlobal: function () {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
         let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
-        let managerMeta = 0;
+        const loggedInUid = window.MinhaArea?.usuario?.id;
 
         this.state.listaTabela.forEach(i => {
             if (this.ehGestao(i.uid)) {
-                // Se encontrar um gestor com meta definida, usa ela como Meta Global da Equipe
-                if (i.meta_total_periodo > 0) managerMeta = i.meta_total_periodo;
+                // Se for o gestor logado, sua meta é prioritária. Senão, pegamos a maior encontrada (evita fallback de 100 de outros admins)
+                if (String(i.uid) === String(loggedInUid)) {
+                    managerMeta = i.meta_total_periodo;
+                } else if (i.meta_total_periodo > managerMeta) {
+                    managerMeta = i.meta_total_periodo;
+                }
                 return;
             }
             totalProd += i.producao;
@@ -469,53 +473,31 @@ MinhaArea.Geral = {
             }
         });
 
-        // Se houver meta de gestão definida, ela PREVALECE sobre a soma das metas individuais
+        // Headcount Configurado ou Padrão 17 (Conforme regra de negócio)
+        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : 17;
+
+        // Se houver meta de gestão definida, ela PREVALECE e é multiplicada pelo HC
         if (managerMeta > 0) {
-            totalMeta = managerMeta;
-        }
-
-        // Ajuste Headcount Configurado (Default 17 se não houver config)
-        const realUserCount = countUsers;
-        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0)
-            ? this.state.headcountConfig
-            : (realUserCount > 0 ? realUserCount : 17);
-
-        // Se houver meta de gestão definida, ela é a base para a equipe
-        // Nova Regra: Meta Global = Meta DIÁRIA da Gestora * Headcount * Dias Úteis da Gestora
-        if (managerMeta > 0) {
-            // managerMeta aqui já traz (MetaDiaria * DiasUteis), pois vem de item.meta_total_periodo calculado no loop anterior
-            // Apenas multiplicamos pelo Headcount
-
-            // [LOGIC] Se for usar o HC fixo de 17 se não tiver nada:
-            if (!this.state.headcountConfig || this.state.headcountConfig === 0) {
-                hcFinal = 17;
-            }
-
             totalMeta = managerMeta * hcFinal;
-
-            // Recalcula divisor de velocidade se necessário, mas para Volume (Produtividade) o totalMeta já está expandido.
-        } else {
-            // Fallback: Soma das metas individuais (já calculado em totalMeta no loop)
+            console.log(`[MA] Meta Global Calculada: ${managerMeta} (Gestor) * ${hcFinal} (HC) = ${totalMeta}`);
         }
 
         // Estima dias úteis totais da equipe (Capacity)
-        // Se tiver HC Configurado, projeta os dias úteis. Se não, usa a soma real.
+        const realUserCount = countUsers;
         const diasUteisTotais = (this.state.headcountConfig || hcFinal === 17)
             ? (totalUteis / (realUserCount > 0 ? realUserCount : 1) * hcFinal)
             : totalUteis;
 
         // Cálculo de Dias Médios do Período (para Velocidade Diária)
-        const managerItem = this.state.listaTabela.find(i => this.ehGestao(i.uid));
-        const diasPeriodo = managerItem ? (managerItem.dias_uteis_liquidos || 1) : (totalUteis / (realUserCount || 1) || 1);
+        const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehGestao(i.uid)) || this.state.listaTabela.find(i => this.ehGestao(i.uid));
+        const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (totalUteis / (realUserCount || 1) || 1);
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: { diasReal: totalFator, diasTotal: diasUteisTotais },
             velocidade: {
-                // Real = Produção Total / Dias do Período
                 real: Math.round(totalProd / diasPeriodo),
-                // Meta = (Meta Diária da Gestora) * Headcount
                 meta: managerMeta > 0
                     ? Math.round((managerMeta / diasPeriodo) * hcFinal)
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
