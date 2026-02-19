@@ -314,6 +314,17 @@ MinhaArea.Geral = {
             // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
+            // [DEBUG] Monitorar Dias Excessivos
+            const ehPaty = String(item.uid) === String(window.MinhaArea?.usuario?.id);
+            if (ehPaty) {
+                console.log(`[MA DEBUG DAYS] ${item.nome}:`);
+                console.log(`- DU Config/Calc: ${diastUteisUser}`);
+                console.log(`- Soma Abono: ${item.soma_abono}`);
+                console.log(`- DU Liquidos: ${diasUteisLiquidos}`);
+                console.log(`- Meta Obj Raw:`, metaObj);
+                console.log(`- Meta Velocidade Define: ${item.meta_velocidade_media}`);
+            }
+
             // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
             item.dias_uteis_liquidos = diasUteisLiquidos;
