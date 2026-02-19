@@ -247,6 +247,16 @@ MinhaArea.Geral = {
             }
         });
 
+        // [LOGIC] Garante que gestores com meta definida sejam processados
+        // Mesmo que não tenham produção ou assertividade no período, precisamos da meta deles para o Dashboard Global
+        this.state.dadosMetas.forEach(m => {
+            const uid = parseInt(m.usuario_id);
+            if (this.ehGestao(uid)) {
+                const chave = String(uid);
+                if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid);
+            }
+        });
+
         for (const item of mapa.values()) {
             item.media_final = item.qtd_assert > 0 ? item.soma_notas_bruta / item.qtd_assert : null;
 
