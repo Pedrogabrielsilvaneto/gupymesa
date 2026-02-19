@@ -464,17 +464,33 @@ MinhaArea.Geral = {
             totalMeta = managerMeta;
         }
 
-        let kpiDivisor = countUsers;
-        let realUserCount = countUsers;
+        // Ajuste Headcount Configurado (Default 17 se não houver config)
+        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0)
+            ? this.state.headcountConfig
+            : (realUserCount > 0 ? realUserCount : 17);
 
-        // Ajuste Headcount Configurado
-        if (this.state.headcountConfig && this.state.headcountConfig > 0) {
-            kpiDivisor = this.state.headcountConfig;
+        // Se houver meta de gestão definida, ela é a base para a equipe
+        // Nova Regra: Meta Global = Meta DIÁRIA da Gestora * Headcount * Dias Úteis da Gestora
+        if (managerMeta > 0) {
+            // managerMeta aqui já traz (MetaDiaria * DiasUteis), pois vem de item.meta_total_periodo calculado no loop anterior
+            // Apenas multiplicamos pelo Headcount
+
+            // [LOGIC] Se for usar o HC fixo de 17 se não tiver nada:
+            if (!this.state.headcountConfig || this.state.headcountConfig === 0) {
+                hcFinal = 17;
+            }
+
+            totalMeta = managerMeta * hcFinal;
+
+            // Recalcula divisor de velocidade se necessário, mas para Volume (Produtividade) o totalMeta já está expandido.
+        } else {
+            // Fallback: Soma das metas individuais (já calculado em totalMeta no loop)
         }
 
-        // Estima dias úteis totais da equipe (Capacity) baseada na proporção
-        const diasUteisTotais = this.state.headcountConfig
-            ? (totalUteis / (realUserCount > 0 ? realUserCount : 1) * this.state.headcountConfig)
+        // Estima dias úteis totais da equipe (Capacity)
+        // Se tiver HC Configurado, projeta os dias úteis. Se não, usa a soma real.
+        const diasUteisTotais = (this.state.headcountConfig || hcFinal === 17)
+            ? (totalUteis / (realUserCount > 0 ? realUserCount : 1) * hcFinal)
             : totalUteis;
 
         this.atualizarCardsKPI({
@@ -482,9 +498,9 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: { diasReal: totalFator, diasTotal: diasUteisTotais },
             velocidade: {
-                real: kpiDivisor > 0 ? Math.round(totalProd / kpiDivisor) : 0,
-                // Meta por pessoa baseada nos usuários reais, para manter o alvo justo
-                meta: realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100
+                real: hcFinal > 0 ? Math.round(totalProd / hcFinal) : 0,
+                // Meta por pessoa baseada nos usuários reais ou na meta da gestora
+                meta: managerMeta > 0 ? Math.round(managerMeta / (this.state.listaTabela.find(i => this.ehGestao(i.uid))?.dias_uteis_liquidos || 1)) : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
     },
@@ -562,16 +578,19 @@ MinhaArea.Geral = {
             }
         });
 
-        const HC = this.state.headcountConfig || 1;
+        const configHC = this.state.headcountConfig;
+        const HC = (configHC && configHC > 0) ? configHC : 17; // Default 17
+
         const metaIndiv = item.meta_velocidade_media || 0;
-        const metaEquipePeriodo = metaIndiv * HC * item.dias_uteis_liquidos;
-        const denonimadorKPI = HC;
+
+        // [LOGIC] Meta Equipe Periodo = Meta Diária Gestor * HC * Dias Úteis Gestor
+        const metaEquipePeriodo = metaIndiv * HC * (item.dias_uteis_liquidos || 0);
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: metaEquipePeriodo },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
-            capacidade: { diasReal: totalFator, diasTotal: totalUteis * HC },
-            velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv * HC }
+            capacidade: { diasReal: totalFator, diasTotal: totalUteis * (HC / Math.max(1, this.state.listaCompleta ? this.state.listaCompleta.filter(u => !this.ehGestao(u.id)).length : 1)) }, // Estimativa
+            velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv }
         });
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
