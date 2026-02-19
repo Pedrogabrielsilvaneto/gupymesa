@@ -6,59 +6,30 @@
 MinhaArea.Auditoria = {
     isLocked: false,
 
-    carregar: async function() {
-        if (this.isLocked) return;
-        this.isLocked = true;
-        this.toggleLoading(true);
+    carregar: async function () {
+        const container = document.getElementById('ma-tab-auditoria');
+        if (!container) return;
 
-        console.log("🚀 [Auditoria] Acessando Cérebro de Dados (assertividade)...");
-
-        try {
-            // 1. Obtém Filtros (Data e Usuário)
-            const datas = MinhaArea.getDatasFiltro();
-            if (!datas) throw new Error("Datas do filtro não encontradas.");
-            const { inicio, fim } = datas;
-            
-            // Define o alvo: Se for Admin vendo alguém, ou o próprio usuário logado
-            const uidAlvo = MinhaArea.getUsuarioAlvo() || (MinhaArea.usuario ? MinhaArea.usuario.id : null);
-
-            // 2. QUERY OTIMIZADA NO SUPABASE
-            // Buscamos apenas as colunas estritamente necessárias para a grade solicitada.
-            // Isso torna a consulta muito mais rápida do que trazer "tudo".
-            let query = Sistema.supabase
-                .from('assertividade')
-                .select('doc_name, assertividade_val, observacao, status, empresa_nome, tipo_documento, qtd_ok, qtd_campos, data_referencia')
-                .gte('data_referencia', inicio)
-                .lte('data_referencia', fim)
-                .order('data_referencia', { ascending: false }); // Mais recentes no topo
-
-            // Aplica filtro de usuário se necessário
-            if (uidAlvo) {
-                query = query.eq('usuario_id', uidAlvo);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw new Error("Falha na conexão com a base de assertividade: " + error.message);
-
-            // 3. RENDERIZAÇÃO
-            this.renderizarGrid(data || []);
-
-        } catch (err) {
-            console.error("❌ Erro Auditoria:", err);
-            const tbody = document.getElementById('auditoria-grid-body');
-            if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-rose-500 font-bold">Erro ao sincronizar: ${err.message}</td></tr>`;
-        } finally {
-            this.toggleLoading(false);
-            this.isLocked = false;
-        }
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fade-in">
+                <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <i class="fas fa-tools text-4xl text-slate-400"></i>
+                </div>
+                <h2 class="text-2xl font-black text-slate-700 mb-2">Em Manutenção</h2>
+                <p class="text-slate-500 max-w-md mx-auto">
+                    Estamos realizando melhorias na visualização de histórico de auditorias para trazer mais detalhes e precisão. 
+                    <br><br>
+                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500">Volte em breve!</span>
+                </p>
+            </div>
+        `;
     },
 
-    renderizarGrid: function(lista) {
+    renderizarGrid: function (lista) {
         const tbody = document.getElementById('auditoria-grid-body');
         const badgeTotal = document.getElementById('auditoria-total-badge');
         const emptyState = document.getElementById('auditoria-empty');
-        
+
         if (!tbody) return;
         tbody.innerHTML = '';
 
@@ -67,10 +38,10 @@ MinhaArea.Auditoria = {
 
         // Estado Vazio
         if (lista.length === 0) {
-            if(emptyState) emptyState.classList.remove('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
             return;
         }
-        if(emptyState) emptyState.classList.add('hidden');
+        if (emptyState) emptyState.classList.add('hidden');
 
         // Renderiza Linhas
         const html = lista.map(row => {
@@ -80,14 +51,14 @@ MinhaArea.Auditoria = {
             const tipoDoc = row.tipo_documento || '-';
             const obs = row.observacao || '-';
             const statusRaw = (row.status || '').toUpperCase();
-            
+
             // Cálculo de Assertividade (Mesma lógica da Gestão)
             let pct = 0;
             let valOriginal = row.assertividade_val;
-            
+
             if (valOriginal !== null && valOriginal !== undefined) {
                 if (typeof valOriginal === 'string') {
-                    valOriginal = parseFloat(valOriginal.replace('%','').replace(',','.'));
+                    valOriginal = parseFloat(valOriginal.replace('%', '').replace(',', '.'));
                 }
                 pct = Number(valOriginal);
             } else if (row.qtd_campos > 0) {
@@ -140,7 +111,7 @@ MinhaArea.Auditoria = {
         tbody.innerHTML = html;
     },
 
-    toggleLoading: function(show) {
+    toggleLoading: function (show) {
         const el = document.getElementById('auditoria-loading');
         if (el) {
             if (show) el.classList.remove('hidden');
