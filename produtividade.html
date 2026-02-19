@@ -164,7 +164,7 @@
             <div class="flex gap-1 overflow-x-auto no-scrollbar">
                 <button onclick="Produtividade.mudarAba('geral')" id="btn-geral"
                     class="tab-btn active px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap"><i
-                        class="fas fa-check-circle"></i> ValidaÃ§Ã£o</button>
+                        class="fas fa-check-circle"></i> Validação</button>
                 <button onclick="Produtividade.mudarAba('consolidado')" id="btn-consolidado"
                     class="tab-btn px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 whitespace-nowrap"><i
                         class="fas fa-table"></i> Consolidado</button>
@@ -188,7 +188,7 @@
                         <button onclick="Produtividade.mudarPeriodo('dia')" id="btn-periodo-dia"
                             class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-white hover:shadow-sm transition">Dia</button>
                         <button onclick="Produtividade.mudarPeriodo('mes')" id="btn-periodo-mes"
-                            class="px-3 py-1 text-xs font-bold rounded shadow-sm text-blue-600 bg-white transition">MÃªs</button>
+                            class="px-3 py-1 text-xs font-bold rounded shadow-sm text-blue-600 bg-white transition">Mês</button>
                         <button onclick="Produtividade.mudarPeriodo('semana')" id="btn-periodo-semana"
                             class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-white hover:shadow-sm transition">Semana</button>
                         <button onclick="Produtividade.mudarPeriodo('ano')" id="btn-periodo-ano"
@@ -206,7 +206,7 @@
                             class="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1.5 outline-none min-w-[100px]">
                             <option value="0">Janeiro</option>
                             <option value="1">Fevereiro</option>
-                            <option value="2">MarÃ§o</option>
+                            <option value="2">Março</option>
                             <option value="3">Abril</option>
                             <option value="4">Maio</option>
                             <option value="5">Junho</option>
@@ -229,14 +229,14 @@
                             class="hidden bg-purple-50 border border-purple-200 text-purple-800 text-xs font-bold rounded-lg px-2 py-1.5 outline-none">
                             <option value="full">Ano Completo</option>
                             <optgroup label="Semestres">
-                                <option value="S1">1Âº Semestre</option>
-                                <option value="S2">2Âº Semestre</option>
+                                <option value="S1">1º Semestre</option>
+                                <option value="S2">2º Semestre</option>
                             </optgroup>
                             <optgroup label="Trimestres">
-                                <option value="T1">1Âº Trimestre</option>
-                                <option value="T2">2Âº Trimestre</option>
-                                <option value="T3">3Âº Trimestre</option>
-                                <option value="T4">4Âº Trimestre</option>
+                                <option value="T1">1º Trimestre</option>
+                                <option value="T2">2º Trimestre</option>
+                                <option value="T3">3º Trimestre</option>
+                                <option value="T4">4º Trimestre</option>
                             </optgroup>
                         </select>
                     </div>
@@ -401,7 +401,7 @@
                     <i class="fas fa-bolt kpi-icon-bg text-amber-500"></i>
                     <div class="flex flex-col justify-between h-full">
                         <div>
-                            <div class="kpi-title text-amber-600">Velocidade (MÃ©dia/Dia)</div>
+                            <div class="kpi-title text-amber-600">Velocidade (Média/Dia)</div>
                             <div class="flex items-baseline gap-1 mt-1">
                                 <span class="kpi-main-val text-slate-800" id="kpi-media-real">--</span>
                                 <span class="text-xs font-bold text-slate-400">/</span>
@@ -431,7 +431,7 @@
                     <div class="grid grid-cols-2 gap-2 h-auto content-start mt-0.5 flex-1">
                         <div class="border-r border-slate-100 pr-1.5">
                             <span
-                                class="text-[8px] font-black text-blue-500 block mb-1 text-center bg-blue-50 rounded tracking-wider uppercase shrink-0">VALIDAÃ‡ÃƒO</span>
+                                class="text-[8px] font-black text-blue-500 block mb-1 text-center bg-blue-50 rounded tracking-wider uppercase shrink-0">VALIDAÇÃO</span>
                             <div id="top-prod-list" class="flex flex-col gap-0.5"></div>
                         </div>
                         <div class="pl-0.5">
@@ -469,11 +469,11 @@
                                 <th class="px-2 py-3 text-center w-[6%]">FIFO</th>
                                 <th class="px-2 py-3 text-center w-[6%]">G. Total</th>
                                 <th class="px-2 py-3 text-center w-[6%]">G. Parcial</th>
-                                <th class="px-2 py-3 text-center w-[10%] text-blue-700 bg-blue-50/50">ProduÃ§Ã£o</th>
+                                <th class="px-2 py-3 text-center w-[10%] text-blue-700 bg-blue-50/50">Produção</th>
                                 <th class="px-2 py-3 text-center w-[8%] bg-slate-100">Meta (Real)</th>
                                 <th class="px-2 py-3 text-center w-[8%]">% Prod</th>
                                 <th class="px-2 py-3 text-center w-[8%] text-emerald-700 bg-emerald-50/50">% Assert</th>
-                                <th class="px-3 py-3 w-[15%]">ObservaÃ§Ã£o</th>
+                                <th class="px-3 py-3 w-[15%]">Observação</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-corpo" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -481,7 +481,7 @@
                 </div>
                 <div
                     class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500 font-bold flex justify-between items-center">
-                    <span><i class="fas fa-table mr-1"></i> VisÃ£o de Grade de Produtividade</span><span>Total de
+                    <span><i class="fas fa-table mr-1"></i> Visão de Grade de Produtividade</span><span>Total de
                         Registos: <span id="total-registros-footer">0</span></span>
                 </div>
             </div>
@@ -500,8 +500,8 @@
                 </div>
                 <div
                     class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500 font-bold flex justify-between items-center">
-                    <span><i class="fas fa-layer-group mr-1"></i> VisÃ£o Agrupada por PerÃ­odo Temporal</span><span>Total
-                        de Assistentes Ãšnicos: <span id="total-consolidado-footer">0</span></span>
+                    <span><i class="fas fa-layer-group mr-1"></i> Visão Agrupada por Período Temporal</span><span>Total
+                        de Assistentes Únicos: <span id="total-consolidado-footer">0</span></span>
                 </div>
             </div>
         </div>
@@ -511,19 +511,19 @@
                 class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-slate-100 pb-4">
                 <div>
                     <h2 class="text-2xl font-black text-slate-700 tracking-tight">
-                        <i class="fas fa-tachometer-alt mr-2 text-indigo-500"></i>Performance 360Â°
+                        <i class="fas fa-tachometer-alt mr-2 text-indigo-500"></i>Performance 360°
                     </h2>
-                    <p class="text-xs text-slate-400 mt-1 font-medium">AnÃ¡lise bipolar de produtividade e qualidade</p>
+                    <p class="text-xs text-slate-400 mt-1 font-medium">Análise bipolar de produtividade e qualidade</p>
                 </div>
 
                 <div class="bg-slate-100 p-1.5 rounded-xl flex shadow-inner border border-slate-200">
                     <button onclick="Produtividade.Performance.setMode('tracao')" id="btn-mode-tracao"
                         class="flex items-center gap-2 px-6 py-2 text-sm font-bold rounded-lg transition-all duration-300 shadow-sm bg-white text-indigo-600 ring-1 ring-slate-200">
-                        <span>ðŸš€ TraÃ§Ã£o</span>
+                        <span>🚀 Tração</span>
                     </button>
                     <button onclick="Produtividade.Performance.setMode('atrito')" id="btn-mode-atrito"
                         class="flex items-center gap-2 px-6 py-2 text-sm font-bold rounded-lg transition-all duration-300 text-slate-400 hover:text-slate-600">
-                        <span>âš ï¸ Atrito</span>
+                        <span>⚠️ Atrito</span>
                     </button>
                 </div>
             </div>
@@ -550,29 +550,29 @@
                                 <th class="px-3 py-4 min-w-[70px]">Jan</th>
                                 <th class="px-3 py-4 min-w-[70px]">Fev</th>
                                 <th class="px-3 py-4 min-w-[70px]">Mar</th>
-                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">1Âº
+                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">1º
                                     Trim</th>
                                 <th class="px-3 py-4 min-w-[70px]">Abr</th>
                                 <th class="px-3 py-4 min-w-[70px]">Mai</th>
                                 <th class="px-3 py-4 min-w-[70px]">Jun</th>
-                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">2Âº
+                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">2º
                                     Trim</th>
                                 <th
                                     class="px-3 py-4 bg-indigo-50 text-indigo-700 border-r border-indigo-100 min-w-[90px]">
-                                    1Âº Sem</th>
+                                    1º Sem</th>
                                 <th class="px-3 py-4 min-w-[70px]">Jul</th>
                                 <th class="px-3 py-4 min-w-[70px]">Ago</th>
                                 <th class="px-3 py-4 min-w-[70px]">Set</th>
-                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">3Âº
+                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">3º
                                     Trim</th>
                                 <th class="px-3 py-4 min-w-[70px]">Out</th>
                                 <th class="px-3 py-4 min-w-[70px]">Nov</th>
                                 <th class="px-3 py-4 min-w-[70px]">Dez</th>
-                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">4Âº
+                                <th class="px-3 py-4 bg-blue-50 text-blue-700 border-x border-blue-100 min-w-[80px]">4º
                                     Trim</th>
                                 <th
                                     class="px-3 py-4 bg-indigo-50 text-indigo-700 border-r border-indigo-100 min-w-[90px]">
-                                    2Âº Sem</th>
+                                    2º Sem</th>
                                 <th class="px-4 py-4 bg-slate-100 text-slate-800 font-black min-w-[100px]">Total Anual
                                 </th>
                             </tr>
@@ -584,15 +584,15 @@
         </div>
     </div>
 
-    <script src="js/produtividade/assertividade.js?v=20260219_1941"></script>
-    <script src="js/produtividade/main.js?v=20260219_1941"></script>
-    <script src="js/produtividade/filtros.js?v=20260219_1941"></script>
-    <script src="js/produtividade/geral.js?v=20260219_1941"></script>
-    <script src="js/produtividade/consolidado.js?v=20260219_1941"></script>
+    <script src="js/produtividade/assertividade.js?v=20260219_1947"></script>
+    <script src="js/produtividade/main.js?v=20260219_1947"></script>
+    <script src="js/produtividade/filtros.js?v=20260219_1947"></script>
+    <script src="js/produtividade/geral.js?v=20260219_1947"></script>
+    <script src="js/produtividade/consolidado.js?v=20260219_1947"></script>
     <!-- <script src="js/produtividade/detalhes.js?v=4.0"></script> -->
-    <script src="js/produtividade/performance.js?v=20260219_1941"></script>
-    <script src="js/produtividade/matriz.js?v=20260219_1941"></script>
-    <script src="js/produtividade/importacao/validacao.js?v=20260219_1941"></script>
+    <script src="js/produtividade/performance.js?v=20260219_1947"></script>
+    <script src="js/produtividade/matriz.js?v=20260219_1947"></script>
+    <script src="js/produtividade/importacao/validacao.js?v=20260219_1947"></script>
 
     <script>
         // Orquestrador Centralizado de AtualizaÃ§Ã£o
@@ -606,58 +606,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
