@@ -624,18 +624,12 @@
 
                     <div class="flex items-end gap-2">
                         <!-- Botão Anexo -->
+                        <!-- Botão Gravar Áudio -->
                         <div class="relative group">
-                            <input type="file" id="chat-input-file" class="hidden"
-                                onchange="MinhaArea.Feedback.handleFileSelect(this)">
-                            <button onclick="document.getElementById('chat-input-file').click()"
-                                class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition flex items-center justify-center">
-                                <i class="fas fa-paperclip"></i>
+                            <button id="btn-gravar-audio" onclick="MinhaArea.Feedback.toggleGravacao()"
+                                class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition flex items-center justify-center">
+                                <i class="fas fa-microphone"></i>
                             </button>
-                            <!-- Tooltip tipos -->
-                            <div
-                                class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-white text-[10px] p-2 rounded w-32 text-center pointer-events-none">
-                                Imagens, Vídeos, Áudio, Docs
-                            </div>
                         </div>
 
                         <!-- Input Texto -->
