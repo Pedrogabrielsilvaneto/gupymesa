@@ -304,7 +304,17 @@ MinhaArea.Feedback = {
 
                 } catch (storageErr) {
                     console.error("Erro upload Storage:", storageErr);
-                    if (!confirm("Falha no upload de arquivo (Storage indisponível?). Enviar apenas o texto?")) {
+
+                    let msgErro = "Falha no upload de arquivo. ";
+                    if (storageErr.statusCode === '404' || (storageErr.message && storageErr.message.includes('Bucket not found'))) {
+                        msgErro += "O bucket 'chat-files' não existe no Supabase. Solicite ao Admin para criar.";
+                    } else if (storageErr.statusCode === '403') {
+                        msgErro += "Permissão negada. Verifique as Políticas (RLS) do Storage.";
+                    } else {
+                        msgErro += "Tente apenas texto.";
+                    }
+
+                    if (!confirm(`${msgErro}\n\nDeseja enviar apenas o texto?`)) {
                         input.disabled = false;
                         return;
                     }
