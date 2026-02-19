@@ -258,6 +258,36 @@ MinhaArea.Assertividade = {
         return d.doc_name || d.tipo_documento || 'Documento Gupy';
     },
 
+    atualizarGrafico: function (dadosFiltrados) {
+        const agrupaPor = this.visaoAtual; // 'doc', 'empresa', 'ndf'
+        const contagem = {};
+
+        dadosFiltrados.forEach(d => {
+            let chave = '';
+            if (agrupaPor === 'empresa') {
+                chave = d.empresa_nome || 'Sem Empresa';
+            } else if (agrupaPor === 'ndf') {
+                chave = d.tipo_documento || 'Outros NDF';
+            } else {
+                // Visão DOC (Padrão)
+                chave = this.getFriendlyName(this.getDocType(d));
+            }
+
+            if (!contagem[chave]) contagem[chave] = 0;
+            contagem[chave]++;
+        });
+
+        // Converter para array e ordenar
+        let arrayDados = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
+
+        // Top 5 ou Todos
+        if (!this.mostrarTodos) {
+            arrayDados = arrayDados.slice(0, 5);
+        }
+
+        this.renderizarGraficoOfensores(arrayDados);
+    },
+
     mudarVisao: function (novaVisao) {
         this.visaoAtual = novaVisao;
         const btnDoc = document.getElementById('btn-view-doc');
