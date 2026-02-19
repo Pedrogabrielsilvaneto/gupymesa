@@ -465,6 +465,7 @@ MinhaArea.Geral = {
         }
 
         // Ajuste Headcount Configurado (Default 17 se não houver config)
+        const realUserCount = countUsers;
         let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0)
             ? this.state.headcountConfig
             : (realUserCount > 0 ? realUserCount : 17);
