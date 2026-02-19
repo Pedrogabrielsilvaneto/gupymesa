@@ -445,6 +445,7 @@ MinhaArea.Geral = {
     calcularKpisGlobal: function () {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
         let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
+        let managerMeta = 0;
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
         this.state.listaTabela.forEach(i => {
