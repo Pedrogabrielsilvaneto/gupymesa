@@ -500,7 +500,8 @@ MinhaArea.Geral = {
             : totalUteis;
 
         // Cálculo de Dias Médios do Período (para Velocidade Diária)
-        const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehGestao(i.uid)) || this.state.listaTabela.find(i => this.ehGestao(i.uid));
+        // [FIX] Usar ehLiderancaReal para garantir que pegamos os dias da Gestora (Patrícia) e não de uma Auditora (Keila)
+        const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
         const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (totalUteis / (realUserCount || 1) || 1);
 
         // [DEBUG REQUESTED] Detalhamento do Cálculo
