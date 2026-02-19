@@ -745,9 +745,15 @@ MinhaArea.Metas = {
                 let subHtml = '';
 
                 if (isAssert) {
-                    if (dados && dados.total > 0 && dados.assert !== null) {
-                        const batido = (dados.assert * 100) >= (dados.metaAssert);
-                        cellHtml = `<div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold">${(dados.assert * 100).toFixed(0)}%</div>`;
+                    if (dados && dados.qtd_auditorias > 0 && dados.assert !== null) {
+                        const val = dados.assert * 100;
+                        const batido = val >= dados.metaAssert;
+                        // Color logic: Green if hit target, Yellow/Amber if close (within 5%), Red if far
+                        let colorClass = 'text-rose-600';
+                        if (batido) colorClass = 'text-emerald-600';
+                        else if (val >= (dados.metaAssert - 5)) colorClass = 'text-amber-500';
+
+                        cellHtml = `<div class="${colorClass} font-bold cursor-help" title="${dados.qtd_auditorias} auditados">${val.toFixed(0)}%</div>`;
                     }
                 } else {
                     if (dados && dados.velocidade > 0) {
