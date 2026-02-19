@@ -20,8 +20,8 @@ window.MinhaArea = {
         if (!this.isAdmin()) {
             this.usuarioAlvoId = this.usuario.id;
         } else {
-            // Se for Admin, começa vendo a si mesmo (pedido do usuário)
-            this.usuarioAlvoId = this.usuario.id;
+            // Se for Admin, começa com a Visão de Equipe
+            this.usuarioAlvoId = null;
         }
 
         this.popularSeletoresFixos();
@@ -292,7 +292,7 @@ window.MinhaArea = {
 
             if (!error) {
                 let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
-                options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`;
+                // options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`; // Removido a pedido
                 options += `<option disabled>──────────────</option>`;
 
                 data.forEach(u => {

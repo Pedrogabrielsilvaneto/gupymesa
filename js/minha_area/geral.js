@@ -280,9 +280,19 @@ MinhaArea.Geral = {
                 const mesRef = d1.getMonth() + 1;
                 const anoRef = d1.getFullYear();
 
+                // Busca Meta na tabela `metas`
                 const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mesRef && mt.ano == anoRef);
-                item.meta_velocidade_media = metaObj ? (metaObj.meta_producao || 100) : 100;
-                if (metaObj && metaObj.meta_assertividade) item.meta_assert = metaObj.meta_assertividade;
+
+                // [LOGIC] Meta Diária (Velocidade Esperada)
+                // Se não houver meta definida, usa 100 como fallback padrão
+                const rawMeta = metaObj ? (metaObj.meta_producao || metaObj.meta_prod) : null;
+                item.meta_velocidade_media = rawMeta ? Number(rawMeta) : 100;
+
+                if (metaObj && (metaObj.meta_assertividade || metaObj.meta_assert)) {
+                    item.meta_assert = Number(metaObj.meta_assertividade || metaObj.meta_assert);
+                } else {
+                    item.meta_assert = 97; // Default 97%
+                }
             }
 
             // Pega contrato do usuário
@@ -290,9 +300,16 @@ MinhaArea.Geral = {
             const contratoUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
             const diastUteisUser = getDU(contratoUser);
 
+            // [LOGIC] Dias Trabalhados (Disponíveis para Meta)
+            // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
+
+            // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
             item.dias_uteis_liquidos = diasUteisLiquidos;
+
+            // Debug (remove in prod if needed)
+            // console.log(`[MA] User ${item.nome}: Prod=${item.producao}, MetaDia=${item.meta_velocidade_media}, DiasUteis=${diastUteisUser}, Abono=${item.soma_abono}, MetaTotal=${item.meta_total_periodo}`);
         }
 
         this.state.listaTabela = Array.from(mapa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
