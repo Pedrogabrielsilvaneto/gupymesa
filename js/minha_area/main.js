@@ -252,74 +252,99 @@ window.MinhaArea = {
         this.atualizarListaAssistentes();
         const abaAtiva = document.querySelector('.tab-btn.active');
         if (abaAtiva) {
-            const id = abaAtiva.id.replace('btn-ma-', '');
-            this.carregarDadosAba(id);
-        }
-    },
-
-    mudarAba: function (abaId) {
-        document.querySelectorAll('.ma-view').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-
-        const aba = document.getElementById(`ma-tab-${abaId}`);
-        const btn = document.getElementById(`btn-ma-${abaId}`);
-
-        if (aba) aba.classList.remove('hidden');
-        if (btn) btn.classList.add('active');
-
-        this.carregarDadosAba(abaId);
-    },
-
-    carregarDadosAba: function (abaId) {
-        if (abaId === 'diario' && this.Geral) this.Geral.carregar();
-        if (abaId === 'metas' && this.Metas) this.Metas.carregar();
-        if (abaId === 'auditoria' && this.Auditoria) this.Auditoria.carregar();
-        if (abaId === 'comparativo' && this.Comparativo) this.Comparativo.carregar();
-        if (abaId === 'feedback' && this.Feedback) this.Feedback.carregar();
-    },
-
-    atualizarListaAssistentes: async function () {
-        if (!this.isAdmin()) return;
-        const select = document.getElementById('admin-user-selector');
-        if (!select || select.options.length > 1) return;
-
-        try {
-            const { data, error } = await Sistema.supabase
-                .from('usuarios')
-                .select('id, nome')
-                .eq('ativo', true)
-                .order('nome');
-
-            if (!error) {
-                let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
-                // options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`; // Removido a pedido
-                options += `<option disabled>──────────────</option>`;
-
-                data.forEach(u => {
-                    if (u.id != this.usuario.id) {
-                        options += `<option value="${u.id}">${u.nome}</option>`;
-                    }
-                });
-                select.innerHTML = options;
-
-                // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
-                select.value = this.usuarioAlvoId || "";
+            // Refresh based on visibility
+            if (!document.getElementById('ma-tab-diario').classList.contains('hidden')) {
+                MinhaArea.Geral.carregar();
+            } else if (!document.getElementById('ma-tab-metas').classList.contains('hidden')) {
+                MinhaArea.Metas.carregar();
+            } else if (!document.getElementById('ma-tab-assertividade').classList.contains('hidden')) {
+                MinhaArea.Assertividade.carregar();
+            } else if (!document.getElementById('ma-tab-auditoria').classList.contains('hidden')) {
+                MinhaArea.Auditoria.carregar();
+            } else if (!document.getElementById('ma-tab-feedback').classList.contains('hidden')) {
+                MinhaArea.Feedback.carregar();
             }
-        } catch (e) { }
-    },
+        },
 
-    mudarUsuarioAlvo: function (novoId) {
-        if (novoId === 'EQUIPE' || novoId === "") {
-            this.usuarioAlvoId = null;
-        } else {
-            this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
-        }
-        this.atualizarTudo();
-    },
+        mudarAba: function (aba) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 
-    getUsuarioAlvo: function () { return this.usuarioAlvoId; }
-};
+            // Hide all views
+            document.querySelectorAll('.ma-view').forEach(v => v.classList.add('hidden'));
 
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => { if (typeof MinhaArea !== 'undefined') MinhaArea.init(); }, 100);
-});
+            // Highlight active button
+            const btn = document.getElementById(`btn-ma-${aba}`);
+            if (btn) btn.classList.add('active');
+
+            // Show active view
+            const view = document.getElementById(`ma-tab-${aba}`);
+            if (view) view.classList.remove('hidden');
+
+            // Load specific data
+            if (aba === 'diario') {
+                MinhaArea.Geral.carregar();
+            } else if (aba === 'metas') {
+                MinhaArea.Metas.carregar();
+            } else if (aba === 'assertividade') {
+                MinhaArea.Assertividade.carregar();
+            } else if (aba === 'auditoria') {
+                MinhaArea.Auditoria.carregar();
+            } else if (aba === 'feedback') {
+                MinhaArea.Feedback.carregar();
+            }
+        },
+
+        carregarDadosAba: function (abaId) {
+            if (abaId === 'diario' && this.Geral) this.Geral.carregar();
+            if (abaId === 'metas' && this.Metas) this.Metas.carregar();
+            if (abaId === 'auditoria' && this.Auditoria) this.Auditoria.carregar();
+            if (abaId === 'comparativo' && this.Comparativo) this.Comparativo.carregar();
+            if (abaId === 'feedback' && this.Feedback) this.Feedback.carregar();
+        },
+
+        atualizarListaAssistentes: async function () {
+            if (!this.isAdmin()) return;
+            const select = document.getElementById('admin-user-selector');
+            if (!select || select.options.length > 1) return;
+
+            try {
+                const { data, error } = await Sistema.supabase
+                    .from('usuarios')
+                    .select('id, nome')
+                    .eq('ativo', true)
+                    .order('nome');
+
+                if (!error) {
+                    let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
+                    // options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`; // Removido a pedido
+                    options += `<option disabled>──────────────</option>`;
+
+                    data.forEach(u => {
+                        if (u.id != this.usuario.id) {
+                            options += `<option value="${u.id}">${u.nome}</option>`;
+                        }
+                    });
+                    select.innerHTML = options;
+
+                    // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
+                    select.value = this.usuarioAlvoId || "";
+                }
+            } catch (e) { }
+        },
+
+        mudarUsuarioAlvo: function (novoId) {
+            if (novoId === 'EQUIPE' || novoId === "") {
+                this.usuarioAlvoId = null;
+            } else {
+                this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
+            }
+            this.atualizarTudo();
+        },
+
+        getUsuarioAlvo: function () { return this.usuarioAlvoId; }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => { if (typeof MinhaArea !== 'undefined') MinhaArea.init(); }, 100);
+    });
