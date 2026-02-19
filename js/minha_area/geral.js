@@ -694,10 +694,78 @@ MinhaArea.Geral = {
         setBar('bar-dia', 'pct-dia', kpi.velocidade.real, kpi.velocidade.meta);
     },
 
+    obterFeriados: function (ano) {
+        // Feriados Nacionais Fixos
+        const feriados = [
+            `${ano}-01-01`, // Confraternização Universal
+            `${ano}-04-21`, // Tiradentes
+            `${ano}-05-01`, // Dia do Trabalho
+            `${ano}-09-07`, // Independência
+            `${ano}-10-12`, // Nossa Senhora Aparecida
+            `${ano}-11-02`, // Finados
+            `${ano}-11-15`, // Proclamação da República
+            `${ano}-11-20`, // Consciência Negra
+            `${ano}-12-25`  // Natal
+        ];
+
+        // Cálculo da Páscoa (Algoritmo de Meeus/Jones/Butcher)
+        const a = ano % 19;
+        const b = Math.floor(ano / 100);
+        const c = ano % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const mesPascoa = Math.floor((h + l - 7 * m + 114) / 31);
+        const diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
+
+        const dataPascoa = new Date(ano, mesPascoa - 1, diaPascoa);
+
+        // Feriados Móveis
+        const addDias = (data, dias) => {
+            const d = new Date(data);
+            d.setDate(d.getDate() + dias);
+            return d.toISOString().split('T')[0];
+        };
+
+        feriados.push(addDias(dataPascoa, -47)); // Carnaval (Terça)
+        feriados.push(addDias(dataPascoa, -2));  // Sexta-feira Santa
+        feriados.push(addDias(dataPascoa, 60));  // Corpus Christi
+
+        return new Set(feriados);
+    },
+
     contarDiasUteis: function (i, f) {
-        let c = 0, cur = new Date(i + 'T12:00:00'), end = new Date(f + 'T12:00:00');
-        while (cur <= end) { if (cur.getDay() !== 0 && cur.getDay() !== 6) c++; cur.setDate(cur.getDate() + 1); }
-        return c || 1;
+        let c = 0;
+        const cur = new Date(i + 'T12:00:00');
+        const end = new Date(f + 'T12:00:00');
+
+        // Cache simples de feriados por ano
+        const cacheFeriados = {};
+
+        while (cur <= end) {
+            const diaSemana = cur.getDay();
+            // Ignora Sábado (6) e Domingo (0)
+            if (diaSemana !== 0 && diaSemana !== 6) {
+                const ano = cur.getFullYear();
+                if (!cacheFeriados[ano]) {
+                    cacheFeriados[ano] = this.obterFeriados(ano);
+                }
+
+                const dataStr = cur.toISOString().split('T')[0];
+                // Se NÃO for feriado, conta
+                if (!cacheFeriados[ano].has(dataStr)) {
+                    c++;
+                }
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+        return c > 0 ? c : 0; // Retorna 0 se não tiver dias úteis, validando lógica anterior que usava fallback 1
     },
 
     ehGestao: function (uid) {
