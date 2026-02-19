@@ -666,7 +666,7 @@ MinhaArea.Metas = {
         const subLabel = isAssert ? '% Assertividade' : (this.isMacroView ? 'Média/Mês' : 'Média/Dia');
         const bgHeader = isAssert ? 'bg-emerald-50' : 'bg-slate-100';
 
-        let htmlHeader = `< th class="px-4 py-3 ${bgHeader} border-b border-r border-slate-300 min-w-[200px] sticky left-0 top-0 z-[60] text-left text-slate-700 shadow-md" >
+        let htmlHeader = `<th class="px-4 py-3 ${bgHeader} border-b border-r border-slate-300 min-w-[200px] sticky left-0 top-0 z-[60] text-left text-slate-700 shadow-md">
     <div class="flex flex-col gap-1">
         <div class="flex items-center justify-between">
             <span>${isAssert ? 'RANKING (QUALIDADE)' : 'RANKING (VELOCIDADE)'}</span>
@@ -678,14 +678,14 @@ MinhaArea.Metas = {
         </div>
         <span class="text-[9px] text-slate-400 font-normal">${subLabel}</span>
     </div>
-        </th > `;
+        </th>`;
 
         const corAcum = isAssert ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-blue-50 text-blue-800 border-blue-200';
-        htmlHeader += `< th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40" > PROD.TOTAL</th > `;
-        htmlHeader += `< th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title = "Média das Médias do Período" > ACUMULADO</th > `;
+        htmlHeader += `<th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">PROD.TOTAL</th>`;
+        htmlHeader += `<th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title="Média das Médias do Período">ACUMULADO</th>`;
 
         this.cacheColunas.forEach(col => {
-            htmlHeader += `< th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40" > ${col.label}</th > `;
+            htmlHeader += `<th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">${col.label}</th>`;
         });
         thead.innerHTML = htmlHeader;
 
@@ -702,16 +702,16 @@ MinhaArea.Metas = {
 
             if (isAssert) {
                 // [ALIGNMENT v4.34] Use new counters for display
-                if (stats.qtd_auditorias > 0) cellTotal = `< span class="font-bold text-slate-600" > ${stats.qtd_auditorias}</span > `;
+                if (stats.qtd_auditorias > 0) cellTotal = `<span class="font-bold text-slate-600">${stats.qtd_auditorias}</span>`;
 
                 const assertGeral = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
 
                 if (stats.qtd_auditorias > 0) {
                     const corVal = assertGeral >= 97 ? 'text-emerald-700' : 'text-rose-600';
-                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${assertGeral.toFixed(1)}%</div > `;
+                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${assertGeral.toFixed(1)}%</div>`;
                 }
             } else {
-                if (stats.prod > 0) cellTotal = `< span class="font-bold text-slate-700" > ${stats.prod.toLocaleString('pt-BR')}</span > `;
+                if (stats.prod > 0) cellTotal = `<span class="font-bold text-slate-700">${stats.prod.toLocaleString('pt-BR')}</span>`;
 
                 // LÓGICA DE MÉDIA ACUMULADA: MÉDIA DAS MÉDIAS (MACRO)
                 const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
@@ -724,12 +724,12 @@ MinhaArea.Metas = {
                 if (stats.prod > 0) {
                     const corVal = avgVel >= avgMeta ? 'text-blue-700' : 'text-rose-700';
                     const corBadge = avgPct >= 100 ? 'bg-blue-200 text-blue-800' : 'bg-rose-100 text-rose-700 border border-rose-200';
-                    cellMedia = `< div class="${corVal} font-black text-sm leading-none" > ${avgVel.toLocaleString('pt-BR')}</div >
+                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${avgVel.toLocaleString('pt-BR')}</div>
     <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(0)}%</span></div>`;
                 }
             }
 
-            htmlBody += `< tr class="hover:bg-slate-50 transition-colors group" >
+            htmlBody += `<tr class="hover:bg-slate-50 transition-colors group">
                 <td class="px-4 py-3 border-b border-r border-slate-300 sticky left-0 bg-white group-hover:bg-slate-50 z-50">
                     <button onclick="MinhaArea.Metas.abrirDetalhe('${u.id}')" class="text-left w-full hover:text-blue-600 font-bold text-slate-700 text-xs transition flex items-center justify-between">
                         <span class="truncate">${pos}. ${u.nome.split(' ')[0]} ${medalha}</span>
@@ -747,22 +747,22 @@ MinhaArea.Metas = {
                 if (isAssert) {
                     if (dados && dados.total > 0 && dados.assert !== null) {
                         const batido = (dados.assert * 100) >= (dados.metaAssert);
-                        cellHtml = `< div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold" > ${(dados.assert * 100).toFixed(0)}%</div > `;
+                        cellHtml = `<div class="${batido ? 'text-emerald-600' : 'text-rose-600'} font-bold">${(dados.assert * 100).toFixed(0)}%</div>`;
                     }
                 } else {
                     if (dados && dados.velocidade > 0) {
                         const batido = dados.velocidade >= dados.metaProd;
-                        cellHtml = `< div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold" > ${dados.velocidade}</div > `;
+                        cellHtml = `<div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold">${dados.velocidade}</div>`;
                         if (dados.metaProd > 0) {
                             const pct = (dados.velocidade / dados.metaProd) * 100;
                             const corBadge = pct >= 100 ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 border border-rose-200';
-                            subHtml = `< div class="mt-1" > <span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(0)}%</span></div > `;
+                            subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(0)}%</span></div>`;
                         }
                     }
                 }
-                htmlBody += `< td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12" > ${cellHtml}${subHtml}</td > `;
+                htmlBody += `<td class="px-1 py-2 border-b border-r border-slate-100 text-center align-middle h-12">${cellHtml}${subHtml}</td>`;
             });
-            htmlBody += `</tr > `;
+            htmlBody += `</tr>`;
         });
         tbody.innerHTML = htmlBody;
     },
