@@ -534,19 +534,129 @@
 
 
 
-        <div id="ma-tab-feedback" class="ma-view hidden animate-enter space-y-4">
+        <div id="ma-tab-feedback" class="ma-view hidden animate-enter h-[calc(100vh-140px)] flex gap-4">
+
+            <!-- SIDEBAR: Lista de Conversas -->
             <div
-                class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center justify-center min-h-[400px]">
-                <div class="text-center">
-                    <div
-                        class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-50 text-purple-500 mb-4">
-                        <i class="fas fa-comments text-2xl"></i>
+                class="w-80 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col shrink-0 overflow-hidden">
+                <!-- Header Sidebar -->
+                <div class="p-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="font-bold text-slate-700 mb-2">Mensagens</h3>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="chat-search-contact" placeholder="Buscar pessoas..."
+                            class="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 transition"
+                            oninput="MinhaArea.Feedback.filtrarContatos(this.value)">
                     </div>
-                    <h3 class="text-lg font-bold text-slate-700">Meus Feedbacks</h3>
-                    <p class="text-sm text-slate-500 mt-2">Histórico de feedbacks recebidos da gestão e planos de
-                        ação.
-                    </p>
-                    <div id="feedback-content" class="mt-8 w-full"></div>
+                </div>
+
+                <!-- Lista de Contatos -->
+                <div id="chat-contact-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                    <!-- Item Estático: Canal Geral -->
+                    <div onclick="MinhaArea.Feedback.selecionarChat('GERAL')" id="contact-item-GERAL"
+                        class="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-blue-50 transition border border-transparent hover:border-blue-100 group">
+                        <div
+                            class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline">
+                                <span class="font-bold text-slate-700 text-sm truncate">Canal Geral</span>
+                                <span class="text-[10px] text-slate-400" id="last-time-GERAL">--:--</span>
+                            </div>
+                            <p class="text-xs text-slate-500 truncate group-hover:text-blue-600" id="last-msg-GERAL">
+                                Toque para abrir</p>
+                        </div>
+                    </div>
+
+                    <!-- Lista Dinâmica será inserida aqui -->
+                    <div id="chat-contacts-dynamic"></div>
+                </div>
+            </div>
+
+            <!-- ÁREA PRINCIPAL: Chat -->
+            <div
+                class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative">
+
+                <!-- Chat Header -->
+                <div class="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white z-10">
+                    <div class="flex items-center gap-3">
+                        <div id="chat-header-avatar"
+                            class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <h3 id="chat-header-name" class="font-bold text-slate-700">Selecione uma conversa</h3>
+                            <p id="chat-header-status" class="text-xs text-slate-500 flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-slate-300"></span> Offline
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="p-2 text-slate-400 hover:text-blue-500 transition" title="Informações"><i
+                                class="fas fa-info-circle"></i></button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages (Scroll Area) -->
+                <div id="chat-messages-area"
+                    class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50/50 space-y-4 flex flex-col">
+                    <!-- Placeholder -->
+                    <div class="flex flex-col items-center justify-center h-full text-slate-300 opacity-50">
+                        <i class="fas fa-paper-plane text-4xl mb-2"></i>
+                        <p>Envie uma mensagem para começar</p>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-4 bg-white border-t border-slate-100">
+                    <!-- Preview de Arquivo -->
+                    <div id="chat-upload-preview"
+                        class="hidden mb-2 p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-file text-blue-500"></i>
+                            <span id="chat-upload-filename"
+                                class="text-xs text-slate-600 font-bold truncate max-w-[200px]">arquivo.pdf</span>
+                        </div>
+                        <button onclick="MinhaArea.Feedback.limparAnexo()" class="text-rose-500 hover:text-rose-700"><i
+                                class="fas fa-times"></i></button>
+                    </div>
+
+                    <div class="flex items-end gap-2">
+                        <!-- Botão Anexo -->
+                        <div class="relative group">
+                            <input type="file" id="chat-input-file" class="hidden"
+                                onchange="MinhaArea.Feedback.handleFileSelect(this)">
+                            <button onclick="document.getElementById('chat-input-file').click()"
+                                class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition flex items-center justify-center">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <!-- Tooltip tipos -->
+                            <div
+                                class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-white text-[10px] p-2 rounded w-32 text-center pointer-events-none">
+                                Imagens, Vídeos, Áudio, Docs
+                            </div>
+                        </div>
+
+                        <!-- Input Texto -->
+                        <div
+                            class="flex-1 bg-slate-100 rounded-2xl flex items-center p-2 border border-transparent focus-within:border-blue-300 focus-within:bg-white transition">
+                            <textarea id="chat-input-text" rows="1" placeholder="Digite sua mensagem..."
+                                class="w-full bg-transparent border-none outline-none text-sm text-slate-700 resize-none max-h-32 px-2 custom-scrollbar"
+                                onkeydown="MinhaArea.Feedback.checkEnter(event)"></textarea>
+                        </div>
+
+                        <!-- Botão Enviar -->
+                        <button onclick="MinhaArea.Feedback.enviar()"
+                            class="w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg transition flex items-center justify-center active:scale-95">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="text-[10px] text-slate-400 mt-1 pl-12 flex justify-between">
+                        <span>Pressione Enter para enviar, Shift+Enter para pular linha.</span>
+                        <span id="chat-typing-indicator" class="text-blue-400 italic hidden">Alguém está
+                            digitando...</span>
+                    </div>
                 </div>
             </div>
         </div>
