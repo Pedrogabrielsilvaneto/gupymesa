@@ -448,6 +448,16 @@ MinhaArea.Geral = {
         let managerMeta = 0;
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
+        // [DEBUG] Verificar quem está sendo considerado Liderança
+        console.group("[MA DEBUG] Verificação de Liderança");
+        this.state.listaTabela.forEach(i => {
+            if (this.ehLiderancaReal(i.uid)) {
+                const u = this.state.mapaUsuarios[i.uid];
+                console.log(`User: ${i.nome} (${i.uid}) | Perfil: ${u?.perfil} | Função: ${u?.funcao} | Meta: ${i.meta_total_periodo}`);
+            }
+        });
+        console.groupEnd();
+
         this.state.listaTabela.forEach(i => {
             // [FIX] Usar ehLiderancaReal para ignorar Auditoras no cálculo da Meta Global
             if (this.ehLiderancaReal(i.uid)) {
