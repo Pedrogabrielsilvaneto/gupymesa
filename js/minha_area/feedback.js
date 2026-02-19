@@ -7,38 +7,41 @@ MinhaArea.Feedback = {
     anexoAtual: null,
 
     init: async function () {
-        console.log("💬 [Feedback] Iniciando módulo de Chat...");
+        console.log("💬 [Feedback] Iniciando módulo de Chat (TiDB)...");
         await this.carregarContatos();
         // Seleciona GERAL por padrão ao abrir
         this.selecionarChat('GERAL');
 
-        // Inicia Polling (solução simples para "Realtime" sem configurar WebSockets complexos por enquanto)
+        // Inicia Polling (solução simples para "Realtime" via SQL)
         if (this.pollingInterval) clearInterval(this.pollingInterval);
         this.pollingInterval = setInterval(() => this.atualizarMensagensSilencioso(), 5000);
     },
 
     carregarContatos: async function () {
         // Carrega usuários para a sidebar
-        // Se for Admin/Gestor, vê todo mundo. Se for Assistente, vê Gestores.
         try {
             const container = document.getElementById('chat-contacts-dynamic');
             if (!container) return;
             container.innerHTML = '<div class="text-center py-2"><i class="fas fa-spinner fa-spin text-blue-500"></i></div>';
 
-            // Busca usuários da tabela usuarios
-            const { data: users, error } = await Sistema.supabase
-                .from('usuarios')
-                .select('id, nome, perfil, funcao, avatar_url')
-                .eq('ativo', true)
-                .neq('id', MinhaArea.usuario.id) // Não mostrar a si mesmo
-                .order('nome');
+            // Query SQL direta (TiDB)
+            const sql = `
+                SELECT id, nome, perfil, funcao, avatar_url 
+                FROM usuarios 
+                WHERE ativo = 1 AND id != ? 
+                ORDER BY nome
+            `;
+            const users = await Sistema.query(sql, [MinhaArea.usuario.id]);
 
-            if (error) throw error;
+            if (!users) throw new Error("Falha ao buscar contatos.");
+
             this.contatosCache = users;
             this.renderizarContatos(users);
 
         } catch (err) {
             console.error("Erro ao carregar contatos:", err);
+            const container = document.getElementById('chat-contacts-dynamic');
+            if (container) container.innerHTML = '<div class="text-center text-xs text-rose-500">Erro ao carregar contatos.</div>';
         }
     },
 
@@ -128,35 +131,28 @@ MinhaArea.Feedback = {
 
     carregarMensagens: async function () {
         try {
-            let query = Sistema.supabase
-                .from('feedbacks')
-                .select('*')
-                .order('created_at', { ascending: true });
+            let sql = "";
+            let params = [];
 
             if (this.chatAtivo === 'GERAL') {
-                query = query.eq('tipo_destinatario', 'TODOS');
+                sql = "SELECT * FROM feedbacks WHERE tipo_destinatario = 'TODOS' ORDER BY created_at ASC";
             } else {
                 // Conversa privada: (Eu -> Ele) OU (Ele -> Eu)
-                // Sintaxe Supabase OR complicada, vamos simplificar
-                // Trazendo as que envolvem os dois IDs
-                // (remetente = eu AND destinatario = ele) OR (remetente = ele AND destinatario = eu)
                 const me = MinhaArea.usuario.id;
                 const other = this.chatAtivo;
-                query = query.or(`and(remetente_id.eq.${me},destinatario_id.eq.${other}),and(remetente_id.eq.${other},destinatario_id.eq.${me})`);
+                sql = `
+                    SELECT * FROM feedbacks 
+                    WHERE (remetente_id = ? AND destinatario_id = ?) 
+                       OR (remetente_id = ? AND destinatario_id = ?) 
+                    ORDER BY created_at ASC
+                `;
+                params = [me, other, other, me];
             }
 
-            const { data, error } = await query;
-            if (error) {
-                // Se a tabela não existir, avisa
-                if (error.code === '42P01') { // undefined_table
-                    document.getElementById('chat-messages-area').innerHTML = `
-                        <div class="text-center p-8 text-slate-400">
-                            <i class="fas fa-database text-3xl mb-2"></i>
-                            <p>Tabela de chat não encontrada. Execute o script de migração.</p>
-                        </div>`;
-                    return;
-                }
-                throw error;
+            const data = await Sistema.query(sql, params);
+
+            if (data === null) { // Erro na query
+                throw new Error("Erro na consulta SQL.");
             }
 
             this.mensagensCache = data || [];
@@ -165,12 +161,17 @@ MinhaArea.Feedback = {
 
         } catch (err) {
             console.error("Erro ao carregar mensagens:", err);
+            // Se falhar e a UI estiver carregando, mostra erro
+            const area = document.getElementById('chat-messages-area');
+            if (area && area.innerHTML.includes('fa-spin')) {
+                area.innerHTML = '<div class="text-center p-8 text-rose-400">Erro ao carregar mensagens. Tente novamente.</div>';
+            }
         }
     },
 
     atualizarMensagensSilencioso: async function () {
         if (!this.chatAtivo) return;
-        // Re-executa query (idealmente seria só as novas, mas por simplicidade e consistência...)
+        // Re-executa query (poll)
         await this.carregarMensagens();
     },
 
@@ -210,7 +211,7 @@ MinhaArea.Feedback = {
             }
 
             if (msg.mensagem) {
-                conteudo += `<p class="whitespace-pre-wrap leading-relaxed ${msg.tipo_midia !== 'TEXTO' ? 'mt-1' : ''}">${msg.mensagem}</p>`;
+                conteudo += `<p class="whitespace-pre-wrap leading-relaxed ${msg.tipo_midia !== 'TEXTO' ? 'mt-1' : ''}">${Sistema.escapar(msg.mensagem)}</p>`;
             }
 
             return `
@@ -278,7 +279,7 @@ MinhaArea.Feedback = {
             let tipoMidia = 'TEXTO';
             let nomeArq = null;
 
-            // Upload se tiver anexo
+            // Upload se tiver anexo (Mantido Supabase Storage por enquanto)
             if (this.anexoAtual) {
                 const file = this.anexoAtual;
                 const ext = file.name.split('.').pop().toLowerCase();
@@ -289,9 +290,9 @@ MinhaArea.Feedback = {
                 else if (['mp3', 'wav', 'ogg'].includes(ext)) tipoMidia = 'AUDIO';
                 else tipoMidia = 'DOCUMENTO';
 
-                // Usando Supabase Storage (supondo bucket 'chat-files')
-                // Se falhar o bucket, vamos apenas logar o erro
                 try {
+                    // Nota: Se não houver bucket configurado, isso falhará.
+                    // O usuário deve configurar o bucket 'chat-files' no Supabase Storage.
                     const path = `chat/${Date.now()}_${file.name}`;
                     const { data, error: upErr } = await Sistema.supabase.storage
                         .from('chat-files')
@@ -299,14 +300,12 @@ MinhaArea.Feedback = {
 
                     if (upErr) throw upErr;
 
-                    // Public URL
                     const { data: pubData } = Sistema.supabase.storage.from('chat-files').getPublicUrl(path);
                     urlMidia = pubData.publicUrl;
 
                 } catch (storageErr) {
-                    console.error("Erro upload Storage (Bucket chat-files existe?):", storageErr);
-                    // Fallback para teste: Fake URL (pra não quebrar a demo) ou Alert
-                    if (!confirm("Falha no upload (Bucket não existe?). Enviar apenas texto?")) {
+                    console.error("Erro upload Storage:", storageErr);
+                    if (!confirm("Falha no upload de arquivo (Storage indisponível?). Enviar apenas o texto?")) {
                         input.disabled = false;
                         return;
                     }
@@ -314,26 +313,30 @@ MinhaArea.Feedback = {
                 }
             }
 
-            const payload = {
-                remetente_id: MinhaArea.usuario.id,
-                mensagem: texto,
-                tipo_midia: tipoMidia,
-                url_midia: urlMidia,
-                nome_arquivo: nomeArq,
-                created_at: new Date()
-            };
+            // Define valores para Insert
+            const remetente_id = MinhaArea.usuario.id;
+            const created_at = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format MySQL
+
+            let tipo_destinatario = 'INDIVIDUAL';
+            let destinatario_id = this.chatAtivo;
 
             if (this.chatAtivo === 'GERAL') {
-                payload.tipo_destinatario = 'TODOS';
-                payload.destinatario_id = null;
-            } else {
-                payload.tipo_destinatario = 'INDIVIDUAL';
-                payload.destinatario_id = this.chatAtivo;
+                tipo_destinatario = 'TODOS';
+                destinatario_id = null;
             }
 
-            const { error } = await Sistema.supabase.from('feedbacks').insert(payload);
+            const sql = `
+                INSERT INTO feedbacks (
+                    id, created_at, remetente_id, destinatario_id, tipo_destinatario, 
+                    mensagem, tipo_midia, url_midia, nome_arquivo
+                ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
 
-            if (error) throw error;
+            // Executa Query TiDB
+            await Sistema.query(sql, [
+                created_at, remetente_id, destinatario_id, tipo_destinatario,
+                texto, tipoMidia, urlMidia, nomeArq
+            ]);
 
             // Sucesso: Limpa
             input.value = '';
