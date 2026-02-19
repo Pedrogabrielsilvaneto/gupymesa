@@ -156,8 +156,8 @@ MinhaArea.Metas = {
     },
 
     carregarDashboardAssertividade: function () {
-        if (MinhaArea.Comparativo && typeof MinhaArea.Comparativo.carregar === 'function') {
-            MinhaArea.Comparativo.carregar();
+        if (MinhaArea.Assertividade && typeof MinhaArea.Assertividade.carregar === 'function') {
+            MinhaArea.Assertividade.carregar();
         }
     },
 

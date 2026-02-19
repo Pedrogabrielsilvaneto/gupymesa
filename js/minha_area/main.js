@@ -248,6 +248,33 @@ window.MinhaArea = {
         }
     },
 
+    mudarAba: function (aba) {
+        // Remove active class from all buttons
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+        // Hide all views
+        document.querySelectorAll('.ma-view').forEach(v => v.classList.add('hidden'));
+
+        // Highlight active button
+        const btn = document.getElementById(`btn-ma-${aba}`);
+        if (btn) btn.classList.add('active');
+
+        // Show active view
+        const view = document.getElementById(`ma-tab-${aba}`);
+        if (view) view.classList.remove('hidden');
+
+        // Load specific data
+        if (aba === 'diario') {
+            MinhaArea.Geral.carregar();
+        } else if (aba === 'metas') {
+            MinhaArea.Metas.carregar();
+        } else if (aba === 'auditoria') {
+            MinhaArea.Auditoria.carregar();
+        } else if (aba === 'feedback') {
+            MinhaArea.Feedback.carregar();
+        }
+    },
+
     atualizarTudo: function () {
         this.atualizarListaAssistentes();
         const abaAtiva = document.querySelector('.tab-btn.active');
@@ -257,48 +284,11 @@ window.MinhaArea = {
                 MinhaArea.Geral.carregar();
             } else if (!document.getElementById('ma-tab-metas').classList.contains('hidden')) {
                 MinhaArea.Metas.carregar();
-            } else if (!document.getElementById('ma-tab-assertividade').classList.contains('hidden')) {
-                MinhaArea.Assertividade.carregar();
             } else if (!document.getElementById('ma-tab-auditoria').classList.contains('hidden')) {
                 MinhaArea.Auditoria.carregar();
             } else if (!document.getElementById('ma-tab-feedback').classList.contains('hidden')) {
                 MinhaArea.Feedback.carregar();
             }
-        },
-
-        mudarAba: function (aba) {
-            // Remove active class from all buttons
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-            // Hide all views
-            document.querySelectorAll('.ma-view').forEach(v => v.classList.add('hidden'));
-
-            // Highlight active button
-            const btn = document.getElementById(`btn-ma-${aba}`);
-            if (btn) btn.classList.add('active');
-
-            // Show active view
-            const view = document.getElementById(`ma-tab-${aba}`);
-            if (view) view.classList.remove('hidden');
-
-            // Load specific data
-            if (aba === 'diario') {
-                MinhaArea.Geral.carregar();
-            } else if (aba === 'metas') {
-                MinhaArea.Metas.carregar();
-            } else if (aba === 'assertividade') {
-                MinhaArea.Assertividade.carregar();
-            } else if (aba === 'auditoria') {
-                MinhaArea.Auditoria.carregar();
-            } else if (aba === 'feedback') {
-                MinhaArea.Feedback.carregar();
-            }
-        },
-
-        carregarDadosAba: function (abaId) {
-            if (abaId === 'diario' && this.Geral) this.Geral.carregar();
-            if (abaId === 'metas' && this.Metas) this.Metas.carregar();
-            if (abaId === 'auditoria' && this.Auditoria) this.Auditoria.carregar();
             if (abaId === 'comparativo' && this.Comparativo) this.Comparativo.carregar();
             if (abaId === 'feedback' && this.Feedback) this.Feedback.carregar();
         },

@@ -73,8 +73,12 @@ MinhaArea.Assertividade = {
     `,
 
     carregar: async function () {
-        const container = document.getElementById('ma-tab-assertividade');
-        if (!container) return;
+        // [FIX] Target the container inside 'Meta/OKR' tab (created in Metas.js)
+        const container = document.getElementById('container-painel-assertividade');
+        if (!container) {
+            console.error("Container 'container-painel-assertividade' não encontrado. Certifique-se que a aba Meta/OKR está carregada.");
+            return;
+        }
 
         // Renderiza o template se estiver vazio ou com o placeholder
         if (container.innerHTML.includes('Carregando Painel') || container.innerHTML.trim() === '') {
