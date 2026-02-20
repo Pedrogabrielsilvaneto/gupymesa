@@ -472,12 +472,15 @@ MinhaArea.Metas = {
             }
 
             const mapMetas = {};
+            console.log('--- 🔍 DEBUG DETALHADO METAS (BANCO) ---');
             (dadosMetas || []).forEach(m => {
-                // [DEBUG] Log each meta entry
                 const k = `${m.usuario_id}-${m.ano}-${m.mes}`;
                 mapMetas[k] = { p: m.meta_producao || 0, a: m.meta_assertividade || 0 };
+
+                // Helper para pegar nome
+                const nomeUser = allActiveUsers.find(u => String(u.id) === String(m.usuario_id))?.nome || 'Desc. ID: ' + m.usuario_id;
+                console.log(`👤 Assistente: ${nomeUser} | 💰 Meta Banco: ${m.meta_producao} | 🔑 Chave: ${k}`);
             });
-            console.log('--- DEBUG METAS MAP ---', mapMetas);
 
             // 1. PRODUÇÃO
             (dadosProd || []).forEach(reg => {
