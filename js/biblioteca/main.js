@@ -217,16 +217,41 @@ window.GupyBiblioteca = {
         }
     },
 
+    getDocColor: function (doc) {
+        const d = (doc || '').toUpperCase();
+        if (d.includes('CPF')) return { tag: 'bg-amber-100 text-amber-700 border-amber-200', card: 'border-l-amber-500', dot: 'text-amber-500' };
+        if (d.includes('RG')) return { tag: 'bg-indigo-100 text-indigo-700 border-indigo-200', card: 'border-l-indigo-500', dot: 'text-indigo-500' };
+        if (d.includes('CNH')) return { tag: 'bg-emerald-100 text-emerald-700 border-emerald-200', card: 'border-l-emerald-500', dot: 'text-emerald-500' };
+        if (d.includes('CERTIDAO')) return { tag: 'bg-rose-100 text-rose-700 border-rose-200', card: 'border-l-rose-500', dot: 'text-rose-500' };
+        if (d.includes('COMPROVANTE')) return { tag: 'bg-cyan-100 text-cyan-700 border-cyan-200', card: 'border-l-cyan-500', dot: 'text-cyan-500' };
+        if (d.includes('TITULO')) return { tag: 'bg-lime-100 text-lime-700 border-lime-200', card: 'border-l-lime-500', dot: 'text-lime-500' };
+        if (d.includes('PIS') || d.includes('PASEP')) return { tag: 'bg-orange-100 text-orange-700 border-orange-200', card: 'border-l-orange-500', dot: 'text-orange-500' };
+        if (d.includes('GERAL')) return { tag: 'bg-slate-100 text-slate-700 border-slate-200', card: 'border-l-slate-500', dot: 'text-slate-500' };
+
+        // Hashing for unknown docs
+        const colors = [
+            { tag: 'bg-blue-100 text-blue-700 border-blue-200', card: 'border-l-blue-500', dot: 'text-blue-500' },
+            { tag: 'bg-purple-100 text-purple-700 border-purple-200', card: 'border-l-purple-500', dot: 'text-purple-500' },
+            { tag: 'bg-teal-100 text-teal-700 border-teal-200', card: 'border-l-teal-500', dot: 'text-teal-500' },
+            { tag: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', card: 'border-l-fuchsia-500', dot: 'text-fuchsia-500' }
+        ];
+        let hash = 0;
+        for (let i = 0; i < d.length; i++) hash = d.charCodeAt(i) + ((hash << 5) - hash);
+        return colors[Math.abs(hash) % colors.length];
+    },
+
     gerarCardHTML: function (f, compact = false) {
         const isAdmin = this.isAdmin();
         const fav = this.isFavorito(f.id);
+        const colors = this.getDocColor(f.documento);
+
         const textoContador = isAdmin
             ? `${f.usos || 0} usos na equipe`
             : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na equipe`);
         const iconeContador = isAdmin ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
 
-        const tagEmpresa = `<span onclick="GupyBiblioteca.setarFiltroDireto('empresa', '${f.empresa || 'Geral'}')" class="cursor-pointer hover:brightness-90 transition bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-blue-100">${f.empresa || 'Geral'}</span>`;
-        const tagDoc = `<span onclick="GupyBiblioteca.setarFiltroDireto('doc', '${f.documento || 'DOC'}')" class="cursor-pointer hover:brightness-90 transition bg-slate-800 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider shadow-sm">${f.documento || 'DOC'}</span>`;
+        const tagEmpresa = `<span onclick="GupyBiblioteca.setarFiltroDireto('empresa', '${f.empresa || 'Geral'}')" class="cursor-pointer hover:brightness-95 transition bg-white text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded shadow-sm border border-slate-100">${f.empresa || 'Geral'}</span>`;
+        const tagDoc = `<span onclick="GupyBiblioteca.setarFiltroDireto('doc', '${f.documento || 'DOC'}')" class="cursor-pointer hover:brightness-95 transition ${colors.tag} text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm border uppercase tracking-wide transition-all">${f.documento || 'DOC'}</span>`;
 
         const btnFav = `<button onclick="GupyBiblioteca.toggleFavorito('${f.id}')" class="transition-all active:scale-75 ${fav ? 'text-rose-500' : 'text-slate-300 hover:text-rose-400'}" title="${fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}"><i class="${fav ? 'fas' : 'far'} fa-heart"></i></button>`;
 
@@ -234,7 +259,7 @@ window.GupyBiblioteca = {
             const qtd = isAdmin ? (f.usos || 0) : f.meus_usos;
             const label = isAdmin ? "usos da equipe" : "usos pessoais";
             return `
-                <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-300 overflow-hidden relative">
+                <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 ${colors.card} hover:shadow-md transition-all duration-300 overflow-hidden relative">
                     <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
                         <div class="flex gap-1.5">${tagEmpresa}</div>
                         <div class="flex items-center gap-2">
@@ -248,8 +273,8 @@ window.GupyBiblioteca = {
                         </div>
                     </div>
                     <div class="px-4 py-4 flex-grow">
-                        <div class="mb-2">${tagDoc}</div>
-                        <p class="text-xs text-slate-700 font-bold line-clamp-3 select-all cursor-pointer" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p>
+                        <div class="mb-2.5">${tagDoc}</div>
+                        <p class="text-[11px] text-slate-700 font-bold line-clamp-3 select-all cursor-pointer leading-relaxed" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p>
                     </div>
                     <div class="px-4 py-2 bg-slate-50/50">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
@@ -260,14 +285,17 @@ window.GupyBiblioteca = {
         }
 
         return `
-            <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 group overflow-hidden">
+            <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 ${colors.card} hover:shadow-md transition-all duration-300 group overflow-hidden">
                 <div class="px-5 pt-4 pb-3 border-b border-slate-50 bg-slate-50/50 flex justify-between items-start">
                     <div class="flex-1 pr-3">
-                        <div class="flex flex-wrap gap-2 mb-2">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
                             ${tagEmpresa}
                             ${tagDoc}
                         </div>
-                        <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${f.motivo || 'Motivo'}</h4>
+                        <h4 class="font-black text-slate-800 text-sm leading-tight flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full ${colors.dot}"></span>
+                            ${f.motivo || 'Motivo'}
+                        </h4>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
                         ${btnFav}
@@ -279,8 +307,8 @@ window.GupyBiblioteca = {
                         ` : ''}
                     </div>
                 </div>
-                <div class="px-5 py-4 flex-grow"><p class="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-relaxed select-all">${f.conteudo}</p></div>
-                <div class="px-5 py-2 bg-slate-50 border-t border-slate-100">
+                <div class="px-5 py-5 flex-grow"><p class="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-relaxed select-all">${f.conteudo}</p></div>
+                <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-100">
                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                         <i class="fas ${iconeContador}"></i> ${textoContador}
                     </span>
