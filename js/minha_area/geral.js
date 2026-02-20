@@ -197,12 +197,6 @@ MinhaArea.Geral = {
         // Helper para Dias Uteis
         const getDU = (contrato, nomeUser) => {
             const diasCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-
-            // [DEBUG DETALHADO]
-            if (nomeUser && (nomeUser.toLowerCase().includes('aparecida') || nomeUser.toLowerCase().includes('camila'))) {
-                console.log(`[DEBUG DU DETALHADO] ${nomeUser} | Contrato: ${contrato} | DiasCal: ${diasCal} | ConfigMes:`, configMes);
-            }
-
             if (!configMes) return diasCal;
 
             const vTerc = configMes.dias_uteis_terceiros || configMes.dias_uteis || diasCal;
@@ -320,10 +314,9 @@ MinhaArea.Geral = {
             // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
-            // [DEBUG] Monitorar Dias Excessivos e Usuários Específicos
-            if (item.nome.toLowerCase().includes('aparecida') || item.nome.toLowerCase().includes('camila')) {
-                console.log(`[DEBUG MA] ${item.nome} | Dias Uteis Liq: ${diasUteisLiquidos} | Dias Brutos: ${diastUteisUser} | Abonos: ${item.soma_abono}`);
-            }
+            // [LOGIC] Dias Trabalhados (Disponíveis para Meta)
+            // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
+            const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
             // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
