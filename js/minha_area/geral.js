@@ -317,9 +317,9 @@ MinhaArea.Geral = {
             // [DEBUG] Monitorar Dias Excessivos
             // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
-            item.dias_uteis_liquidos = diasUteisLiquidos;
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
             item.dias_uteis_liquidos = diasUteisLiquidos;
+            item.dias_uteis_brutos = diastUteisUser; // [FIX] Salva o dia útil cheio (sem desconto) para KPI Global
 
             // Debug (remove in prod if needed)
             // console.log(`[MA] User ${item.nome}: Prod=${item.producao}, MetaDia=${item.meta_velocidade_media}, DiasUteis=${diastUteisUser}, Abono=${item.soma_abono}, MetaTotal=${item.meta_total_periodo}`);
@@ -448,7 +448,7 @@ MinhaArea.Geral = {
 
     calcularKpisGlobal: function () {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
-        let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
+        let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0, totalUteisBrutos = 0;
         let managerMeta = 0;
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
@@ -469,6 +469,7 @@ MinhaArea.Geral = {
             totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
             totalFator += i.soma_fator;
             totalUteis += i.dias_uteis_liquidos;
+            totalUteisBrutos += (i.dias_uteis_brutos || 0); // [FIX] Soma bruta p/ Meta de Capacidade
 
             if (i.producao > 0) {
                 somaMediasEquipe += i.velocidade_acumulada;
@@ -493,12 +494,12 @@ MinhaArea.Geral = {
             totalMeta = managerMeta * hcFinal;
         }
 
-        // Estima dias úteis totais da equipe (Capacity)
+        // Estima dias úteis totais da equipe (Capacity) Padrão (Sem descontar abonos)
         const realUserCount = countUsers;
-        // Se HC for igual ao real, usa totalUteis direto. Se for projetado, extrapola.
+        // Se HC for igual ao real, usa totalUteisBrutos direto. Se for projetado, extrapola.
         const diasUteisTotais = (hcFinal === realUserCount)
-            ? totalUteis
-            : (totalUteis / (realUserCount > 0 ? realUserCount : 1) * hcFinal);
+            ? totalUteisBrutos // [FIX] Usa BRUTO como Meta
+            : (totalUteisBrutos / (realUserCount > 0 ? realUserCount : 1) * hcFinal);
 
         // Cálculo de Dias Médios do Período (para Velocidade Diária)
         // [FIX] Usar ehLiderancaReal para garantir que pegamos os dias da Gestora (Patrícia) e não de uma Auditora (Keila)
