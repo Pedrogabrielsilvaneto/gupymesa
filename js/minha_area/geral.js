@@ -570,6 +570,12 @@ MinhaArea.Geral = {
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
+
+        // [NEW] Alerta Global (Visão Equipe)
+        this.calcularMetaDiariaRestante({
+            producao: totalProd,
+            meta_total_periodo: totalMeta
+        });
     },
 
     renderizarDiarioGestor: function (uid) {
@@ -671,6 +677,12 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
             capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario > 0 ? diasUteisCalendario : (item.dias_uteis_brutos || 21) },
             velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv }
+        });
+
+        // [NEW] Alerta Global (Visão Diária Consolidada)
+        this.calcularMetaDiariaRestante({
+            producao: totalProd,
+            meta_total_periodo: metaEquipePeriodo
         });
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
