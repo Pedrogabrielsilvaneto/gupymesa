@@ -45,7 +45,7 @@ window.GupyBiblioteca = {
 
     carregarFavoritos: function () {
         if (!this.usuario) return;
-        const key = `gupy_favs_${this.usuario.username}`;
+        const key = `gupy_favs_${this.usuario.id}`;
         try {
             const saved = localStorage.getItem(key);
             this.cacheFavoritos = saved ? JSON.parse(saved) : [];
@@ -56,7 +56,7 @@ window.GupyBiblioteca = {
 
     salvarFavoritos: function () {
         if (!this.usuario) return;
-        const key = `gupy_favs_${this.usuario.username}`;
+        const key = `gupy_favs_${this.usuario.id}`;
         localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
     },
 
@@ -105,7 +105,7 @@ window.GupyBiblioteca = {
                 const { data: stats } = await this.supabaseFrases
                     .from('view_usos_pessoais')
                     .select('frase_id, qtd_uso')
-                    .eq('usuario', this.usuario.username);
+                    .eq('usuario', this.usuario.id);
 
                 if (stats) {
                     stats.forEach(s => meusUsosMap[s.frase_id] = s.qtd_uso);
@@ -322,7 +322,7 @@ window.GupyBiblioteca = {
         try {
             if (!this.usuario) return;
             await this.supabaseFrases.from('logs').insert([{
-                usuario: this.usuario.username,
+                usuario: this.usuario.id,
                 acao: acao,
                 descricao: desc,
                 perfil: this.isAdmin() ? 'admin' : 'user'
