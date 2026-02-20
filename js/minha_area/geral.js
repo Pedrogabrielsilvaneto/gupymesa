@@ -507,6 +507,13 @@ MinhaArea.Geral = {
         // Se `managerMeta` for `650 * 21 = 13650`, então `13650 * 17`.
         if (managerMeta > 0) {
             totalMeta = managerMeta * hcFinal;
+            console.log(`[DEBUG MA] Meta Padronizada: MetaGestor(${managerMeta}) * HC(${hcFinal}) = ${totalMeta}`);
+        } else {
+            // Se não tiver meta de gestor, tenta estimar: 650 * HC * Dias
+            const metaBase = 650;
+            const calc = metaBase * hcFinal * diasUteisMeta;
+            console.log(`[DEBUG MA] Meta Estimada (Sem Gestor): Base(${metaBase}) * HC(${hcFinal}) * Dias(${diasUteisMeta}) = ${calc}`);
+            if (totalMeta === 0) totalMeta = calc;
         }
 
 
