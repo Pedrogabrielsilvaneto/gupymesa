@@ -494,6 +494,12 @@ MinhaArea.Metas = {
                     const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
                     const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 0;
 
+                    // [DEBUG DEEP] Log verify for a specific user that we know has meta (Pedro)
+                    if (String(reg.usuario_id) === '1185327' && metaBase === 0) {
+                        console.warn(`⚠️ FALHA LOOKUP META: mKey gerada='${mKey}' | Existe no Map? ${!!mapMetas[mKey]}`);
+                        if (mapMetas['1185327-2026-2']) console.log('✅ A chave existe no map como string literal 1185327-2026-2');
+                    }
+
                     if (qtd > 0) {
                         this.cacheDados[key][uidStr].prod += qtd;
                         this.cacheDados[key][uidStr].dias_efetivos += fator;
