@@ -694,8 +694,9 @@ Produtividade.Geral = {
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 
         const mediaProducaoDiariaGlobal = totalDiasUteis > 0 ? (totalProd / totalDiasUteis) : 0;
-        const denominadorVelocidade = headcountEfetivo;
-        const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
+        // [FIX] Alinhamento com Minha Área: Velocidade Real = Média Diária da Equipe (Total / Dias)
+        // Antes estava dividindo pelo Headcount, gerando média POR PESSOA. O User quer ver o VOLUME DIÁRIO DA EQUIPE.
+        const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal);
 
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
