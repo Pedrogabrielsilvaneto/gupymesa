@@ -522,9 +522,9 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario }, // [FIX] Exibe Max Real / Calendário
             velocidade: {
-                real: Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1)), // Usa diasPeriodo calculado antes
+                real: Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1)), // Media Diaria Real do TOTAL (incluindo abonos)
                 meta: managerDailyMeta > 0
-                    ? Math.round((managerDailyMeta) * (realUserCount > 0 ? realUserCount : hcFinal)) // Ajuste para meta diária correta
+                    ? Math.round(managerDailyMeta * hcFinal) // [FIX] Meta Fixa: 650 * 17 = 11050 (Independente de quantos trabalharam)
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
