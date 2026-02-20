@@ -896,5 +896,123 @@ MinhaArea.Geral = {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
-    }
-};
+        init: async function () {
+            try {
+                await this.carregarDados();
+                this.configurarAbas();
+                // ... existing code ...
+
+                // [NEW] Verifica Check-in Diário
+                setTimeout(() => this.verificarCheckinDiario(), 1500);
+
+            } catch (error) {
+                console.error('Erro ao inicializar:', error);
+            }
+        },
+
+        // ... existing functions ...
+
+        // --- LÓGICA DE CHECK-IN DIÁRIO ---
+        verificarCheckinDiario: async function() {
+            // Regra: Assistentes confirmam o dia anterior
+            const hoje = new Date();
+            const ontem = new Date(hoje);
+            ontem.setDate(hoje.getDate() - 1);
+
+            // Se ontem foi Fim de Semana, não pede checkin (opcional, pode ajustar conforme regra)
+            const diaSemanaOntem = ontem.getDay();
+            if (diaSemanaOntem === 0 || diaSemanaOntem === 6) {
+                console.log("Ontem foi fim de semana, pulando check-in.");
+                return;
+            }
+
+            const dataRef = ontem.toISOString().split('T')[0];
+            const uid = Sistema.auth.user.id;
+
+            try {
+                // Verifica se já existe check-in para ontem
+                const { rows } = await Sistema.db.query(`
+                SELECT id FROM checkin_diario 
+                WHERE usuario_uid = ? AND data_referencia = ?
+            `, [uid, dataRef]);
+
+                if (rows.length === 0) {
+                    this.exibirModalCheckin(dataRef);
+                }
+            } catch (e) {
+                console.error("Erro ao verificar check-in:", e);
+            }
+        },
+
+        exibirModalCheckin: function(dataRef) {
+            if (document.getElementById('modal-checkin-diario')) return;
+
+            // Formata data para exibição (PT-BR)
+            const [ano, mes, dia] = dataRef.split('-');
+            const dataFormatada = `${dia}/${mes}/${ano}`;
+
+            const html = `
+            <div id="modal-checkin-diario" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-fade-in">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all animate-bounce-in">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 text-white text-center">
+                        <i class="fas fa-clipboard-check text-4xl mb-2 opacity-90"></i>
+                        <h3 class="text-xl font-bold">Check-in Diário</h3>
+                        <p class="text-blue-100 text-sm">Confirmação de Leitura e Dados</p>
+                    </div>
+                    
+                    <div class="p-8 text-center space-y-4">
+                        <p class="text-slate-600 text-sm leading-relaxed">
+                            Olá! Para continuarmos, precisamos que você confirme que visualizou seus números e metas referentes ao dia anterior:
+                        </p>
+                        <div class="bg-blue-50 py-3 rounded-xl border border-blue-100">
+                            <span class="block text-xs uppercase font-bold text-blue-400">Referência</span>
+                            <span class="text-2xl font-black text-blue-700">${dataFormatada}</span>
+                        </div>
+                        <p class="text-xs text-slate-400">
+                            Ao confirmar, você declara estar ciente dos resultados apresentados no painel.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-50 px-6 py-4 flex gap-3 border-t border-slate-100">
+                        <button onclick="MinhaArea.Geral.confirmarCheckin('${dataRef}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                            <i class="fas fa-check-circle"></i> Confirmar Leitura
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+            document.body.insertAdjacentHTML('beforeend', html);
+        },
+
+        confirmarCheckin: async function(dataRef) {
+            const btn = document.querySelector('#modal-checkin-diario button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
+            btn.disabled = true;
+
+            try {
+                const uid = Sistema.auth.user.id;
+                await Sistema.db.execute(`
+                INSERT INTO checkin_diario (usuario_uid, data_referencia, status)
+                VALUES (?, ?, 'CONFIRMADO')
+            `, [uid, dataRef]);
+
+                // Sucesso
+                btn.innerHTML = '<i class="fas fa-check"></i> Prontinho!';
+                btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+
+                setTimeout(() => {
+                    const modal = document.getElementById('modal-checkin-diario');
+                    modal.classList.add('opacity-0', 'scale-90'); // Animação de saída
+                    setTimeout(() => modal.remove(), 300);
+                }, 1000);
+
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao confirmar check-in. Tente novamente.");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    };
