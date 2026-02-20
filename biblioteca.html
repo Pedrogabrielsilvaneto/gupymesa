@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferramentas - Performance Pro</title>
+    <link rel="shortcut icon" href="img/favicon.png" type="image/x-icon">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f3f4f6;
+            color: #1e293b;
+        }
+
+        .tool-card {
+            transition: all 0.2s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100">
+
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-enter {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+        }
+    </style>
+
+    <script src="js/sistema.js"></script>
+    <script src="js/biblioteca/main.js"></script>
+
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Header Biblioteca -->
+        <div
+            class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+            <div>
+                <h1 class="text-3xl font-black text-slate-800 flex items-center gap-3">
+                    <i class="fas fa-book-open text-blue-600"></i> Biblioteca de Frases
+                </h1>
+                <p class="text-slate-500 mt-1 font-medium">Acesse e copie as melhores práticas de atendimento para sua
+                    produtividade.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="document.getElementById('modal-lib-cep').classList.remove('hidden')"
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
+                    <i class="fas fa-map-marker-alt text-blue-500"></i> Consultar CEP
+                </button>
+                <button onclick="GupyBiblioteca.abrirCalculadora()"
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
+                    <i class="fas fa-calculator text-amber-500"></i> Calculadora
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtros e Busca -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="md:col-span-1 relative group">
+                <i
+                    class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                <input type="text" id="lib-search" oninput="GupyBiblioteca.aplicarFiltros()"
+                    placeholder="Buscar conteúdo..."
+                    class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 shadow-sm transition-all placeholder:text-slate-400">
+            </div>
+            <div class="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <select id="lib-filtro-empresa" onchange="GupyBiblioteca.aplicarFiltros()"
+                    class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
+                <select id="lib-filtro-motivo" onchange="GupyBiblioteca.aplicarFiltros()"
+                    class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
+                <select id="lib-filtro-doc" onchange="GupyBiblioteca.aplicarFiltros()"
+                    class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
+            </div>
+        </div>
+
+        <!-- Grid de Frases -->
+        <div id="grid-frases" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+            <!-- Cards renderizados dinamicamente -->
+        </div>
+    </div>
+
+    <!-- Modais Biblioteca -->
+    <div id="modal-lib-cep"
+        class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-enter">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-black text-slate-800 flex items-center gap-2"><i
+                        class="fas fa-map-marker-alt text-blue-600"></i> Consulta CEP</h3>
+                <button onclick="document.getElementById('modal-lib-cep').classList.add('hidden')"
+                    class="text-slate-400 hover:text-rose-500 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex gap-2">
+                    <input type="text" id="lib-cep-input" placeholder="00000-000"
+                        class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 transition shadow-sm tracking-widest text-center"
+                        maxlength="9">
+                    <button onclick="GupyBiblioteca.buscarCEP()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl transition shadow-md active:scale-95"><i
+                            class="fas fa-search"></i></button>
+                </div>
+                <div id="lib-cep-loading" class="hidden text-center py-4"><i
+                        class="fas fa-circle-notch fa-spin text-blue-500 text-2xl"></i></div>
+                <div id="lib-cep-resultado"
+                    class="hidden animate-enter bg-blue-50 border border-blue-100 rounded-2xl p-6 relative overflow-hidden">
+                    <i class="fas fa-map absolute -right-4 -bottom-4 text-7xl text-blue-100/50 transform rotate-12"></i>
+                    <div class="relative z-10 space-y-4">
+                        <div class="flex justify-between items-center bg-white/60 px-3 py-1 rounded-lg">
+                            <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">CEP
+                                Encontrado</span>
+                            <span id="lib-cep-display-num" class="text-sm font-black text-blue-700 font-mono"></span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Logradouro</p>
+                                <p id="lib-cep-logradouro" class="text-sm font-black text-slate-800"></p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Bairro</p>
+                                <p id="lib-cep-bairro" class="text-sm font-black text-slate-800"></p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Cidade/UF</p>
+                                <p id="lib-cep-localidade" class="text-sm font-black text-slate-800"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-lib-calculadora"
+        class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-enter">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-black text-slate-800 flex items-center gap-2"><i
+                        class="fas fa-calculator text-amber-500"></i> Calculadora de Datas</h3>
+                <button onclick="GupyBiblioteca.fecharCalculadora()"
+                    class="text-slate-400 hover:text-rose-500 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-1 bg-slate-100 m-6 rounded-xl border border-slate-200 flex shadow-inner">
+                <button id="lib-calc-btn-intervalo" onclick="GupyBiblioteca.mudarModoCalculadora('intervalo')"
+                    class="flex-1 py-2 text-xs font-bold transition rounded-lg">Intervalo</button>
+                <button id="lib-calc-btn-soma" onclick="GupyBiblioteca.mudarModoCalculadora('soma')"
+                    class="flex-1 py-2 text-xs font-bold transition rounded-lg">Somar Dias</button>
+            </div>
+            <div class="px-6 pb-8 space-y-6">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label id="lib-calc-label-data"
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Data
+                            Inicial</label>
+                        <input type="text" id="lib-calc-data-input" placeholder="DD/MM/AAAA"
+                            oninput="GupyBiblioteca.processarCalculadora()"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
+                    </div>
+                    <div id="lib-calc-container-dias" class="hidden">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Dias
+                            para Somar</label>
+                        <input type="number" id="lib-calc-dias-input" placeholder="Ex: 30"
+                            oninput="GupyBiblioteca.processarCalculadora()"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
+                    </div>
+                </div>
+
+                <div id="lib-calc-resultado-intervalo"
+                    class="hidden animate-enter bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                    <div class="text-center mb-4">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Diferença Atual</p>
+                        <p id="lib-res-total-dias" class="text-3xl font-black text-slate-800 tracking-tight">0</p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Dias no total</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 border-t border-slate-200 pt-4">
+                        <div class="text-center"><span id="lib-res-anos"
+                                class="block text-sm font-black text-slate-800">0</span><span
+                                class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Anos</span></div>
+                        <div class="text-center border-x border-slate-200"><span id="lib-res-meses"
+                                class="block text-sm font-black text-slate-800">0</span><span
+                                class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Meses</span></div>
+                        <div class="text-center"><span id="lib-res-dias"
+                                class="block text-sm font-black text-slate-800">0</span><span
+                                class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Dias</span></div>
+                    </div>
+                </div>
+
+                <div id="lib-calc-resultado-soma"
+                    class="hidden animate-enter bg-amber-50 border border-amber-100 rounded-2xl p-6 text-center relative overflow-hidden">
+                    <i
+                        class="fas fa-calendar-check absolute -right-4 -bottom-4 text-7xl text-amber-100/50 transform rotate-12"></i>
+                    <div class="relative z-10">
+                        <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-1">Data Calculada</p>
+                        <p id="lib-res-data-futura" class="text-2xl font-black text-slate-800 tracking-tight">--/--/----
+                        </p>
+                        <p id="lib-res-dia-semana" class="text-[10px] font-bold text-amber-600 uppercase mt-1"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/menu/global.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.GupyBiblioteca) {
+                GupyBiblioteca.init();
+            }
+        });
+    </script>
+</body>
+
+</html>

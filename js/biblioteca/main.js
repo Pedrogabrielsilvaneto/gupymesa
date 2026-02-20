@@ -1,15 +1,21 @@
 /**
- * ARQUIVO: js/minha_area/biblioteca.js
- * DESCRIÇÃO: Controlador da aba Biblioteca (Frases, CEP e Calculadora)
+ * ARQUIVO: js/biblioteca/main.js
+ * DESCRIÇÃO: Controlador da página Biblioteca (Frases, CEP e Calculadora)
  * INTEGRADO DE: App-Frases/gupy
  */
 
-MinhaArea.Biblioteca = {
+window.GupyBiblioteca = {
     supabaseFrases: null,
     cacheFrases: [],
     modoCalculadora: 'intervalo',
+    usuario: null,
 
     init: async function () {
+        // Inicializa usuário da sessão do Sistema
+        if (window.Sistema) {
+            this.usuario = Sistema.lerSessao();
+        }
+
         if (!this.supabaseFrases) {
             const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
             const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
@@ -18,6 +24,14 @@ MinhaArea.Biblioteca = {
 
         await this.carregarFrases();
         this.atualizarSugestoesModal();
+    },
+
+    isAdmin: function () {
+        if (!this.usuario) return false;
+        const p = (this.usuario.perfil || '').toUpperCase();
+        const f = (this.usuario.funcao || '').toUpperCase();
+        const id = parseInt(this.usuario.id);
+        return p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || f.includes('COORDENADOR') || f.includes('LIDER') || id === 1 || id === 1000;
     },
 
     carregarFrases: async function () {
@@ -33,11 +47,11 @@ MinhaArea.Biblioteca = {
 
             // Busca usos pessoais se o usuário estiver logado no GupyMesa
             let meusUsosMap = {};
-            if (MinhaArea.usuario) {
+            if (this.usuario) {
                 const { data: stats } = await this.supabaseFrases
                     .from('view_usos_pessoais')
                     .select('frase_id, qtd_uso')
-                    .eq('usuario', MinhaArea.usuario.username);
+                    .eq('usuario', this.usuario.username);
 
                 if (stats) {
                     stats.forEach(s => meusUsosMap[s.frase_id] = s.qtd_uso);
@@ -51,7 +65,7 @@ MinhaArea.Biblioteca = {
             }));
 
             // Ordenação: Admin vê global, Colaborador vê pessoal
-            if (MinhaArea.isAdmin()) {
+            if (this.isAdmin()) {
                 this.cacheFrases.sort((a, b) => (b.usos || 0) - (a.usos || 0));
             } else {
                 this.cacheFrases.sort((a, b) => {
@@ -96,11 +110,11 @@ MinhaArea.Biblioteca = {
         }
 
         grid.innerHTML = lista.map(f => {
-            const me = MinhaArea.isAdmin() ? false : true;
-            const textoContador = MinhaArea.isAdmin()
+            const isAdmin = this.isAdmin();
+            const textoContador = isAdmin
                 ? `${f.usos || 0} usos na empresa`
                 : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na empresa`);
-            const iconeContador = MinhaArea.isAdmin() ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
+            const iconeContador = isAdmin ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
 
             return `
                 <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 group overflow-hidden">
@@ -113,10 +127,10 @@ MinhaArea.Biblioteca = {
                             <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${f.motivo || 'Motivo'}</h4>
                         </div>
                         <div class="flex shrink-0 items-center gap-1">
-                            <button onclick="MinhaArea.Biblioteca.copiarTexto('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1.5"><i class="far fa-copy"></i> Copiar</button>
-                            ${MinhaArea.isAdmin() ? `
-                                <button onclick="MinhaArea.Biblioteca.prepararEdicao('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-amber-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-pen"></i></button>
-                                <button onclick="MinhaArea.Biblioteca.deletar('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-rose-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-trash-alt"></i></button>
+                            <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1.5"><i class="far fa-copy"></i> Copiar</button>
+                            ${isAdmin ? `
+                                <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-amber-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-pen"></i></button>
+                                <button onclick="GupyBiblioteca.deletar('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-rose-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-trash-alt"></i></button>
                             ` : ''}
                         </div>
                     </div>
@@ -152,7 +166,7 @@ MinhaArea.Biblioteca = {
             const ultimoRegistro = localStorage.getItem('gupy_ultimo_login_diario');
 
             if (ultimoRegistro !== hoje) {
-                await this.registrarLog('LOGIN', 'Acesso Diário (Via GupyMesa)');
+                await this.registrarLog('LOGIN', 'Acesso Diário (Via GupyMesa Standalone)');
                 localStorage.setItem('gupy_ultimo_login_diario', hoje);
             }
 
@@ -161,17 +175,18 @@ MinhaArea.Biblioteca = {
             // Atualização visual otimista
             f.usos = (f.usos || 0) + 1;
             f.meus_usos = (f.meus_usos || 0) + 1;
-            this.renderizar(this.cacheFrases); // Simplificado: re-renderiza tudo para atualizar contadores
+            this.renderizar(this.cacheFrases);
         });
     },
 
     registrarLog: async function (acao, desc) {
         try {
+            if (!this.usuario) return;
             await this.supabaseFrases.from('logs').insert([{
-                usuario: MinhaArea.usuario.username,
+                usuario: this.usuario.username,
                 acao: acao,
                 descricao: desc,
-                perfil: MinhaArea.isAdmin() ? 'admin' : 'user'
+                perfil: this.isAdmin() ? 'admin' : 'user'
             }]);
         } catch (e) { }
     },

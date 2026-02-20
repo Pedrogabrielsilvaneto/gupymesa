@@ -279,10 +279,6 @@ window.MinhaArea = {
         } else if (aba === 'feedback') {
             if (btnFeedback) btnFeedback.classList.add('active');
             if (MinhaArea.Feedback) MinhaArea.Feedback.init();
-        } else if (aba === 'biblioteca') {
-            const btnLib = document.getElementById('btn-ma-biblioteca');
-            if (btnLib) btnLib.classList.add('active');
-            if (MinhaArea.Biblioteca) MinhaArea.Biblioteca.init();
         }
     },
 
@@ -297,8 +293,6 @@ window.MinhaArea = {
                 MinhaArea.Metas.carregar();
             } else if (!document.getElementById('ma-tab-auditoria').classList.contains('hidden')) {
                 MinhaArea.Auditoria.carregar();
-            } else if (!document.getElementById('ma-tab-biblioteca').classList.contains('hidden')) {
-                MinhaArea.Biblioteca.init();
             }
         }
     },

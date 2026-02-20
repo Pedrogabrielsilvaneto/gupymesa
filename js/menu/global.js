@@ -5,7 +5,7 @@
 window.Menu = window.Menu || {};
 
 Menu.Global = {
-    renderizar: function() {
+    renderizar: function () {
         let container = document.getElementById('global-menu');
         if (!container) {
             container = document.createElement('div');
@@ -36,16 +36,16 @@ Menu.Global = {
 
         // Links do Menu
         const links = [];
-        
+
         // Só adiciona Gestão e Produtividade se tiver permissão
         if (temAcessoGestao) {
             links.push({ nome: 'Gestão', url: 'gestao.html', icon: 'fas fa-cogs' });
             links.push({ nome: 'Produtividade', url: 'produtividade.html', icon: 'fas fa-chart-line' });
         }
-        
+
         // Links comuns a todos
         links.push({ nome: 'Minha Área', url: 'minha_area.html', icon: 'fas fa-home' });
-        links.push({ nome: 'Biblioteca', url: 'ferramentas.html', icon: 'fas fa-book' });
+        links.push({ nome: 'Biblioteca', url: 'biblioteca.html', icon: 'fas fa-book' });
 
         // --- HTML DO MENU (VISUAL DARK / FINO) ---
         let html = `
@@ -63,10 +63,10 @@ Menu.Global = {
             // Verifica se a página atual corresponde ao link para destacar
             const ativo = currentPath.includes(link.url);
             // Estilo do botão: Escuro quando inativo, Claro/Branco quando ativo
-            const classe = ativo 
-                ? 'bg-slate-700 text-white font-bold shadow-sm' 
+            const classe = ativo
+                ? 'bg-slate-700 text-white font-bold shadow-sm'
                 : 'hover:bg-slate-800 hover:text-white transition-colors';
-            
+
             html += `<a href="${link.url}" class="px-3 py-1.5 rounded text-xs flex items-center gap-2 ${classe}"><i class="${link.icon}"></i> ${link.nome}</a>`;
         });
 
@@ -82,7 +82,7 @@ Menu.Global = {
 
         container.innerHTML = html;
         // Ajusta o padding do body para o menu não cobrir o conteúdo (48px = h-12)
-        document.body.style.paddingTop = '48px'; 
+        document.body.style.paddingTop = '48px';
     }
 };
 
