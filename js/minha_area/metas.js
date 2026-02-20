@@ -927,16 +927,67 @@ MinhaArea.Metas = {
         const slotColors = ['#3b82f6', '#10b981', '#f59e0b'];
         const datasetsProd = []; const datasetsAssert = [];
 
+        // [NEW] Linhas de Meta (Referência)
+        const metaProd = [];
+        const metaAssert = [];
+        // Usa o primeiro usuário como referência para as metas (assumindo metas iguais para o grupo comparado)
+        const referenceUid = userIds[0] || (this.cacheUsers[0] ? this.cacheUsers[0].id : null);
+
+        this.cacheColunas.forEach(col => {
+            let mp = 100;
+            let ma = 97;
+            if (referenceUid) {
+                const d = this.cacheDados[col.key][String(referenceUid)];
+                if (d) { mp = d.metaProd || 100; ma = d.metaAssert || 97; }
+            }
+            metaProd.push(mp);
+            metaAssert.push(ma);
+        });
+
+        // Adiciona datasets de Meta primeiro (back layer)
+        datasetsProd.push({
+            label: 'Meta',
+            data: metaProd,
+            borderColor: '#94a3b8',
+            borderWidth: 2,
+            pointRadius: 0,
+            borderDash: [5, 5],
+            fill: false,
+            order: 1
+        });
+
+        datasetsAssert.push({
+            label: 'Meta Qualidade',
+            data: metaAssert,
+            borderColor: '#10b981',
+            borderWidth: 2,
+            pointRadius: 0,
+            borderDash: [2, 2],
+            fill: false,
+            order: 1
+        });
+
+        // Adiciona datasets dos usuários
         userIds.forEach((uid, idx) => {
             const user = this.cacheUsers.find(u => String(u.id) === String(uid));
             if (!user) return;
             const color = slotColors[idx % 3];
             const dataProd = []; const dataAssert = [];
             this.cacheColunas.forEach(col => {
-                const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null };
-                dataProd.push(dados.velocidade); dataAssert.push(dados.assert * 100);
+                const dados = this.cacheDados[col.key][String(uid)] || { velocidade: null, assert: null };
+                dataProd.push(dados.velocidade);
+                dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
             });
-            const dsBase = { label: user.nome.split(' ')[0], borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 4, tension: 0.2, fill: false };
+            const dsBase = {
+                label: user.nome.split(' ')[0],
+                borderColor: color,
+                backgroundColor: color,
+                borderWidth: 3,
+                pointRadius: 4,
+                tension: 0.2,
+                fill: false,
+                order: 2
+            };
             datasetsProd.push({ ...dsBase, data: dataProd });
             datasetsAssert.push({ ...dsBase, data: dataAssert });
         });
