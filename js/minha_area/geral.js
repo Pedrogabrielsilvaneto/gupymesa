@@ -59,7 +59,7 @@ MinhaArea.Geral = {
         const d2 = new Date(filtro.fim);
         this.state.isMacro = (d2 - d1) / (1000 * 60 * 60 * 24) > 45;
 
-        const alvoReal = MinhaArea.getUsuarioAlvo();
+        let alvoReal = MinhaArea.getUsuarioAlvo();
         this.renderLoading();
 
         try {
