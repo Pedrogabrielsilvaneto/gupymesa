@@ -985,29 +985,22 @@ MinhaArea.Geral = {
         const dataFormatada = `${dia}/${mes}/${ano}`;
 
         const html = `
-            <div id="modal-checkin-diario" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-fade-in">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all animate-bounce-in">
-                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 text-white text-center">
-                        <i class="fas fa-clipboard-check text-4xl mb-2 opacity-90"></i>
-                        <h3 class="text-xl font-bold">Check-in Diário</h3>
-                        <p class="text-blue-100 text-sm">Confirmação de Leitura e Dados</p>
+            <div id="modal-checkin-diario" class="fixed bottom-6 right-6 z-[200] animate-slide-up">
+                <div class="bg-white rounded-xl shadow-2xl w-80 overflow-hidden border border-blue-100 ring-1 ring-black/5">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-white flex items-center gap-3">
+                        <i class="fas fa-clipboard-check text-2xl opacity-90"></i>
+                        <div>
+                            <h3 class="font-bold text-sm leading-tight">Check-in Pendente</h3>
+                            <p class="text-blue-100 text-[10px]">Confirme os dados de: <strong>${dataFormatada}</strong></p>
+                        </div>
                     </div>
                     
-                    <div class="p-8 text-center space-y-4">
-                        <p class="text-slate-600 text-sm leading-relaxed">
-                            Olá! Para continuarmos, precisamos que você confirme que visualizou seus números e metas referentes ao dia anterior:
+                    <div class="p-4 bg-slate-50/50">
+                        <p class="text-slate-600 text-xs mb-3 text-justify leading-snug">
+                            Por favor, verifique seus números no painel antes de confirmar.
                         </p>
-                        <div class="bg-blue-50 py-3 rounded-xl border border-blue-100">
-                            <span class="block text-xs uppercase font-bold text-blue-400">Referência</span>
-                            <span class="text-2xl font-black text-blue-700">${dataFormatada}</span>
-                        </div>
-                        <p class="text-xs text-slate-400">
-                            Ao confirmar, você declara estar ciente dos resultados apresentados no painel.
-                        </p>
-                    </div>
-
-                    <div class="bg-slate-50 px-6 py-4 flex gap-3 border-t border-slate-100">
-                        <button onclick="MinhaArea.Geral.confirmarCheckin('${dataRef}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                        
+                        <button onclick="MinhaArea.Geral.confirmarCheckin('${dataRef}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-md shadow-blue-200 transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
                             <i class="fas fa-check-circle"></i> Confirmar Leitura
                         </button>
                     </div>
