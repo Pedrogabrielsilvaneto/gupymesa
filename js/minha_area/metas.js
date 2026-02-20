@@ -486,34 +486,23 @@ MinhaArea.Metas = {
                     const qtd = Number(reg.quantidade || 0);
                     const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
                     const d = new Date(reg.data_referencia + 'T12:00:00');
-                    // [DEBUG] Log key generation
                     const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
                     const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 0;
 
-                    if (metaBase === 0 && mapMetas[mKey]) console.warn('Meta found but is 0 for key:', mKey);
-                    if (!mapMetas[mKey]) console.log('No meta found for key:', mKey);
-
                     if (qtd > 0) {
-                        const qtd = Number(reg.quantidade || 0);
-                        const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
-                        const d = new Date(reg.data_referencia + 'T12:00:00');
-                        const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
-                        const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 0;
+                        this.cacheDados[key][uidStr].prod += qtd;
+                        this.cacheDados[key][uidStr].dias_efetivos += fator;
 
-                        if (qtd > 0) {
-                            this.cacheDados[key][uidStr].prod += qtd;
-                            this.cacheDados[key][uidStr].dias_efetivos += fator;
-
-                            if (this.statsUsers[uidStr]) {
-                                this.statsUsers[uidStr].prod += qtd;
-                                this.statsUsers[uidStr].dias_efetivos += fator;
-                                this.statsUsers[uidStr].metaSum += (metaBase * fator);
-                            }
+                        if (this.statsUsers[uidStr]) {
+                            this.statsUsers[uidStr].prod += qtd;
+                            this.statsUsers[uidStr].dias_efetivos += fator;
+                            this.statsUsers[uidStr].metaSum += (metaBase * fator);
                         }
-                        this.cacheDados[key][uidStr].metaProd = metaBase;
-                        if (mapMetas[mKey]) this.cacheDados[key][uidStr].metaAssert = mapMetas[mKey].a;
                     }
-                });
+                    this.cacheDados[key][uidStr].metaProd = metaBase;
+                    if (mapMetas[mKey]) this.cacheDados[key][uidStr].metaAssert = mapMetas[mKey].a;
+                }
+            });
 
             // 2. ASSERTIVIDADE
             // [ALIGNMENT v4.34] Logic Aligned with Produtividade (Average of Averages)
