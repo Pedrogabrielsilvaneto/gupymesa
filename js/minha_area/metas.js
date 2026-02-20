@@ -472,14 +472,9 @@ MinhaArea.Metas = {
             }
 
             const mapMetas = {};
-            console.log('--- 🔍 DEBUG DETALHADO METAS (BANCO) ---');
             (dadosMetas || []).forEach(m => {
                 const k = `${m.usuario_id}-${m.ano}-${m.mes}`;
                 mapMetas[k] = { p: m.meta_producao || 0, a: m.meta_assertividade || 0 };
-
-                // Helper para pegar nome
-                const nomeUser = allActiveUsers.find(u => String(u.id) === String(m.usuario_id))?.nome || 'Desc. ID: ' + m.usuario_id;
-                console.log(`👤 Assistente: ${nomeUser} | 💰 Meta Banco: ${m.meta_producao} | 🔑 Chave: ${k}`);
             });
 
             // 1. PRODUÇÃO
@@ -490,15 +485,12 @@ MinhaArea.Metas = {
                 if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
                     const qtd = Number(reg.quantidade || 0);
                     const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
-                    const d = new Date(reg.data_referencia + 'T12:00:00');
+
+                    // [FIX] Safe Date Parsing (Sanitize T)
+                    const cleanDate = String(reg.data_referencia).split('T')[0];
+                    const d = new Date(cleanDate + 'T12:00:00');
                     const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
                     const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 0;
-
-                    // [DEBUG DEEP] Log verify for a specific user that we know has meta (Pedro)
-                    if (String(reg.usuario_id) === '1185327' && metaBase === 0) {
-                        console.warn(`⚠️ FALHA LOOKUP META: mKey gerada='${mKey}' | Existe no Map? ${!!mapMetas[mKey]}`);
-                        if (mapMetas['1185327-2026-2']) console.log('✅ A chave existe no map como string literal 1185327-2026-2');
-                    }
 
                     if (qtd > 0) {
                         this.cacheDados[key][uidStr].prod += qtd;
