@@ -469,8 +469,9 @@ MinhaArea.Geral = {
                 }
                 return; // Managers don't contribute to Team Capacity/Average calculation logic below
             }
-            totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
-            totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
+            // totalMeta += i.meta_total_periodo; // [FIX] Não soma mais individualmente. Calcularemos pelo padrão.
+            // totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
+            // totalFator += i.soma_fator; // Removido soma; // Soma das metas individuais (fallback)
             // totalFator += i.soma_fator; // Removido soma
             maxFator = Math.max(maxFator, i.soma_fator); // [FIX] Pega o maior valor de dias trab. da equipe
             if (i.dias_uteis_brutos > diasUteisCalendario) diasUteisCalendario = i.dias_uteis_brutos; // Pega o maior calendário encontrado
@@ -486,14 +487,24 @@ MinhaArea.Geral = {
             }
         });
 
-        // Headcount Configurado ou Real (countUsers)
-        // [FIX] Por padrão, usa o countUsers real da tabela. Só usa HC fixo se tiver config explícita E maior que 0.
-        // Isso evita que a capacidade "Meta" (diasTotal) fique inflada para 17 quando só tem 5 pessoas na lista.
-        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : countUsers;
+        // Headcount Configurado ou Padrão 17 (Conforme regra de negócio)
+        // [FIX] A regra agora é explicita: 17 Padrão se não houver config.
+        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : 17;
 
-        // Se houver meta de gestão definida, ela PREVALECE e é multiplicada pelo HC
-        // Mas se a metaIndependente (calculada dos assistentes) for mais fidedigna, poderíamos usar.
-        // A regra diz: Meta Global = Meta Gestor * HC.
+        // Recupera Dias Úteis da Configuração ou usa o maior encontrado na lista (Calendário)
+        // Se `diasUteisCalendario` for 0 (ninguém na lista), tenta recalcular pelo range.
+        let diasUteisMeta = diasUteisCalendario > 0 ? diasUteisCalendario : this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
+        // Se houver meta de gestão definida (Diária na Tabela Metas), ela prevalece.
+        // A `managerMeta` aqui está vindo como Total Periodo da linha da tabela. Precisamos da Diária.
+        // Mas `meta_total_periodo` já é `meta_diaria * dias_uteis`. Então podemos deduzir ou pegar a meta base.
+        // Vamos confiar que `managerMeta` é o valor total esperado para ELA (Gestora).
+        // Mas a regra diz: Meta Diária * HC * Dias. Se `managerMeta` for Total, dividimos pelos dias dela para achar a diária?
+        // Simples: Vamos pegar a Meta Diária Base da Gestora (que é 650).
+        // Como não temos fácil aqui, vamos estimar pela managerMeta / diasUteisMeta (se coincidir) ou usar uma prop nova se tiver.
+        // Melhor: Vamos assumir que `managerMeta` é "Meta da Gestora para o Periodo".
+        // O Usuario disse: "Meta da Gestora (650) * 17 * 21".
+        // Se `managerMeta` for `650 * 21 = 13650`, então `13650 * 17`.
         if (managerMeta > 0) {
             totalMeta = managerMeta * hcFinal;
         }

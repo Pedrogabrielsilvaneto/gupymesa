@@ -598,10 +598,23 @@ Produtividade.Geral = {
 
         // Adiciona Meta da Gestora Explicitamente
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        let metaDiariaGestor = 0;
+
         if (gestoraItem) {
             // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
-            const metaIndiv = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem.meta_base_diaria || 0);
-            totalMeta += metaIndiv * totalDiasUteis;
+            metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem.meta_base_diaria || 0);
+            if (metaDiariaGestor === 0 && gestoraItem._rawBaseMeta > 0) metaDiariaGestor = gestoraItem._rawBaseMeta; // Fallback para meta base crua
+        }
+
+        // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
+        // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
+        if (metaDiariaGestor > 0) {
+            totalMeta = metaDiariaGestor * this.getHeadcountConfig() * totalDiasUteis;
+        } else {
+            // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
+            // O user pediu padronização. Se for 0, fica 0 ou soma. Vamos manter 0 para forçar configuração correta ou somar como fallback?
+            // Vamos zerar aqui e deixar o loop abaixo somar SE não tiver meta definida.
+            totalMeta = 0;
         }
 
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
@@ -609,8 +622,11 @@ Produtividade.Geral = {
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
 
-            // totalProd += i.producao; // REMOVIDO: Já somado o bruto acima
-            totalMeta += i.meta_real_calculada;
+            // [FIX] Só soma meta individual se NÃO tivermos calculado a meta global via Formula da Gestora
+            if (metaDiariaGestor === 0) {
+                totalMeta += i.meta_real_calculada;
+            }
+
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
             if (i.producao > 0) assistentesComProducao.add(i.uid);
             if (i.qtd_assert > 0 && i.media_final !== null) {
