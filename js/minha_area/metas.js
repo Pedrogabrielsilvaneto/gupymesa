@@ -842,6 +842,53 @@ MinhaArea.Metas = {
         });
     },
 
+    // [NEW] Abre o modal de comparação geral ao clicar nos cards de resumo
+    abrirModalGraficosGerais: function () {
+        this.popularSelectsManual();
+
+        let id1, id2, id3;
+        const total = this.cacheUsers.length;
+
+        // Se for Admin/Gestor, pega o TOP 3 (assumindo que cacheUsers está ordenado pelo ranking ou ordem alfabética)
+        // Idealmente deveríamos ordenar por produção aqui, mas usaremos a ordem atual da lista
+        if (MinhaArea.isAdmin()) {
+            // Ordena temporariamente para pegar os top performance se não estiver ordenado
+            // Mas vamos respeitar a ordem visual atual (que deve ser o ranking)
+            if (total > 0) id1 = this.cacheUsers[0].id;
+            if (total > 1) id2 = this.cacheUsers[1].id;
+            if (total > 2) id3 = this.cacheUsers[2].id;
+        } else {
+            // Se for assistente, pega a si mesmo
+            const myId = MinhaArea.usuario.id;
+            // Verifica se o usuário está na lista (pode ter sido filtrado)
+            const exists = this.cacheUsers.find(u => String(u.id) === String(myId));
+            if (exists) {
+                id1 = myId;
+            } else {
+                // Fallback: Se não estiver na lista (ex: filtro ativo), pega o primeiro
+                if (total > 0) id1 = this.cacheUsers[0].id;
+            }
+            id2 = null;
+            id3 = null;
+        }
+
+        const el1 = document.getElementById('comp-sel-1');
+        const el2 = document.getElementById('comp-sel-2');
+        const el3 = document.getElementById('comp-sel-3');
+
+        if (el1) el1.value = id1 || '';
+        if (el2) el2.value = id2 || '';
+        if (el3) el3.value = id3 || '';
+
+        this.atualizarComparativoManual();
+
+        const modal = document.getElementById('modal-comparativo-metas');
+        if (modal) {
+            modal.classList.remove('hidden', 'pointer-events-none');
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+    },
+
     abrirComparativoVizinhos: function (selectedUid) {
         if (!MinhaArea.isAdmin()) return;
         const index = this.cacheUsers.findIndex(u => u.id == selectedUid);
