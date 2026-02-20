@@ -183,6 +183,25 @@ MinhaArea.Feedback = {
         const area = document.getElementById('chat-messages-area');
         if (!area) return;
 
+        // Otimização: Não renderizar se estiver tocando áudio para não cortar o som
+        // Verifica se existe algum audio player tocando
+        const audios = area.querySelectorAll('audio');
+        for (let audio of audios) {
+            if (!audio.paused && !audio.ended && audio.currentTime > 0) {
+                console.log("Áudio tocando, pulando renderização...");
+                return;
+            }
+        }
+
+        // Otimização: Verificar se mudou o número de mensagens
+        // Nota: Isso é um check simples. Ideal seria comparar ID da última mensagem.
+        const currentCount = area.querySelectorAll('.animate-fade-in').length;
+        if (this.mensagensCache.length === currentCount && currentCount > 0) {
+            // Se o count é igual, assume que não mudou (para este caso de uso simples)
+            // Poderia checar se a última mensagem é a mesma também
+            return;
+        }
+
         if (this.mensagensCache.length === 0) {
             area.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full text-slate-300 opacity-50">
@@ -258,7 +277,17 @@ MinhaArea.Feedback = {
     iniciarGravacao: async function () {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
+            // Otimização: 32kbps para reduzir tamanho do Base64 e evitar travamentos
+            const options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 };
+
+            // Fallback se o navegador não suportar codecs options
+            try {
+                this.mediaRecorder = new MediaRecorder(stream, options);
+            } catch (e) {
+                console.warn("Codec/Bitrate não suportado, usando default:", e);
+                this.mediaRecorder = new MediaRecorder(stream);
+            }
+
             this.audioChunks = [];
 
             this.mediaRecorder.ondataavailable = event => {
