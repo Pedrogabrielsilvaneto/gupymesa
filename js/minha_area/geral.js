@@ -498,17 +498,12 @@ MinhaArea.Geral = {
             totalMeta = managerMeta * hcFinal;
         }
 
-        // Estima dias úteis totais da equipe (Capacity) Padrão (Sem descontar abonos)
-        const realUserCount = countUsers;
-        // Se HC for igual ao real, usa totalUteisBrutos direto. Se for projetado, extrapola.
-        const diasUteisTotais = (hcFinal === realUserCount)
-            ? totalUteisBrutos // [FIX] Usa BRUTO como Meta
-            : (totalUteisBrutos / (realUserCount > 0 ? realUserCount : 1) * hcFinal);
+
 
         // Cálculo de Dias Médios do Período (para Velocidade Diária)
         // [FIX] Usar ehLiderancaReal para garantir que pegamos os dias da Gestora (Patrícia) e não de uma Auditora (Keila)
         const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
-        const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (totalUteis / (realUserCount || 1) || 1);
+        const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (diasUteisCalendario || 1);
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
