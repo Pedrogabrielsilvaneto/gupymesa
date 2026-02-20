@@ -413,6 +413,8 @@ MinhaArea.Metas = {
                 Sistema.query(sqlMetas, paramsMetas)
             ]);
 
+            console.log('--- DEBUG DADOS METAS (TIDB) ---', dadosMetas);
+
             this._lastDadosProd = dadosProd || []; // [FIX v4.36] Store raw data for consistent global total
 
             if (!dadosProd) throw new Error("Erro ao buscar dados de produção.");
