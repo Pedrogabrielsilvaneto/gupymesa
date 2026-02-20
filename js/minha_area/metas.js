@@ -776,6 +776,10 @@ MinhaArea.Metas = {
     },
 
     renderizarDashboardAssistente: function (uid) {
+        console.clear();
+        console.log('--- DEBUG: renderizarDashboardAssistente ---');
+        console.log('UID:', uid);
+
         // [REF_FIX] Agora renderiza no Modal de Evolução (Barras + Linha)
         const user = this.cacheUsers.find(u => String(u.id) === String(uid));
         if (!user) return;
@@ -792,6 +796,9 @@ MinhaArea.Metas = {
         this.cacheColunas.forEach(col => {
             labels.push(col.label);
             const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
+
+            console.log(`Col: ${col.label} | MetaProd: ${dados.metaProd} | MetaAssert: ${dados.metaAssert}`);
+
             dataProd.push(dados.velocidade);
             dataMetaProd.push(dados.metaProd || 0); // Garante que usa a meta individual do cache
             dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
@@ -953,6 +960,9 @@ MinhaArea.Metas = {
     },
 
     renderizarGraficosComparativos: function (userIds) {
+        console.log('--- DEBUG: renderizarGraficosComparativos ---');
+        console.log('UserIDs:', userIds);
+
         const labels = this.cacheColunas.map(c => c.label);
         const slotColors = ['#3b82f6', '#10b981', '#f59e0b'];
         const datasetsProd = []; const datasetsAssert = [];
