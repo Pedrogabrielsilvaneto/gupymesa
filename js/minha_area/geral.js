@@ -583,14 +583,17 @@ MinhaArea.Geral = {
 
         // Força o cabeçalho idêntico à visão do assistente (v4.22)
         if (this.els.tabelaHeader) {
-            this.els.tabelaHeader.innerHTML = `
+            const btnVoltar = (window.MinhaArea && window.MinhaArea.isAdmin()) ? `
                 <tr class="bg-slate-100 border-b border-slate-300">
                     <td colspan="8" class="px-4 py-2">
                         <button onclick="MinhaArea.mudarUsuarioAlvo('')" class="text-sm text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1">
                             ⬅ Voltar para Visão de Equipe
                         </button>
                     </td>
-                </tr>
+                </tr>` : '';
+
+            this.els.tabelaHeader.innerHTML = `
+                ${btnVoltar}
                 <tr class="divide-x divide-slate-200 border-b border-slate-300">
                     <th class="px-3 py-3 text-left bg-slate-50">Data</th>
                     <th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th>
