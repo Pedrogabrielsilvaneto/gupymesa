@@ -48,3 +48,30 @@ CREATE POLICY "Marcar como lido" ON feedbacks
     FOR UPDATE
     USING (auth.uid() = destinatario_id)
     WITH CHECK (auth.uid() = destinatario_id);
+
+
+-- TABELA DE CHECK-IN DIÁRIO (CONFIRMAÇÃO DE LEITURA)
+CREATE TABLE IF NOT EXISTS checkin_diario (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    usuario_uid UUID NOT NULL,
+    data_referencia DATE NOT NULL, -- O dia que está sendo confirmado (ex: ontem)
+    data_checkin TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- Quando confirmou
+    status TEXT DEFAULT 'CONFIRMADO',
+    
+    CONSTRAINT unique_checkin_dia UNIQUE (usuario_uid, data_referencia)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkin_uid ON checkin_diario(usuario_uid);
+CREATE INDEX IF NOT EXISTS idx_checkin_data ON checkin_diario(data_referencia);
+
+ALTER TABLE checkin_diario ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Usuário pode ver seus próprios checkins
+CREATE POLICY "Ver seus checkins" ON checkin_diario FOR SELECT USING (auth.uid() = usuario_uid);
+
+-- Policy: Usuário pode inserir seu próprio checkin
+CREATE POLICY "Inserir checkin" ON checkin_diario FOR INSERT WITH CHECK (auth.uid() = usuario_uid);
+
+-- Policy: Gestores podem ver todos (Simplificado: authenticated pode ver tudo por enquanto, ou restrito por role depois)
+-- Para facilitar o MVP, vamos liberar SELECT para autenticados (Gestores precisam ver de todos)
+CREATE POLICY "Gestores veem checkins" ON checkin_diario FOR SELECT USING (auth.role() = 'authenticated');
