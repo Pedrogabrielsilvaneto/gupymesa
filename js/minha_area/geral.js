@@ -909,8 +909,8 @@ MinhaArea.Geral = {
 
     init: async function () {
         try {
-            await this.carregarDados();
-            this.configurarAbas();
+            await this.carregar();
+            // this.configurarAbas(); // Removido pois é gerido pelo Main
             // ... existing code ...
 
             // [NEW] Verifica Check-in Diário
