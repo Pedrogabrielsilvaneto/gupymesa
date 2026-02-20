@@ -4,7 +4,12 @@ MinhaArea.Feedback = {
     pollingInterval: null,
     mensagensCache: [],
     contatosCache: [],
-    anexoAtual: null,
+    anexoAtual: null, // Será um File (blob) de áudio
+
+    // Variáveis de Gravação
+    mediaRecorder: null,
+    audioChunks: [],
+    gravando: false,
 
     init: async function () {
         await this.carregarContatos();
@@ -197,16 +202,14 @@ MinhaArea.Feedback = {
 
             // Conteúdo (Texto ou Mídia)
             let conteudo = '';
-            if (msg.tipo_midia === 'IMAGEM') {
-                conteudo = `<div class="mb-1"><img src="${msg.url_midia}" class="max-w-[200px] rounded-lg cursor-pointer hover:opacity-90 transition" onclick="window.open('${msg.url_midia}','_blank')"></div>`;
-            } else if (msg.tipo_midia === 'VIDEO') {
-                conteudo = `<video src="${msg.url_midia}" controls class="max-w-[250px] rounded-lg"></video>`;
-            } else if (msg.tipo_midia === 'AUDIO') {
+
+            // Suporte apenas para TEXTO e AUDIO
+            if (msg.tipo_midia === 'AUDIO') {
                 conteudo = `<audio src="${msg.url_midia}" controls class="max-w-[200px]"></audio>`;
-            } else if (msg.tipo_midia === 'DOCUMENTO') {
-                conteudo = `<a href="${msg.url_midia}" target="_blank" class="flex items-center gap-2 bg-black/10 p-2 rounded hover:bg-black/20 transition">
-                    <i class="fas fa-file-alt"></i> <span class="underline text-sm">${msg.nome_arquivo || 'Arquivo'}</span>
-                </a>`;
+            }
+            // Fallback para tipos antigos se existirem no banco, mas interface não gera mais
+            else if (msg.tipo_midia === 'IMAGEM') {
+                conteudo = `<div class="mb-1 text-xs text-rose-500">[Imagem não suportada]</div>`; // Simplificado
             }
 
             if (msg.mensagem) {
@@ -242,27 +245,91 @@ MinhaArea.Feedback = {
         }
     },
 
-    handleFileSelect: function (input) {
-        if (input.files && input.files[0]) {
-            const file = input.files[0];
-            this.anexoAtual = file;
+    // --- FUNÇÕES DE GRAVAÇÃO (MICROFONE) ---
 
-            // Preview
-            const prev = document.getElementById('chat-upload-preview');
-            const name = document.getElementById('chat-upload-filename');
+    toggleGravacao: async function () {
+        if (this.gravando) {
+            this.pararGravacao();
+        } else {
+            await this.iniciarGravacao();
+        }
+    },
 
-            if (prev && name) {
-                prev.classList.remove('hidden');
-                name.innerText = file.name;
+    iniciarGravacao: async function () {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.audioChunks = [];
+
+            this.mediaRecorder.ondataavailable = event => {
+                this.audioChunks.push(event.data);
+            };
+
+            this.mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                // Cria arquivo simulado para envio
+                this.anexoAtual = new File([audioBlob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+
+                // Preview UI Update (Reutilizando elementos existentes)
+                // Vamos criar dinamicamente se não existir, ou usar o chat-upload-preview se ainda estiver lá
+                const prev = document.getElementById('chat-upload-preview') || this.criarPreviewArea();
+
+                // Hack para exibir nome se existir a estrutura antiga
+                if (prev) {
+                    prev.classList.remove('hidden');
+                    const name = document.getElementById('chat-upload-filename');
+                    if (name) name.innerText = "Áudio Gravado (Pronto para enviar)";
+                }
+
+                // Stop tracks para liberar microfone
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            this.mediaRecorder.start();
+            this.gravando = true;
+
+            // UI Update
+            const btn = document.getElementById('btn-gravar-audio');
+            if (btn) {
+                btn.classList.add('bg-rose-500', 'text-white', 'animate-pulse');
+                btn.classList.remove('bg-slate-100', 'text-slate-500');
+                btn.innerHTML = '<i class="fas fa-stop"></i>';
+            }
+
+        } catch (err) {
+            console.error("Erro ao acessar microfone:", err);
+            alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+        }
+    },
+
+    pararGravacao: function () {
+        if (this.mediaRecorder && this.gravando) {
+            this.mediaRecorder.stop();
+            this.gravando = false;
+
+            // UI Reset
+            const btn = document.getElementById('btn-gravar-audio');
+            if (btn) {
+                btn.classList.remove('bg-rose-500', 'text-white', 'animate-pulse');
+                btn.classList.add('bg-slate-100', 'text-slate-500');
+                btn.innerHTML = '<i class="fas fa-microphone"></i>';
             }
         }
     },
 
     limparAnexo: function () {
         this.anexoAtual = null;
-        document.getElementById('chat-input-file').value = '';
-        document.getElementById('chat-upload-preview').classList.add('hidden');
+        this.audioChunks = [];
+        const prev = document.getElementById('chat-upload-preview');
+        if (prev) prev.classList.add('hidden');
     },
+
+    criarPreviewArea: function () {
+        // Fallback helper se a estrutura HTML mudar
+        return null;
+    },
+
+    // --- ENVIO ---
 
     enviar: async function () {
         const input = document.getElementById('chat-input-text');
@@ -278,47 +345,32 @@ MinhaArea.Feedback = {
             let tipoMidia = 'TEXTO';
             let nomeArq = null;
 
-            // Upload se tiver anexo (Mantido Supabase Storage por enquanto)
+            // Se tiver áudio gravado
             if (this.anexoAtual) {
                 const file = this.anexoAtual;
-                const ext = file.name.split('.').pop().toLowerCase();
                 nomeArq = file.name;
+                tipoMidia = 'AUDIO';
 
-                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) tipoMidia = 'IMAGEM';
-                else if (['mp4', 'webm', 'mov'].includes(ext)) tipoMidia = 'VIDEO';
-                else if (['mp3', 'wav', 'ogg'].includes(ext)) tipoMidia = 'AUDIO';
-                else tipoMidia = 'DOCUMENTO';
+                // Limite de segurança (TiDB Base64) - 5MB para áudio
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("Áudio muito longo. Tente gravar algo mais curto.");
+                    input.disabled = false;
+                    return;
+                }
 
                 try {
-                    // Nota: Se não houver bucket configurado, isso falhará.
-                    // O usuário deve configurar o bucket 'chat-files' no Supabase Storage.
-                    const path = `chat/${Date.now()}_${file.name}`;
-                    const { data, error: upErr } = await Sistema.supabase.storage
-                        .from('chat-files')
-                        .upload(path, file);
-
-                    if (upErr) throw upErr;
-
-                    const { data: pubData } = Sistema.supabase.storage.from('chat-files').getPublicUrl(path);
-                    urlMidia = pubData.publicUrl;
-
-                } catch (storageErr) {
-                    console.error("Erro upload Storage:", storageErr);
-
-                    let msgErro = "Falha no upload de arquivo. ";
-                    if (storageErr.statusCode === '404' || (storageErr.message && storageErr.message.includes('Bucket not found'))) {
-                        msgErro += "O bucket 'chat-files' não existe no Supabase. Solicite ao Admin para criar.";
-                    } else if (storageErr.statusCode === '403') {
-                        msgErro += "Permissão negada. Verifique as Políticas (RLS) do Storage.";
-                    } else {
-                        msgErro += "Tente apenas texto.";
-                    }
-
-                    if (!confirm(`${msgErro}\n\nDeseja enviar apenas o texto?`)) {
-                        input.disabled = false;
-                        return;
-                    }
-                    tipoMidia = 'TEXTO';
+                    // Conversão para Base64
+                    urlMidia = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = error => reject(error);
+                    });
+                } catch (readErr) {
+                    console.error("Erro ao processar áudio:", readErr);
+                    alert("Erro ao preparar áudio para envio.");
+                    input.disabled = false;
+                    return;
                 }
             }
 
@@ -350,7 +402,7 @@ MinhaArea.Feedback = {
             // Sucesso: Limpa
             input.value = '';
             this.limparAnexo();
-            await this.carregarMensagens(); // Refresh imediato
+            await this.carregarMensagens();
 
         } catch (err) {
             console.error("Erro ao enviar:", err);
