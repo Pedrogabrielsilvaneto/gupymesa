@@ -500,6 +500,9 @@ MinhaArea.Geral = {
 
 
 
+
+        const realUserCount = countUsers;
+
         // Cálculo de Dias Médios do Período (para Velocidade Diária)
         // [FIX] Usar ehLiderancaReal para garantir que pegamos os dias da Gestora (Patrícia) e não de uma Auditora (Keila)
         const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
