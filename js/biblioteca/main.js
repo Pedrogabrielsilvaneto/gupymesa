@@ -33,6 +33,16 @@ window.GupyBiblioteca = {
         this.carregarFavoritos();
         await this.carregarFrases();
         this.atualizarSugestoesModal();
+
+        // Listener para CEP (Enter)
+        const inputCep = document.getElementById('lib-cep-input');
+        if (inputCep) {
+            inputCep.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.buscarCEP();
+                }
+            });
+        }
     },
 
     isAdmin: function () {
@@ -449,6 +459,25 @@ window.GupyBiblioteca = {
         } finally {
             if (loading) loading.classList.add('hidden');
         }
+    },
+
+    copiarCampoCEP: function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const texto = el.innerText;
+        navigator.clipboard.writeText(texto).then(() => {
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Copiado!',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                });
+            }
+        });
     },
 
     // --- CALCULADORA ---

@@ -74,8 +74,8 @@
         }
     </style>
 
-    <script src="js/sistema.js?v=20260220_1752"></script>
-    <script src="js/biblioteca/main.js?v=20260220_1752"></script>
+    <script src="js/sistema.js?v=20260220_1813"></script>
+    <script src="js/biblioteca/main.js?v=20260220_1813"></script>
 
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -206,23 +206,54 @@
                     class="hidden animate-enter bg-blue-50 border border-blue-100 rounded-2xl p-6 relative overflow-hidden">
                     <i class="fas fa-map absolute -right-4 -bottom-4 text-7xl text-blue-100/50 transform rotate-12"></i>
                     <div class="relative z-10 space-y-4">
-                        <div class="flex justify-between items-center bg-white/60 px-3 py-1 rounded-lg">
+                        <div
+                            class="flex justify-between items-center bg-white/60 px-3 py-1.5 rounded-lg border border-blue-100/50">
                             <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest">CEP
                                 Encontrado</span>
-                            <span id="lib-cep-display-num" class="text-sm font-black text-blue-700 font-mono"></span>
+                            <div class="flex items-center gap-2">
+                                <span id="lib-cep-display-num"
+                                    class="text-sm font-black text-blue-700 font-mono"></span>
+                                <button onclick="GupyBiblioteca.copiarCampoCEP('lib-cep-display-num')"
+                                    class="text-blue-400 hover:text-blue-600 transition p-1" title="Copiar CEP">
+                                    <i class="far fa-copy text-xs"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="space-y-3">
-                            <div>
-                                <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Logradouro</p>
-                                <p id="lib-cep-logradouro" class="text-sm font-black text-slate-800"></p>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start group/field">
+                                <div>
+                                    <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Logradouro
+                                    </p>
+                                    <p id="lib-cep-logradouro" class="text-sm font-black text-slate-800"></p>
+                                </div>
+                                <button onclick="GupyBiblioteca.copiarCampoCEP('lib-cep-logradouro')"
+                                    class="text-slate-300 hover:text-blue-500 transition p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/field:opacity-100"
+                                    title="Copiar Logradouro">
+                                    <i class="far fa-copy"></i>
+                                </button>
                             </div>
-                            <div>
-                                <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Bairro</p>
-                                <p id="lib-cep-bairro" class="text-sm font-black text-slate-800"></p>
+                            <div class="flex justify-between items-start group/field">
+                                <div>
+                                    <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Bairro</p>
+                                    <p id="lib-cep-bairro" class="text-sm font-black text-slate-800"></p>
+                                </div>
+                                <button onclick="GupyBiblioteca.copiarCampoCEP('lib-cep-bairro')"
+                                    class="text-slate-300 hover:text-blue-500 transition p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/field:opacity-100"
+                                    title="Copiar Bairro">
+                                    <i class="far fa-copy"></i>
+                                </button>
                             </div>
-                            <div>
-                                <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Cidade/UF</p>
-                                <p id="lib-cep-localidade" class="text-sm font-black text-slate-800"></p>
+                            <div class="flex justify-between items-start group/field">
+                                <div>
+                                    <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Cidade/UF
+                                    </p>
+                                    <p id="lib-cep-localidade" class="text-sm font-black text-slate-800"></p>
+                                </div>
+                                <button onclick="GupyBiblioteca.copiarCampoCEP('lib-cep-localidade')"
+                                    class="text-slate-300 hover:text-blue-500 transition p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/field:opacity-100"
+                                    title="Copiar Cidade/UF">
+                                    <i class="far fa-copy"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
