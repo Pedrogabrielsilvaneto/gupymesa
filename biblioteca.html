@@ -10,6 +10,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
@@ -73,8 +74,8 @@
         }
     </style>
 
-    <script src="js/sistema.js?v=20260220_1556"></script>
-    <script src="js/biblioteca/main.js?v=20260220_1556"></script>
+    <script src="js/sistema.js?v=20260220_1740"></script>
+    <script src="js/biblioteca/main.js?v=20260220_1740"></script>
 
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -85,25 +86,51 @@
                 <h1 class="text-3xl font-black text-slate-800 flex items-center gap-3">
                     <i class="fas fa-book-open text-blue-600"></i> Biblioteca de Frases
                 </h1>
-                <p class="text-slate-500 mt-1 font-medium">Acesse e copie as melhores práticas de atendimento para sua
-                    produtividade.</p>
+                <p class="text-slate-500 mt-1 font-medium">Melhores práticas de atendimento para sua produtividade.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <select id="lib-filtro-empresa" onchange="GupyBiblioteca.aplicarFiltros()"
-                    class="bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[140px]"></select>
-                <select id="lib-filtro-motivo" onchange="GupyBiblioteca.aplicarFiltros()"
-                    class="bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[140px]"></select>
-                <select id="lib-filtro-doc" onchange="GupyBiblioteca.aplicarFiltros()"
-                    class="bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[140px]"></select>
+                <div class="relative">
+                    <button onclick="GupyBiblioteca.togglePainelFiltros()"
+                        class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm active:scale-95">
+                        <i class="fas fa-filter text-blue-500"></i> Filtros
+                    </button>
+                    <!-- Painel de Filtros Dropdown -->
+                    <div id="painel-filtros"
+                        class="hidden absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 z-[110] animate-enter">
+                        <div class="space-y-3">
+                            <div>
+                                <label
+                                    class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Filtrar
+                                    por Empresa</label>
+                                <select id="lib-filtro-empresa" onchange="GupyBiblioteca.aplicarFiltros()"
+                                    class="w-full bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8"></select>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Filtrar
+                                    por Motivo</label>
+                                <select id="lib-filtro-motivo" onchange="GupyBiblioteca.aplicarFiltros()"
+                                    class="w-full bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8"></select>
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Filtrar
+                                    por Documento</label>
+                                <select id="lib-filtro-doc" onchange="GupyBiblioteca.aplicarFiltros()"
+                                    class="w-full bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <div class="w-px h-8 bg-slate-200 mx-2 hidden lg:block"></div>
+                <div class="w-px h-8 bg-slate-200 mx-1 hidden lg:block"></div>
 
                 <button onclick="document.getElementById('modal-lib-cep').classList.remove('hidden')"
-                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
-                    <i class="fas fa-map-marker-alt text-blue-500"></i> Consultar CEP
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
+                    <i class="fas fa-map-marker-alt text-blue-500"></i> CEP
                 </button>
                 <button onclick="GupyBiblioteca.abrirCalculadora()"
-                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
                     <i class="fas fa-calculator text-amber-500"></i> Calculadora
                 </button>
                 <button id="btn-nova-frase" onclick="GupyBiblioteca.prepararEdicao()"
@@ -113,7 +140,7 @@
             </div>
         </div>
 
-        <!-- Filtros e Busca -->
+        <!-- Busca -->
         <div class="mb-8">
             <div class="relative group">
                 <i
@@ -135,23 +162,12 @@
                 <div class="h-8 w-1.5 bg-rose-500 rounded-full"></div>
                 <h2 class="text-xl font-black text-slate-800 uppercase tracking-tight">Suas frases favoritas</h2>
             </div>
-            <div id="grid-favoritos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div id="grid-favoritos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Cards favoritos renderizados via JS -->
             </div>
             <div class="h-px bg-slate-200 mt-10"></div>
         </div>
 
-        <!-- Seção: Mais Usadas (Destaques) -->
-        <div id="container-destaques" class="hidden mb-12">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="h-8 w-1.5 bg-blue-600 rounded-full"></div>
-                <h2 class="text-xl font-black text-slate-800 uppercase tracking-tight">Suas frases mais usadas</h2>
-            </div>
-            <div id="grid-destaques" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Cards de destaque renderizados via JS -->
-            </div>
-            <div class="h-px bg-slate-200 mt-10"></div>
-        </div>
 
         <!-- Título da Biblioteca Geral -->
         <div class="flex items-center gap-3 mb-6">
@@ -340,7 +356,7 @@
         </div>
     </div>
 
-    <script src="js/menu/global.js?v=20260220_1556"></script>
+    <script src="js/menu/global.js?v=20260220_1740"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (window.GupyBiblioteca) {

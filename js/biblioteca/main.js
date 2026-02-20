@@ -160,7 +160,6 @@ window.GupyBiblioteca = {
 
     renderizar: function (lista) {
         this.renderizarFavoritos();
-        this.renderizarDestaques();
 
         const grid = document.getElementById('grid-frases');
         if (!grid) return;
@@ -188,40 +187,9 @@ window.GupyBiblioteca = {
         }
     },
 
-    renderizarDestaques: function () {
-        const container = document.getElementById('container-destaques');
-        const grid = document.getElementById('grid-destaques');
-        if (!container || !grid) return;
-
-        const isAdmin = this.isAdmin();
-        const searchVal = document.getElementById('lib-search')?.value || '';
-
-        // Se for admin/gestor, olha o uso global (equipe). Se for assistente, uso pessoal.
-        let destaques = [];
-        if (isAdmin) {
-            destaques = [...this.cacheFrases]
-                .filter(f => (f.usos || 0) > 0)
-                .sort((a, b) => (b.usos || 0) - (a.usos || 0))
-                .slice(0, 4);
-        } else {
-            destaques = [...this.cacheFrases]
-                .filter(f => f.meus_usos > 0)
-                .sort((a, b) => b.meus_usos - a.meus_usos)
-                .slice(0, 4);
-        }
-
-        if (destaques.length > 0 && !searchVal) {
-            container.classList.remove('hidden');
-            grid.innerHTML = destaques.map(f => this.gerarCardHTML(f)).join('');
-
-            // Atualiza o título da seção dinamicamente
-            const tituloSetor = container.querySelector('h2');
-            if (tituloSetor) {
-                tituloSetor.innerText = isAdmin ? "Frases mais usadas pela equipe" : "Suas frases mais usadas";
-            }
-        } else {
-            container.classList.add('hidden');
-        }
+    togglePainelFiltros: function () {
+        const p = document.getElementById('painel-filtros');
+        if (p) p.classList.toggle('hidden');
     },
 
     getDocColor: function (doc) {
