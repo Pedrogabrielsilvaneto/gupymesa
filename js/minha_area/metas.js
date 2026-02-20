@@ -905,7 +905,7 @@ MinhaArea.Metas = {
     },
 
     popularSelectsManual: function () {
-        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `< option value = "${u.id}" > ${u.nome}</option > `).join('');
+        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
         ['comp-sel-1', 'comp-sel-2', 'comp-sel-3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 
