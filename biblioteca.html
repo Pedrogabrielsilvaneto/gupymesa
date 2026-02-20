@@ -88,7 +88,16 @@
                 <p class="text-slate-500 mt-1 font-medium">Acesse e copie as melhores práticas de atendimento para sua
                     produtividade.</p>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="lib-filtro-empresa" onchange="GupyBiblioteca.aplicarFiltros()"
+                    class="bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[140px]"></select>
+                <select id="lib-filtro-motivo" onchange="GupyBiblioteca.aplicarFiltros()"
+                    class="bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[140px]"></select>
+                <select id="lib-filtro-doc" onchange="GupyBiblioteca.aplicarFiltros()"
+                    class="bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[140px]"></select>
+
+                <div class="w-px h-8 bg-slate-200 mx-2 hidden lg:block"></div>
+
                 <button onclick="document.getElementById('modal-lib-cep').classList.remove('hidden')"
                     class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
                     <i class="fas fa-map-marker-alt text-blue-500"></i> Consultar CEP
@@ -97,30 +106,26 @@
                     class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
                     <i class="fas fa-calculator text-amber-500"></i> Calculadora
                 </button>
+                <button id="btn-nova-frase" onclick="GupyBiblioteca.prepararEdicao()"
+                    class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition flex items-center gap-2 shadow-lg active:scale-95 text-sm">
+                    <i class="fas fa-plus"></i> Nova Frase
+                </button>
             </div>
         </div>
 
         <!-- Filtros e Busca -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div class="md:col-span-1 relative group">
+        <div class="mb-8">
+            <div class="relative group">
                 <i
-                    class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                    class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-blue-500 transition-colors"></i>
                 <input type="text" id="lib-search" oninput="GupyBiblioteca.aplicarFiltros()"
-                    placeholder="Buscar conteúdo..."
-                    class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 shadow-sm transition-all placeholder:text-slate-400">
+                    placeholder="O que você está procurando hoje?"
+                    class="w-full pl-14 pr-16 py-5 bg-white border border-slate-200 rounded-2xl text-lg font-bold outline-none focus:border-blue-400 focus:ring-8 focus:ring-blue-50/50 shadow-md transition-all placeholder:text-slate-400">
                 <button id="btn-ver-favoritos" onclick="GupyBiblioteca.toggleVerFavoritos()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-500 w-8 h-8 rounded-lg flex items-center justify-center transition border border-transparent hover:border-rose-100 group/fav"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 w-12 h-12 rounded-xl flex items-center justify-center transition border border-transparent hover:border-rose-100 group/fav"
                     title="Ver apenas favoritos">
-                    <i class="far fa-heart group-[.active]/fav:fas group-[.active]/fav:text-rose-500"></i>
+                    <i class="far fa-heart text-xl group-[.active]/fav:fas group-[.active]/fav:text-rose-500"></i>
                 </button>
-            </div>
-            <div class="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <select id="lib-filtro-empresa" onchange="GupyBiblioteca.aplicarFiltros()"
-                    class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
-                <select id="lib-filtro-motivo" onchange="GupyBiblioteca.aplicarFiltros()"
-                    class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
-                <select id="lib-filtro-doc" onchange="GupyBiblioteca.aplicarFiltros()"
-                    class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
             </div>
         </div>
 
@@ -276,6 +281,62 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-lib-frase"
+        class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-enter">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 id="lib-modal-titulo" class="font-black text-slate-800 flex items-center gap-2"><i
+                        class="fas fa-edit text-blue-600"></i> Editar Frase</h3>
+                <button onclick="document.getElementById('modal-lib-frase').classList.add('hidden')"
+                    class="text-slate-400 hover:text-rose-500 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="lib-form-frase" onsubmit="event.preventDefault(); GupyBiblioteca.salvarFrase()"
+                class="p-6 space-y-4">
+                <input type="hidden" id="lib-form-id">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Conteúdo
+                        da Frase</label>
+                    <textarea id="lib-form-conteudo" required rows="5"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-blue-400 shadow-sm transition-all"
+                        placeholder="Digite o texto da frase..."></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Empresa</label>
+                        <input type="text" id="lib-form-empresa" list="sugestoes-empresa"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm"
+                            placeholder="Ex: Gupy">
+                        <datalist id="sugestoes-empresa"></datalist>
+                    </div>
+                    <div>
+                        <label
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Documento</label>
+                        <input type="text" id="lib-form-doc" list="sugestoes-doc"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm"
+                            placeholder="Ex: RG, CPF">
+                        <datalist id="sugestoes-doc"></datalist>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Motivo /
+                        Categoria</label>
+                    <input type="text" id="lib-form-motivo" list="sugestoes-motivo"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm"
+                        placeholder="Ex: Boas-vindas">
+                    <datalist id="sugestoes-motivo"></datalist>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('modal-lib-frase').classList.add('hidden')"
+                        class="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition">Cancelar</button>
+                    <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-black px-8 py-2.5 rounded-xl transition shadow-lg active:scale-95">Salvar
+                        Alterações</button>
+                </div>
+            </form>
         </div>
     </div>
 

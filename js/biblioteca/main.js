@@ -24,6 +24,13 @@ window.GupyBiblioteca = {
             this.supabaseFrases = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         }
 
+        // Mostrar botão Nova Frase se for Admin
+        const btnNova = document.getElementById('btn-nova-frase');
+        if (btnNova && this.isAdmin()) {
+            btnNova.classList.remove('hidden');
+        }
+
+        this.carregarFavoritos();
         await this.carregarFrases();
         this.atualizarSugestoesModal();
     },
@@ -108,7 +115,7 @@ window.GupyBiblioteca = {
             this.cacheFrases = (frases || []).map(f => ({
                 ...f,
                 meus_usos: meusUsosMap[f.id] || 0,
-                _busca: this.normalizar(f.conteudo + f.empresa + f.motivo + f.documento)
+                _busca: this.normalizar(f.conteudo + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
             }));
 
             // Ordenação: Admin vê global, Colaborador vê pessoal
@@ -175,7 +182,7 @@ window.GupyBiblioteca = {
 
         if (favoritos.length > 0 && !document.getElementById('lib-search').value && !this.verFavoritos) {
             container.classList.remove('hidden');
-            grid.innerHTML = favoritos.map(f => this.gerarCardHTML(f, true)).join('');
+            grid.innerHTML = favoritos.map(f => this.gerarCardHTML(f)).join('');
         } else {
             container.classList.add('hidden');
         }
@@ -205,7 +212,7 @@ window.GupyBiblioteca = {
 
         if (destaques.length > 0 && !searchVal) {
             container.classList.remove('hidden');
-            grid.innerHTML = destaques.map(f => this.gerarCardHTML(f, true)).join('');
+            grid.innerHTML = destaques.map(f => this.gerarCardHTML(f)).join('');
 
             // Atualiza o título da seção dinamicamente
             const tituloSetor = container.querySelector('h2');
@@ -240,7 +247,7 @@ window.GupyBiblioteca = {
         return colors[Math.abs(hash) % colors.length];
     },
 
-    gerarCardHTML: function (f, compact = false) {
+    gerarCardHTML: function (f) {
         const isAdmin = this.isAdmin();
         const fav = this.isFavorito(f.id);
         const colors = this.getDocColor(f.documento);
@@ -254,35 +261,6 @@ window.GupyBiblioteca = {
         const tagDoc = `<span onclick="GupyBiblioteca.setarFiltroDireto('doc', '${f.documento || 'DOC'}')" class="cursor-pointer hover:brightness-95 transition ${colors.tag} text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm border uppercase tracking-wide transition-all">${f.documento || 'DOC'}</span>`;
 
         const btnFav = `<button onclick="GupyBiblioteca.toggleFavorito('${f.id}')" class="transition-all active:scale-75 ${fav ? 'text-rose-500' : 'text-slate-300 hover:text-rose-400'}" title="${fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}"><i class="${fav ? 'fas' : 'far'} fa-heart"></i></button>`;
-
-        if (compact) {
-            const qtd = isAdmin ? (f.usos || 0) : f.meus_usos;
-            const label = isAdmin ? "usos da equipe" : "usos pessoais";
-            return `
-                <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 ${colors.card} hover:shadow-md transition-all duration-300 overflow-hidden relative">
-                    <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-                        <div class="flex gap-1.5">${tagEmpresa}</div>
-                        <div class="flex items-center gap-2">
-                            ${btnFav}
-                            <div class="w-px h-3 bg-slate-200 mx-0.5"></div>
-                            <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="text-blue-600 hover:text-blue-700 text-xs font-bold transition active:scale-90" title="Copiar"><i class="far fa-copy"></i></button>
-                            ${isAdmin ? `
-                                <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="text-slate-400 hover:text-amber-500 text-[10px] transition" title="Editar"><i class="fas fa-pen"></i></button>
-                                <button onclick="GupyBiblioteca.deletar('${f.id}')" class="text-slate-400 hover:text-rose-500 text-[10px] transition" title="Excluir"><i class="fas fa-trash-alt"></i></button>
-                            ` : ''}
-                        </div>
-                    </div>
-                    <div class="px-4 py-4 flex-grow">
-                        <div class="mb-2.5">${tagDoc}</div>
-                        <p class="text-[11px] text-slate-700 font-bold line-clamp-3 select-all cursor-pointer leading-relaxed" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p>
-                    </div>
-                    <div class="px-4 py-2 bg-slate-50/50">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                            <i class="fas ${iconeContador}"></i> ${qtd} ${label}
-                        </span>
-                    </div>
-                </div>`;
-        }
 
         return `
             <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 ${colors.card} hover:shadow-md transition-all duration-300 group overflow-hidden">
@@ -382,6 +360,95 @@ window.GupyBiblioteca = {
                 perfil: this.isAdmin() ? 'admin' : 'user'
             }]);
         } catch (e) { }
+    },
+
+    prepararEdicao: function (id) {
+        const modal = document.getElementById('modal-lib-frase');
+        const titulo = document.getElementById('lib-modal-titulo');
+        const form = document.getElementById('lib-form-frase');
+
+        if (!id) {
+            // Modo Novo
+            titulo.innerHTML = '<i class="fas fa-plus text-blue-600"></i> Criar Nova Frase';
+            form.reset();
+            document.getElementById('lib-form-id').value = "";
+        } else {
+            // Modo Edição
+            const f = this.cacheFrases.find(i => i.id == id);
+            if (!f) return;
+
+            titulo.innerHTML = '<i class="fas fa-edit text-blue-600"></i> Editar Frase';
+            document.getElementById('lib-form-id').value = f.id;
+            document.getElementById('lib-form-conteudo').value = f.conteudo;
+            document.getElementById('lib-form-empresa').value = f.empresa || "";
+            document.getElementById('lib-form-doc').value = f.documento || "";
+            document.getElementById('lib-form-motivo').value = f.motivo || "";
+        }
+
+        modal.classList.remove('hidden');
+    },
+
+    salvarFrase: async function () {
+        const id = document.getElementById('lib-form-id').value;
+        const conteudo = document.getElementById('lib-form-conteudo').value.trim();
+        const empresa = document.getElementById('lib-form-empresa').value.trim();
+        const doc = document.getElementById('lib-form-doc').value.trim();
+        const motivo = document.getElementById('lib-form-motivo').value.trim();
+
+        if (!conteudo) return;
+
+        try {
+            const loading = Swal.fire({ title: 'Salvando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            const payload = {
+                conteudo,
+                empresa,
+                documento: doc,
+                motivo
+            };
+
+            let res;
+            if (id) {
+                res = await this.supabaseFrases.from('frases').update(payload).eq('id', id);
+            } else {
+                res = await this.supabaseFrases.from('frases').insert([payload]);
+            }
+
+            if (res.error) throw res.error;
+
+            Swal.close();
+            document.getElementById('modal-lib-frase').classList.add('hidden');
+            await this.carregarFrases();
+
+            Swal.fire({ icon: 'success', title: 'Sucesso!', text: id ? 'Frase atualizada!' : 'Frase criada!', timer: 1500, showConfirmButton: false });
+
+        } catch (e) {
+            Swal.fire('Erro ao salvar', e.message || 'Erro desconhecido', 'error');
+        }
+    },
+
+    deletar: async function (id) {
+        const confirm = await Swal.fire({
+            title: 'Excluir frase?',
+            text: "Esta ação não pode ser desfeita!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e11d48',
+            confirmButtonText: 'Sim, excluir',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (confirm.isConfirmed) {
+            try {
+                const { error } = await this.supabaseFrases.from('frases').delete().eq('id', id);
+                if (error) throw error;
+
+                await this.carregarFrases();
+                Swal.fire({ icon: 'success', title: 'Excluído!', timer: 1500, showConfirmButton: false });
+            } catch (e) {
+                Swal.fire('Erro ao excluir', e.message, 'error');
+            }
+        }
     },
 
     // --- CEP ---
@@ -510,11 +577,22 @@ window.GupyBiblioteca = {
         this.updateSelect('lib-filtro-empresa', empresas, '🏢 Empresas');
         this.updateSelect('lib-filtro-motivo', motivos, '🎯 Motivos');
         this.updateSelect('lib-filtro-doc', docs, '📄 Documentos');
+
+        // Popula os datalists do modal de edição
+        this.updateDatalist('sugestoes-empresa', empresas);
+        this.updateDatalist('sugestoes-motivo', motivos);
+        this.updateDatalist('sugestoes-doc', docs);
     },
 
     updateSelect: function (id, list, label) {
         const sel = document.getElementById(id);
         if (!sel) return;
         sel.innerHTML = `<option value="">${label}</option>` + list.map(v => `<option value="${v}">${v}</option>`).join('');
+    },
+
+    updateDatalist: function (id, list) {
+        const dl = document.getElementById(id);
+        if (!dl) return;
+        dl.innerHTML = list.map(v => `<option value="${v}">`).join('');
     }
 };
