@@ -195,8 +195,13 @@ MinhaArea.Geral = {
         }
 
         // Helper para Dias Uteis
-        const getDU = (contrato) => {
+        const getDU = (contrato, nomeUser) => {
             const diasCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
+            // [DEBUG DETALHADO]
+            if (nomeUser && (nomeUser.toLowerCase().includes('aparecida') || nomeUser.toLowerCase().includes('camila'))) {
+                console.log(`[DEBUG DU DETALHADO] ${nomeUser} | Contrato: ${contrato} | DiasCal: ${diasCal} | ConfigMes:`, configMes);
+            }
 
             if (!configMes) return diasCal;
 
@@ -309,7 +314,7 @@ MinhaArea.Geral = {
             // Pega contrato do usuário
             const uInfo = this.state.mapaUsuarios[item.uid];
             const contratoUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
-            const diastUteisUser = getDU(contratoUser);
+            const diastUteisUser = getDU(contratoUser, item.nome);
 
             // [LOGIC] Dias Trabalhados (Disponíveis para Meta)
             // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
