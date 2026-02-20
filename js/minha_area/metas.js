@@ -292,13 +292,8 @@ MinhaArea.Metas = {
     },
 
     abrirDetalhe: function (uid) {
-        this.selectedUserId = uid;
-        this.viewState = 'DETAIL';
-        const grid = document.getElementById('metas-grid-container');
-        const detail = document.getElementById('metas-detail-container');
-        if (grid) grid.classList.add('hidden');
-        if (detail) detail.classList.remove('hidden');
-        this.renderizarDashboardAssistente(uid);
+        // [REF_FIX] Agora abre o modal comparativo ao clicar no nome
+        this.abrirComparativoVizinhos(uid);
     },
 
     // --- HELPER: Gerador de Placeholders SQL ---
@@ -890,7 +885,6 @@ MinhaArea.Metas = {
     },
 
     abrirComparativoVizinhos: function (selectedUid) {
-        if (!MinhaArea.isAdmin()) return;
         const index = this.cacheUsers.findIndex(u => u.id == selectedUid);
         if (index === -1) return;
         let id1, id2, id3;
