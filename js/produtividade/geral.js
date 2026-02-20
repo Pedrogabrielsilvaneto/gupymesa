@@ -602,9 +602,10 @@ Produtividade.Geral = {
 
         if (gestoraItem) {
             // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
-            metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem.meta_base_diaria || 0);
-            if (metaDiariaGestor === 0 && gestoraItem._rawBaseMeta > 0) metaDiariaGestor = gestoraItem._rawBaseMeta; // Fallback para meta base crua
-            console.log(`[DEBUG PROD] Gestora Encontrada: ${gestoraItem.nome} | MetaDiaria: ${metaDiariaGestor} | RawBase: ${gestoraItem._rawBaseMeta}`);
+            // [FIX] Usar `_meta_gestor_base` que foi definido em `processarDadosUnificados`
+            metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 0);
+            if (metaDiariaGestor === 0) metaDiariaGestor = gestoraItem.meta_base_diaria || 0;
+            console.log(`[DEBUG PROD] Gestora Encontrada: ${gestoraItem.nome} | MetaDiaria: ${metaDiariaGestor} | BaseStored: ${gestoraItem._meta_gestor_base}`);
         } else {
             console.log(`[DEBUG PROD] NENHUMA GESTORA ENCONTRADA NA LISTA DE 0 A ${listaOriginal.length}`);
             listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
