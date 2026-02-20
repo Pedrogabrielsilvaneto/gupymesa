@@ -101,6 +101,8 @@ window.GupyBiblioteca = {
     },
 
     renderizar: function (lista) {
+        this.renderizarDestaques();
+
         const grid = document.getElementById('grid-frases');
         if (!grid) return;
 
@@ -109,39 +111,76 @@ window.GupyBiblioteca = {
             return;
         }
 
-        grid.innerHTML = lista.map(f => {
-            const isAdmin = this.isAdmin();
-            const textoContador = isAdmin
-                ? `${f.usos || 0} usos na empresa`
-                : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na empresa`);
-            const iconeContador = isAdmin ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
+        grid.innerHTML = lista.map(f => this.gerarCardHTML(f)).join('');
+    },
 
+    renderizarDestaques: function () {
+        const container = document.getElementById('container-destaques');
+        const grid = document.getElementById('grid-destaques');
+        if (!container || !grid) return;
+
+        // Filtra as 4 mais usadas (que tenham pelo menos 1 uso)
+        const destaques = this.cacheFrases
+            .filter(f => f.meus_usos > 0)
+            .sort((a, b) => b.meus_usos - a.meus_usos)
+            .slice(0, 4);
+
+        if (destaques.length > 0 && !document.getElementById('lib-search').value) {
+            container.classList.remove('hidden');
+            grid.innerHTML = destaques.map(f => this.gerarCardHTML(f, true)).join('');
+        } else {
+            container.classList.add('hidden');
+        }
+    },
+
+    gerarCardHTML: function (f, compact = false) {
+        const isAdmin = this.isAdmin();
+        const textoContador = isAdmin
+            ? `${f.usos || 0} usos na empresa`
+            : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na empresa`);
+        const iconeContador = isAdmin ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
+
+        if (compact) {
             return `
-                <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 group overflow-hidden">
-                    <div class="px-5 pt-4 pb-3 border-b border-slate-50 bg-slate-50/50 flex justify-between items-start">
-                        <div class="flex-1 pr-3">
-                            <div class="flex flex-wrap gap-2 mb-1.5">
-                                <span class="bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-blue-100">${f.empresa || 'Geral'}</span>
-                                <span class="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-slate-200">${f.documento || 'DOC'}</span>
-                            </div>
-                            <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${f.motivo || 'Motivo'}</h4>
-                        </div>
-                        <div class="flex shrink-0 items-center gap-1">
-                            <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1.5"><i class="far fa-copy"></i> Copiar</button>
-                            ${isAdmin ? `
-                                <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-amber-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-pen"></i></button>
-                                <button onclick="GupyBiblioteca.deletar('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-rose-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-trash-alt"></i></button>
-                            ` : ''}
-                        </div>
+                <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-300 overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center">
+                        <span class="bg-blue-50 text-blue-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">${f.empresa || 'Geral'}</span>
+                        <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="text-blue-600 hover:text-blue-700 text-xs font-bold transition active:scale-90"><i class="far fa-copy"></i></button>
                     </div>
-                    <div class="px-5 py-4 flex-grow"><p class="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-relaxed select-all">${f.conteudo}</p></div>
-                    <div class="px-5 py-2 bg-slate-50 border-t border-slate-100">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                            <i class="fas ${iconeContador}"></i> ${textoContador}
+                    <div class="px-4 py-4 flex-grow"><p class="text-xs text-slate-700 font-bold line-clamp-3 select-all cursor-pointer" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p></div>
+                    <div class="px-4 py-2 bg-slate-50/50">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                            <i class="fas ${iconeContador}"></i> ${f.meus_usos} usos
                         </span>
                     </div>
                 </div>`;
-        }).join('');
+        }
+
+        return `
+            <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 group overflow-hidden">
+                <div class="px-5 pt-4 pb-3 border-b border-slate-50 bg-slate-50/50 flex justify-between items-start">
+                    <div class="flex-1 pr-3">
+                        <div class="flex flex-wrap gap-2 mb-1.5">
+                            <span class="bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-blue-100">${f.empresa || 'Geral'}</span>
+                            <span class="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-slate-200">${f.documento || 'DOC'}</span>
+                        </div>
+                        <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${f.motivo || 'Motivo'}</h4>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                        <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1.5"><i class="far fa-copy"></i> Copiar</button>
+                        ${isAdmin ? `
+                            <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-amber-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-pen"></i></button>
+                            <button onclick="GupyBiblioteca.deletar('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-rose-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-trash-alt"></i></button>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="px-5 py-4 flex-grow"><p class="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-relaxed select-all">${f.conteudo}</p></div>
+                <div class="px-5 py-2 bg-slate-50 border-t border-slate-100">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                        <i class="fas ${iconeContador}"></i> ${textoContador}
+                    </span>
+                </div>
+            </div>`;
     },
 
     copiarTexto: async function (id) {
