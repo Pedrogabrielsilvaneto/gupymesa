@@ -452,7 +452,7 @@ MinhaArea.Geral = {
         let totalDocs = 0, somaAssertGlobal = 0;
         let maxFator = 0; // [FIX] Agora pegamos o MÁXIMO de dias trabalhados por alguém da equipe
         let diasUteisCalendario = 0; // [FIX] Pegamos dias úteis do calendário (do primeiro user válido)
-        let managerMeta = 0;
+        let managerDailyMeta = 0; // [FIX] Meta Diária da Gestora (Ex: 650) e não o total
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
         this.state.listaTabela.forEach(i => {
@@ -462,10 +462,11 @@ MinhaArea.Geral = {
             // [FIX] Usar ehLiderancaReal para ignorar Auditoras no cálculo da Meta Global
             if (this.ehLiderancaReal(i.uid)) {
                 // Se for o gestor logado, sua meta é prioritária. Senão, pegamos a maior encontrada
+                // [FIX] Usar meta_velocidade_media (que é a diária, ex: 650)
                 if (String(i.uid) === String(loggedInUid)) {
-                    managerMeta = i.meta_total_periodo;
-                } else if (i.meta_total_periodo > managerMeta) {
-                    managerMeta = i.meta_total_periodo;
+                    managerDailyMeta = i.meta_velocidade_media;
+                } else if (i.meta_velocidade_media > managerDailyMeta) {
+                    managerDailyMeta = i.meta_velocidade_media;
                 }
                 return; // Managers don't contribute to Team Capacity/Average calculation logic below
             }
@@ -496,18 +497,10 @@ MinhaArea.Geral = {
         let diasUteisMeta = diasUteisCalendario > 0 ? diasUteisCalendario : this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
         // Se houver meta de gestão definida (Diária na Tabela Metas), ela prevalece.
-        // A `managerMeta` aqui está vindo como Total Periodo da linha da tabela. Precisamos da Diária.
-        // Mas `meta_total_periodo` já é `meta_diaria * dias_uteis`. Então podemos deduzir ou pegar a meta base.
-        // Vamos confiar que `managerMeta` é o valor total esperado para ELA (Gestora).
-        // Mas a regra diz: Meta Diária * HC * Dias. Se `managerMeta` for Total, dividimos pelos dias dela para achar a diária?
-        // Simples: Vamos pegar a Meta Diária Base da Gestora (que é 650).
-        // Como não temos fácil aqui, vamos estimar pela managerMeta / diasUteisMeta (se coincidir) ou usar uma prop nova se tiver.
-        // Melhor: Vamos assumir que `managerMeta` é "Meta da Gestora para o Periodo".
-        // O Usuario disse: "Meta da Gestora (650) * 17 * 21".
-        // Se `managerMeta` for `650 * 21 = 13650`, então `13650 * 17`.
-        if (managerMeta > 0) {
-            totalMeta = managerMeta * hcFinal;
-            console.log(`[DEBUG MA] Meta Padronizada: MetaGestor(${managerMeta}) * HC(${hcFinal}) = ${totalMeta}`);
+        // A regra diz: Meta Diária * HC * Dias. 
+        if (managerDailyMeta > 0) {
+            totalMeta = managerDailyMeta * hcFinal * diasUteisMeta;
+            console.log(`[DEBUG MA] Meta Padronizada: MetaGestor(${managerDailyMeta}) * HC(${hcFinal}) * Dias(${diasUteisMeta}) = ${totalMeta}`);
         } else {
             // Se não tiver meta de gestor, tenta estimar: 650 * HC * Dias
             const metaBase = 650;
