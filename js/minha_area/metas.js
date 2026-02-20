@@ -470,7 +470,7 @@ MinhaArea.Metas = {
             }
 
             const mapMetas = {};
-            (dadosMetas || []).forEach(m => { mapMetas[`${m.usuario_id} -${m.ano} -${m.mes} `] = { p: m.meta_producao || 100, a: m.meta_assertividade || 97 }; });
+            (dadosMetas || []).forEach(m => { mapMetas[`${m.usuario_id}-${m.ano}-${m.mes}`] = { p: m.meta_producao || 0, a: m.meta_assertividade || 0 }; });
 
             // 1. PRODUÇÃO
             (dadosProd || []).forEach(reg => {
@@ -482,7 +482,7 @@ MinhaArea.Metas = {
                     const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
                     const d = new Date(reg.data_referencia + 'T12:00:00');
                     const mKey = `${reg.usuario_id} -${d.getFullYear()} -${d.getMonth() + 1} `;
-                    const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 100;
+                    const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 0;
 
                     if (qtd > 0) {
                         this.cacheDados[key][uidStr].prod += qtd;
@@ -541,7 +541,7 @@ MinhaArea.Metas = {
                         // SE FOR MACRO, ACUMULA PARA A MÉDIA DAS MÉDIAS DO USUÁRIO
                         if (this.isMacroView && this.statsUsers[uid]) {
                             this.statsUsers[uid].somaMediasMensais += celula.velocidade;
-                            this.statsUsers[uid].somaMetasMensais += (celula.metaProd || 100);
+                            this.statsUsers[uid].somaMetasMensais += (celula.metaProd || 0);
                             this.statsUsers[uid].countMesesComDados++;
                         }
                     } else {
@@ -597,7 +597,7 @@ MinhaArea.Metas = {
         } catch (e) { return null; }
     },
 
-    novoItemVazio: function () { return { prod: 0, dias_efetivos: 0, velocidade: 0, acc_assert_ratio: 0, qtd_auditorias: 0, assert: null, metaProd: 0, metaAssert: 97 }; },
+    novoItemVazio: function () { return { prod: 0, dias_efetivos: 0, velocidade: 0, acc_assert_ratio: 0, qtd_auditorias: 0, assert: null, metaProd: 0, metaAssert: 0 }; },
 
     atualizarCardsTopo: function () {
         let rawGlobalProd = 0;
@@ -791,11 +791,11 @@ MinhaArea.Metas = {
 
         this.cacheColunas.forEach(col => {
             labels.push(col.label);
-            const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 97 };
+            const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
             dataProd.push(dados.velocidade);
             dataMetaProd.push(dados.metaProd || 0); // Garante que usa a meta individual do cache
             dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
-            dataMetaAssert.push(dados.metaAssert || 97);
+            dataMetaAssert.push(dados.metaAssert || 0);
         });
 
         const stats = this.statsUsers[String(uid)] || { prod: 0, dias_efetivos: 0, somaMediasMensais: 0, countMesesComDados: 0, acc_assert_ratio: 0, qtd_auditorias: 0 };
@@ -964,11 +964,11 @@ MinhaArea.Metas = {
         const referenceUid = userIds[0] || (this.cacheUsers[0] ? this.cacheUsers[0].id : null);
 
         this.cacheColunas.forEach(col => {
-            let mp = 100;
-            let ma = 97;
+            let mp = 0;
+            let ma = 0;
             if (referenceUid) {
                 const d = this.cacheDados[col.key][String(referenceUid)];
-                if (d) { mp = d.metaProd || 100; ma = d.metaAssert || 97; }
+                if (d) { mp = d.metaProd || 0; ma = d.metaAssert || 0; }
             }
             metaProd.push(mp);
             metaAssert.push(ma);
