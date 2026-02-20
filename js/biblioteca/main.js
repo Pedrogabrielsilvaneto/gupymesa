@@ -157,16 +157,28 @@ window.GupyBiblioteca = {
             : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na equipe`);
         const iconeContador = isAdmin ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
 
+        const tagEmpresa = `<span onclick="GupyBiblioteca.setarFiltroDireto('empresa', '${f.empresa || 'Geral'}')" class="cursor-pointer hover:brightness-90 transition bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-blue-100">${f.empresa || 'Geral'}</span>`;
+        const tagDoc = `<span onclick="GupyBiblioteca.setarFiltroDireto('doc', '${f.documento || 'DOC'}')" class="cursor-pointer hover:brightness-90 transition bg-slate-800 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider shadow-sm">${f.documento || 'DOC'}</span>`;
+
         if (compact) {
             const qtd = isAdmin ? (f.usos || 0) : f.meus_usos;
             const label = isAdmin ? "usos da equipe" : "usos pessoais";
             return `
                 <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-300 overflow-hidden">
-                    <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center">
-                        <span class="bg-blue-50 text-blue-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">${f.empresa || 'Geral'}</span>
-                        <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="text-blue-600 hover:text-blue-700 text-xs font-bold transition active:scale-90"><i class="far fa-copy"></i></button>
+                    <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                        <div class="flex gap-1.5">${tagEmpresa}</div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="text-blue-600 hover:text-blue-700 text-xs font-bold transition active:scale-90" title="Copiar"><i class="far fa-copy"></i></button>
+                            ${isAdmin ? `
+                                <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="text-slate-400 hover:text-amber-500 text-[10px] transition" title="Editar"><i class="fas fa-pen"></i></button>
+                                <button onclick="GupyBiblioteca.deletar('${f.id}')" class="text-slate-400 hover:text-rose-500 text-[10px] transition" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                            ` : ''}
+                        </div>
                     </div>
-                    <div class="px-4 py-4 flex-grow"><p class="text-xs text-slate-700 font-bold line-clamp-3 select-all cursor-pointer" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p></div>
+                    <div class="px-4 py-4 flex-grow">
+                        <div class="mb-2">${tagDoc}</div>
+                        <p class="text-xs text-slate-700 font-bold line-clamp-3 select-all cursor-pointer" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p>
+                    </div>
                     <div class="px-4 py-2 bg-slate-50/50">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                             <i class="fas ${iconeContador}"></i> ${qtd} ${label}
@@ -179,9 +191,9 @@ window.GupyBiblioteca = {
             <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 group overflow-hidden">
                 <div class="px-5 pt-4 pb-3 border-b border-slate-50 bg-slate-50/50 flex justify-between items-start">
                     <div class="flex-1 pr-3">
-                        <div class="flex flex-wrap gap-2 mb-1.5">
-                            <span class="bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-blue-100">${f.empresa || 'Geral'}</span>
-                            <span class="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-slate-200">${f.documento || 'DOC'}</span>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            ${tagEmpresa}
+                            ${tagDoc}
                         </div>
                         <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${f.motivo || 'Motivo'}</h4>
                     </div>
@@ -200,6 +212,19 @@ window.GupyBiblioteca = {
                     </span>
                 </div>
             </div>`;
+    },
+
+    setarFiltroDireto: function (tipo, valor) {
+        let el;
+        if (tipo === 'empresa') el = document.getElementById('lib-filtro-empresa');
+        if (tipo === 'doc') el = document.getElementById('lib-filtro-doc');
+
+        if (el) {
+            el.value = valor;
+            this.aplicarFiltros();
+            // Scroll para baixo se for um clique em destaque
+            window.scrollTo({ top: el.offsetTop - 100, behavior: 'smooth' });
+        }
     },
 
     copiarTexto: async function (id) {
