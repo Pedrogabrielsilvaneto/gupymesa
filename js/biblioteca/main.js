@@ -119,15 +119,32 @@ window.GupyBiblioteca = {
         const grid = document.getElementById('grid-destaques');
         if (!container || !grid) return;
 
-        // Filtra as 4 mais usadas (que tenham pelo menos 1 uso)
-        const destaques = this.cacheFrases
-            .filter(f => f.meus_usos > 0)
-            .sort((a, b) => b.meus_usos - a.meus_usos)
-            .slice(0, 4);
+        const isAdmin = this.isAdmin();
+        const searchVal = document.getElementById('lib-search')?.value || '';
 
-        if (destaques.length > 0 && !document.getElementById('lib-search').value) {
+        // Se for admin/gestor, olha o uso global (equipe). Se for assistente, uso pessoal.
+        let destaques = [];
+        if (isAdmin) {
+            destaques = [...this.cacheFrases]
+                .filter(f => (f.usos || 0) > 0)
+                .sort((a, b) => (b.usos || 0) - (a.usos || 0))
+                .slice(0, 4);
+        } else {
+            destaques = [...this.cacheFrases]
+                .filter(f => f.meus_usos > 0)
+                .sort((a, b) => b.meus_usos - a.meus_usos)
+                .slice(0, 4);
+        }
+
+        if (destaques.length > 0 && !searchVal) {
             container.classList.remove('hidden');
             grid.innerHTML = destaques.map(f => this.gerarCardHTML(f, true)).join('');
+
+            // Atualiza o título da seção dinamicamente
+            const tituloSetor = container.querySelector('h2');
+            if (tituloSetor) {
+                tituloSetor.innerText = isAdmin ? "Frases mais usadas pela equipe" : "Suas frases mais usadas";
+            }
         } else {
             container.classList.add('hidden');
         }
@@ -136,11 +153,13 @@ window.GupyBiblioteca = {
     gerarCardHTML: function (f, compact = false) {
         const isAdmin = this.isAdmin();
         const textoContador = isAdmin
-            ? `${f.usos || 0} usos na empresa`
-            : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na empresa`);
+            ? `${f.usos || 0} usos na equipe`
+            : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na equipe`);
         const iconeContador = isAdmin ? "fa-chart-line text-blue-600" : (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
 
         if (compact) {
+            const qtd = isAdmin ? (f.usos || 0) : f.meus_usos;
+            const label = isAdmin ? "usos da equipe" : "usos pessoais";
             return `
                 <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-300 overflow-hidden">
                     <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center">
@@ -150,7 +169,7 @@ window.GupyBiblioteca = {
                     <div class="px-4 py-4 flex-grow"><p class="text-xs text-slate-700 font-bold line-clamp-3 select-all cursor-pointer" onclick="GupyBiblioteca.copiarTexto('${f.id}')">${f.conteudo}</p></div>
                     <div class="px-4 py-2 bg-slate-50/50">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                            <i class="fas ${iconeContador}"></i> ${f.meus_usos} usos
+                            <i class="fas ${iconeContador}"></i> ${qtd} ${label}
                         </span>
                     </div>
                 </div>`;
