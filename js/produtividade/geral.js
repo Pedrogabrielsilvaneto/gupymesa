@@ -87,7 +87,8 @@ Produtividade.Geral = {
             await Promise.all([
                 this.buscarProducao(range),
                 this.buscarAssertividadeUnificada(range),
-                this.buscarMetas(range)
+                this.buscarMetas(range),
+                this.buscarCheckins(range)
             ]);
 
             this.processarDadosUnificados();
@@ -162,6 +163,34 @@ Produtividade.Geral = {
         } catch (e) {
             console.error("Erro Assertividade:", e);
             this.state.dadosKPIAssertividade = [];
+        }
+    },
+
+    buscarCheckins: async function (range) {
+        try {
+            let sql = 'SELECT usuario_uid, data_referencia FROM checkin_diario WHERE data_referencia >= ? AND data_referencia <= ?';
+            const params = [range.inicio, range.fim];
+
+            // Filtro de permissão
+            const user = window.Produtividade.usuario || {};
+            if (!this.ehGestao(user) && user.id) {
+                sql += ' AND usuario_uid = ?';
+                params.push(user.id);
+            }
+
+            const data = await Sistema.query(sql, params);
+
+            // Mapeia para facilitar verificação: "uid_data"
+            this.state.mapaCheckins = new Set();
+            if (data) {
+                data.forEach(c => {
+                    const dataRef = c.data_referencia.split('T')[0];
+                    this.state.mapaCheckins.add(`${c.usuario_uid}_${dataRef}`);
+                });
+            }
+        } catch (e) {
+            console.error("Erro Checkins:", e);
+            this.state.mapaCheckins = new Set();
         }
     },
 
@@ -627,16 +656,39 @@ Produtividade.Geral = {
                     </div>`;
                 }
 
+                // [NEW] Check-in Status
+                let checkinIcon = '';
+                const isSingleDay = this.state.range.inicio === this.state.range.fim;
+
+                // Só exibe ícone se for Staff (não Gestora Agregada) e se estiver vendo 1 dia
+                if (!row.isAggregatedManager && isSingleDay) {
+                    const dataRef = this.state.range.inicio; // Dia atual da visão
+                    // Check-in é sempre sobre o dia anterior? Depende da regra.
+                    // REGRA: O check-in gravado no banco tem `data_referencia` = DIA QUE O DADO SE REFERE.
+                    // Se o grid mostra dia 10/02, procuramos check-in com data_referencia = 10/02.
+                    // (O check-in real acontece no dia 11/02, mas a data salva é 10/02)
+
+                    const chaveCheckin = `${row.uid}_${dataRef}`;
+                    const hasCheckin = this.state.mapaCheckins && this.state.mapaCheckins.has(chaveCheckin);
+
+                    if (hasCheckin) {
+                        checkinIcon = `<i class="fas fa-check-double text-emerald-500 ml-1" title="Check-in Realizado"></i>`;
+                    } else {
+                        checkinIcon = `<i class="fas fa-clock text-slate-300 ml-1 opacity-50" title="Aguardando Check-in"></i>`;
+                    }
+                }
+
                 return `
-                    <tr class="${rowClass} border-b border-slate-200 text-xs transition-colors group">
-                        <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')" ${row.isAggregatedManager ? 'disabled' : ''}></td>
-                        <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : (row.isAggregatedManager ? 'hidden' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500')}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
-                        <td class="px-3 py-3 w-[200px] truncate cursor-pointer group-hover:bg-white" onclick="Produtividade.Geral.abrirDetalhes('${row.uid}')" title="Clique para ver Análise Individual">
-                            <div class="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                                <i class="fas fa-search text-slate-300 group-hover:text-blue-500 text-[10px]"></i>
-                                <span class="font-bold text-slate-700 group-hover:text-blue-700 group-hover:underline">${row.nome}</span>
-                            </div>
-                        </td>
+                <tr class="${rowClass} border-b border-slate-200 text-xs transition-colors group">
+                    <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')" ${row.isAggregatedManager ? 'disabled' : ''}></td>
+                    <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : (row.isAggregatedManager ? 'hidden' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500')}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
+                    <td class="px-3 py-3 w-[200px] truncate cursor-pointer group-hover:bg-white" onclick="Produtividade.Geral.abrirDetalhes('${row.uid}')" title="Clique para ver Análise Individual">
+                        <div class="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                            <i class="fas fa-search text-slate-300 group-hover:text-blue-500 text-[10px]"></i>
+                            <span class="font-bold text-slate-700 group-hover:text-blue-700 group-hover:underline">${row.nome}</span>
+                            ${checkinIcon}
+                        </div>
+                    </td>
                         <td class="px-2 py-3 text-center text-slate-500 font-mono bg-slate-50 border-x border-slate-100">${row.meta_base_diaria}</td>
                         <td class="px-2 py-3 text-center font-mono text-slate-400">${row.fifo}</td>
                         <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gt}</td>
