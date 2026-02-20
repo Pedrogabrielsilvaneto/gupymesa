@@ -9,6 +9,8 @@ window.GupyBiblioteca = {
     cacheFrases: [],
     modoCalculadora: 'intervalo',
     usuario: null,
+    cacheFavoritos: [],
+    verFavoritos: false,
 
     init: async function () {
         // Inicializa usuário da sessão do Sistema
@@ -32,6 +34,51 @@ window.GupyBiblioteca = {
         const f = (this.usuario.funcao || '').toUpperCase();
         const id = parseInt(this.usuario.id);
         return p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || f.includes('COORDENADOR') || f.includes('LIDER') || id === 1 || id === 1000;
+    },
+
+    carregarFavoritos: function () {
+        if (!this.usuario) return;
+        const key = `gupy_favs_${this.usuario.username}`;
+        try {
+            const saved = localStorage.getItem(key);
+            this.cacheFavoritos = saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            this.cacheFavoritos = [];
+        }
+    },
+
+    salvarFavoritos: function () {
+        if (!this.usuario) return;
+        const key = `gupy_favs_${this.usuario.username}`;
+        localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
+    },
+
+    toggleFavorito: function (id) {
+        id = id.toString();
+        const index = this.cacheFavoritos.indexOf(id);
+        if (index > -1) {
+            this.cacheFavoritos.splice(index, 1);
+        } else {
+            this.cacheFavoritos.push(id);
+        }
+        this.salvarFavoritos();
+
+        // Renderiza tudo para refletir o novo estado
+        this.aplicarFiltros();
+    },
+
+    isFavorito: function (id) {
+        return this.cacheFavoritos.includes(id.toString());
+    },
+
+    toggleVerFavoritos: function () {
+        this.verFavoritos = !this.verFavoritos;
+        const btn = document.getElementById('btn-ver-favoritos');
+        if (btn) {
+            if (this.verFavoritos) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+        this.aplicarFiltros();
     },
 
     carregarFrases: async function () {
@@ -92,6 +139,10 @@ window.GupyBiblioteca = {
 
         let filtrados = this.cacheFrases;
 
+        if (this.verFavoritos) {
+            filtrados = filtrados.filter(f => this.isFavorito(f.id));
+        }
+
         if (termo) filtrados = filtrados.filter(f => f._busca.includes(termo));
         if (valEmpresa) filtrados = filtrados.filter(f => f.empresa === valEmpresa);
         if (valMotivo) filtrados = filtrados.filter(f => f.motivo === valMotivo);
@@ -101,6 +152,7 @@ window.GupyBiblioteca = {
     },
 
     renderizar: function (lista) {
+        this.renderizarFavoritos();
         this.renderizarDestaques();
 
         const grid = document.getElementById('grid-frases');
@@ -112,6 +164,21 @@ window.GupyBiblioteca = {
         }
 
         grid.innerHTML = lista.map(f => this.gerarCardHTML(f)).join('');
+    },
+
+    renderizarFavoritos: function () {
+        const container = document.getElementById('container-favoritos');
+        const grid = document.getElementById('grid-favoritos');
+        if (!container || !grid) return;
+
+        const favoritos = this.cacheFrases.filter(f => this.isFavorito(f.id));
+
+        if (favoritos.length > 0 && !document.getElementById('lib-search').value && !this.verFavoritos) {
+            container.classList.remove('hidden');
+            grid.innerHTML = favoritos.map(f => this.gerarCardHTML(f, true)).join('');
+        } else {
+            container.classList.add('hidden');
+        }
     },
 
     renderizarDestaques: function () {
@@ -152,6 +219,7 @@ window.GupyBiblioteca = {
 
     gerarCardHTML: function (f, compact = false) {
         const isAdmin = this.isAdmin();
+        const fav = this.isFavorito(f.id);
         const textoContador = isAdmin
             ? `${f.usos || 0} usos na equipe`
             : (f.meus_usos > 0 ? `${f.meus_usos} vezes usado por mim` : `${f.usos || 0} usos na equipe`);
@@ -160,14 +228,18 @@ window.GupyBiblioteca = {
         const tagEmpresa = `<span onclick="GupyBiblioteca.setarFiltroDireto('empresa', '${f.empresa || 'Geral'}')" class="cursor-pointer hover:brightness-90 transition bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-blue-100">${f.empresa || 'Geral'}</span>`;
         const tagDoc = `<span onclick="GupyBiblioteca.setarFiltroDireto('doc', '${f.documento || 'DOC'}')" class="cursor-pointer hover:brightness-90 transition bg-slate-800 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider shadow-sm">${f.documento || 'DOC'}</span>`;
 
+        const btnFav = `<button onclick="GupyBiblioteca.toggleFavorito('${f.id}')" class="transition-all active:scale-75 ${fav ? 'text-rose-500' : 'text-slate-300 hover:text-rose-400'}" title="${fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}"><i class="${fav ? 'fas' : 'far'} fa-heart"></i></button>`;
+
         if (compact) {
             const qtd = isAdmin ? (f.usos || 0) : f.meus_usos;
             const label = isAdmin ? "usos da equipe" : "usos pessoais";
             return `
-                <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-300 overflow-hidden">
+                <div class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-300 overflow-hidden relative">
                     <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
                         <div class="flex gap-1.5">${tagEmpresa}</div>
-                        <div class="flex items-center gap-1.5">
+                        <div class="flex items-center gap-2">
+                            ${btnFav}
+                            <div class="w-px h-3 bg-slate-200 mx-0.5"></div>
                             <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="text-blue-600 hover:text-blue-700 text-xs font-bold transition active:scale-90" title="Copiar"><i class="far fa-copy"></i></button>
                             ${isAdmin ? `
                                 <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="text-slate-400 hover:text-amber-500 text-[10px] transition" title="Editar"><i class="fas fa-pen"></i></button>
@@ -197,11 +269,13 @@ window.GupyBiblioteca = {
                         </div>
                         <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${f.motivo || 'Motivo'}</h4>
                     </div>
-                    <div class="flex shrink-0 items-center gap-1">
+                    <div class="flex shrink-0 items-center gap-2">
+                        ${btnFav}
+                        <div class="w-px h-4 bg-slate-200 mx-1"></div>
                         <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1.5"><i class="far fa-copy"></i> Copiar</button>
                         ${isAdmin ? `
-                            <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-amber-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-pen"></i></button>
-                            <button onclick="GupyBiblioteca.deletar('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-rose-500 px-2 py-1.5 rounded-lg transition shadow-sm"><i class="fas fa-trash-alt"></i></button>
+                            <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-amber-500 px-2 py-1.5 rounded-lg transition shadow-sm" title="Editar"><i class="fas fa-pen"></i></button>
+                            <button onclick="GupyBiblioteca.deletar('${f.id}')" class="bg-white border border-slate-200 text-slate-400 hover:text-rose-500 px-2 py-1.5 rounded-lg transition shadow-sm" title="Excluir"><i class="fas fa-trash-alt"></i></button>
                         ` : ''}
                     </div>
                 </div>
@@ -220,10 +294,18 @@ window.GupyBiblioteca = {
         if (tipo === 'doc') el = document.getElementById('lib-filtro-doc');
 
         if (el) {
-            el.value = valor;
+            // Lógica de Toggle: Se clicar no mesmo valor, limpa
+            if (el.value === valor) {
+                el.value = "";
+            } else {
+                el.value = valor;
+            }
+
             this.aplicarFiltros();
-            // Scroll para baixo se for um clique em destaque
-            window.scrollTo({ top: el.offsetTop - 100, behavior: 'smooth' });
+
+            // Scroll para os resultados
+            const grid = document.getElementById('grid-frases');
+            if (grid) window.scrollTo({ top: grid.offsetTop - 150, behavior: 'smooth' });
         }
     },
 

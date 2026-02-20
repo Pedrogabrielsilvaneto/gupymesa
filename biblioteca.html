@@ -108,6 +108,11 @@
                 <input type="text" id="lib-search" oninput="GupyBiblioteca.aplicarFiltros()"
                     placeholder="Buscar conteúdo..."
                     class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 shadow-sm transition-all placeholder:text-slate-400">
+                <button id="btn-ver-favoritos" onclick="GupyBiblioteca.toggleVerFavoritos()"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-500 w-8 h-8 rounded-lg flex items-center justify-center transition border border-transparent hover:border-rose-100 group/fav"
+                    title="Ver apenas favoritos">
+                    <i class="far fa-heart group-[.active]/fav:fas group-[.active]/fav:text-rose-500"></i>
+                </button>
             </div>
             <div class="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select id="lib-filtro-empresa" onchange="GupyBiblioteca.aplicarFiltros()"
@@ -117,6 +122,18 @@
                 <select id="lib-filtro-doc" onchange="GupyBiblioteca.aplicarFiltros()"
                     class="bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 transition shadow-sm appearance-none bg-[url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e')] bg-[length:1em_1em] bg-[right_0.75rem_center] bg-no-repeat"></select>
             </div>
+        </div>
+
+        <!-- Seção: Frases Favoritas -->
+        <div id="container-favoritos" class="hidden mb-12">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-8 w-1.5 bg-rose-500 rounded-full"></div>
+                <h2 class="text-xl font-black text-slate-800 uppercase tracking-tight">Suas frases favoritas</h2>
+            </div>
+            <div id="grid-favoritos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Cards favoritos renderizados via JS -->
+            </div>
+            <div class="h-px bg-slate-200 mt-10"></div>
         </div>
 
         <!-- Seção: Mais Usadas (Destaques) -->
