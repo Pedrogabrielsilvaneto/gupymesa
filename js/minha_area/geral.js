@@ -449,7 +449,9 @@ MinhaArea.Geral = {
 
     calcularKpisGlobal: function () {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
-        let totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0, totalUteisBrutos = 0;
+        let totalDocs = 0, somaAssertGlobal = 0;
+        let maxFator = 0; // [FIX] Agora pegamos o MÁXIMO de dias trabalhados por alguém da equipe
+        let diasUteisCalendario = 0; // [FIX] Pegamos dias úteis do calendário (do primeiro user válido)
         let managerMeta = 0;
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
@@ -468,9 +470,10 @@ MinhaArea.Geral = {
                 return; // Managers don't contribute to Team Capacity/Average calculation logic below
             }
             totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
-            totalFator += i.soma_fator;
-            totalUteis += i.dias_uteis_liquidos;
-            totalUteisBrutos += (i.dias_uteis_brutos || 0); // [FIX] Soma bruta p/ Meta de Capacidade
+            totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
+            // totalFator += i.soma_fator; // Removido soma
+            maxFator = Math.max(maxFator, i.soma_fator); // [FIX] Pega o maior valor de dias trab. da equipe
+            if (i.dias_uteis_brutos > diasUteisCalendario) diasUteisCalendario = i.dias_uteis_brutos; // Pega o maior calendário encontrado
 
             if (i.producao > 0) {
                 somaMediasEquipe += i.velocidade_acumulada;
@@ -510,11 +513,11 @@ MinhaArea.Geral = {
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
-            capacidade: { diasReal: totalFator, diasTotal: diasUteisTotais },
+            capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario }, // [FIX] Exibe Max Real / Calendário
             velocidade: {
-                real: Math.round(totalProd / diasPeriodo),
+                real: Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1)), // Usa diasPeriodo calculado antes
                 meta: managerMeta > 0
-                    ? Math.round((managerMeta / diasPeriodo) * hcFinal)
+                    ? Math.round((managerMeta / diasPeriodo) * (realUserCount > 0 ? realUserCount : hcFinal)) // Ajuste para meta diária correta
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
@@ -549,7 +552,9 @@ MinhaArea.Geral = {
                 </tr>`;
         }
 
-        let totalProd = 0, totalDocs = 0, somaAssertGlobal = 0, totalFator = 0, totalUteis = 0;
+        let totalProd = 0, totalDocs = 0, somaAssertGlobal = 0;
+        let maxFator = 0;
+        let diasUteisCalendario = 0;
         const diarioAgregado = {};
 
         // Agrupa produção diária de todos os assistentes
@@ -584,9 +589,11 @@ MinhaArea.Geral = {
         // Calcula Totais Período (KPI Cards)
         this.state.listaTabela.forEach(i => {
             if (this.ehGestao(i.uid)) return;
+            if (this.ehGestao(i.uid)) return;
             totalProd += i.producao;
-            totalFator += i.soma_fator;
-            totalUteis += i.dias_uteis_liquidos;
+            maxFator = Math.max(maxFator, i.soma_fator);
+            if (i.dias_uteis_brutos > diasUteisCalendario) diasUteisCalendario = i.dias_uteis_brutos;
+
             if (i.qtd_assert > 0) {
                 somaAssertGlobal += i.soma_notas_bruta;
                 totalDocs += i.qtd_assert;
@@ -602,13 +609,14 @@ MinhaArea.Geral = {
         const metaEquipePeriodo = metaIndiv * HC * (item.dias_uteis_liquidos || 0);
 
         this.atualizarCardsKPI({
-            prod: { real: totalProd, meta: metaEquipePeriodo },
-            assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
-            capacidade: { diasReal: totalFator, diasTotal: totalUteis * (HC / Math.max(1, this.state.listaCompleta ? this.state.listaCompleta.filter(u => !this.ehGestao(u.id)).length : 1)) }, // Estimativa
-            velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv }
-        });
+            this.atualizarCardsKPI({
+                prod: { real: totalProd, meta: metaEquipePeriodo },
+                assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
+                capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario > 0 ? diasUteisCalendario : (item.dias_uteis_brutos || 21) },
+                velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv }
+            });
 
-        if (this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
+            if(this.els.totalFooter) this.els.totalFooter.textContent = Object.keys(diarioAgregado).length;
 
         const listaDias = Object.values(diarioAgregado).sort((a, b) => a.data.localeCompare(b.data));
 
