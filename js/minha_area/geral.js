@@ -566,7 +566,7 @@ MinhaArea.Geral = {
         });
     },
 
-    renderizarDiario: function (uid) {
+    renderizarDiarioGestor: function (uid) {
         // Visão Consolidada da Equipe para o Gestor
         let item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
 
