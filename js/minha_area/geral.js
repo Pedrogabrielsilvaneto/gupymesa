@@ -896,62 +896,76 @@ MinhaArea.Geral = {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
-        init: async function () {
-            try {
-                await this.carregarDados();
-                this.configurarAbas();
-                // ... existing code ...
+    },
 
-                // [NEW] Verifica Check-in Diário
-                setTimeout(() => this.verificarCheckinDiario(), 1500);
+    init: async function () {
+        try {
+            await this.carregarDados();
+            this.configurarAbas();
+            // ... existing code ...
 
-            } catch (error) {
-                console.error('Erro ao inicializar:', error);
-            }
-        },
+            // [NEW] Verifica Check-in Diário
+            setTimeout(() => this.verificarCheckinDiario(), 1500);
 
-        // ... existing functions ...
+        } catch (error) {
+            console.error('Erro ao inicializar:', error);
+        }
+    },
 
-        // --- LÓGICA DE CHECK-IN DIÁRIO ---
-        verificarCheckinDiario: async function() {
-            // Regra: Assistentes confirmam o dia anterior
-            const hoje = new Date();
-            const ontem = new Date(hoje);
-            ontem.setDate(hoje.getDate() - 1);
+    // --- LÓGICA DE CHECK-IN DIÁRIO ---
+    verificarCheckinDiario: async function () {
+        // Regra: Assistentes confirmam o dia anterior
+        const hoje = new Date();
+        const diaSemanaHoje = hoje.getDay(); // 0=Dom, 1=Seg...
 
-            // Se ontem foi Fim de Semana, não pede checkin (opcional, pode ajustar conforme regra)
-            const diaSemanaOntem = ontem.getDay();
-            if (diaSemanaOntem === 0 || diaSemanaOntem === 6) {
-                console.log("Ontem foi fim de semana, pulando check-in.");
-                return;
-            }
+        // Se hoje for Sábado (6) ou Domingo (0), não pede checkin
+        if (diaSemanaHoje === 0 || diaSemanaHoje === 6) {
+            console.log("Hoje é fim de semana, sem check-in.");
+            return;
+        }
 
-            const dataRef = ontem.toISOString().split('T')[0];
-            const uid = Sistema.auth.user.id;
+        let dataAlvo = new Date(hoje);
 
-            try {
-                // Verifica se já existe check-in para ontem
-                const { rows } = await Sistema.db.query(`
+        // Se hoje for Segunda (1), o "ontem" útil foi Sexta (-3 dias)
+        // [FIX] User Request: Checking referente a sexta-feira na segunda.
+        if (diaSemanaHoje === 1) {
+            dataAlvo.setDate(hoje.getDate() - 3);
+        } else {
+            // Dias normais (Ter-Sex), cobra o dia anterior (-1)
+            dataAlvo.setDate(hoje.getDate() - 1);
+        }
+
+        const dataRef = dataAlvo.toISOString().split('T')[0];
+        const uid = Sistema.auth.user.id;
+
+        console.log(`[CHECKIN] Verificando check-in para data: ${dataRef} (Hoje é dia ${diaSemanaHoje})`);
+
+        const dataRef = ontem.toISOString().split('T')[0];
+        const uid = Sistema.auth.user.id;
+
+        try {
+            // Verifica se já existe check-in para ontem
+            const { rows } = await Sistema.db.query(`
                 SELECT id FROM checkin_diario 
                 WHERE usuario_uid = ? AND data_referencia = ?
             `, [uid, dataRef]);
 
-                if (rows.length === 0) {
-                    this.exibirModalCheckin(dataRef);
-                }
-            } catch (e) {
-                console.error("Erro ao verificar check-in:", e);
+            if (rows.length === 0) {
+                this.exibirModalCheckin(dataRef);
             }
-        },
+        } catch (e) {
+            console.error("Erro ao verificar check-in:", e);
+        }
+    },
 
-        exibirModalCheckin: function(dataRef) {
-            if (document.getElementById('modal-checkin-diario')) return;
+    exibirModalCheckin: function (dataRef) {
+        if (document.getElementById('modal-checkin-diario')) return;
 
-            // Formata data para exibição (PT-BR)
-            const [ano, mes, dia] = dataRef.split('-');
-            const dataFormatada = `${dia}/${mes}/${ano}`;
+        // Formata data para exibição (PT-BR)
+        const [ano, mes, dia] = dataRef.split('-');
+        const dataFormatada = `${dia}/${mes}/${ano}`;
 
-            const html = `
+        const html = `
             <div id="modal-checkin-diario" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-fade-in">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all animate-bounce-in">
                     <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 text-white text-center">
@@ -981,38 +995,38 @@ MinhaArea.Geral = {
                 </div>
             </div>
         `;
-            document.body.insertAdjacentHTML('beforeend', html);
-        },
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
 
-        confirmarCheckin: async function(dataRef) {
-            const btn = document.querySelector('#modal-checkin-diario button');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
-            btn.disabled = true;
+    confirmarCheckin: async function (dataRef) {
+        const btn = document.querySelector('#modal-checkin-diario button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
+        btn.disabled = true;
 
-            try {
-                const uid = Sistema.auth.user.id;
-                await Sistema.db.execute(`
+        try {
+            const uid = Sistema.auth.user.id;
+            await Sistema.db.execute(`
                 INSERT INTO checkin_diario (usuario_uid, data_referencia, status)
                 VALUES (?, ?, 'CONFIRMADO')
             `, [uid, dataRef]);
 
-                // Sucesso
-                btn.innerHTML = '<i class="fas fa-check"></i> Prontinho!';
-                btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            // Sucesso
+            btn.innerHTML = '<i class="fas fa-check"></i> Prontinho!';
+            btn.classList.add('bg-green-600', 'hover:bg-green-700');
+            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
 
-                setTimeout(() => {
-                    const modal = document.getElementById('modal-checkin-diario');
-                    modal.classList.add('opacity-0', 'scale-90'); // Animação de saída
-                    setTimeout(() => modal.remove(), 300);
-                }, 1000);
+            setTimeout(() => {
+                const modal = document.getElementById('modal-checkin-diario');
+                modal.classList.add('opacity-0', 'scale-90'); // Animação de saída
+                setTimeout(() => modal.remove(), 300);
+            }, 1000);
 
-            } catch (e) {
-                console.error(e);
-                alert("Erro ao confirmar check-in. Tente novamente.");
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao confirmar check-in. Tente novamente.");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         }
-    };
+    }
+};
