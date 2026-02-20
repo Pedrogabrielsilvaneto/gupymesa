@@ -710,7 +710,18 @@ Produtividade.Geral = {
         // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 
-        const mediaProducaoDiariaGlobal = totalDiasUteis > 0 ? (totalProd / totalDiasUteis) : 0;
+        // [FIX] Define divisor de dias: Se hoje estiver no range, usa dias decorridos. Senão dias totais.
+        const hoje = new Date().toISOString().split('T')[0];
+        const rangeInicio = this.state.range.inicio;
+        const rangeFim = this.state.range.fim;
+        let diasDivisorReal = totalDiasUteis;
+
+        if (hoje >= rangeInicio && hoje <= rangeFim) {
+            diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
+        }
+
+        // Média Diária Global usa dias decorridos para mostrar o "Pace" real atual
+        const mediaProducaoDiariaGlobal = diasDivisorReal > 0 ? (totalProd / diasDivisorReal) : 0;
         const denominadorVelocidade = headcountEfetivo;
         const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
 

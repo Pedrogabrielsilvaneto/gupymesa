@@ -517,26 +517,40 @@ MinhaArea.Geral = {
         const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
         const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (diasUteisCalendario || 1);
 
+        // [FIX] Ajuste para Velocidade Real ("Pace"): Usar dias decorridos até hoje (se hoje estiver no range)
+        // Isso evita que no dia 5 a média seja dividida por 21, achatando o valor.
+        let diasDivisorReal = diasUteisMeta;
+
+        const hoje = new Date().toISOString().split('T')[0];
+        const rangeInicio = this.state.range.inicio;
+        const rangeFim = this.state.range.fim;
+
+        // Se hoje estiver dentro do período selecionado, cortamos a contagem em HOJE.
+        if (hoje >= rangeInicio && hoje <= rangeFim) {
+            // Conta dias uteis de Inicio até Hoje (inclusive)
+            diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
+        }
+
         if (managerDailyMeta > 0 || totalProd > 0) {
             console.log(`[DEBUG VERIFICATION] Velocity Calc:\n` +
                 `  Total Prod: ${totalProd}\n` +
-                // [FIX] Agora usa diasUteisMeta (Calendário/Config) e não mais os dias uteis liquidos da gestora
-                `  Dias Periodo (Padronizado): ${diasUteisMeta} (Era ${diasPeriodo})\n` +
+                `  Dias Periodo Total (Meta): ${diasUteisMeta}\n` +
+                `  Dias Decorridos ate Hoje (Real): ${diasDivisorReal}\n` +
                 `  Meta Diaria Gestor: ${managerDailyMeta}\n` +
                 `  HC Final (Mult. Meta): ${hcFinal}\n` +
-                `  >> Real Calc: ${totalProd} / ${diasUteisMeta} = ${Math.round(totalProd / (diasUteisMeta > 0 ? diasUteisMeta : 1))}\n` +
+                `  >> Real Calc: ${totalProd} / ${diasDivisorReal} = ${Math.round(totalProd / (diasDivisorReal > 0 ? diasDivisorReal : 1))}\n` +
                 `  >> Meta Calc: ${managerDailyMeta} * ${hcFinal} = ${Math.round(managerDailyMeta * hcFinal)}`);
         }
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
-            capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario }, // [FIX] Exibe Max Real / Calendário
+            capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario },
             velocidade: {
-                // [FIX] Usar diasUteisMeta (Calendário) para divisão da velocidade real também
-                real: Math.round(totalProd / (diasUteisMeta > 0 ? diasUteisMeta : 1)),
+                // [FIX] Média Real = Total Produzido / Dias DECORRIDOS (Pace)
+                real: Math.round(totalProd / (diasDivisorReal > 0 ? diasDivisorReal : 1)),
                 meta: managerDailyMeta > 0
-                    ? Math.round(managerDailyMeta * hcFinal) // [FIX] Meta Fixa: 650 * 17 = 11050 (Independente de quantos trabalharam)
+                    ? Math.round(managerDailyMeta * hcFinal)
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
