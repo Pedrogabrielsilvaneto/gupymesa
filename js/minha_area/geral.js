@@ -452,6 +452,9 @@ MinhaArea.Geral = {
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
         this.state.listaTabela.forEach(i => {
+            // [FIX] Sempre somar produção, inclusive de gestores
+            totalProd += i.producao;
+
             // [FIX] Usar ehLiderancaReal para ignorar Auditoras no cálculo da Meta Global
             if (this.ehLiderancaReal(i.uid)) {
                 // Se for o gestor logado, sua meta é prioritária. Senão, pegamos a maior encontrada
@@ -460,9 +463,8 @@ MinhaArea.Geral = {
                 } else if (i.meta_total_periodo > managerMeta) {
                     managerMeta = i.meta_total_periodo;
                 }
-                return;
+                return; // Managers don't contribute to Team Capacity/Average calculation logic below
             }
-            totalProd += i.producao;
             totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
             totalFator += i.soma_fator;
             totalUteis += i.dias_uteis_liquidos;
