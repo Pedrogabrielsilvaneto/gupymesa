@@ -563,31 +563,66 @@ Produtividade.Geral = {
                 </div>`;
             }
 
-            return `
-                <tr class="${rowClass} border-b border-slate-200 text-xs transition-colors group">
-                    <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')" ${row.isAggregatedManager ? 'disabled' : ''}></td>
-                    <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : (row.isAggregatedManager ? 'hidden' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500')}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
-                    <td class="px-3 py-3 w-[200px] truncate cursor-pointer group-hover:bg-white" onclick="Produtividade.Geral.abrirDetalhes('${row.uid}')" title="Clique para ver Análise Individual">
-                        <div class="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                            <i class="fas fa-search text-slate-300 group-hover:text-blue-500 text-[10px]"></i>
-                            <span class="font-bold text-slate-700 group-hover:text-blue-700 group-hover:underline">${row.nome}</span>
-                        </div>
-                    </td>
-                    <td class="px-2 py-3 text-center text-slate-500 font-mono bg-slate-50 border-x border-slate-100">${row.meta_base_diaria}</td>
-                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.fifo}</td>
-                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gt}</td>
-                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gp}</td>
-                    <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20 border-x border-slate-100">${row.producao}</td>
-                    <td class="px-2 py-3 text-center text-slate-700 font-bold bg-slate-50">${metaParaCalculo}</td>
-                    <td class="px-2 py-3 text-center"><span class="font-bold ${pctProd >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pctProd}%</span></td>
-                    <td class="px-2 py-3 text-center bg-emerald-50/20 border-x border-slate-100">${assertHtml}</td>
-                    <td class="px-2 py-3 min-w-[200px]">
-                        <div class="flex flex-col gap-1">
-                            <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação Gestão...'}" value="${row.justificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${row.data}', 'justificativa', this.value)">
-                            ${row.observacao_assistente ? `<div class="bg-blue-50/50 p-1 rounded text-[10px] text-blue-800 italic border border-blue-100 flex items-center gap-1" title="Observação do Assistente"><i class="fas fa-comment-dots text-blue-400"></i> ${row.observacao_assistente}</div>` : ''}
+            // [FIX] Se só tiver a gestora (ou nem ela), e nenhum assistente com produção/dados, mostrar Estado Vazio Festivo
+            const apenasGestora = listaExibicao.length === 1 && listaExibicao[0].isAggregatedManager;
+            const listaVazia = listaExibicao.length === 0;
+
+            if (apenasGestora || listaVazia) {
+                const dataRef = new Date(this.state.range.fim);
+                const diaSemana = dataRef.getDay(); // 0 = Domingo, 6 = Sábado
+                const isFimDeSemana = (diaSemana === 0 || diaSemana === 6);
+
+                let titulo = "";
+                let msg = "";
+                let icone = "";
+                let cor = "";
+
+                if (isFimDeSemana) {
+                    titulo = "Bom descanso! 🏖️";
+                    msg = "Aproveite o final de semana para recarregar as energias. Nada de trabalho por hoje!";
+                    icone = "fa-umbrella-beach";
+                    cor = "text-emerald-500";
+                } else {
+                    titulo = "Tudo pronto para começar! 🚀";
+                    msg = "Ainda não temos dados de produção para este período. Que tal incentivar o time?";
+                    icone = "fa-rocket";
+                    cor = "text-blue-500";
+                }
+
+                this.els.tabela.innerHTML = `
+                <tr>
+                    <td colspan="12" class="py-12 text-center">
+                        <div class="flex flex-col items-center justify-center gap-3 animate-fade-in-up">
+                            <i class="fas ${icone} text-5xl ${cor} opacity-80"></i>
+                            <h3 class="text-xl font-bold text-slate-700">${titulo}</h3>
+                            <p class="text-slate-500 text-sm max-w-md">${msg}</p>
                         </div>
                     </td>
                 </tr>
+             `;
+                this.atualizarBarraFlutuante();
+                this.atualizarDestaques([]);
+                return;
+            }
+
+            const html = listaExibicao.map(row => {
+                const metaParaCalculo = row.meta_real_calculada || 1;
+                const pctProd = metaParaCalculo > 0 ? Math.round((row.producao / metaParaCalculo) * 100) : 0;
+                const isAbonado = row.fator < 1.0;
+                const isChecked = this.state.selecionados.has(String(row.uid));
+
+                // Estilo da linha: Gestora (Verde), Abonado (Amarelo), Selecionado (Azul)
+                let rowClass = 'hover:bg-slate-50';
+                if (row.isAggregatedManager) rowClass = 'bg-emerald-100 border-b-2 border-emerald-200';
+                else if (isAbonado) rowClass = 'bg-amber-50/40';
+                else if (isChecked) rowClass = 'bg-blue-50';
+
+                // ... resto do código de renderização
+                <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação Gestão...'}" value="${row.justificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${row.data}', 'justificativa', this.value)">
+                    ${row.observacao_assistente ? `<div class="bg-blue-50/50 p-1 rounded text-[10px] text-blue-800 italic border border-blue-100 flex items-center gap-1" title="Observação do Assistente"><i class="fas fa-comment-dots text-blue-400"></i> ${row.observacao_assistente}</div>` : ''}
+                </div>
+                    </td >
+                </tr >
             `;
         }).join('');
 
@@ -622,9 +657,9 @@ Produtividade.Geral = {
             // [FIX] Usar `_meta_gestor_base` que foi definido em `processarDadosUnificados`
             metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 0);
             if (metaDiariaGestor === 0) metaDiariaGestor = gestoraItem.meta_base_diaria || 0;
-            console.log(`[DEBUG PROD] Gestora Encontrada: ${gestoraItem.nome} | MetaDiaria: ${metaDiariaGestor} | BaseStored: ${gestoraItem._meta_gestor_base}`);
+            console.log(`[DEBUG PROD] Gestora Encontrada: ${ gestoraItem.nome } | MetaDiaria: ${ metaDiariaGestor } | BaseStored: ${ gestoraItem._meta_gestor_base } `);
         } else {
-            console.log(`[DEBUG PROD] NENHUMA GESTORA ENCONTRADA NA LISTA DE 0 A ${listaOriginal.length}`);
+            console.log(`[DEBUG PROD] NENHUMA GESTORA ENCONTRADA NA LISTA DE 0 A ${ listaOriginal.length } `);
             listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
         }
 
@@ -790,7 +825,7 @@ Produtividade.Geral = {
         return count || 0;
     },
     renderLoading: function () {
-        if (this.els.tabela) this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-12 text-blue-600"><i class="fas fa-circle-notch fa-spin text-2xl"></i><p class="text-xs mt-2 text-slate-500">Calculando no banco de dados...</p></td></tr>`;
+        if (this.els.tabela) this.els.tabela.innerHTML = `< tr > <td colspan="12" class="text-center py-12 text-blue-600"><i class="fas fa-circle-notch fa-spin text-2xl"></i><p class="text-xs mt-2 text-slate-500">Calculando no banco de dados...</p></td></tr > `;
     },
     toggleSelecionar: function (uid) {
         if (this.state.selecionados.has(uid)) this.state.selecionados.delete(uid); else this.state.selecionados.add(uid);
@@ -809,11 +844,11 @@ Produtividade.Geral = {
             bar.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-6 animate-fade-in-up';
             document.body.appendChild(bar);
         }
-        bar.innerHTML = `<span class="font-bold text-sm"><span class="text-blue-400">${this.state.selecionados.size}</span> selecionados</span><div class="h-4 w-px bg-slate-600"></div><button onclick="Produtividade.Geral.abrirModalAbono('mass')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2"><i class="fas fa-user-clock"></i> Abonar Selecionados</button><button onclick="Produtividade.Geral.toggleAll(false)" class="text-slate-400 hover:text-white text-xs ml-2"><i class="fas fa-times"></i></button>`;
+        bar.innerHTML = `< span class="font-bold text-sm" > <span class="text-blue-400">${this.state.selecionados.size}</span> selecionados</span ><div class="h-4 w-px bg-slate-600"></div><button onclick="Produtividade.Geral.abrirModalAbono('mass')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2"><i class="fas fa-user-clock"></i> Abonar Selecionados</button><button onclick="Produtividade.Geral.toggleAll(false)" class="text-slate-400 hover:text-white text-xs ml-2"><i class="fas fa-times"></i></button>`;
     },
     injetarModalAbono: function () {
         if (document.getElementById('modal-abono-geral')) return;
-        const html = `<div id="modal-abono-geral" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all"><div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center"><h3 class="font-bold text-amber-800 flex items-center gap-2"><i class="fas fa-user-clock"></i> Registrar Abono</h3><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="text-amber-400 hover:text-amber-700"><i class="fas fa-times"></i></button></div><div class="p-6 space-y-4"><div id="modal-abono-msg" class="text-sm text-slate-600"></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Abono</label><select id="modal-abono-fator" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white"><option value="0.0">Abono Total (Dia não conta)</option><option value="0.5">Meio Período (0.5)</option><option value="1.0">Remover Abono (Dia Normal)</option></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Justificativa (Obrigatória)</label><textarea id="modal-abono-just" rows="3" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500" placeholder="Ex: Atestado médico, Folga compensatória..."></textarea></div></div><div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 border-t border-slate-100"><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onclick="Produtividade.Geral.salvarAbonoModal()" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-sm">Confirmar</button></div></div></div>`;
+        const html = `< div id = "modal-abono-geral" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm" > <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all"><div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center"><h3 class="font-bold text-amber-800 flex items-center gap-2"><i class="fas fa-user-clock"></i> Registrar Abono</h3><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="text-amber-400 hover:text-amber-700"><i class="fas fa-times"></i></button></div><div class="p-6 space-y-4"><div id="modal-abono-msg" class="text-sm text-slate-600"></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Abono</label><select id="modal-abono-fator" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white"><option value="0.0">Abono Total (Dia não conta)</option><option value="0.5">Meio Período (0.5)</option><option value="1.0">Remover Abono (Dia Normal)</option></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Justificativa (Obrigatória)</label><textarea id="modal-abono-just" rows="3" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500" placeholder="Ex: Atestado médico, Folga compensatória..."></textarea></div></div><div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 border-t border-slate-100"><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onclick="Produtividade.Geral.salvarAbonoModal()" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-sm">Confirmar</button></div></div></div > `;
         document.body.insertAdjacentHTML('beforeend', html);
     },
 
@@ -827,10 +862,10 @@ Produtividade.Geral = {
         document.getElementById('modal-abono-fator').value = '0.0';
 
         if (alvo === 'mass') {
-            msg.innerHTML = `Aplicando para <strong>${this.state.selecionados.size} assistentes</strong> selecionados no período.`;
+            msg.innerHTML = `Aplicando para < strong > ${ this.state.selecionados.size } assistentes</strong > selecionados no período.`;
         } else {
             const item = this.state.listaTabela.find(i => String(i.uid) === String(alvo));
-            msg.innerHTML = `Editando abono de <strong>${item ? item.nome : 'Assistente'}</strong>.`;
+            msg.innerHTML = `Editando abono de < strong > ${ item ? item.nome : 'Assistente' }</strong >.`;
             if (item && item.fator < 1) {
                 document.getElementById('modal-abono-fator').value = String(item.fator);
                 just.value = item.justificativa || '';
@@ -901,8 +936,8 @@ Produtividade.Geral = {
 
                 // Upsert logic with INSERT ... ON DUPLICATE KEY UPDATE
                 await Sistema.query(
-                    `INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE fator = VALUES(fator), justificativa = VALUES(justificativa)`,
                     [uuid, uid, dia, mesRef, anoRef, novoFator, justificativa, quantidade, fifo, gt, gp]
                 );
@@ -944,11 +979,11 @@ Produtividade.Geral = {
 
             // Upsert / Insert Update
             await Sistema.query(
-                `INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fifo, gradual_total, gradual_parcial, fator, justificativa, perfil_fc, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'OK')
-                 ON DUPLICATE KEY UPDATE 
-                    fator = VALUES(fator), 
-                    justificativa = VALUES(justificativa)`,
+                `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fifo, gradual_total, gradual_parcial, fator, justificativa, perfil_fc, status)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'OK')
+                 ON DUPLICATE KEY UPDATE
+        fator = VALUES(fator),
+            justificativa = VALUES(justificativa)`,
                 [uuid, uid, dataRef, mesRef, anoRef, payload.quantidade, payload.fifo, payload.gradual_total, payload.gradual_parcial, payload.fator, payload.justificativa]
             );
 
@@ -968,8 +1003,8 @@ Produtividade.Geral = {
             const pct = Math.round((val / safeTarget) * 100);
             const width = Math.min(pct, 100);
             if (elText) elText.textContent = isPct ? val.toFixed(2) + '%' : val.toLocaleString('pt-BR');
-            if (elPct) { elPct.textContent = pct + '%'; elPct.className = `font-bold ${isPct ? 'text-xs' : 'text-sm'} text-${colorClass}-600 ${isPct ? 'text-right' : ''}`; }
-            if (elBar) { elBar.style.width = width + '%'; elBar.className = `h-full rounded-full transition-all duration-1000 bg-${colorClass}-${pct >= 100 ? '500' : '500'}`; }
+            if (elPct) { elPct.textContent = pct + '%'; elPct.className = `font - bold ${ isPct ? 'text-xs' : 'text-sm' } text - ${ colorClass } -600 ${ isPct ? 'text-right' : '' } `; }
+            if (elBar) { elBar.style.width = width + '%'; elBar.className = `h - full rounded - full transition - all duration - 1000 bg - ${ colorClass } -${ pct >= 100 ? '500' : '500' } `; }
         };
         if (this.els.kpiVolume) this.els.kpiVolume.textContent = kpi.prod.real.toLocaleString('pt-BR');
         if (this.els.kpiMetaVolume) this.els.kpiMetaVolume.textContent = kpi.prod.meta.toLocaleString('pt-BR');
@@ -1000,7 +1035,7 @@ Produtividade.Geral = {
         const renderItem = (list, elId, isPct) => {
             const el = document.getElementById(elId); if (!el) return;
             if (list.length === 0) { el.innerHTML = '<span class="text-[7px] text-slate-300 block text-center italic">Sem dados</span>'; return; }
-            el.innerHTML = list.map(i => `<div class="flex justify-between items-center bg-slate-50/50 px-1 py-0.5 rounded border border-slate-100 shadow-sm"><span class="text-[9px] truncate w-[70%] font-bold text-slate-600 tracking-tight leading-tight" title="${i.nome}">${i.nome.split(' ')[0]} ${i.nome.split(' ')[1] ? i.nome.split(' ')[1].charAt(0) + '.' : ''}</span><span class="text-[9px] font-black ${isPct ? 'text-emerald-600' : 'text-blue-600'} leading-tight">${isPct ? (i.media_final || 0).toFixed(1) + '%' : i.producao}</span></div>`).join('');
+            el.innerHTML = list.map(i => `< div class="flex justify-between items-center bg-slate-50/50 px-1 py-0.5 rounded border border-slate-100 shadow-sm" ><span class="text-[9px] truncate w-[70%] font-bold text-slate-600 tracking-tight leading-tight" title="${i.nome}">${i.nome.split(' ')[0]} ${i.nome.split(' ')[1] ? i.nome.split(' ')[1].charAt(0) + '.' : ''}</span><span class="text-[9px] font-black ${isPct ? 'text-emerald-600' : 'text-blue-600'} leading-tight">${isPct ? (i.media_final || 0).toFixed(1) + '%' : i.producao}</span></div > `).join('');
         };
         renderItem(topProd, 'top-prod-list', false); renderItem(topAssert, 'top-assert-list', true);
     },
@@ -1016,7 +1051,7 @@ Produtividade.Geral = {
             return;
         }
 
-        if (!confirm(`🔴 PERIGO: Você está prestes a excluir TODOS os dados de produção do dia ${range.inicio}.\n\nIsso não pode ser desfeito.\n\nDeseja continuar?`)) return;
+        if (!confirm(`🔴 PERIGO: Você está prestes a excluir TODOS os dados de produção do dia ${ range.inicio }.\n\nIsso não pode ser desfeito.\n\nDeseja continuar?`)) return;
 
         this.renderLoading();
 
@@ -1053,14 +1088,14 @@ Produtividade.Geral = {
         if (this.els.selectionHeader) {
             this.els.selectionHeader.classList.remove('hidden');
             this.els.selectionHeader.className = "bg-blue-50 border border-blue-100 p-2 rounded-lg flex justify-between items-center animate-fade-in mb-4";
-            this.els.selectionHeader.innerHTML = `<div class="flex items-center gap-3"><button onclick="Produtividade.Geral.voltarParaGrade()" class="bg-white hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button><div class="h-6 w-px bg-blue-200"></div><span class="text-sm font-bold text-blue-900 flex items-center gap-2"><i class="fas fa-user-circle text-blue-500 text-lg"></i> Análise Individual: <span class="uppercase tracking-wide text-blue-700 underline">${nomeUsuario}</span></span></div>`;
+            this.els.selectionHeader.innerHTML = `< div class="flex items-center gap-3" ><button onclick="Produtividade.Geral.voltarParaGrade()" class="bg-white hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button><div class="h-6 w-px bg-blue-200"></div><span class="text-sm font-bold text-blue-900 flex items-center gap-2"><i class="fas fa-user-circle text-blue-500 text-lg"></i> Análise Individual: <span class="uppercase tracking-wide text-blue-700 underline">${nomeUsuario}</span></span></div > `;
         }
         this.renderizarTabelaDetalhe(uid);
     },
     renderizarTabelaDetalhe: function (uid) {
-        if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = `<tr class="divide-x divide-slate-200 border-b border-slate-300"><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Data</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Dia</th><th class="px-4 py-3 text-center bg-slate-100 text-slate-600">Meta</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Realizado</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">%</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Abono/Fator</th><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Justificativa / Obs</th></tr>`;
+        if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = `< tr class="divide-x divide-slate-200 border-b border-slate-300" ><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Data</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Dia</th><th class="px-4 py-3 text-center bg-slate-100 text-slate-600">Meta</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Realizado</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">%</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Abono/Fator</th><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Justificativa / Obs</th></tr > `;
         const dadosUser = this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).sort((a, b) => a.data_referencia.localeCompare(b.data_referencia));
-        if (dadosUser.length === 0) { this.els.tabela.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Nenhum registro encontrado neste período.</td></tr>`; return; }
+        if (dadosUser.length === 0) { this.els.tabela.innerHTML = `< tr > <td colspan="7" class="text-center py-8 text-slate-400">Nenhum registro encontrado neste período.</td></tr > `; return; }
         this.els.tabela.innerHTML = dadosUser.map(d => {
             const dateObj = new Date(this.normalizarData(d.data_referencia) + 'T12:00:00');
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(uid));
@@ -1068,13 +1103,13 @@ Produtividade.Geral = {
             const metaDia = Math.round((metaObj ? (metaObj.meta_producao || 100) : 100) * fator);
             const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
             const obsHtml = `
-                <div class="flex flex-col gap-1">
-                    ${d.justificativa ? `<span class="text-amber-800 bg-amber-50 px-1 rounded border border-amber-100">[Gestão]: ${d.justificativa}</span>` : ''}
-                    ${d.observacao_assistente ? `<span class="text-blue-800 bg-blue-50 px-1 rounded border border-blue-100">[Eu]: ${d.observacao_assistente}</span>` : ''}
-                    ${!d.justificativa && !d.observacao_assistente ? '-' : ''}
-                </div>
-            `;
-            return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr>`;
+    < div class="flex flex-col gap-1" >
+        ${ d.justificativa ? `<span class="text-amber-800 bg-amber-50 px-1 rounded border border-amber-100">[Gestão]: ${d.justificativa}</span>` : '' }
+                    ${ d.observacao_assistente ? `<span class="text-blue-800 bg-blue-50 px-1 rounded border border-blue-100">[Eu]: ${d.observacao_assistente}</span>` : '' }
+                    ${ !d.justificativa && !d.observacao_assistente ? '-' : '' }
+                </div >
+    `;
+            return `< tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}" ><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr > `;
         }).join('');
     }
 };
