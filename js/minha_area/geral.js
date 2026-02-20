@@ -1049,3 +1049,11 @@ MinhaArea.Geral = {
         }
     }
 };
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.MinhaArea && window.MinhaArea.Geral) MinhaArea.Geral.init();
+    });
+} else {
+    if (window.MinhaArea && window.MinhaArea.Geral) MinhaArea.Geral.init();
+}
