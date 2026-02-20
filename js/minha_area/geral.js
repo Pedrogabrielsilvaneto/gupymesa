@@ -517,6 +517,16 @@ MinhaArea.Geral = {
         const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
         const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (diasUteisCalendario || 1);
 
+        if (managerDailyMeta > 0 || totalProd > 0) {
+            console.log(`[DEBUG VERIFICATION] Velocity Calc:\n` +
+                `  Total Prod: ${totalProd}\n` +
+                `  Dias Periodo (Divisor Real): ${diasPeriodo}\n` +
+                `  Meta Diaria Gestor: ${managerDailyMeta}\n` +
+                `  HC Final (Mult. Meta): ${hcFinal}\n` +
+                `  >> Real Calc: ${totalProd} / ${diasPeriodo} = ${Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1))}\n` +
+                `  >> Meta Calc: ${managerDailyMeta} * ${hcFinal} = ${Math.round(managerDailyMeta * hcFinal)}`);
+        }
+
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
