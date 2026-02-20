@@ -520,10 +520,11 @@ MinhaArea.Geral = {
         if (managerDailyMeta > 0 || totalProd > 0) {
             console.log(`[DEBUG VERIFICATION] Velocity Calc:\n` +
                 `  Total Prod: ${totalProd}\n` +
-                `  Dias Periodo (Divisor Real): ${diasPeriodo}\n` +
+                // [FIX] Agora usa diasUteisMeta (Calendário/Config) e não mais os dias uteis liquidos da gestora
+                `  Dias Periodo (Padronizado): ${diasUteisMeta} (Era ${diasPeriodo})\n` +
                 `  Meta Diaria Gestor: ${managerDailyMeta}\n` +
                 `  HC Final (Mult. Meta): ${hcFinal}\n` +
-                `  >> Real Calc: ${totalProd} / ${diasPeriodo} = ${Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1))}\n` +
+                `  >> Real Calc: ${totalProd} / ${diasUteisMeta} = ${Math.round(totalProd / (diasUteisMeta > 0 ? diasUteisMeta : 1))}\n` +
                 `  >> Meta Calc: ${managerDailyMeta} * ${hcFinal} = ${Math.round(managerDailyMeta * hcFinal)}`);
         }
 
@@ -532,7 +533,8 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario }, // [FIX] Exibe Max Real / Calendário
             velocidade: {
-                real: Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1)), // Media Diaria Real do TOTAL (incluindo abonos)
+                // [FIX] Usar diasUteisMeta (Calendário) para divisão da velocidade real também
+                real: Math.round(totalProd / (diasUteisMeta > 0 ? diasUteisMeta : 1)),
                 meta: managerDailyMeta > 0
                     ? Math.round(managerDailyMeta * hcFinal) // [FIX] Meta Fixa: 650 * 17 = 11050 (Independente de quantos trabalharam)
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
