@@ -75,3 +75,22 @@ CREATE POLICY "Inserir checkin" ON checkin_diario FOR INSERT WITH CHECK (auth.ui
 -- Policy: Gestores podem ver todos (Simplificado: authenticated pode ver tudo por enquanto, ou restrito por role depois)
 -- Para facilitar o MVP, vamos liberar SELECT para autenticados (Gestores precisam ver de todos)
 CREATE POLICY "Gestores veem checkins" ON checkin_diario FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Ver seus checkins" ON checkin_diario FOR SELECT USING (auth.uid() = usuario_uid);
+
+-- Policy: Usuário pode inserir seu próprio checkin
+CREATE POLICY "Inserir checkin" ON checkin_diario FOR INSERT WITH CHECK (auth.uid() = usuario_uid);
+
+-- Tabela de Check-in Diário (Produtividade)
+CREATE TABLE IF NOT EXISTS checkin_diario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_uid VARCHAR(255) NOT NULL,
+    data_referencia DATE NOT NULL,
+    status VARCHAR(50) DEFAULT 'CONFIRMADO',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_checkin (usuario_uid, data_referencia)
+);
+
+-- Políticas de Check-in (Simuladas no App via TiDB)
+-- (O TiDB não tem policies estilo Supabase, o controle é via filtro no Backend/App)r role depois)
+-- Para facilitar o MVP, vamos liberar SELECT para autenticados (Gestores precisam ver de todos)
+CREATE POLICY "Gestores veem checkins" ON checkin_diario FOR SELECT USING (auth.role() = 'authenticated');

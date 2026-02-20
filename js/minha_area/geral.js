@@ -936,18 +936,23 @@ MinhaArea.Geral = {
         }
 
         const dataRef = dataAlvo.toISOString().split('T')[0];
-        const uid = Sistema.auth.user.id;
+        const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
+
+        if (!uid) {
+            console.warn("Usuario nao autenticado para checkin");
+            return;
+        }
 
         console.log(`[CHECKIN] Verificando check-in para data: ${dataRef} (Hoje é dia ${diaSemanaHoje})`);
 
         try {
             // Verifica se já existe check-in para ontem
-            const { rows } = await Sistema.db.query(`
+            const rows = await Sistema.query(`
                 SELECT id FROM checkin_diario 
                 WHERE usuario_uid = ? AND data_referencia = ?
             `, [uid, dataRef]);
 
-            if (rows.length === 0) {
+            if (!rows || rows.length === 0) {
                 this.exibirModalCheckin(dataRef);
             }
         } catch (e) {
@@ -1002,8 +1007,9 @@ MinhaArea.Geral = {
         btn.disabled = true;
 
         try {
-            const uid = Sistema.auth.user.id;
-            await Sistema.db.execute(`
+            const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : Sistema.lerSessao().id;
+
+            await Sistema.query(`
                 INSERT INTO checkin_diario (usuario_uid, data_referencia, status)
                 VALUES (?, ?, 'CONFIRMADO')
             `, [uid, dataRef]);
