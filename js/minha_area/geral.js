@@ -526,9 +526,13 @@ MinhaArea.Geral = {
         const rangeFim = this.state.range.fim;
 
         // Se hoje estiver dentro do período selecionado, cortamos a contagem em HOJE.
+        console.log(`[DEBUG DATE] Hoje: ${hoje} | Range: ${rangeInicio} a ${rangeFim}`);
         if (hoje >= rangeInicio && hoje <= rangeFim) {
             // Conta dias uteis de Inicio até Hoje (inclusive)
             diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
+            console.log(`[DEBUG DATE] Aplicando Dias Decorridos: ${diasDivisorReal}`);
+        } else {
+            console.log(`[DEBUG DATE] Fora do range (ou futuro). Usando Total: ${diasDivisorReal}`);
         }
 
         if (managerDailyMeta > 0 || totalProd > 0) {
