@@ -940,9 +940,6 @@ MinhaArea.Geral = {
 
         console.log(`[CHECKIN] Verificando check-in para data: ${dataRef} (Hoje é dia ${diaSemanaHoje})`);
 
-        const dataRef = ontem.toISOString().split('T')[0];
-        const uid = Sistema.auth.user.id;
-
         try {
             // Verifica se já existe check-in para ontem
             const { rows } = await Sistema.db.query(`
