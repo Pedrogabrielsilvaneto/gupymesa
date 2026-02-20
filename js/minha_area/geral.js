@@ -19,13 +19,16 @@ MinhaArea.Geral = {
         headerOriginal: null,
         editando: { uid: null, data: null },
         isMacro: false,
-        headcountConfig: null
+        isMacro: false,
+        headcountConfig: null,
+        metaDiariaRestante: null // [NEW] Store calculated daily target
     },
 
     els: {
         tabelaHeader: document.querySelector('#ma-tab-diario thead'),
         tabela: document.getElementById('tabela-extrato'),
         totalFooter: document.getElementById('total-registros-footer'),
+        containerAlert: document.getElementById('container-checkin-alert'), // [NEW] Alert Container
 
         kpiVolume: document.getElementById('kpi-prod-real'),
         kpiMetaVolume: document.getElementById('kpi-prod-meta'),
@@ -363,6 +366,9 @@ MinhaArea.Geral = {
                 capacidade: { diasReal: item.soma_fator, diasTotal: item.dias_uteis_liquidos },
                 velocidade: { real: item.velocidade_acumulada, meta: item.meta_velocidade_media }
             });
+
+            // [NEW] Calcular e Exibir Alerta de Meta Diária Restante
+            this.calcularMetaDiariaRestante(item);
         }
 
         const dadosFiltrados = this.state.dadosProducao
@@ -1041,6 +1047,71 @@ MinhaArea.Geral = {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
+    },
+
+    // [NEW] Cálculo de Meta Diária Restante (Dias Úteis)
+    calcularMetaDiariaRestante: function (item) {
+        if (!this.els.containerAlert) return;
+
+        // Limpa alerta anterior
+        this.els.containerAlert.innerHTML = '';
+        this.els.containerAlert.className = 'hidden mb-4';
+
+        if (!item || this.state.isMacro) return; // Não mostra em visão macro (anual/trimestral)
+
+        const hoje = new Date();
+        const hojeStr = hoje.toISOString().split('T')[0];
+
+        // Verifica se hoje está dentro do range
+        // Se estiver no passado, não mostra. Se estiver no futuro, mostra tudo.
+        if (hojeStr > this.state.range.fim) return;
+
+        // Meta Mensal Total (ou do período)
+        const metaTotal = item.meta_total_periodo || 0;
+        const producaoAtual = item.producao || 0;
+        const faltaProduzir = Math.max(0, metaTotal - producaoAtual);
+
+        // Se já bateu a meta, mostra Parabéns!
+        if (faltaProduzir <= 0) {
+            this.els.containerAlert.innerHTML = `
+                <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r shadow-sm flex items-center justify-between animate-enter">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-emerald-100 text-emerald-600 rounded-full"><i class="fas fa-check-double"></i></div>
+                        <div>
+                            <p class="text-xs font-bold text-emerald-600 uppercase">Meta Batida!</p>
+                            <p class="text-sm text-emerald-900 font-bold">Parabéns! Você já atingiu sua meta para o período.</p>
+                        </div>
+                    </div>
+                </div>`;
+            this.els.containerAlert.classList.remove('hidden');
+            return;
+        }
+
+        // Dias Úteis Restantes (de HOJE até FIM do Range)
+        // Se hoje já teve produção (check no banco?), talvez devesse contar amanha. 
+        // Mas por simplicidade, vamos contar HOJE como dia util disponivel (se for < 18h ou algo assim? nao vamos complicar).
+        const inicioContagem = hojeStr < this.state.range.inicio ? this.state.range.inicio : hojeStr;
+        const diasUteisRestantes = this.contarDiasUteis(inicioContagem, this.state.range.fim);
+
+        if (diasUteisRestantes <= 0) return;
+
+        const metaDiariaNecessaria = Math.ceil(faltaProduzir / diasUteisRestantes);
+
+        this.els.containerAlert.innerHTML = `
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r shadow-sm flex items-center justify-between animate-enter">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><i class="fas fa-bullseye"></i></div>
+                    <div>
+                        <p class="text-xs font-bold text-blue-500 uppercase">Foco na Meta</p>
+                        <p class="text-sm text-blue-900 font-bold">Para bater a meta, você precisa de <span class="text-lg text-blue-700">${metaDiariaNecessaria}</span> por dia.</p>
+                    </div>
+                </div>
+                <div class="text-right hidden sm:block">
+                    <p class="text-xs text-slate-500">Faltam: <strong class="text-slate-700">${faltaProduzir}</strong> itens</p>
+                    <p class="text-xs text-slate-500">Dias úteis restantes: <strong class="text-slate-700">${diasUteisRestantes}</strong></p>
+                </div>
+            </div>`;
+        this.els.containerAlert.classList.remove('hidden');
     }
 };
 
