@@ -86,6 +86,12 @@ MinhaArea.Geral = {
 
             // Renderiza Diário (Se for Gestor, o renderizarDiario detecta e chama renderizarDiarioGestor internamente ou a própria lógica se adapta)
             // Como alvoReal agora sempre existe, ele sempre cairá no renderizarDiario
+            // Security Fallback: Se não for admin, força o alvo ser o próprio usuário
+            if (window.MinhaArea && !window.MinhaArea.isAdmin() && (!alvoReal || String(alvoReal) !== String(MinhaArea.usuario.id))) {
+                console.warn("🔒 [SEGURANÇA] Forçando visão para o usuário logado.");
+                alvoReal = MinhaArea.usuario.id;
+            }
+
             if (alvoReal) {
                 this.renderizarDiario(alvoReal);
             } else {
@@ -918,9 +924,11 @@ MinhaArea.Geral = {
         const hoje = new Date();
         const diaSemanaHoje = hoje.getDay(); // 0=Dom, 1=Seg...
 
+        console.log(`[CHECKIN DEBUG] Hoje: ${hoje.toLocaleDateString()} (Dia ${diaSemanaHoje})`);
+
         // Se hoje for Sábado (6) ou Domingo (0), não pede checkin
         if (diaSemanaHoje === 0 || diaSemanaHoje === 6) {
-            console.log("Hoje é fim de semana, sem check-in.");
+            console.log("[CHECKIN DEBUG] Fim de semana. Check-in dispensado.");
             return;
         }
 
@@ -939,24 +947,29 @@ MinhaArea.Geral = {
         const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
 
         if (!uid) {
-            console.warn("Usuario nao autenticado para checkin");
+            console.warn("[CHECKIN DEBUG] Usuario nao autenticado (UID null).");
             return;
         }
 
-        console.log(`[CHECKIN] Verificando check-in para data: ${dataRef} (Hoje é dia ${diaSemanaHoje})`);
+        console.log(`[CHECKIN DEBUG] Verificando check-in para UID: ${uid} | Data Ref: ${dataRef}`);
 
         try {
-            // Verifica se já existe check-in para ontem
+            // Verifica se já existe check-in para a data
             const rows = await Sistema.query(`
                 SELECT id FROM checkin_diario 
                 WHERE usuario_uid = ? AND data_referencia = ?
             `, [uid, dataRef]);
 
+            console.log(`[CHECKIN DEBUG] Resultado query:`, rows);
+
             if (!rows || rows.length === 0) {
+                console.log("[CHECKIN DEBUG] Check-in pendente. Exibindo modal...");
                 this.exibirModalCheckin(dataRef);
+            } else {
+                console.log("[CHECKIN DEBUG] Check-in já realizado.");
             }
         } catch (e) {
-            console.error("Erro ao verificar check-in:", e);
+            console.error("[CHECKIN DEBUG] Erro ao verificar check-in:", e);
         }
     },
 
