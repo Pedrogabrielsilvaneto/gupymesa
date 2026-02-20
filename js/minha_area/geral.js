@@ -315,7 +315,11 @@ MinhaArea.Geral = {
             // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
-            // [DEBUG] Monitorar Dias Excessivos
+            // [DEBUG] Monitorar Dias Excessivos e Usuários Específicos
+            if (item.nome.toLowerCase().includes('aparecida') || item.nome.toLowerCase().includes('camila')) {
+                console.log(`[DEBUG MA] ${item.nome} | Dias Uteis Liq: ${diasUteisLiquidos} | Dias Brutos: ${diastUteisUser} | Abonos: ${item.soma_abono}`);
+            }
+
             // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
@@ -539,6 +543,13 @@ MinhaArea.Geral = {
         // Força o cabeçalho idêntico à visão do assistente (v4.22)
         if (this.els.tabelaHeader) {
             this.els.tabelaHeader.innerHTML = `
+                <tr class="bg-slate-100 border-b border-slate-300">
+                    <td colspan="8" class="px-4 py-2">
+                        <button onclick="MinhaArea.mudarUsuarioAlvo('')" class="text-sm text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1">
+                            ⬅ Voltar para Visão de Equipe
+                        </button>
+                    </td>
+                </tr>
                 <tr class="divide-x divide-slate-200 border-b border-slate-300">
                     <th class="px-3 py-3 text-left bg-slate-50">Data</th>
                     <th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th>
