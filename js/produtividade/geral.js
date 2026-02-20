@@ -615,7 +615,6 @@ Produtividade.Geral = {
         // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
         if (metaDiariaGestor > 0) {
             totalMeta = metaDiariaGestor * this.getHeadcountConfig() * totalDiasUteis;
-            console.log(`[DEBUG PROD] Meta Padronizada: Base(${metaDiariaGestor}) * HC(${this.getHeadcountConfig()}) * Dias(${totalDiasUteis}) = ${totalMeta}`);
         } else {
             // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
             // O user pediu padronização. Se for 0, fica 0 ou soma. Vamos manter 0 para forçar configuração correta ou somar como fallback?

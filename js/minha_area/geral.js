@@ -500,12 +500,10 @@ MinhaArea.Geral = {
         // A regra diz: Meta Diária * HC * Dias. 
         if (managerDailyMeta > 0) {
             totalMeta = managerDailyMeta * hcFinal * diasUteisMeta;
-            console.log(`[DEBUG MA] Meta Padronizada: MetaGestor(${managerDailyMeta}) * HC(${hcFinal}) * Dias(${diasUteisMeta}) = ${totalMeta}`);
         } else {
             // Se não tiver meta de gestor, tenta estimar: 650 * HC * Dias
             const metaBase = 650;
             const calc = metaBase * hcFinal * diasUteisMeta;
-            console.log(`[DEBUG MA] Meta Estimada (Sem Gestor): Base(${metaBase}) * HC(${hcFinal}) * Dias(${diasUteisMeta}) = ${calc}`);
             if (totalMeta === 0) totalMeta = calc;
         }
 
@@ -525,8 +523,8 @@ MinhaArea.Geral = {
             capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario }, // [FIX] Exibe Max Real / Calendário
             velocidade: {
                 real: Math.round(totalProd / (diasPeriodo > 0 ? diasPeriodo : 1)), // Usa diasPeriodo calculado antes
-                meta: managerMeta > 0
-                    ? Math.round((managerMeta / diasPeriodo) * (realUserCount > 0 ? realUserCount : hcFinal)) // Ajuste para meta diária correta
+                meta: managerDailyMeta > 0
+                    ? Math.round((managerDailyMeta) * (realUserCount > 0 ? realUserCount : hcFinal)) // Ajuste para meta diária correta
                     : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
             }
         });
