@@ -498,15 +498,27 @@ Produtividade.Geral = {
 
             // [MODIFIED] Recalculo Dinâmico da Meta da Gestora com base no Filtro de Headcount
             const HC = this.getHeadcountConfig();
-            const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-            const diasUteisEquipe = this.getDiasUteisConfig();
+
+            // Calculamos dias uteis do periodo selecionado x dias uteis do mês configurado
+            const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            const diasUteisMes = this.getDiasUteisConfig();
+
+            // Regra de Proporcionalidade (mesma dos assistentes)
+            // Se o periodo selecionado for pelo menos 80% do mês, usa o cheio. Senão, usa o periodo exato.
+            let diasFinal = diasUteisPeriodo;
+            if (diasUteisPeriodo >= (diasUteisMes * 0.8)) {
+                diasFinal = diasUteisMes;
+            }
 
             // Usa a meta base que guardamos em `_meta_gestor_base` (ex: 650)
             const metaBaseGestor = gestoraItem._rawBaseMeta || 650;
 
             gestoraItem.meta_base_diaria = metaBaseGestor; // Para exibição no grid na coluna Meta (Gestão)
-            gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * (isPeriodo ? diasUteisEquipe : 1.0));
-            gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${diasUteisEquipe}`;
+
+            // Meta Calculada da Gestora = MetaDiaria * HC * Dias (Proporcionais ou Cheio)
+            gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * diasFinal);
+
+            gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${diasFinal}`;
 
             // Reinsere a Gestora no topo da lista final
             listaParaGrid.unshift(gestoraItem);
