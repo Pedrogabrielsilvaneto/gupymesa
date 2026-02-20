@@ -409,7 +409,7 @@ MinhaArea.Geral = {
     },
 
     renderizarGradeEquipe: function () {
-        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
+        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Dias Trab.</th><th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
         if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = headerGrade;
 
         const listaAssistentes = this.state.listaTabela.filter(row => !this.ehGestao(row.uid));
@@ -431,6 +431,7 @@ MinhaArea.Geral = {
                 return `
                     <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
                         <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
+                        <td class="px-2 py-3 text-center text-slate-700 font-medium bg-slate-50">${row.soma_fator}</td>
                         <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
                         <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
                         <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
@@ -480,19 +481,24 @@ MinhaArea.Geral = {
             }
         });
 
-        // Headcount Configurado ou Padrão 17 (Conforme regra de negócio)
-        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : 17;
+        // Headcount Configurado ou Real (countUsers)
+        // [FIX] Por padrão, usa o countUsers real da tabela. Só usa HC fixo se tiver config explícita E maior que 0.
+        // Isso evita que a capacidade "Meta" (diasTotal) fique inflada para 17 quando só tem 5 pessoas na lista.
+        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : countUsers;
 
         // Se houver meta de gestão definida, ela PREVALECE e é multiplicada pelo HC
+        // Mas se a metaIndependente (calculada dos assistentes) for mais fidedigna, poderíamos usar.
+        // A regra diz: Meta Global = Meta Gestor * HC.
         if (managerMeta > 0) {
             totalMeta = managerMeta * hcFinal;
         }
 
         // Estima dias úteis totais da equipe (Capacity)
         const realUserCount = countUsers;
-        const diasUteisTotais = (this.state.headcountConfig || hcFinal === 17)
-            ? (totalUteis / (realUserCount > 0 ? realUserCount : 1) * hcFinal)
-            : totalUteis;
+        // Se HC for igual ao real, usa totalUteis direto. Se for projetado, extrapola.
+        const diasUteisTotais = (hcFinal === realUserCount)
+            ? totalUteis
+            : (totalUteis / (realUserCount > 0 ? realUserCount : 1) * hcFinal);
 
         // Cálculo de Dias Médios do Período (para Velocidade Diária)
         // [FIX] Usar ehLiderancaReal para garantir que pegamos os dias da Gestora (Patrícia) e não de uma Auditora (Keila)
