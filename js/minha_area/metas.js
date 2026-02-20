@@ -776,13 +776,12 @@ MinhaArea.Metas = {
     },
 
     renderizarDashboardAssistente: function (uid) {
-        if (!document.getElementById('detalhe-nome')) { this.prepararContainer(); }
+        // [REF_FIX] Agora renderiza no Modal de Evolução (Barras + Linha)
         const user = this.cacheUsers.find(u => String(u.id) === String(uid));
         if (!user) return;
 
-        document.getElementById('detalhe-nome').innerText = user.nome;
-        document.getElementById('detalhe-funcao').innerText = user.funcao || 'Assistente';
-        document.getElementById('detalhe-contrato').innerText = user.contrato || 'CLT';
+        document.getElementById('evolucao-nome').innerText = user.nome;
+        document.getElementById('evolucao-funcao').innerText = user.funcao || 'Assistente';
 
         const labels = [];
         const dataProd = [];
@@ -794,7 +793,7 @@ MinhaArea.Metas = {
             labels.push(col.label);
             const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 97 };
             dataProd.push(dados.velocidade);
-            dataMetaProd.push(dados.metaProd || 0);
+            dataMetaProd.push(dados.metaProd || 0); // Garante que usa a meta individual do cache
             dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
             dataMetaAssert.push(dados.metaAssert || 97);
         });
@@ -802,28 +801,44 @@ MinhaArea.Metas = {
         const stats = this.statsUsers[String(uid)] || { prod: 0, dias_efetivos: 0, somaMediasMensais: 0, countMesesComDados: 0, acc_assert_ratio: 0, qtd_auditorias: 0 };
         const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
         const media = this.isMacroView ? Math.round(stats.somaMediasMensais / divisor) : Math.round(stats.prod / divisor);
-        const assertFinal = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
 
-        document.getElementById('detalhe-kpi-media').innerText = media;
-        document.getElementById('detalhe-kpi-total').innerText = stats.prod.toLocaleString('pt-BR');
-        document.getElementById('detalhe-kpi-assert').innerText = assertFinal > 0 ? assertFinal.toFixed(1) + '%' : '-';
+        // Populate KPIs in Modal Header
+        document.getElementById('evolucao-kpi-media').innerText = media;
+        document.getElementById('evolucao-kpi-total').innerText = stats.prod.toLocaleString('pt-BR');
 
+        // Chart 1: Produção (BARRAS) - Evolution
         if (this.chartDetailProd) this.chartDetailProd.destroy();
-        const ctxProd = document.getElementById('canvas-detail-prod').getContext('2d');
+        const ctxProd = document.getElementById('canvas-evolucao-prod').getContext('2d');
         this.chartDetailProd = new Chart(ctxProd, {
-            type: 'bar',
+            type: 'bar', // [REQ] Barras para evolução
             data: {
                 labels: labels,
                 datasets: [
-                    { label: 'Meta', data: dataMetaProd, type: 'line', borderColor: '#94a3b8', borderWidth: 2, pointRadius: 0, borderDash: [5, 5], order: 1 },
-                    { label: 'Produção', data: dataProd, backgroundColor: '#2563eb', borderRadius: 4, order: 2 }
+                    {
+                        label: 'Meta',
+                        data: dataMetaProd,
+                        type: 'line',
+                        borderColor: '#94a3b8',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        borderDash: [5, 5],
+                        order: 1
+                    },
+                    {
+                        label: 'Produção',
+                        data: dataProd,
+                        backgroundColor: '#2563eb',
+                        borderRadius: 4,
+                        order: 2
+                    }
                 ]
             },
             options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
         });
 
+        // Chart 2: Qualidade (LINHA)
         if (this.chartDetailAssert) this.chartDetailAssert.destroy();
-        const ctxAssert = document.getElementById('canvas-detail-assert').getContext('2d');
+        const ctxAssert = document.getElementById('canvas-evolucao-assert').getContext('2d');
         this.chartDetailAssert = new Chart(ctxAssert, {
             type: 'line',
             data: {
@@ -835,6 +850,16 @@ MinhaArea.Metas = {
             },
             options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 80, max: 105 } } }
         });
+    },
+
+    abrirDetalhe: function (uid) {
+        // [REF_FIX] Abre o Modal de Evolução (Individual) em vez do Comparativo
+        this.renderizarDashboardAssistente(uid);
+        const modal = document.getElementById('modal-evolucao-metas');
+        if (modal) {
+            modal.classList.remove('hidden', 'pointer-events-none');
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
     },
 
     // [NEW] Abre o modal de comparação geral ao clicar nos cards de resumo
@@ -919,6 +944,11 @@ MinhaArea.Metas = {
 
     fecharModalComparativo: function () {
         const modal = document.getElementById('modal-comparativo-metas');
+        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
+    },
+
+    fecharModalEvolucao: function () {
+        const modal = document.getElementById('modal-evolucao-metas');
         if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
     },
 

@@ -712,6 +712,72 @@
         </div>
     </div>
 
+    <!-- [NEW] Modal de Evolução Individual (Bar Chart) -->
+    <div id="modal-evolucao-metas"
+        class="fixed inset-0 z-[70] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div
+            class="bg-white w-[95%] max-w-5xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-chart-bar text-blue-600"></i> Evolução Individual
+                    </h3>
+                    <div class="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                        <span id="evolucao-nome" class="font-bold text-slate-700">--</span>
+                        <span class="text-slate-300">|</span>
+                        <span id="evolucao-funcao">--</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex gap-4 text-right mr-4 border-r border-slate-200 pr-4">
+                        <div>
+                            <span class="block text-[9px] uppercase font-bold text-slate-400">Média/Dia</span>
+                            <span id="evolucao-kpi-media" class="text-lg font-black text-blue-600">0</span>
+                        </div>
+                        <div>
+                            <span class="block text-[9px] uppercase font-bold text-slate-400">Total</span>
+                            <span id="evolucao-kpi-total" class="text-lg font-black text-slate-700">0</span>
+                        </div>
+                    </div>
+                    <button onclick="MinhaArea.Metas.fecharModalEvolucao()"
+                        class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 p-6 overflow-y-auto bg-slate-50/50">
+                <div class="flex flex-col gap-6 h-full pb-6">
+                    <!-- Produção (Barras) -->
+                    <div
+                        class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative h-[45%] min-h-[250px]">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex justify-between">
+                            <span>Produção Diária</span>
+                            <span
+                                class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Barras</span>
+                        </h4>
+                        <div class="flex-1 w-full min-h-0 relative">
+                            <canvas id="canvas-evolucao-prod"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Assertividade (Linha) -->
+                    <div
+                        class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative h-[45%] min-h-[250px]">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex justify-between">
+                            <span>Assertividade e Qualidade</span>
+                            <span
+                                class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-100">Linha</span>
+                        </h4>
+                        <div class="flex-1 w-full min-h-0 relative">
+                            <canvas id="canvas-evolucao-assert"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-obs-assistente"
         class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/50 backdrop-blur-sm transition-opacity opacity-0 pointer-events-none"
         style="transition: opacity 0.3s;">
@@ -781,6 +847,15 @@
         }
 
         #modal-comparativo-metas.active>div {
+            transform: scale(100%);
+        }
+
+        #modal-evolucao-metas.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #modal-evolucao-metas.active>div {
             transform: scale(100%);
         }
     </style>
