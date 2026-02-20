@@ -314,9 +314,7 @@ MinhaArea.Geral = {
             // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
-            // [LOGIC] Dias Trabalhados (Disponíveis para Meta)
-            // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
-            const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
+
 
             // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
