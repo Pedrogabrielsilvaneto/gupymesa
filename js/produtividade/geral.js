@@ -447,24 +447,20 @@ Produtividade.Geral = {
         const listaOriginal = this.state.listaTabela || [];
 
         // 1. Separa Gestora
-        // 1. Separa Gestora
         let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
 
         const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         // 2. Filtra Staff Base (Contrato, Nome)
-        // [FIX v4.31] Rely on centralized preFiltrar (which handles contract filtering via HUD)
         let listaBase = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
 
         // 3. Filtro de Produção > 0 (Para listas de Soma)
-        // Lista Full = Inclui Auditores/Gestores/Coord (Para Soma de Produção)
         let listaParaSomaProducao = listaBase.filter(item => item.producao > 0);
 
         // 4. Filtro de Gestão (Para Grid e Soma de Assertividade)
-        // Lista Grid = Apenas Assistentes (Para visualização e Média Assertividade)
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
         let listaParaGrid = listaParaSomaProducao.filter(item => {
             const u = this.state.mapaUsuarios[item.uid] || {};
@@ -481,7 +477,7 @@ Produtividade.Geral = {
 
         // 5. Agrega Staff na Gestora
         if (gestoraItem) {
-            // Preserva valores originais da gestora (Cache) para evitar acumulo infinito no re-render
+            // Preserva valores originais da gestora
             if (gestoraItem._ownProd === undefined) gestoraItem._ownProd = gestoraItem.producao || 0;
             if (gestoraItem._ownFifo === undefined) gestoraItem._ownFifo = gestoraItem.fifo || 0;
             if (gestoraItem._ownGt === undefined) gestoraItem._ownGt = gestoraItem.gt || 0;
@@ -493,8 +489,7 @@ Produtividade.Geral = {
 
             let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
 
-            // A) Produção: Soma TODOS (Assistentes + Auditores + Própria Gestora)
-            // Soma da lista completa filtrada por produção
+            // A) Produção: Soma TODOS
             listaParaSomaProducao.forEach(i => {
                 soma.prod += i.producao;
                 soma.fifo += i.fifo;
@@ -507,7 +502,7 @@ Produtividade.Geral = {
             soma.gt += gestoraItem._ownGt;
             soma.gp += gestoraItem._ownGp;
 
-            // B) Assertividade: Soma APENAS Grid (Assistentes)
+            // B) Assertividade: Soma APENAS Grid
             listaParaGrid.forEach(i => {
                 soma.qtd_assert += i.qtd_assert;
                 if (i.media_final > 0) {
@@ -515,7 +510,6 @@ Produtividade.Geral = {
                     soma.count_assert += i.qtd_assert;
                 }
             });
-            // NOTA: Assertividade própria da gestora NÃO entra na média ("somente na média que não conta")
 
             gestoraItem.producao = soma.prod;
             gestoraItem.fifo = soma.fifo;
@@ -525,35 +519,24 @@ Produtividade.Geral = {
             gestoraItem.media_final = soma.count_assert > 0 ? (soma.soma_media / soma.count_assert) : 0;
             gestoraItem.fator = 1.0;
 
-            // [MODIFIED] Recalculo Dinâmico da Meta da Gestora com base no Filtro de Headcount
+            // Recalculo Dinâmico da Meta da Gestora
             const HC = this.getHeadcountConfig();
-
-            // Calculamos dias uteis do periodo selecionado x dias uteis do mês configurado
             const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
             const diasUteisMes = this.getDiasUteisConfig();
 
-            // Regra de Proporcionalidade (mesma dos assistentes)
-            // Se o periodo selecionado for pelo menos 80% do mês, usa o cheio. Senão, usa o periodo exato.
             let diasFinal = diasUteisPeriodo;
             if (diasUteisPeriodo >= (diasUteisMes * 0.8)) {
                 diasFinal = diasUteisMes;
             }
 
-            // Usa a meta base que guardamos em `_meta_gestor_base` (ex: 650)
             const metaBaseGestor = gestoraItem._rawBaseMeta || 650;
-
-            gestoraItem.meta_base_diaria = metaBaseGestor; // Para exibição no grid na coluna Meta (Gestão)
-
-            // Meta Calculada da Gestora = MetaDiaria * HC * Dias (Proporcionais ou Cheio)
+            gestoraItem.meta_base_diaria = metaBaseGestor;
             gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * diasFinal);
-
             gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${diasFinal}`;
 
-            // Reinsere a Gestora no topo da lista final
             listaParaGrid.unshift(gestoraItem);
         }
 
-        // Define a lista final de exibição
         const listaExibicao = listaParaGrid;
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
@@ -562,63 +545,33 @@ Produtividade.Geral = {
         }
         this.els.tabela.innerHTML = '';
 
-        if (listaExibicao.length === 0) {
-            this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-slate-400">Nenhum dado encontrado com os filtros atuais.</td></tr>`;
-            if (this.els.totalFooter) this.els.totalFooter.textContent = '0';
-            return;
-        }
+        // Empty State Festivo
+        const apenasGestora = listaExibicao.length === 1 && listaExibicao[0].isAggregatedManager;
+        const listaVazia = listaExibicao.length === 0;
 
-        if (this.els.totalFooter) this.els.totalFooter.textContent = listaExibicao.length;
+        if (apenasGestora || listaVazia) {
+            const dataRef = new Date(this.state.range.fim);
+            const diaSemana = dataRef.getDay(); // 0 = Domingo, 6 = Sábado
+            const isFimDeSemana = (diaSemana === 0 || diaSemana === 6);
 
-        const html = listaExibicao.map(row => {
-            const mediaAssert = row.media_final;
-            const metaParaCalculo = row.meta_real_calculada;
-            const pctProd = metaParaCalculo > 0 ? Math.round((row.producao / metaParaCalculo) * 100) : 0;
-            const isAbonado = row.fator < 1.0;
-            const isChecked = this.state.selecionados.has(String(row.uid));
+            let titulo = "";
+            let msg = "";
+            let icone = "";
+            let cor = "";
 
-            // Estilo da linha: Gestora (Verde), Abonado (Amarelo), Selecionado (Azul)
-            let rowClass = 'hover:bg-slate-50';
-            if (row.isAggregatedManager) rowClass = 'bg-emerald-100 border-b-2 border-emerald-200';
-            else if (isAbonado) rowClass = 'bg-amber-50/40';
-            else if (isChecked) rowClass = 'bg-blue-50';
-
-            let assertHtml = '<span class="text-slate-300">-</span>';
-            if (mediaAssert !== null && row.qtd_assert > 0) {
-                const cor = mediaAssert >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
-                assertHtml = `<div class="flex flex-col items-center leading-tight">
-                    <span class="${cor} font-bold">${mediaAssert.toFixed(2)}%</span>
-                    <span class="text-[9px] text-slate-400">(${row.qtd_assert} docs)</span>
-                </div>`;
+            if (isFimDeSemana) {
+                titulo = "Bom descanso! 🏖️";
+                msg = "Aproveite o final de semana para recarregar as energias. Nada de trabalho por hoje!";
+                icone = "fa-umbrella-beach";
+                cor = "text-emerald-500";
+            } else {
+                titulo = "Tudo pronto para começar! 🚀";
+                msg = "Ainda não temos dados de produção para este período. Que tal incentivar o time?";
+                icone = "fa-rocket";
+                cor = "text-blue-500";
             }
 
-            // [FIX] Se só tiver a gestora (ou nem ela), e nenhum assistente com produção/dados, mostrar Estado Vazio Festivo
-            const apenasGestora = listaExibicao.length === 1 && listaExibicao[0].isAggregatedManager;
-            const listaVazia = listaExibicao.length === 0;
-
-            if (apenasGestora || listaVazia) {
-                const dataRef = new Date(this.state.range.fim);
-                const diaSemana = dataRef.getDay(); // 0 = Domingo, 6 = Sábado
-                const isFimDeSemana = (diaSemana === 0 || diaSemana === 6);
-
-                let titulo = "";
-                let msg = "";
-                let icone = "";
-                let cor = "";
-
-                if (isFimDeSemana) {
-                    titulo = "Bom descanso! 🏖️";
-                    msg = "Aproveite o final de semana para recarregar as energias. Nada de trabalho por hoje!";
-                    icone = "fa-umbrella-beach";
-                    cor = "text-emerald-500";
-                } else {
-                    titulo = "Tudo pronto para começar! 🚀";
-                    msg = "Ainda não temos dados de produção para este período. Que tal incentivar o time?";
-                    icone = "fa-rocket";
-                    cor = "text-blue-500";
-                }
-
-                this.els.tabela.innerHTML = `
+            this.els.tabela.innerHTML = `
                 <tr>
                     <td colspan="12" class="py-12 text-center">
                         <div class="flex flex-col items-center justify-center gap-3 animate-fade-in-up">
@@ -629,56 +582,58 @@ Produtividade.Geral = {
                     </td>
                 </tr>
              `;
-                this.atualizarBarraFlutuante();
-                this.atualizarDestaques([]);
-                return;
+            this.atualizarBarraFlutuante();
+            this.atualizarDestaques([]);
+            return;
+        }
+
+        if (this.els.totalFooter) this.els.totalFooter.textContent = listaExibicao.length;
+
+        const html = listaExibicao.map(row => {
+            const metaParaCalculo = row.meta_real_calculada || 1;
+            const pctProd = metaParaCalculo > 0 ? Math.round((row.producao / metaParaCalculo) * 100) : 0;
+            const isAbonado = row.fator < 1.0;
+            const isChecked = this.state.selecionados.has(String(row.uid));
+
+            let rowClass = 'hover:bg-slate-50';
+            if (row.isAggregatedManager) rowClass = 'bg-emerald-100 border-b-2 border-emerald-200';
+            else if (isAbonado) rowClass = 'bg-amber-50/40';
+            else if (isChecked) rowClass = 'bg-blue-50';
+
+            let assertHtml = '<span class="text-slate-300">-</span>';
+            const mediaAssert = row.media_final || 0;
+            if (mediaAssert !== null && row.qtd_assert > 0) {
+                const cor = mediaAssert >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
+                assertHtml = `<div class="flex flex-col items-center leading-tight">
+                    <span class="${cor} font-bold">${mediaAssert.toFixed(2)}%</span>
+                    <span class="text-[9px] text-slate-400">(${row.qtd_assert} docs)</span>
+                </div>`;
             }
 
-            const html = listaExibicao.map(row => {
-                const metaParaCalculo = row.meta_real_calculada || 1;
-                const pctProd = metaParaCalculo > 0 ? Math.round((row.producao / metaParaCalculo) * 100) : 0;
-                const isAbonado = row.fator < 1.0;
-                const isChecked = this.state.selecionados.has(String(row.uid));
+            // Check-in Icon Logic
+            let checkinIcon = '';
+            const isSingleDay = this.state.range.inicio === this.state.range.fim;
 
-                // Estilo da linha: Gestora (Verde), Abonado (Amarelo), Selecionado (Azul)
-                let rowClass = 'hover:bg-slate-50';
-                if (row.isAggregatedManager) rowClass = 'bg-emerald-100 border-b-2 border-emerald-200';
-                else if (isAbonado) rowClass = 'bg-amber-50/40';
-                else if (isChecked) rowClass = 'bg-blue-50';
+            if (!row.isAggregatedManager && isSingleDay) {
+                const dataRef = this.state.range.inicio;
+                const chaveCheckin = `${row.uid}_${dataRef}`;
+                const hasCheckin = this.state.mapaCheckins && this.state.mapaCheckins.has(chaveCheckin);
 
-                let assertHtml = '<span class="text-slate-300">-</span>';
-                const mediaAssert = row.media_final || 0;
-                if (mediaAssert !== null && row.qtd_assert > 0) {
-                    const cor = mediaAssert >= row.meta_assert ? 'text-emerald-600' : 'text-rose-600';
-                    assertHtml = `<div class="flex flex-col items-center leading-tight">
-                        <span class="${cor} font-bold">${mediaAssert.toFixed(2)}%</span>
-                        <span class="text-[9px] text-slate-400">(${row.qtd_assert} docs)</span>
-                    </div>`;
+                if (hasCheckin) {
+                    checkinIcon = `<i class="fas fa-check-double text-emerald-500 ml-1" title="Check-in Realizado"></i>`;
+                } else {
+                    checkinIcon = `<i class="fas fa-clock text-slate-300 ml-1 opacity-50" title="Aguardando Check-in"></i>`;
                 }
+            }
 
-                // [NEW] Check-in Status
-                let checkinIcon = '';
-                const isSingleDay = this.state.range.inicio === this.state.range.fim;
+            // Safe Justificativa
+            const valJustificativa = row.justificativa ? row.justificativa.replace(/"/g, '&quot;') : '';
+            const valObs = row.observacao_assistente ? row.observacao_assistente.replace(/"/g, '&quot;') : '';
 
-                // Só exibe ícone se for Staff (não Gestora Agregada) e se estiver vendo 1 dia
-                if (!row.isAggregatedManager && isSingleDay) {
-                    const dataRef = this.state.range.inicio; // Dia atual da visão
-                    // Check-in é sempre sobre o dia anterior? Depende da regra.
-                    // REGRA: O check-in gravado no banco tem `data_referencia` = DIA QUE O DADO SE REFERE.
-                    // Se o grid mostra dia 10/02, procuramos check-in com data_referencia = 10/02.
-                    // (O check-in real acontece no dia 11/02, mas a data salva é 10/02)
+            // Safe Data
+            const valData = row.data || '';
 
-                    const chaveCheckin = `${row.uid}_${dataRef}`;
-                    const hasCheckin = this.state.mapaCheckins && this.state.mapaCheckins.has(chaveCheckin);
-
-                    if (hasCheckin) {
-                        checkinIcon = `<i class="fas fa-check-double text-emerald-500 ml-1" title="Check-in Realizado"></i>`;
-                    } else {
-                        checkinIcon = `<i class="fas fa-clock text-slate-300 ml-1 opacity-50" title="Aguardando Check-in"></i>`;
-                    }
-                }
-
-                return `
+            return `
                 <tr class="${rowClass} border-b border-slate-200 text-xs transition-colors group">
                     <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')" ${row.isAggregatedManager ? 'disabled' : ''}></td>
                     <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : (row.isAggregatedManager ? 'hidden' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500')}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
@@ -689,510 +644,510 @@ Produtividade.Geral = {
                             ${checkinIcon}
                         </div>
                     </td>
-                        <td class="px-2 py-3 text-center text-slate-500 font-mono bg-slate-50 border-x border-slate-100">${row.meta_base_diaria}</td>
-                        <td class="px-2 py-3 text-center font-mono text-slate-400">${row.fifo}</td>
-                        <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gt}</td>
-                        <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gp}</td>
-                        <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20 border-x border-slate-100">${row.producao}</td>
-                        <td class="px-2 py-3 text-center text-slate-700 font-bold bg-slate-50">${metaParaCalculo}</td>
-                        <td class="px-2 py-3 text-center"><span class="font-bold ${pctProd >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pctProd}%</span></td>
-                        <td class="px-2 py-3 text-center bg-emerald-50/20 border-x border-slate-100">${assertHtml}</td>
-                        <td class="px-2 py-3 min-w-[200px]">
-                            <div class="flex flex-col gap-1">
-                                <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação Gestão...'}" value="${row.justificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${row.data}', 'justificativa', this.value)">
-                                ${row.observacao_assistente ? `<div class="bg-blue-50/50 p-1 rounded text-[10px] text-blue-800 italic border border-blue-100 flex items-center gap-1" title="Observação do Assistente"><i class="fas fa-comment-dots text-blue-400"></i> ${row.observacao_assistente}</div>` : ''}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                    <td class="px-2 py-3 text-center text-slate-500 font-mono bg-slate-50 border-x border-slate-100">${row.meta_base_diaria}</td>
+                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.fifo}</td>
+                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gt}</td>
+                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gp}</td>
+                    <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20 border-x border-slate-100">${row.producao}</td>
+                    <td class="px-2 py-3 text-center text-slate-700 font-bold bg-slate-50">${metaParaCalculo}</td>
+                    <td class="px-2 py-3 text-center"><span class="font-bold ${pctProd >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pctProd}%</span></td>
+                    <td class="px-2 py-3 text-center bg-emerald-50/20 border-x border-slate-100">${assertHtml}</td>
+                    <td class="px-2 py-3 min-w-[200px]">
+                        <div class="flex flex-col gap-1">
+                            <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação Gestão...'}" value="${valJustificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${valData}', 'justificativa', this.value)">
+                            ${row.observacao_assistente ? `<div class="bg-blue-50/50 p-1 rounded text-[10px] text-blue-800 italic border border-blue-100 flex items-center gap-1" title="Observação do Assistente"><i class="fas fa-comment-dots text-blue-400"></i> ${row.observacao_assistente}</div>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
-            this.els.tabela.innerHTML = html;
-            this.atualizarBarraFlutuante();
-            this.atualizarDestaques(listaExibicao);
-        },
+        this.els.tabela.innerHTML = html;
+        this.atualizarBarraFlutuante();
+        this.atualizarDestaques(listaExibicao);
+    },
 
-            calcularKpisGlobal: function () {
-                // Aplica filtros se a engine estiver carregada
-                const listaOriginal = this.state.listaTabela || [];
-                const listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
-                    ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
-                    : listaOriginal;
+    calcularKpisGlobal: function () {
+        // Aplica filtros se a engine estiver carregada
+        const listaOriginal = this.state.listaTabela || [];
+        const listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
+            ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
+            : listaOriginal;
 
-                // [FIX v4.36] Sum directly from raw production array to avoid missing filtered individuals (managers/auditors)
-                let totalProd = this.state.dadosProducao.reduce((acc, p) => acc + (Number(p.quantidade) || 0), 0);
-                let totalMeta = 0;
-                let somaPontosAssert = 0, totalDocsAssert = 0;
-                let somaMetaAssert = 0, countUsersMeta = 0;
-                let assistentesComProducao = new Set();
-                let datasComProducao = new Set();
-                let totalDiasUteis = this.getDiasUteisConfig();
-                let totalAbonoEquipe = 0;
+        // [FIX v4.36] Sum directly from raw production array to avoid missing filtered individuals (managers/auditors)
+        let totalProd = this.state.dadosProducao.reduce((acc, p) => acc + (Number(p.quantidade) || 0), 0);
+        let totalMeta = 0;
+        let somaPontosAssert = 0, totalDocsAssert = 0;
+        let somaMetaAssert = 0, countUsersMeta = 0;
+        let assistentesComProducao = new Set();
+        let datasComProducao = new Set();
+        let totalDiasUteis = this.getDiasUteisConfig();
+        let totalAbonoEquipe = 0;
 
-                // Adiciona Meta da Gestora Explicitamente
-                const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
-                let metaDiariaGestor = 0;
+        // Adiciona Meta da Gestora Explicitamente
+        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        let metaDiariaGestor = 0;
 
-                if (gestoraItem) {
-                    // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
-                    // [FIX] Usar `_meta_gestor_base` que foi definido em `processarDadosUnificados`
-                    metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 0);
-                    if (metaDiariaGestor === 0) metaDiariaGestor = gestoraItem.meta_base_diaria || 0;
-                    console.log(`[DEBUG PROD] Gestora Encontrada: ${gestoraItem.nome} | MetaDiaria: ${metaDiariaGestor} | BaseStored: ${gestoraItem._meta_gestor_base} `);
-                } else {
-                    console.log(`[DEBUG PROD] NENHUMA GESTORA ENCONTRADA NA LISTA DE 0 A ${listaOriginal.length} `);
-                    listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
+        if (gestoraItem) {
+            // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
+            // [FIX] Usar `_meta_gestor_base` que foi definido em `processarDadosUnificados`
+            metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 0);
+            if (metaDiariaGestor === 0) metaDiariaGestor = gestoraItem.meta_base_diaria || 0;
+            console.log(`[DEBUG PROD] Gestora Encontrada: ${gestoraItem.nome} | MetaDiaria: ${metaDiariaGestor} | BaseStored: ${gestoraItem._meta_gestor_base} `);
+        } else {
+            console.log(`[DEBUG PROD] NENHUMA GESTORA ENCONTRADA NA LISTA DE 0 A ${listaOriginal.length} `);
+            listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
+        }
+
+        // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
+        // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
+        if (metaDiariaGestor > 0) {
+            totalMeta = metaDiariaGestor * this.getHeadcountConfig() * totalDiasUteis;
+        } else {
+            // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
+            // O user pediu padronização. Se for 0, fica 0 ou soma. Vamos manter 0 para forçar configuração correta ou somar como fallback?
+            // Vamos zerar aqui e deixar o loop abaixo somar SE não tiver meta definida.
+            totalMeta = 0;
+        }
+
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+
+        listaExibicao.forEach(i => {
+            if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
+
+            // [FIX] Só soma meta individual se NÃO tivermos calculado a meta global via Formula da Gestora
+            if (metaDiariaGestor === 0) {
+                totalMeta += i.meta_real_calculada;
+            }
+
+            if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
+            if (i.producao > 0) assistentesComProducao.add(i.uid);
+            if (i.qtd_assert > 0 && i.media_final !== null) {
+                somaPontosAssert += (i.media_final * i.qtd_assert);
+                totalDocsAssert += i.qtd_assert;
+            }
+
+            // Cálculo para redução de HC por Abono (Apenas Equipe)
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
+
+            if (!ehGestao && !this.ehAdmin(i.uid)) {
+                if (i.fator < 1.0) {
+                    totalAbonoEquipe += (1.0 - i.fator);
+                }
+            }
+        });
+
+        this.state.dadosProducao.forEach(p => { if (p.quantidade > 0) datasComProducao.add(p.data_referencia); });
+
+        const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
+
+        let totalHeadcountDefinido = this.getHeadcountConfig();
+
+        // Aplica Redução Efetiva de Abonos (Regra: soma abonos e tira o floor)
+        const reducaoHcAbono = Math.floor(totalAbonoEquipe + 0.001); // 0.001 evita problemas de float (ex: 0.99999)
+        const headcountEfetivo = Math.max(1, totalHeadcountDefinido - reducaoHcAbono);
+
+        const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
+
+        let maxMetaProducao = 0;
+        let assistentesReaisComProducao = 0;
+        let totalAbonoParticipante = 0; // Abono apenas de quem teve produção > 0
+
+        // Reprocessa para contar assistentes e achar a MAIOR META (Velocity Target)
+        listaExibicao.forEach(i => {
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
+
+            if (!ehGestao && !this.ehAdmin(i.uid)) {
+                if (i.producao > 0) {
+                    assistentesReaisComProducao++;
+                    // Se teve produção mas teve abono (ex: meio dia), soma para abater do count real
+                    if (i.fator < 1.0) totalAbonoParticipante += (1.0 - i.fator);
                 }
 
-                // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
-                // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
-                if (metaDiariaGestor > 0) {
-                    totalMeta = metaDiariaGestor * this.getHeadcountConfig() * totalDiasUteis;
-                } else {
-                    // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
-                    // O user pediu padronização. Se for 0, fica 0 ou soma. Vamos manter 0 para forçar configuração correta ou somar como fallback?
-                    // Vamos zerar aqui e deixar o loop abaixo somar SE não tiver meta definida.
-                    totalMeta = 0;
-                }
+                const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
+                const metaVal = metaObj ? Number(metaObj.meta_producao) : 100;
+                if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
+            }
+        });
 
-                const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        if (maxMetaProducao === 0) maxMetaProducao = 100;
 
-                listaExibicao.forEach(i => {
-                    if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
+        // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
+        const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 
-                    // [FIX] Só soma meta individual se NÃO tivermos calculado a meta global via Formula da Gestora
-                    if (metaDiariaGestor === 0) {
-                        totalMeta += i.meta_real_calculada;
-                    }
+        // [FIX] Define divisor de dias: Se hoje estiver no range, usa dias decorridos. Senão dias totais.
+        const hoje = new Date().toISOString().split('T')[0];
+        const rangeInicio = this.state.range.inicio;
+        const rangeFim = this.state.range.fim;
+        let diasDivisorReal = totalDiasUteis;
 
-                    if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
-                    if (i.producao > 0) assistentesComProducao.add(i.uid);
-                    if (i.qtd_assert > 0 && i.media_final !== null) {
-                        somaPontosAssert += (i.media_final * i.qtd_assert);
-                        totalDocsAssert += i.qtd_assert;
-                    }
+        if (hoje >= rangeInicio && hoje <= rangeFim) {
+            diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
+        }
 
-                    // Cálculo para redução de HC por Abono (Apenas Equipe)
-                    const u = this.state.mapaUsuarios[i.uid] || {};
-                    const funcao = (u.funcao || '').toLowerCase();
-                    const perfil = (u.perfil || '').toLowerCase();
-                    const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
+        // Média Diária Global usa dias decorridos para mostrar o "Pace" real atual
+        const mediaProducaoDiariaGlobal = diasDivisorReal > 0 ? (totalProd / diasDivisorReal) : 0;
+        const denominadorVelocidade = headcountEfetivo;
+        const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
 
-                    if (!ehGestao && !this.ehAdmin(i.uid)) {
-                        if (i.fator < 1.0) {
-                            totalAbonoEquipe += (1.0 - i.fator);
-                        }
-                    }
-                });
-
-                this.state.dadosProducao.forEach(p => { if (p.quantidade > 0) datasComProducao.add(p.data_referencia); });
-
-                const mediaAssert = totalDocsAssert > 0 ? (somaPontosAssert / totalDocsAssert) : 0;
-
-                let totalHeadcountDefinido = this.getHeadcountConfig();
-
-                // Aplica Redução Efetiva de Abonos (Regra: soma abonos e tira o floor)
-                const reducaoHcAbono = Math.floor(totalAbonoEquipe + 0.001); // 0.001 evita problemas de float (ex: 0.99999)
-                const headcountEfetivo = Math.max(1, totalHeadcountDefinido - reducaoHcAbono);
-
-                const metaGlobalAssert = countUsersMeta > 0 ? (somaMetaAssert / countUsersMeta) : 97;
-
-                let maxMetaProducao = 0;
-                let assistentesReaisComProducao = 0;
-                let totalAbonoParticipante = 0; // Abono apenas de quem teve produção > 0
-
-                // Reprocessa para contar assistentes e achar a MAIOR META (Velocity Target)
-                listaExibicao.forEach(i => {
-                    const u = this.state.mapaUsuarios[i.uid] || {};
-                    const funcao = (u.funcao || '').toLowerCase();
-                    const perfil = (u.perfil || '').toLowerCase();
-                    const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
-
-                    if (!ehGestao && !this.ehAdmin(i.uid)) {
-                        if (i.producao > 0) {
-                            assistentesReaisComProducao++;
-                            // Se teve produção mas teve abono (ex: meio dia), soma para abater do count real
-                            if (i.fator < 1.0) totalAbonoParticipante += (1.0 - i.fator);
-                        }
-
-                        const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
-                        const metaVal = metaObj ? Number(metaObj.meta_producao) : 100;
-                        if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
-                    }
-                });
-
-                if (maxMetaProducao === 0) maxMetaProducao = 100;
-
-                // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
-                const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
-
-                // [FIX] Define divisor de dias: Se hoje estiver no range, usa dias decorridos. Senão dias totais.
-                const hoje = new Date().toISOString().split('T')[0];
-                const rangeInicio = this.state.range.inicio;
-                const rangeFim = this.state.range.fim;
-                let diasDivisorReal = totalDiasUteis;
-
-                if (hoje >= rangeInicio && hoje <= rangeFim) {
-                    diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
-                }
-
-                // Média Diária Global usa dias decorridos para mostrar o "Pace" real atual
-                const mediaProducaoDiariaGlobal = diasDivisorReal > 0 ? (totalProd / diasDivisorReal) : 0;
-                const denominadorVelocidade = headcountEfetivo;
-                const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
-
-                const dadosKPI = {
-                    prod: { real: totalProd, meta: totalMeta },
-                    assert: { real: mediaAssert, meta: metaGlobalAssert },
-                    capacidade: {
-                        diasReal: datasComProducao.size,
-                        diasTotal: totalDiasUteis,
-                        assisReal: assisRealFinal,
-                        assisTotal: totalHeadcountDefinido // Mantém o headcount original como meta (ex: 17)
-                    },
-                    velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
-                };
-
-                this.state.totalDiasUteisConfig = totalDiasUteis;
-                this.state.totalHeadcountConfig = totalHeadcountDefinido;
-                this.atualizarCardsKPI(dadosKPI);
+        const dadosKPI = {
+            prod: { real: totalProd, meta: totalMeta },
+            assert: { real: mediaAssert, meta: metaGlobalAssert },
+            capacidade: {
+                diasReal: datasComProducao.size,
+                diasTotal: totalDiasUteis,
+                assisReal: assisRealFinal,
+                assisTotal: totalHeadcountDefinido // Mantém o headcount original como meta (ex: 17)
             },
+            velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
+        };
 
-            // Funções Auxiliares
-            ehAdmin: function (id) { return id == 1 || id == 1000; },
-            iniciarItemMapa: function (mapa, chave, uid, dataLabel) {
-                const u = this.state.mapaUsuarios[uid];
-                const nomeUser = u ? u.nome : 'ID: ' + uid;
-                mapa.set(chave, {
-                    chave: chave, uid: uid, data: dataLabel, nome: nomeUser,
-                    fator: 1.0, soma_fator: 0, count_fator: 0,
-                    fifo: 0, gt: 0, gp: 0, producao: 0, justificativa: '', observacao_assistente: '',
-                    soma_notas_bruta: 0, qtd_assert: 0, media_final: null,
-                    meta_base_diaria: 100, meta_real_calculada: 100, meta_assert: 97, id_prod: null
-                });
-            },
-            contarDiasUteis: function (inicio, fim) {
-                let count = 0; let cur = new Date(inicio + 'T12:00:00'); let end = new Date(fim + 'T12:00:00');
-                while (cur <= end) { const day = cur.getDay(); if (day !== 0 && day !== 6) count++; cur.setDate(cur.getDate() + 1); }
-                return count || 1;
-            },
-            contarAssistentesElegiveis: function (filtroContrato = 'todos', filtroFuncao = 'todos') {
-                let count = 0;
-                const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
-                for (const uid in this.state.mapaUsuarios) {
-                    const u = this.state.mapaUsuarios[uid];
-                    if (this.ehAdmin(uid)) continue;
-                    if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
+        this.state.totalDiasUteisConfig = totalDiasUteis;
+        this.state.totalHeadcountConfig = totalHeadcountDefinido;
+        this.atualizarCardsKPI(dadosKPI);
+    },
 
-                    const contratoUser = (u.contrato || '').toUpperCase();
+    // Funções Auxiliares
+    ehAdmin: function (id) { return id == 1 || id == 1000; },
+    iniciarItemMapa: function (mapa, chave, uid, dataLabel) {
+        const u = this.state.mapaUsuarios[uid];
+        const nomeUser = u ? u.nome : 'ID: ' + uid;
+        mapa.set(chave, {
+            chave: chave, uid: uid, data: dataLabel, nome: nomeUser,
+            fator: 1.0, soma_fator: 0, count_fator: 0,
+            fifo: 0, gt: 0, gp: 0, producao: 0, justificativa: '', observacao_assistente: '',
+            soma_notas_bruta: 0, qtd_assert: 0, media_final: null,
+            meta_base_diaria: 100, meta_real_calculada: 100, meta_assert: 97, id_prod: null
+        });
+    },
+    contarDiasUteis: function (inicio, fim) {
+        let count = 0; let cur = new Date(inicio + 'T12:00:00'); let end = new Date(fim + 'T12:00:00');
+        while (cur <= end) { const day = cur.getDay(); if (day !== 0 && day !== 6) count++; cur.setDate(cur.getDate() + 1); }
+        return count || 1;
+    },
+    contarAssistentesElegiveis: function (filtroContrato = 'todos', filtroFuncao = 'todos') {
+        let count = 0;
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        for (const uid in this.state.mapaUsuarios) {
+            const u = this.state.mapaUsuarios[uid];
+            if (this.ehAdmin(uid)) continue;
+            if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
 
-                    // Regra Estrita: Só conta se for explicitamente CLT ou TERCEIROS (Antiga PJ)
-                    // Se o contrato for vazio ou outro tipo, não entra na conta de Capacidade.
-                    const ehCLT = contratoUser.includes('CLT');
-                    const ehTerceiro = contratoUser.includes('TERCEIRO') || contratoUser.includes('PJ') || contratoUser.includes('PRESTADOR');
+            const contratoUser = (u.contrato || '').toUpperCase();
 
-                    if (!ehCLT && !ehTerceiro) continue;
+            // Regra Estrita: Só conta se for explicitamente CLT ou TERCEIROS (Antiga PJ)
+            // Se o contrato for vazio ou outro tipo, não entra na conta de Capacidade.
+            const ehCLT = contratoUser.includes('CLT');
+            const ehTerceiro = contratoUser.includes('TERCEIRO') || contratoUser.includes('PJ') || contratoUser.includes('PRESTADOR');
 
-                    if (filtroContrato === 'CLT' && !ehCLT) continue;
-                    if (filtroContrato === 'TERCEIROS' && !ehTerceiro) continue;
+            if (!ehCLT && !ehTerceiro) continue;
 
-                    const cargo = (u.funcao || '').toUpperCase();
-                    if (filtroFuncao !== 'todos' && cargo !== filtroFuncao.toUpperCase()) continue;
+            if (filtroContrato === 'CLT' && !ehCLT) continue;
+            if (filtroContrato === 'TERCEIROS' && !ehTerceiro) continue;
 
-                    const funcao = (u.funcao || '').toLowerCase();
-                    const perfil = (u.perfil || '').toLowerCase();
-                    if (!termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) count++;
-                }
-                return count || 0;
-            },
-            renderLoading: function () {
-                if (this.els.tabela) this.els.tabela.innerHTML = `< tr > <td colspan="12" class="text-center py-12 text-blue-600"><i class="fas fa-circle-notch fa-spin text-2xl"></i><p class="text-xs mt-2 text-slate-500">Calculando no banco de dados...</p></td></tr > `;
-            },
-            toggleSelecionar: function (uid) {
-                if (this.state.selecionados.has(uid)) this.state.selecionados.delete(uid); else this.state.selecionados.add(uid);
-                this.renderizarTabela();
-            },
-            toggleAll: function (checked) {
-                if (checked) this.state.listaTabela.forEach(r => this.state.selecionados.add(String(r.uid))); else this.state.selecionados.clear();
-                this.renderizarTabela();
-            },
-            atualizarBarraFlutuante: function () {
-                let bar = document.getElementById('floating-action-bar');
-                if (this.state.selecionados.size === 0) { if (bar) bar.remove(); return; }
-                if (!bar) {
-                    bar = document.createElement('div');
-                    bar.id = 'floating-action-bar';
-                    bar.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-6 animate-fade-in-up';
-                    document.body.appendChild(bar);
-                }
-                bar.innerHTML = `< span class="font-bold text-sm" > <span class="text-blue-400">${this.state.selecionados.size}</span> selecionados</span ><div class="h-4 w-px bg-slate-600"></div><button onclick="Produtividade.Geral.abrirModalAbono('mass')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2"><i class="fas fa-user-clock"></i> Abonar Selecionados</button><button onclick="Produtividade.Geral.toggleAll(false)" class="text-slate-400 hover:text-white text-xs ml-2"><i class="fas fa-times"></i></button>`;
-            },
-            injetarModalAbono: function () {
-                if (document.getElementById('modal-abono-geral')) return;
-                const html = `< div id = "modal-abono-geral" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm" > <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all"><div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center"><h3 class="font-bold text-amber-800 flex items-center gap-2"><i class="fas fa-user-clock"></i> Registrar Abono</h3><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="text-amber-400 hover:text-amber-700"><i class="fas fa-times"></i></button></div><div class="p-6 space-y-4"><div id="modal-abono-msg" class="text-sm text-slate-600"></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Abono</label><select id="modal-abono-fator" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white"><option value="0.0">Abono Total (Dia não conta)</option><option value="0.5">Meio Período (0.5)</option><option value="1.0">Remover Abono (Dia Normal)</option></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Justificativa (Obrigatória)</label><textarea id="modal-abono-just" rows="3" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500" placeholder="Ex: Atestado médico, Folga compensatória..."></textarea></div></div><div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 border-t border-slate-100"><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onclick="Produtividade.Geral.salvarAbonoModal()" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-sm">Confirmar</button></div></div></div > `;
-                document.body.insertAdjacentHTML('beforeend', html);
-            },
+            const cargo = (u.funcao || '').toUpperCase();
+            if (filtroFuncao !== 'todos' && cargo !== filtroFuncao.toUpperCase()) continue;
 
-            // --- LÓGICA DE ABONO REVISADA E CORRIGIDA ---
-            abrirModalAbono: function (alvo) {
-                this.state.abonoAlvo = alvo;
-                const modal = document.getElementById('modal-abono-geral');
-                const msg = document.getElementById('modal-abono-msg');
-                const just = document.getElementById('modal-abono-just');
-                just.value = '';
-                document.getElementById('modal-abono-fator').value = '0.0';
+            const funcao = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            if (!termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) count++;
+        }
+        return count || 0;
+    },
+    renderLoading: function () {
+        if (this.els.tabela) this.els.tabela.innerHTML = `< tr > <td colspan="12" class="text-center py-12 text-blue-600"><i class="fas fa-circle-notch fa-spin text-2xl"></i><p class="text-xs mt-2 text-slate-500">Calculando no banco de dados...</p></td></tr > `;
+    },
+    toggleSelecionar: function (uid) {
+        if (this.state.selecionados.has(uid)) this.state.selecionados.delete(uid); else this.state.selecionados.add(uid);
+        this.renderizarTabela();
+    },
+    toggleAll: function (checked) {
+        if (checked) this.state.listaTabela.forEach(r => this.state.selecionados.add(String(r.uid))); else this.state.selecionados.clear();
+        this.renderizarTabela();
+    },
+    atualizarBarraFlutuante: function () {
+        let bar = document.getElementById('floating-action-bar');
+        if (this.state.selecionados.size === 0) { if (bar) bar.remove(); return; }
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'floating-action-bar';
+            bar.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-6 animate-fade-in-up';
+            document.body.appendChild(bar);
+        }
+        bar.innerHTML = `< span class="font-bold text-sm" > <span class="text-blue-400">${this.state.selecionados.size}</span> selecionados</span ><div class="h-4 w-px bg-slate-600"></div><button onclick="Produtividade.Geral.abrirModalAbono('mass')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2"><i class="fas fa-user-clock"></i> Abonar Selecionados</button><button onclick="Produtividade.Geral.toggleAll(false)" class="text-slate-400 hover:text-white text-xs ml-2"><i class="fas fa-times"></i></button>`;
+    },
+    injetarModalAbono: function () {
+        if (document.getElementById('modal-abono-geral')) return;
+        const html = `< div id = "modal-abono-geral" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm" > <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all"><div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center"><h3 class="font-bold text-amber-800 flex items-center gap-2"><i class="fas fa-user-clock"></i> Registrar Abono</h3><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="text-amber-400 hover:text-amber-700"><i class="fas fa-times"></i></button></div><div class="p-6 space-y-4"><div id="modal-abono-msg" class="text-sm text-slate-600"></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Abono</label><select id="modal-abono-fator" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white"><option value="0.0">Abono Total (Dia não conta)</option><option value="0.5">Meio Período (0.5)</option><option value="1.0">Remover Abono (Dia Normal)</option></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Justificativa (Obrigatória)</label><textarea id="modal-abono-just" rows="3" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500" placeholder="Ex: Atestado médico, Folga compensatória..."></textarea></div></div><div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 border-t border-slate-100"><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onclick="Produtividade.Geral.salvarAbonoModal()" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-sm">Confirmar</button></div></div></div > `;
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
 
-                if (alvo === 'mass') {
-                    msg.innerHTML = `Aplicando para < strong > ${this.state.selecionados.size} assistentes</strong > selecionados no período.`;
-                } else {
-                    const item = this.state.listaTabela.find(i => String(i.uid) === String(alvo));
-                    msg.innerHTML = `Editando abono de < strong > ${item ? item.nome : 'Assistente'}</strong >.`;
-                    if (item && item.fator < 1) {
-                        document.getElementById('modal-abono-fator').value = String(item.fator);
-                        just.value = item.justificativa || '';
-                    }
-                }
-                modal.classList.remove('hidden'); modal.classList.add('flex');
-            },
+    // --- LÓGICA DE ABONO REVISADA E CORRIGIDA ---
+    abrirModalAbono: function (alvo) {
+        this.state.abonoAlvo = alvo;
+        const modal = document.getElementById('modal-abono-geral');
+        const msg = document.getElementById('modal-abono-msg');
+        const just = document.getElementById('modal-abono-just');
+        just.value = '';
+        document.getElementById('modal-abono-fator').value = '0.0';
 
-            salvarAbonoModal: async function () {
-                const fator = parseFloat(document.getElementById('modal-abono-fator').value);
-                const just = document.getElementById('modal-abono-just').value.trim();
+        if (alvo === 'mass') {
+            msg.innerHTML = `Aplicando para < strong > ${this.state.selecionados.size} assistentes</strong > selecionados no período.`;
+        } else {
+            const item = this.state.listaTabela.find(i => String(i.uid) === String(alvo));
+            msg.innerHTML = `Editando abono de < strong > ${item ? item.nome : 'Assistente'}</strong >.`;
+            if (item && item.fator < 1) {
+                document.getElementById('modal-abono-fator').value = String(item.fator);
+                just.value = item.justificativa || '';
+            }
+        }
+        modal.classList.remove('hidden'); modal.classList.add('flex');
+    },
 
-                if (fator < 1.0 && !just) {
-                    alert("Para abonar, a justificativa é obrigatória.");
-                    return;
-                }
+    salvarAbonoModal: async function () {
+        const fator = parseFloat(document.getElementById('modal-abono-fator').value);
+        const just = document.getElementById('modal-abono-just').value.trim();
 
-                document.getElementById('modal-abono-geral').classList.add('hidden');
-                this.renderLoading(); // Feedback imediato
+        if (fator < 1.0 && !just) {
+            alert("Para abonar, a justificativa é obrigatória.");
+            return;
+        }
 
-                try {
-                    const listaUids = (this.state.abonoAlvo === 'mass') ? Array.from(this.state.selecionados) : [this.state.abonoAlvo];
-                    const isPeriodo = this.state.range.inicio !== this.state.range.fim;
+        document.getElementById('modal-abono-geral').classList.add('hidden');
+        this.renderLoading(); // Feedback imediato
 
-                    for (const uid of listaUids) {
-                        await this.executarAbono(uid, isPeriodo, fator, just);
-                    }
+        try {
+            const listaUids = (this.state.abonoAlvo === 'mass') ? Array.from(this.state.selecionados) : [this.state.abonoAlvo];
+            const isPeriodo = this.state.range.inicio !== this.state.range.fim;
 
-                    // Recarrega TUDO para garantir que o estado visual (cores amarelas) corresponda ao banco
-                    this.atualizarDados();
-                    alert("✅ Abono aplicado com sucesso!");
+            for (const uid of listaUids) {
+                await this.executarAbono(uid, isPeriodo, fator, just);
+            }
 
-                } catch (e) {
-                    console.error(e);
-                    alert("Erro ao salvar abono: " + e.message);
-                    this.atualizarDados();
-                }
-            },
+            // Recarrega TUDO para garantir que o estado visual (cores amarelas) corresponda ao banco
+            this.atualizarDados();
+            alert("✅ Abono aplicado com sucesso!");
 
-            executarAbono: async function (uid, isPeriodo, novoFator, justificativa) {
-                const { inicio, fim } = this.state.range;
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao salvar abono: " + e.message);
+            this.atualizarDados();
+        }
+    },
 
-                if (isPeriodo) {
-                    let datas = [];
-                    let cur = new Date(inicio + 'T12:00:00');
-                    let end = new Date(fim + 'T12:00:00');
+    executarAbono: async function (uid, isPeriodo, novoFator, justificativa) {
+        const { inicio, fim } = this.state.range;
 
-                    while (cur <= end) {
-                        const d = cur.getDay();
-                        if (d !== 0 && d !== 6) datas.push(cur.toISOString().split('T')[0]);
-                        cur.setDate(cur.getDate() + 1);
-                    }
+        if (isPeriodo) {
+            let datas = [];
+            let cur = new Date(inicio + 'T12:00:00');
+            let end = new Date(fim + 'T12:00:00');
 
-                    for (const dia of datas) {
-                        const checkSql = 'SELECT quantidade, fifo, gradual_total, gradual_parcial FROM producao WHERE usuario_id = ? AND data_referencia = ?';
-                        const existingRows = await Sistema.query(checkSql, [uid, dia]);
-                        const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
+            while (cur <= end) {
+                const d = cur.getDay();
+                if (d !== 0 && d !== 6) datas.push(cur.toISOString().split('T')[0]);
+                cur.setDate(cur.getDate() + 1);
+            }
 
-                        const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
-                        const quantidade = existente ? existente.quantidade : 0;
-                        const fifo = existente ? existente.fifo : 0;
-                        const gt = existente ? existente.gradual_total : 0;
-                        const gp = existente ? existente.gradual_parcial : 0;
+            for (const dia of datas) {
+                const checkSql = 'SELECT quantidade, fifo, gradual_total, gradual_parcial FROM producao WHERE usuario_id = ? AND data_referencia = ?';
+                const existingRows = await Sistema.query(checkSql, [uid, dia]);
+                const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
 
-                        const partesData = dia.split('-');
-                        const anoRef = parseInt(partesData[0]);
-                        const mesRef = parseInt(partesData[1]);
+                const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
+                const quantidade = existente ? existente.quantidade : 0;
+                const fifo = existente ? existente.fifo : 0;
+                const gt = existente ? existente.gradual_total : 0;
+                const gp = existente ? existente.gradual_parcial : 0;
 
-                        // Upsert logic with INSERT ... ON DUPLICATE KEY UPDATE
-                        await Sistema.query(
-                            `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial)
+                const partesData = dia.split('-');
+                const anoRef = parseInt(partesData[0]);
+                const mesRef = parseInt(partesData[1]);
+
+                // Upsert logic with INSERT ... ON DUPLICATE KEY UPDATE
+                await Sistema.query(
+                    `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE fator = VALUES(fator), justificativa = VALUES(justificativa)`,
-                            [uuid, uid, dia, mesRef, anoRef, novoFator, justificativa, quantidade, fifo, gt, gp]
-                        );
-                    }
-                } else {
-                    await this.atualizarLinha(uid, this.state.range.inicio, 'abono_total', { fator: novoFator, just: justificativa });
-                }
-            },
+                    [uuid, uid, dia, mesRef, anoRef, novoFator, justificativa, quantidade, fifo, gt, gp]
+                );
+            }
+        } else {
+            await this.atualizarLinha(uid, this.state.range.inicio, 'abono_total', { fator: novoFator, just: justificativa });
+        }
+    },
 
-            atualizarLinha: async function (uid, dataRef, campo, valor) {
-                try {
-                    // Busca dados atuais
-                    const existingRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, dataRef]);
-                    const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
+    atualizarLinha: async function (uid, dataRef, campo, valor) {
+        try {
+            // Busca dados atuais
+            const existingRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, dataRef]);
+            const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
 
-                    let payload = {};
-                    if (existente) {
-                        payload = { ...existente };
-                    } else {
-                        payload = {
-                            usuario_id: uid,
-                            data_referencia: dataRef,
-                            quantidade: 0, fifo: 0, gradual_total: 0, gradual_parcial: 0,
-                            fator: 1.0, justificativa: ''
-                        };
-                    }
+            let payload = {};
+            if (existente) {
+                payload = { ...existente };
+            } else {
+                payload = {
+                    usuario_id: uid,
+                    data_referencia: dataRef,
+                    quantidade: 0, fifo: 0, gradual_total: 0, gradual_parcial: 0,
+                    fator: 1.0, justificativa: ''
+                };
+            }
 
-                    if (campo === 'abono_total') {
-                        payload.fator = valor.fator;
-                        payload.justificativa = valor.just;
-                    } else if (campo === 'justificativa') {
-                        payload.justificativa = valor;
-                    }
+            if (campo === 'abono_total') {
+                payload.fator = valor.fator;
+                payload.justificativa = valor.just;
+            } else if (campo === 'justificativa') {
+                payload.justificativa = valor;
+            }
 
-                    const uuid = existente ? existente.id : (Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID());
-                    const partesData = dataRef.split('-');
-                    const anoRef = parseInt(partesData[0]);
-                    const mesRef = parseInt(partesData[1]);
+            const uuid = existente ? existente.id : (Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID());
+            const partesData = dataRef.split('-');
+            const anoRef = parseInt(partesData[0]);
+            const mesRef = parseInt(partesData[1]);
 
-                    // Upsert / Insert Update
-                    await Sistema.query(
-                        `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fifo, gradual_total, gradual_parcial, fator, justificativa, perfil_fc, status)
+            // Upsert / Insert Update
+            await Sistema.query(
+                `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fifo, gradual_total, gradual_parcial, fator, justificativa, perfil_fc, status)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'OK')
                  ON DUPLICATE KEY UPDATE
         fator = VALUES(fator),
             justificativa = VALUES(justificativa)`,
-                        [uuid, uid, dataRef, mesRef, anoRef, payload.quantidade, payload.fifo, payload.gradual_total, payload.gradual_parcial, payload.fator, payload.justificativa]
-                    );
+                [uuid, uid, dataRef, mesRef, anoRef, payload.quantidade, payload.fifo, payload.gradual_total, payload.gradual_parcial, payload.fator, payload.justificativa]
+            );
 
-                    if (campo === 'justificativa') {
-                        console.log("Justificativa salva.");
-                    }
+            if (campo === 'justificativa') {
+                console.log("Justificativa salva.");
+            }
 
-                } catch (e) {
-                    console.error(e);
-                    alert("Erro ao salvar linha: " + e.message);
-                }
-            },
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao salvar linha: " + e.message);
+        }
+    },
 
-            atualizarCardsKPI: function (kpi) {
-                const updateBar = (elText, elBar, elPct, val, target, isPct = false, colorClass = 'blue') => {
-                    const safeTarget = target === 0 ? 1 : target;
-                    const pct = Math.round((val / safeTarget) * 100);
-                    const width = Math.min(pct, 100);
-                    if (elText) elText.textContent = isPct ? val.toFixed(2) + '%' : val.toLocaleString('pt-BR');
-                    if (elPct) { elPct.textContent = pct + '%'; elPct.className = `font - bold ${isPct ? 'text-xs' : 'text-sm'} text - ${colorClass} -600 ${isPct ? 'text-right' : ''} `; }
-                    if (elBar) { elBar.style.width = width + '%'; elBar.className = `h - full rounded - full transition - all duration - 1000 bg - ${colorClass} -${pct >= 100 ? '500' : '500'} `; }
-                };
-                if (this.els.kpiVolume) this.els.kpiVolume.textContent = kpi.prod.real.toLocaleString('pt-BR');
-                if (this.els.kpiMetaVolume) this.els.kpiMetaVolume.textContent = kpi.prod.meta.toLocaleString('pt-BR');
-                updateBar(null, this.els.barVolume, this.els.kpiVolumePct, kpi.prod.real, kpi.prod.meta, false, 'blue');
-                if (this.els.kpiAssertTarget) {
-                    const valAssertMeta = Number(kpi.assert.meta || 0);
-                    this.els.kpiAssertTarget.textContent = valAssertMeta.toFixed(0) + '%';
-                }
-                updateBar(this.els.kpiAssertReal, this.els.barAssert, this.els.kpiAssertPct, kpi.assert.real, kpi.assert.meta, true, 'emerald');
-                if (this.els.kpiDiasTrabalhados) this.els.kpiDiasTrabalhados.textContent = kpi.capacidade.diasReal;
-                if (this.els.kpiDiasUteis) this.els.kpiDiasUteis.textContent = kpi.capacidade.diasTotal;
-                updateBar(null, this.els.barDias, this.els.kpiDiasPct, kpi.capacidade.diasReal, kpi.capacidade.diasTotal, false, 'purple');
-                if (this.els.kpiAssisAtivos) this.els.kpiAssisAtivos.textContent = kpi.capacidade.assisReal;
-                if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal;
-                updateBar(this.els.kpiAssisAtivos, this.els.barAssis, this.els.kpiAssisPct, kpi.capacidade.assisReal, kpi.capacidade.assisTotal, false, 'purple');
-                if (this.els.kpiVelocReal) this.els.kpiVelocReal.textContent = kpi.velocidade.real.toLocaleString('pt-BR');
-                if (this.els.kpiVelocEsperada) this.els.kpiVelocEsperada.textContent = kpi.velocidade.meta.toLocaleString('pt-BR');
-                updateBar(null, this.els.barVeloc, this.els.kpiVelocPct, kpi.velocidade.real, kpi.velocidade.meta, false, 'amber');
-            },
-            atualizarDestaques: function (listaCustom) {
-                // Se não passar lista, usa a da tabela (filtrando a Gestora Agregada)
-                const base = listaCustom || (this.state.listaTabela || []);
-                const listaEquipe = base.filter(i => !i.isAggregatedManager);
+    atualizarCardsKPI: function (kpi) {
+        const updateBar = (elText, elBar, elPct, val, target, isPct = false, colorClass = 'blue') => {
+            const safeTarget = target === 0 ? 1 : target;
+            const pct = Math.round((val / safeTarget) * 100);
+            const width = Math.min(pct, 100);
+            if (elText) elText.textContent = isPct ? val.toFixed(2) + '%' : val.toLocaleString('pt-BR');
+            if (elPct) { elPct.textContent = pct + '%'; elPct.className = `font - bold ${isPct ? 'text-xs' : 'text-sm'} text - ${colorClass} -600 ${isPct ? 'text-right' : ''} `; }
+            if (elBar) { elBar.style.width = width + '%'; elBar.className = `h - full rounded - full transition - all duration - 1000 bg - ${colorClass} -${pct >= 100 ? '500' : '500'} `; }
+        };
+        if (this.els.kpiVolume) this.els.kpiVolume.textContent = kpi.prod.real.toLocaleString('pt-BR');
+        if (this.els.kpiMetaVolume) this.els.kpiMetaVolume.textContent = kpi.prod.meta.toLocaleString('pt-BR');
+        updateBar(null, this.els.barVolume, this.els.kpiVolumePct, kpi.prod.real, kpi.prod.meta, false, 'blue');
+        if (this.els.kpiAssertTarget) {
+            const valAssertMeta = Number(kpi.assert.meta || 0);
+            this.els.kpiAssertTarget.textContent = valAssertMeta.toFixed(0) + '%';
+        }
+        updateBar(this.els.kpiAssertReal, this.els.barAssert, this.els.kpiAssertPct, kpi.assert.real, kpi.assert.meta, true, 'emerald');
+        if (this.els.kpiDiasTrabalhados) this.els.kpiDiasTrabalhados.textContent = kpi.capacidade.diasReal;
+        if (this.els.kpiDiasUteis) this.els.kpiDiasUteis.textContent = kpi.capacidade.diasTotal;
+        updateBar(null, this.els.barDias, this.els.kpiDiasPct, kpi.capacidade.diasReal, kpi.capacidade.diasTotal, false, 'purple');
+        if (this.els.kpiAssisAtivos) this.els.kpiAssisAtivos.textContent = kpi.capacidade.assisReal;
+        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal;
+        updateBar(this.els.kpiAssisAtivos, this.els.barAssis, this.els.kpiAssisPct, kpi.capacidade.assisReal, kpi.capacidade.assisTotal, false, 'purple');
+        if (this.els.kpiVelocReal) this.els.kpiVelocReal.textContent = kpi.velocidade.real.toLocaleString('pt-BR');
+        if (this.els.kpiVelocEsperada) this.els.kpiVelocEsperada.textContent = kpi.velocidade.meta.toLocaleString('pt-BR');
+        updateBar(null, this.els.barVeloc, this.els.kpiVelocPct, kpi.velocidade.real, kpi.velocidade.meta, false, 'amber');
+    },
+    atualizarDestaques: function (listaCustom) {
+        // Se não passar lista, usa a da tabela (filtrando a Gestora Agregada)
+        const base = listaCustom || (this.state.listaTabela || []);
+        const listaEquipe = base.filter(i => !i.isAggregatedManager);
 
-                const topProd = [...listaEquipe].sort((a, b) => b.producao - a.producao).slice(0, 3);
-                const topAssert = [...listaEquipe].filter(i => (i.qtd_assert || 0) >= 5).sort((a, b) => (b.media_final || 0) - (a.media_final || 0)).slice(0, 3);
+        const topProd = [...listaEquipe].sort((a, b) => b.producao - a.producao).slice(0, 3);
+        const topAssert = [...listaEquipe].filter(i => (i.qtd_assert || 0) >= 5).sort((a, b) => (b.media_final || 0) - (a.media_final || 0)).slice(0, 3);
 
-                const renderItem = (list, elId, isPct) => {
-                    const el = document.getElementById(elId); if (!el) return;
-                    if (list.length === 0) { el.innerHTML = '<span class="text-[7px] text-slate-300 block text-center italic">Sem dados</span>'; return; }
-                    el.innerHTML = list.map(i => `< div class="flex justify-between items-center bg-slate-50/50 px-1 py-0.5 rounded border border-slate-100 shadow-sm" ><span class="text-[9px] truncate w-[70%] font-bold text-slate-600 tracking-tight leading-tight" title="${i.nome}">${i.nome.split(' ')[0]} ${i.nome.split(' ')[1] ? i.nome.split(' ')[1].charAt(0) + '.' : ''}</span><span class="text-[9px] font-black ${isPct ? 'text-emerald-600' : 'text-blue-600'} leading-tight">${isPct ? (i.media_final || 0).toFixed(1) + '%' : i.producao}</span></div > `).join('');
-                };
-                renderItem(topProd, 'top-prod-list', false); renderItem(topAssert, 'top-assert-list', true);
-            },
-            excluirDadosDia: async function () {
-                if (!this.ehGestao(window.Produtividade.usuario || {})) {
-                    alert("Apenas gestores podem excluir dados.");
-                    return;
-                }
+        const renderItem = (list, elId, isPct) => {
+            const el = document.getElementById(elId); if (!el) return;
+            if (list.length === 0) { el.innerHTML = '<span class="text-[7px] text-slate-300 block text-center italic">Sem dados</span>'; return; }
+            el.innerHTML = list.map(i => `< div class="flex justify-between items-center bg-slate-50/50 px-1 py-0.5 rounded border border-slate-100 shadow-sm" ><span class="text-[9px] truncate w-[70%] font-bold text-slate-600 tracking-tight leading-tight" title="${i.nome}">${i.nome.split(' ')[0]} ${i.nome.split(' ')[1] ? i.nome.split(' ')[1].charAt(0) + '.' : ''}</span><span class="text-[9px] font-black ${isPct ? 'text-emerald-600' : 'text-blue-600'} leading-tight">${isPct ? (i.media_final || 0).toFixed(1) + '%' : i.producao}</span></div > `).join('');
+        };
+        renderItem(topProd, 'top-prod-list', false); renderItem(topAssert, 'top-assert-list', true);
+    },
+    excluirDadosDia: async function () {
+        if (!this.ehGestao(window.Produtividade.usuario || {})) {
+            alert("Apenas gestores podem excluir dados.");
+            return;
+        }
 
-                const range = this.state.range;
-                if (!range.inicio || range.inicio !== range.fim) {
-                    alert("⚠️ Selecione um dia específico no filtro 'Dia' para excluir.");
-                    return;
-                }
+        const range = this.state.range;
+        if (!range.inicio || range.inicio !== range.fim) {
+            alert("⚠️ Selecione um dia específico no filtro 'Dia' para excluir.");
+            return;
+        }
 
-                if (!confirm(`🔴 PERIGO: Você está prestes a excluir TODOS os dados de produção do dia ${range.inicio}.\n\nIsso não pode ser desfeito.\n\nDeseja continuar?`)) return;
+        if (!confirm(`🔴 PERIGO: Você está prestes a excluir TODOS os dados de produção do dia ${range.inicio}.\n\nIsso não pode ser desfeito.\n\nDeseja continuar?`)) return;
 
-                this.renderLoading();
+        this.renderLoading();
 
-                try {
-                    await Sistema.query("DELETE FROM producao WHERE data_referencia = ?", [range.inicio]);
-                    alert("✅ Dados excluídos com sucesso!");
-                    this.atualizarDados();
-                } catch (e) {
-                    console.error(e);
-                    alert("Erro ao excluir: " + e.message);
-                    this.state.loading = false;
-                    this.renderizarTabela(); // Restaura tabela
-                }
-            },
+        try {
+            await Sistema.query("DELETE FROM producao WHERE data_referencia = ?", [range.inicio]);
+            alert("✅ Dados excluídos com sucesso!");
+            this.atualizarDados();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao excluir: " + e.message);
+            this.state.loading = false;
+            this.renderizarTabela(); // Restaura tabela
+        }
+    },
 
-            abrirDetalhes: function (uid) { this.state.modoDetalhe = true; this.state.usuarioDetalhe = uid; this.renderizarDetalhes(uid); },
-            voltarParaGrade: function () {
-                this.state.modoDetalhe = false; this.state.usuarioDetalhe = null;
-                if (this.els.tabelaHeader && this.state.headerOriginal) this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
-                if (this.els.selectionHeader) { this.els.selectionHeader.classList.add('hidden'); this.els.selectionHeader.innerHTML = ''; }
-                this.calcularKpisGlobal(); this.renderizarTabela();
-            },
-            renderizarDetalhes: function (uid) {
-                const itemConsolidado = this.state.listaTabela.find(i => String(i.uid) === String(uid));
-                const u = this.state.mapaUsuarios[uid]; const nomeUsuario = itemConsolidado ? itemConsolidado.nome : (u ? u.nome : 'Usuário');
-                if (itemConsolidado) {
-                    this.atualizarCardsKPI({
-                        prod: { real: itemConsolidado.producao, meta: itemConsolidado.meta_real_calculada },
-                        assert: { real: itemConsolidado.media_final || 0, meta: itemConsolidado.meta_assert },
-                        capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim), assisReal: 1, assisTotal: 1 },
-                        velocidade: { real: Math.round(itemConsolidado.producao / (itemConsolidado.count_fator || 1)), meta: itemConsolidado.meta_base_diaria }
-                    });
-                }
-                if (this.els.selectionHeader) {
-                    this.els.selectionHeader.classList.remove('hidden');
-                    this.els.selectionHeader.className = "bg-blue-50 border border-blue-100 p-2 rounded-lg flex justify-between items-center animate-fade-in mb-4";
-                    this.els.selectionHeader.innerHTML = `< div class="flex items-center gap-3" ><button onclick="Produtividade.Geral.voltarParaGrade()" class="bg-white hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button><div class="h-6 w-px bg-blue-200"></div><span class="text-sm font-bold text-blue-900 flex items-center gap-2"><i class="fas fa-user-circle text-blue-500 text-lg"></i> Análise Individual: <span class="uppercase tracking-wide text-blue-700 underline">${nomeUsuario}</span></span></div > `;
-                }
-                this.renderizarTabelaDetalhe(uid);
-            },
-            renderizarTabelaDetalhe: function (uid) {
-                if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = `< tr class="divide-x divide-slate-200 border-b border-slate-300" ><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Data</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Dia</th><th class="px-4 py-3 text-center bg-slate-100 text-slate-600">Meta</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Realizado</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">%</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Abono/Fator</th><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Justificativa / Obs</th></tr > `;
-                const dadosUser = this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).sort((a, b) => a.data_referencia.localeCompare(b.data_referencia));
-                if (dadosUser.length === 0) { this.els.tabela.innerHTML = `< tr > <td colspan="7" class="text-center py-8 text-slate-400">Nenhum registro encontrado neste período.</td></tr > `; return; }
-                this.els.tabela.innerHTML = dadosUser.map(d => {
-                    const dateObj = new Date(this.normalizarData(d.data_referencia) + 'T12:00:00');
-                    const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(uid));
-                    const fator = d.fator !== null ? Number(d.fator) : 1.0;
-                    const metaDia = Math.round((metaObj ? (metaObj.meta_producao || 100) : 100) * fator);
-                    const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
-                    const obsHtml = `
+    abrirDetalhes: function (uid) { this.state.modoDetalhe = true; this.state.usuarioDetalhe = uid; this.renderizarDetalhes(uid); },
+    voltarParaGrade: function () {
+        this.state.modoDetalhe = false; this.state.usuarioDetalhe = null;
+        if (this.els.tabelaHeader && this.state.headerOriginal) this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
+        if (this.els.selectionHeader) { this.els.selectionHeader.classList.add('hidden'); this.els.selectionHeader.innerHTML = ''; }
+        this.calcularKpisGlobal(); this.renderizarTabela();
+    },
+    renderizarDetalhes: function (uid) {
+        const itemConsolidado = this.state.listaTabela.find(i => String(i.uid) === String(uid));
+        const u = this.state.mapaUsuarios[uid]; const nomeUsuario = itemConsolidado ? itemConsolidado.nome : (u ? u.nome : 'Usuário');
+        if (itemConsolidado) {
+            this.atualizarCardsKPI({
+                prod: { real: itemConsolidado.producao, meta: itemConsolidado.meta_real_calculada },
+                assert: { real: itemConsolidado.media_final || 0, meta: itemConsolidado.meta_assert },
+                capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim), assisReal: 1, assisTotal: 1 },
+                velocidade: { real: Math.round(itemConsolidado.producao / (itemConsolidado.count_fator || 1)), meta: itemConsolidado.meta_base_diaria }
+            });
+        }
+        if (this.els.selectionHeader) {
+            this.els.selectionHeader.classList.remove('hidden');
+            this.els.selectionHeader.className = "bg-blue-50 border border-blue-100 p-2 rounded-lg flex justify-between items-center animate-fade-in mb-4";
+            this.els.selectionHeader.innerHTML = `< div class="flex items-center gap-3" ><button onclick="Produtividade.Geral.voltarParaGrade()" class="bg-white hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button><div class="h-6 w-px bg-blue-200"></div><span class="text-sm font-bold text-blue-900 flex items-center gap-2"><i class="fas fa-user-circle text-blue-500 text-lg"></i> Análise Individual: <span class="uppercase tracking-wide text-blue-700 underline">${nomeUsuario}</span></span></div > `;
+        }
+        this.renderizarTabelaDetalhe(uid);
+    },
+    renderizarTabelaDetalhe: function (uid) {
+        if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = `< tr class="divide-x divide-slate-200 border-b border-slate-300" ><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Data</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Dia</th><th class="px-4 py-3 text-center bg-slate-100 text-slate-600">Meta</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Realizado</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">%</th><th class="px-4 py-3 text-center bg-slate-50 text-slate-600">Abono/Fator</th><th class="px-4 py-3 text-left bg-slate-50 text-slate-600">Justificativa / Obs</th></tr > `;
+        const dadosUser = this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).sort((a, b) => a.data_referencia.localeCompare(b.data_referencia));
+        if (dadosUser.length === 0) { this.els.tabela.innerHTML = `< tr > <td colspan="7" class="text-center py-8 text-slate-400">Nenhum registro encontrado neste período.</td></tr > `; return; }
+        this.els.tabela.innerHTML = dadosUser.map(d => {
+            const dateObj = new Date(this.normalizarData(d.data_referencia) + 'T12:00:00');
+            const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(uid));
+            const fator = d.fator !== null ? Number(d.fator) : 1.0;
+            const metaDia = Math.round((metaObj ? (metaObj.meta_producao || 100) : 100) * fator);
+            const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
+            const obsHtml = `
     < div class="flex flex-col gap-1" >
         ${d.justificativa ? `<span class="text-amber-800 bg-amber-50 px-1 rounded border border-amber-100">[Gestão]: ${d.justificativa}</span>` : ''}
                     ${d.observacao_assistente ? `<span class="text-blue-800 bg-blue-50 px-1 rounded border border-blue-100">[Eu]: ${d.observacao_assistente}</span>` : ''}
                     ${!d.justificativa && !d.observacao_assistente ? '-' : ''}
                 </div >
     `;
-                    return `< tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}" ><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr > `;
-                }).join('');
-            }
+            return `< tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}" ><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr > `;
+        }).join('');
+    }
 };
 
-    if(document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', () => { if (!window.Produtividade || !window.Produtividade.Main) Produtividade.Geral.init(); }); } else { if (window.Produtividade) Produtividade.Geral.init(); }
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', () => { if (!window.Produtividade || !window.Produtividade.Main) Produtividade.Geral.init(); }); } else { if (window.Produtividade) Produtividade.Geral.init(); }
