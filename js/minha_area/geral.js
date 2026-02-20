@@ -909,7 +909,8 @@ MinhaArea.Geral = {
 
     init: async function () {
         try {
-            await this.carregar();
+            // carregar() é chamado pelo Main.js após configurar filtros
+            // await this.carregar();
             // this.configurarAbas(); // Removido pois é gerido pelo Main
             // ... existing code ...
 
