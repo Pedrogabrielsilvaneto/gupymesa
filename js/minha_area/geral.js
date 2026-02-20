@@ -197,6 +197,12 @@ MinhaArea.Geral = {
         // Helper para Dias Uteis
         const getDU = (contrato) => {
             const diasCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
+            // [DEBUG]
+            if (Math.random() < 0.05) { // Logar apenas alguns para não spammar
+                console.log(`[DEBUG DU] Range: ${this.state.range.inicio} a ${this.state.range.fim} | DiasCal: ${diasCal} | ConfigMes:`, configMes);
+            }
+
             if (!configMes) return diasCal;
 
             const vTerc = configMes.dias_uteis_terceiros || configMes.dias_uteis || diasCal;
