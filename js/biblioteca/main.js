@@ -512,7 +512,7 @@ window.GupyBiblioteca = {
         const input = document.getElementById('lib-cid-input');
         let query = input.value.trim().toUpperCase();
 
-        if (query.length < 2) return; // Permitir códigos curtos como A00
+        if (query.length < 2) return;
 
         const loading = document.getElementById('lib-cid-loading');
         const resBox = document.getElementById('lib-cid-resultado');
@@ -531,42 +531,55 @@ window.GupyBiblioteca = {
         }
 
         try {
-            // 2. Tentar API NIH (Clinical Tables) - CID-10 (Muito robusto e atualizado)
+            let descricaoOriginal = "";
+            let codigoFinal = "";
+
+            // 2. Tentar API NIH (Clinical Tables) - CID-10
             const rNIH10 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?terms=${query}&max=1`);
             const dataNIH10 = await rNIH10.json();
 
             if (dataNIH10 && dataNIH10[3] && dataNIH10[3].length > 0) {
-                document.getElementById('lib-cid-descricao').innerText = dataNIH10[3][0][1];
-                document.getElementById('lib-cid-display-code').innerText = dataNIH10[3][0][0];
-                if (resBox) resBox.classList.remove('hidden');
-                return;
+                codigoFinal = dataNIH10[3][0][0];
+                descricaoOriginal = dataNIH10[3][0][1];
+            } else {
+                // 3. Tentar API ICD10API.com
+                const rGlobal = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
+                const dataGlobal = await rGlobal.json();
+
+                if (dataGlobal && dataGlobal.Response === "True") {
+                    codigoFinal = dataGlobal.Name;
+                    descricaoOriginal = dataGlobal.Description;
+                } else {
+                    // 4. Tentar API NIH (Clinical Tables) - CID-11
+                    const rNIH11 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd11_codes/v3/search?terms=${query}&max=1`);
+                    const dataNIH11 = await rNIH11.json();
+
+                    if (dataNIH11 && dataNIH11[3] && dataNIH11[3].length > 0) {
+                        codigoFinal = dataNIH11[3][0][0];
+                        descricaoOriginal = dataNIH11[3][0][1] + " (CID-11)";
+                    }
+                }
             }
 
-            // 3. Tentar API ICD10API.com (Alternativa global para CID-10)
-            const rGlobal = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
-            const dataGlobal = await rGlobal.json();
+            if (!descricaoOriginal) throw new Error('Not found');
 
-            if (dataGlobal && dataGlobal.Response === "True") {
-                document.getElementById('lib-cid-descricao').innerText = dataGlobal.Description;
-                document.getElementById('lib-cid-display-code').innerText = dataGlobal.Name;
-                if (resBox) resBox.classList.remove('hidden');
-                return;
+            // 5. Traduzir para Português usando MyMemory Translation API
+            try {
+                const rTrad = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(descricaoOriginal)}&langpair=en|pt-BR`);
+                const dataTrad = await rTrad.json();
+                if (dataTrad && dataTrad.responseData && dataTrad.responseData.translatedText) {
+                    descricaoOriginal = dataTrad.responseData.translatedText;
+                }
+            } catch (eTrad) {
+                console.warn("Erro na tradução, exibindo original:", eTrad);
             }
 
-            // 4. Tentar API NIH (Clinical Tables) - CID-11 (Mais robusto)
-            const rNIH11 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd11_codes/v3/search?terms=${query}&max=1`);
-            const dataNIH11 = await rNIH11.json();
+            document.getElementById('lib-cid-descricao').innerText = descricaoOriginal;
+            document.getElementById('lib-cid-display-code').innerText = codigoFinal;
+            if (resBox) resBox.classList.remove('hidden');
 
-            if (dataNIH11 && dataNIH11[3] && dataNIH11[3].length > 0) {
-                document.getElementById('lib-cid-descricao').innerText = dataNIH11[3][0][1] + ' (CID-11)';
-                document.getElementById('lib-cid-display-code').innerText = dataNIH11[3][0][0];
-                if (resBox) resBox.classList.remove('hidden');
-                return;
-            }
-
-            throw new Error('Not found');
         } catch (e) {
-            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. O sistema busca em bancos de dados internacionais filtrados.', 'warning');
+            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. Se o erro persistir, as APIs podem estar instáveis.', 'warning');
         } finally {
             if (loading) loading.classList.add('hidden');
         }
