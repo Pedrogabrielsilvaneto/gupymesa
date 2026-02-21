@@ -75,8 +75,8 @@
     </style>
 
     <script src="js/config.js"></script>
-    <script src="js/sistema.js?v=20260220_2120"></script>
-    <script src="js/biblioteca/main.js?v=20260220_2120"></script>
+    <script src="js/sistema.js?v=20260220_2138"></script>
+    <script src="js/biblioteca/main.js?v=20260220_2138"></script>
 
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -133,6 +133,10 @@
                 <button onclick="document.getElementById('modal-lib-cid').classList.remove('hidden')"
                     class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
                     <i class="fas fa-stethoscope text-rose-500"></i> CID
+                </button>
+                <button onclick="document.getElementById('modal-lib-sigla').classList.remove('hidden')"
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
+                    <i class="fas fa-id-card text-emerald-500"></i> Siglas
                 </button>
                 <button onclick="GupyBiblioteca.abrirCalculadora()"
                     class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-sm text-sm">
@@ -273,7 +277,7 @@
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-enter">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                 <h3 class="font-black text-slate-800 flex items-center gap-2"><i
-                        class="fas fa-stethoscope text-rose-600"></i> Consulta CID-10</h3>
+                        class="fas fa-stethoscope text-rose-600"></i> Consulta CID</h3>
                 <button onclick="document.getElementById('modal-lib-cid').classList.add('hidden')"
                     class="text-slate-400 hover:text-rose-500 transition"><i class="fas fa-times"></i></button>
             </div>
@@ -317,6 +321,64 @@
                                 <button onclick="GupyBiblioteca.copiarCampoCID('lib-cid-descricao')"
                                     class="text-slate-300 hover:text-rose-500 transition p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/field:opacity-100"
                                     title="Copiar Descrição">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Siglas -->
+    <div id="modal-lib-sigla"
+        class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-enter">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-black text-slate-800 flex items-center gap-2"><i
+                        class="fas fa-id-card text-emerald-600"></i> Órgãos Emissores</h3>
+                <button onclick="document.getElementById('modal-lib-sigla').classList.add('hidden')"
+                    class="text-slate-400 hover:text-rose-500 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex gap-2">
+                    <input type="text" id="lib-sigla-input" placeholder="Ex: SSP, DETRAN, CRM..."
+                        class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50/50 transition shadow-sm tracking-widest text-center"
+                        maxlength="10">
+                    <button onclick="GupyBiblioteca.buscarSigla()"
+                        class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-6 py-3 rounded-xl transition shadow-md active:scale-95"><i
+                            class="fas fa-search"></i></button>
+                </div>
+                <div id="lib-sigla-resultado"
+                    class="hidden animate-enter bg-emerald-50 border border-emerald-100 rounded-2xl p-6 relative overflow-hidden">
+                    <i
+                        class="fas fa-landmark absolute -right-4 -bottom-4 text-7xl text-emerald-100/50 transform rotate-12"></i>
+                    <div class="relative z-10 space-y-4">
+                        <div
+                            class="flex justify-between items-center bg-white/60 px-3 py-1.5 rounded-lg border border-emerald-100/50">
+                            <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Sigla</span>
+                            <div class="flex items-center gap-2">
+                                <span id="lib-sigla-display-code"
+                                    class="text-sm font-black text-emerald-700 font-mono"></span>
+                                <button onclick="GupyBiblioteca.copiarCampoSigla('lib-sigla-display-code')"
+                                    class="text-emerald-400 hover:text-emerald-600 transition p-1" title="Copiar Sigla">
+                                    <i class="far fa-copy text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start group/field">
+                                <div class="flex-1">
+                                    <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Descrição
+                                        /
+                                        Órgão</p>
+                                    <p id="lib-sigla-descricao" class="text-sm font-black text-slate-800 leading-tight">
+                                    </p>
+                                </div>
+                                <button onclick="GupyBiblioteca.copiarCampoSigla('lib-sigla-descricao')"
+                                    class="text-slate-300 hover:text-emerald-500 transition p-1.5 bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/field:opacity-100"
+                                    title="Copiar Nome">
                                     <i class="far fa-copy"></i>
                                 </button>
                             </div>

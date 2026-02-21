@@ -53,6 +53,16 @@ window.GupyBiblioteca = {
                 }
             });
         }
+
+        // Listener para SIGLA (Enter)
+        const inputSigla = document.getElementById('lib-sigla-input');
+        if (inputSigla) {
+            inputSigla.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.buscarSigla();
+                }
+            });
+        }
     },
 
     isAdmin: function () {
@@ -594,6 +604,106 @@ window.GupyBiblioteca = {
     },
 
     copiarCampoCID: function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const texto = el.innerText;
+        navigator.clipboard.writeText(texto).then(() => {
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Copiado!',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                });
+            }
+        });
+    },
+
+    // --- SIGLAS ÓRGÃO EMISSOR ---
+    CommonSiglas: {
+        'ABNC': 'Academia Brasileira de Neurocirurgia',
+        'AGU': 'Advocacia-Geral da União',
+        'ANAC': 'Agência Nacional de Aviação Civil',
+        'CAER': 'Clube de Aeronáutica',
+        'CAU': 'Conselho de Arquitetura e Urbanismo',
+        'CBM': 'Corpo de Bombeiro Militar',
+        'CFA': 'Conselho Federal de Administração',
+        'CFB': 'Conselho Federal de Biblioteconomia',
+        'CFBIO': 'Conselho Federal de Biologia',
+        'CFBM': 'Conselho Federal de Biomedicina',
+        'CFC': 'Conselho Federal de Contabilidade',
+        'CFESS': 'Conselho Federal de Serviço Social',
+        'CFF': 'Conselho Regional de Farmácia',
+        'CFFA': 'Conselho Federal de Fonoaudiologia',
+        'CFM': 'Conselho Federal de Medicina',
+        'CFMV': 'Conselho Federal de Medicina Veterinária',
+        'CFN': 'Conselho Federal de Nutrição',
+        'CFO': 'Conselho Federal de Odontologia',
+        'CFP': 'Conselho Federal de Psicologia',
+        'CFQ': 'Conselho Regional de Química',
+        'CFT': 'Conselho Federal dos Técnicos Industriais',
+        'CFTA': 'Conselho Federal dos Técnicos Agrícolas',
+        'CGPI': 'Coordenação Geral de Privilégios e Imunidades',
+        'CGPMAF': 'Coordenadoria Geral de Polícia Marítima, Aeronáutica e de Fronteiras',
+        'CIPC': 'Centro de Inteligência da Polícia Civil',
+        'CNIG': 'Conselho Nacional de Imigração',
+        'CNT': 'Confederação Nacional do Transporte',
+        'CNTV': 'Confederação Nacional de Vigilantes & Prestadores de Serviços',
+        'SSP': 'Secretaria de Segurança Pública',
+        'DETRAN': 'Departamento Estadual de Trânsito',
+        'PF': 'Polícia Federal',
+        'DPF': 'Departamento de Polícia Federal',
+        'OAB': 'Ordem dos Advogados do Brasil',
+        'CRM': 'Conselho Regional de Medicina',
+        'CREA': 'Conselho Regional de Engenharia e Agronomia',
+        'CORECON': 'Conselho Regional de Economia',
+        'CRA': 'Conselho Regional de Administração',
+        'CRB': 'Conselho Regional de Biblioteconomia',
+        'CRC': 'Conselho Regional de Contabilidade',
+        'CRECI': 'Conselho Regional de Corretores de Imóveis',
+        'COREN': 'Conselho Regional de Enfermagem',
+        'CRF': 'Conselho Regional de Farmácia',
+        'CRN': 'Conselho Regional de Nutrição',
+        'CRO': 'Conselho Regional de Odontologia',
+        'CRP': 'Conselho Regional de Psicologia',
+        'CRV': 'Conselho Regional de Medicina Veterinária',
+        'MTE': 'Ministério do Trabalho e Emprego',
+        'MEX': 'Ministério do Exército',
+        'MAE': 'Ministério da Aeronáutica',
+        'MMA': 'Ministério da Marinha',
+        'CNH': 'Carteira Nacional de Habilitação',
+        'DIC': 'Diretoria de Identificação Civil',
+        'IFP': 'Instituto Félix Pacheco',
+        'IPF': 'Instituto Pereira Falcão',
+        'SES': 'Secretaria de Estado da Saúde',
+        'SESP': 'Secretaria de Estado da Segurança Pública',
+        'SJS': 'Secretaria de Justiça e Segurança',
+        'SJTC': 'Secretaria de Justiça do Trabalho e Cidadania'
+    },
+
+    buscarSigla: function () {
+        const input = document.getElementById('lib-sigla-input');
+        const query = input.value.trim().toUpperCase();
+        const resBox = document.getElementById('lib-sigla-resultado');
+
+        if (query.length < 2) return;
+
+        const descricao = this.CommonSiglas[query];
+
+        if (descricao) {
+            document.getElementById('lib-sigla-descricao').innerText = descricao;
+            document.getElementById('lib-sigla-display-code').innerText = query;
+            resBox.classList.remove('hidden');
+        } else {
+            resBox.classList.add('hidden');
+            if (window.Swal) Swal.fire('Sigla não localizada', 'Verifique a sigla digitada ou tente outra variação.', 'info');
+        }
+    },
+
+    copiarCampoSigla: function (id) {
         const el = document.getElementById(id);
         if (!el) return;
         const texto = el.innerText;
