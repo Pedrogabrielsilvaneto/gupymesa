@@ -502,67 +502,17 @@ window.GupyBiblioteca = {
 
     // --- CID ---
     CommonCIDs: {
-        // CID-10 (Antigos)
-        'A00': 'Cólera',
-        'A01': 'Febres Tifóide e Paratifóide',
-        'A02': 'Outras Infecções Por Salmonella',
-        'A03': 'Shiguelose',
-        'A04': 'Outras Infecções Intestinais Bacterianas',
-        'A05': 'Outras Intoxicações Alimentares Bacterianas, Não Classificadas em Outra Parte',
-        'A06': 'Amebíase',
-        'A07': 'Outras Doenças Intestinais Por Protozoários',
-        'A08': 'Infecções Intestinais Virais, Outras e as Não Especificadas',
-        'A09': 'Diarréia e Gastroenterite de Origem Infecciosa Presumível',
-        'A15': 'Tuberculose Respiratória, Com Confirmação Bacteriológica e Histológica',
-        'A16': 'Tuberculose Das Vias Respiratórias, Sem Confirmação Bacteriológica ou Histológica',
-        'A17': 'Tuberculose do Sistema Nervoso',
-        'A18': 'Tuberculose de Outros Órgãos',
-        'A19': 'Tuberculose Miliar',
-        'A20': 'Peste',
-        'A21': 'Tularemia',
-        'A22': 'Carbúnculo',
-        'A23': 'Brucelose',
-        'A24': 'Mormo e Melioidose',
-        'A25': 'Febres Transmitidas Por Mordedura de Rato',
         'M54': 'Dorsalgia (Dor nas costas)',
-        'M54.5': 'Lombalgia baixa',
         'R51': 'Cefaleia (Dor de cabeça)',
         'F84.0': 'Autismo infantil',
-        'F84': 'Transtornos globais do desenvolvimento',
-        'I10': 'Hipertensão essencial (primária)',
-        'E11': 'Diabetes mellitus não-insulino-dependente',
-        'J06': 'Infecções agudas das vias aéreas superiores de locais múltiplos e não especificados',
-        'Z00': 'Exame geral e investigação de pessoas sem queixas ou diagnóstico relatado',
-        'B34': 'Doenças por vírus, de localização não especificada',
-        'J00': 'Nasofaringite aguda (resfriado comum)',
-        'K29': 'Gastrite e duodenite',
-        'N39': 'Outros transtornos do aparelho urinário',
-        'M25': 'Outros transtornos articulares não classificados em outra parte',
-        'G44': 'Outras síndromes de algias cefálicas (enxaquecas)',
-        'M51': 'Outros transtornos de discos intervertebrais',
-        'M79': 'Outros transtornos dos tecidos moles, não classificados em outra parte',
-        'S06': 'Traumatismo intracraniano',
-        'J44': 'Outras doenças pulmonares obstrutivas crônicas',
-        'I20': 'Angina pectoris',
-
-        // CID-11 (Novos)
-        '6A02': 'Transtorno do Espectro Autista (Autismo / TEA)',
-        '6A02.0': 'TEA sem deficiência intelectual e com linguagem funcional preservada',
-        '6A05': 'Transtorno de Déficit de Atenção e Hiperatividade (TDAH)',
-        '6A70': 'Transtorno Depressivo de episódio único',
-        '6A71': 'Transtorno Depressivo Recorrente',
-        '6B00': 'Transtorno de Ansiedade Generalizada (TAG)',
-        '6B40': 'Transtorno de Estresse Pós-Traumático (TEPT)',
-        'BD40': 'Infarto Agudo do Miocárdio',
-        'BA00': 'Hipertensão Essencial (CID-11)',
-        '5A11': 'Diabetes Mellitus Tipo 2 (CID-11)'
+        '6A02': 'Transtorno do Espectro Autista (CID-11)'
     },
 
     buscarCID: async function () {
         const input = document.getElementById('lib-cid-input');
         let query = input.value.trim().toUpperCase();
 
-        if (query.length < 3) return;
+        if (query.length < 2) return; // Permitir códigos curtos como A00
 
         const loading = document.getElementById('lib-cid-loading');
         const resBox = document.getElementById('lib-cid-resultado');
@@ -570,7 +520,7 @@ window.GupyBiblioteca = {
         if (loading) loading.classList.remove('hidden');
         if (resBox) resBox.classList.add('hidden');
 
-        // 1. Tentar dicionário local (Rápido e Estável)
+        // 1. Dicionário Mínimo (Apenas para garantir PT-BR nos mais comuns)
         const localResult = this.CommonCIDs[query] || this.CommonCIDs[query.replace('.', '')];
         if (localResult) {
             document.getElementById('lib-cid-descricao').innerText = localResult;
@@ -581,44 +531,42 @@ window.GupyBiblioteca = {
         }
 
         try {
-            // 2. Tentar API Global CID-10 (icd10api)
-            const r = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
-            const data = await r.json();
+            // 2. Tentar API NIH (Clinical Tables) - CID-10 (Muito robusto e atualizado)
+            const rNIH10 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?terms=${query}&max=1`);
+            const dataNIH10 = await rNIH10.json();
 
-            if (data && data.Name) {
-                document.getElementById('lib-cid-descricao').innerText = data.Name;
-                document.getElementById('lib-cid-display-code').innerText = query;
+            if (dataNIH10 && dataNIH10[3] && dataNIH10[3].length > 0) {
+                document.getElementById('lib-cid-descricao').innerText = dataNIH10[3][0][1];
+                document.getElementById('lib-cid-display-code').innerText = dataNIH10[3][0][0];
                 if (resBox) resBox.classList.remove('hidden');
                 return;
             }
-            throw new Error();
+
+            // 3. Tentar API ICD10API.com (Alternativa global para CID-10)
+            const rGlobal = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
+            const dataGlobal = await rGlobal.json();
+
+            if (dataGlobal && dataGlobal.Response === "True") {
+                document.getElementById('lib-cid-descricao').innerText = dataGlobal.Description;
+                document.getElementById('lib-cid-display-code').innerText = dataGlobal.Name;
+                if (resBox) resBox.classList.remove('hidden');
+                return;
+            }
+
+            // 4. Tentar API NIH (Clinical Tables) - CID-11 (Mais robusto)
+            const rNIH11 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd11_codes/v3/search?terms=${query}&max=1`);
+            const dataNIH11 = await rNIH11.json();
+
+            if (dataNIH11 && dataNIH11[3] && dataNIH11[3].length > 0) {
+                document.getElementById('lib-cid-descricao').innerText = dataNIH11[3][0][1] + ' (CID-11)';
+                document.getElementById('lib-cid-display-code').innerText = dataNIH11[3][0][0];
+                if (resBox) resBox.classList.remove('hidden');
+                return;
+            }
+
+            throw new Error('Not found');
         } catch (e) {
-            // 3. Tentar API NIH (Clinical Tables) - Backup para CID-10 e BASE para CID-11
-            try {
-                // Tenta como CID-10 primeiro
-                let r2 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?terms=${query}&max=1`);
-                let data2 = await r2.json();
-
-                if (data2 && data2[3] && data2[3][0]) {
-                    document.getElementById('lib-cid-descricao').innerText = data2[3][0][1];
-                    document.getElementById('lib-cid-display-code').innerText = data2[3][0][0];
-                    if (resBox) resBox.classList.remove('hidden');
-                    return;
-                }
-
-                // 4. Se não achou no CID-10, tenta no CID-11 (NIH Clinical Tables)
-                let r3 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd11_codes/v3/search?terms=${query}&max=1`);
-                let data3 = await r3.json();
-
-                if (data3 && data3[3] && data3[3][0]) {
-                    document.getElementById('lib-cid-descricao').innerText = data3[3][0][1] + ' (CID-11)';
-                    document.getElementById('lib-cid-display-code').innerText = data3[3][0][0];
-                    if (resBox) resBox.classList.remove('hidden');
-                    return;
-                }
-            } catch (e2) { }
-
-            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. No momento as APIs públicas brasileiras estão instáveis.', 'warning');
+            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. O sistema busca em bancos de dados internacionais filtrados.', 'warning');
         } finally {
             if (loading) loading.classList.add('hidden');
         }
