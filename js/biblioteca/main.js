@@ -43,6 +43,16 @@ window.GupyBiblioteca = {
                 }
             });
         }
+
+        // Listener para CID (Enter)
+        const inputCid = document.getElementById('lib-cid-input');
+        if (inputCid) {
+            inputCid.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.buscarCID();
+                }
+            });
+        }
     },
 
     isAdmin: function () {
@@ -462,6 +472,56 @@ window.GupyBiblioteca = {
     },
 
     copiarCampoCEP: function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const texto = el.innerText;
+        navigator.clipboard.writeText(texto).then(() => {
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Copiado!',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                });
+            }
+        });
+    },
+
+    // --- CID ---
+    buscarCID: async function () {
+        const input = document.getElementById('lib-cid-input');
+        const query = input.value.trim().toUpperCase();
+
+        if (query.length < 3) return;
+
+        const loading = document.getElementById('lib-cid-loading');
+        const resBox = document.getElementById('lib-cid-resultado');
+
+        if (loading) loading.classList.remove('hidden');
+        if (resBox) resBox.classList.add('hidden');
+
+        try {
+            // Usando a API nuvemapp que é pública e gratuita para CID-10
+            const r = await fetch(`https://cid.api.nuvemapp.com.br/v1/cid/${query}`);
+            const data = await r.json();
+
+            if (!data || data.error || !data.codigo) throw new Error();
+
+            document.getElementById('lib-cid-descricao').innerText = data.nome;
+            document.getElementById('lib-cid-display-code').innerText = data.codigo;
+
+            if (resBox) resBox.classList.remove('hidden');
+        } catch (e) {
+            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado.', 'warning');
+        } finally {
+            if (loading) loading.classList.add('hidden');
+        }
+    },
+
+    copiarCampoCID: function (id) {
         const el = document.getElementById(id);
         if (!el) return;
         const texto = el.innerText;
