@@ -504,18 +504,30 @@ window.GupyBiblioteca = {
         if (resBox) resBox.classList.add('hidden');
 
         try {
-            // Usando a API nuvemapp que é pública e gratuita para CID-10
-            const r = await fetch(`https://cid.api.nuvemapp.com.br/v1/cid/${query}`);
+            // Tentando API principal (NuvemApp corrigida para CID10)
+            const r = await fetch(`https://cid10.nuvemapp.com.br/v1/cid/${query.replace('.', '')}`);
             const data = await r.json();
 
-            if (!data || data.error || !data.codigo) throw new Error();
-
-            document.getElementById('lib-cid-descricao').innerText = data.nome;
-            document.getElementById('lib-cid-display-code').innerText = data.codigo;
-
-            if (resBox) resBox.classList.remove('hidden');
+            if (data && (data.codigo || data.code)) {
+                document.getElementById('lib-cid-descricao').innerText = data.nome || data.description || data.nome_extenso;
+                document.getElementById('lib-cid-display-code').innerText = data.codigo || data.code;
+                if (resBox) resBox.classList.remove('hidden');
+                return;
+            }
+            throw new Error();
         } catch (e) {
-            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado.', 'warning');
+            // Fallback para API Global se a brasileira falhar
+            try {
+                const r2 = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
+                const data2 = await r2.json();
+                if (data2 && data2.Name) {
+                    document.getElementById('lib-cid-descricao').innerText = data2.Name;
+                    document.getElementById('lib-cid-display-code').innerText = query;
+                    if (resBox) resBox.classList.remove('hidden');
+                    return;
+                }
+            } catch (e2) { }
+            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. No momento as APIs públicas podem estar instáveis.', 'warning');
         } finally {
             if (loading) loading.classList.add('hidden');
         }
