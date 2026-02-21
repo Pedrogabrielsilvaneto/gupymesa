@@ -626,20 +626,20 @@ window.GupyBiblioteca = {
         this.modoCalculadora = modo;
         const btnInt = document.getElementById('lib-calc-btn-intervalo');
         const btnSom = document.getElementById('lib-calc-btn-soma');
-        const inDias = document.getElementById('lib-calc-container-dias');
+        const contSoma = document.getElementById('lib-calc-container-soma');
         const resInt = document.getElementById('lib-calc-resultado-intervalo');
         const resSom = document.getElementById('lib-calc-resultado-soma');
 
         if (modo === 'intervalo') {
             btnInt.className = "px-4 py-2 rounded-lg text-xs font-extrabold shadow-sm bg-blue-600 text-white transition";
             btnSom.className = "px-4 py-2 rounded-lg text-xs font-bold text-slate-500 hover:bg-white transition";
-            if (inDias) inDias.classList.add('hidden');
+            if (contSoma) contSoma.classList.add('hidden');
             if (resSom) resSom.classList.add('hidden');
             document.getElementById('lib-calc-label-data').innerText = "Data Inicial";
         } else {
             btnSom.className = "px-4 py-2 rounded-lg text-xs font-extrabold shadow-sm bg-blue-600 text-white transition";
             btnInt.className = "px-4 py-2 rounded-lg text-xs font-bold text-slate-500 hover:bg-white transition";
-            if (inDias) inDias.classList.remove('hidden');
+            if (contSoma) contSoma.classList.remove('hidden');
             if (resInt) resInt.classList.add('hidden');
             document.getElementById('lib-calc-label-data').innerText = "Data Base";
         }
@@ -681,11 +681,19 @@ window.GupyBiblioteca = {
     },
 
     calcularSoma: function (d) {
-        const dias = parseInt(document.getElementById('lib-calc-dias-input').value);
-        if (isNaN(dias)) return;
+        let dias = parseInt(document.getElementById('lib-calc-dias-input').value) || 0;
+        let meses = parseInt(document.getElementById('lib-calc-meses-input').value) || 0;
+        let anos = parseInt(document.getElementById('lib-calc-anos-input').value) || 0;
+
+        if (dias === 0 && meses === 0 && anos === 0) {
+            document.getElementById('lib-calc-resultado-soma').classList.add('hidden');
+            return;
+        }
 
         const futura = new Date(d);
-        futura.setDate(futura.getDate() + dias);
+        if (anos !== 0) futura.setFullYear(futura.getFullYear() + anos);
+        if (meses !== 0) futura.setMonth(futura.getMonth() + meses);
+        if (dias !== 0) futura.setDate(futura.getDate() + dias);
 
         const dd = String(futura.getDate()).padStart(2, '0');
         const mm = String(futura.getMonth() + 1).padStart(2, '0');

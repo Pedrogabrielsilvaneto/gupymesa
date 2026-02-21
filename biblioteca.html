@@ -75,8 +75,8 @@
     </style>
 
     <script src="js/config.js"></script>
-    <script src="js/sistema.js?v=20260220_2115"></script>
-    <script src="js/biblioteca/main.js?v=20260220_2115"></script>
+    <script src="js/sistema.js?v=20260220_2120"></script>
+    <script src="js/biblioteca/main.js?v=20260220_2120"></script>
 
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -352,12 +352,30 @@
                             oninput="GupyBiblioteca.processarCalculadora()"
                             class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
                     </div>
-                    <div id="lib-calc-container-dias" class="hidden">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Dias
-                            para Somar</label>
-                        <input type="number" id="lib-calc-dias-input" placeholder="Ex: 30"
-                            oninput="GupyBiblioteca.processarCalculadora()"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
+                    <div id="lib-calc-container-soma" class="hidden space-y-4">
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label
+                                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Dias</label>
+                                <input type="number" id="lib-calc-dias-input" placeholder="0"
+                                    oninput="GupyBiblioteca.processarCalculadora()"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Meses</label>
+                                <input type="number" id="lib-calc-meses-input" placeholder="0"
+                                    oninput="GupyBiblioteca.processarCalculadora()"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
+                            </div>
+                            <div>
+                                <label
+                                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Anos</label>
+                                <input type="number" id="lib-calc-anos-input" placeholder="0"
+                                    oninput="GupyBiblioteca.processarCalculadora()"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-3 text-sm font-bold outline-none focus:border-blue-400 shadow-sm text-center">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
