@@ -492,6 +492,7 @@ window.GupyBiblioteca = {
 
     // --- CID ---
     CommonCIDs: {
+        // CID-10 (Antigos)
         'M54': 'Dorsalgia (Dor nas costas)',
         'M54.5': 'Lombalgia baixa',
         'R51': 'Cefaleia (Dor de cabeça)',
@@ -511,7 +512,19 @@ window.GupyBiblioteca = {
         'M79': 'Outros transtornos dos tecidos moles, não classificados em outra parte',
         'S06': 'Traumatismo intracraniano',
         'J44': 'Outras doenças pulmonares obstrutivas crônicas',
-        'I20': 'Angina pectoris'
+        'I20': 'Angina pectoris',
+
+        // CID-11 (Novos)
+        '6A02': 'Transtorno do Espectro Autista (Autismo / TEA)',
+        '6A02.0': 'TEA sem deficiência intelectual e com linguagem funcional preservada',
+        '6A05': 'Transtorno de Déficit de Atenção e Hiperatividade (TDAH)',
+        '6A70': 'Transtorno Depressivo de episódio único',
+        '6A71': 'Transtorno Depressivo Recorrente',
+        '6B00': 'Transtorno de Ansiedade Generalizada (TAG)',
+        '6B40': 'Transtorno de Estresse Pós-Traumático (TEPT)',
+        'BD40': 'Infarto Agudo do Miocárdio',
+        'BA00': 'Hipertensão Essencial (CID-11)',
+        '5A11': 'Diabetes Mellitus Tipo 2 (CID-11)'
     },
 
     buscarCID: async function () {
@@ -537,7 +550,7 @@ window.GupyBiblioteca = {
         }
 
         try {
-            // 2. Tentar API Global (icd10api) - Mais estável
+            // 2. Tentar API Global CID-10 (icd10api)
             const r = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
             const data = await r.json();
 
@@ -549,13 +562,26 @@ window.GupyBiblioteca = {
             }
             throw new Error();
         } catch (e) {
-            // 3. Tentar API NIH (Clinical Tables) - Backup Robusto
+            // 3. Tentar API NIH (Clinical Tables) - Backup para CID-10 e BASE para CID-11
             try {
-                const r2 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?terms=${query}&max=1`);
-                const data2 = await r2.json();
+                // Tenta como CID-10 primeiro
+                let r2 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?terms=${query}&max=1`);
+                let data2 = await r2.json();
+
                 if (data2 && data2[3] && data2[3][0]) {
                     document.getElementById('lib-cid-descricao').innerText = data2[3][0][1];
                     document.getElementById('lib-cid-display-code').innerText = data2[3][0][0];
+                    if (resBox) resBox.classList.remove('hidden');
+                    return;
+                }
+
+                // 4. Se não achou no CID-10, tenta no CID-11 (NIH Clinical Tables)
+                let r3 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd11_codes/v3/search?terms=${query}&max=1`);
+                let data3 = await r3.json();
+
+                if (data3 && data3[3] && data3[3][0]) {
+                    document.getElementById('lib-cid-descricao').innerText = data3[3][0][1] + ' (CID-11)';
+                    document.getElementById('lib-cid-display-code').innerText = data3[3][0][0];
                     if (resBox) resBox.classList.remove('hidden');
                     return;
                 }
