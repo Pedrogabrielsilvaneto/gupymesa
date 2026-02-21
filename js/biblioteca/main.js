@@ -491,9 +491,32 @@ window.GupyBiblioteca = {
     },
 
     // --- CID ---
+    CommonCIDs: {
+        'M54': 'Dorsalgia (Dor nas costas)',
+        'M54.5': 'Lombalgia baixa',
+        'R51': 'Cefaleia (Dor de cabeça)',
+        'F84.0': 'Autismo infantil',
+        'F84': 'Transtornos globais do desenvolvimento',
+        'I10': 'Hipertensão essencial (primária)',
+        'E11': 'Diabetes mellitus não-insulino-dependente',
+        'J06': 'Infecções agudas das vias aéreas superiores de locais múltiplos e não especificados',
+        'Z00': 'Exame geral e investigação de pessoas sem queixas ou diagnóstico relatado',
+        'B34': 'Doenças por vírus, de localização não especificada',
+        'J00': 'Nasofaringite aguda (resfriado comum)',
+        'K29': 'Gastrite e duodenite',
+        'N39': 'Outros transtornos do aparelho urinário',
+        'M25': 'Outros transtornos articulares não classificados em outra parte',
+        'G44': 'Outras síndromes de algias cefálicas (enxaquecas)',
+        'M51': 'Outros transtornos de discos intervertebrais',
+        'M79': 'Outros transtornos dos tecidos moles, não classificados em outra parte',
+        'S06': 'Traumatismo intracraniano',
+        'J44': 'Outras doenças pulmonares obstrutivas crônicas',
+        'I20': 'Angina pectoris'
+    },
+
     buscarCID: async function () {
         const input = document.getElementById('lib-cid-input');
-        const query = input.value.trim().toUpperCase();
+        let query = input.value.trim().toUpperCase();
 
         if (query.length < 3) return;
 
@@ -503,31 +526,42 @@ window.GupyBiblioteca = {
         if (loading) loading.classList.remove('hidden');
         if (resBox) resBox.classList.add('hidden');
 
+        // 1. Tentar dicionário local (Rápido e Estável)
+        const localResult = this.CommonCIDs[query] || this.CommonCIDs[query.replace('.', '')];
+        if (localResult) {
+            document.getElementById('lib-cid-descricao').innerText = localResult;
+            document.getElementById('lib-cid-display-code').innerText = query;
+            if (resBox) resBox.classList.remove('hidden');
+            if (loading) loading.classList.add('hidden');
+            return;
+        }
+
         try {
-            // Tentando API principal (NuvemApp corrigida para CID10)
-            const r = await fetch(`https://cid10.nuvemapp.com.br/v1/cid/${query.replace('.', '')}`);
+            // 2. Tentar API Global (icd10api) - Mais estável
+            const r = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
             const data = await r.json();
 
-            if (data && (data.codigo || data.code)) {
-                document.getElementById('lib-cid-descricao').innerText = data.nome || data.description || data.nome_extenso;
-                document.getElementById('lib-cid-display-code').innerText = data.codigo || data.code;
+            if (data && data.Name) {
+                document.getElementById('lib-cid-descricao').innerText = data.Name;
+                document.getElementById('lib-cid-display-code').innerText = query;
                 if (resBox) resBox.classList.remove('hidden');
                 return;
             }
             throw new Error();
         } catch (e) {
-            // Fallback para API Global se a brasileira falhar
+            // 3. Tentar API NIH (Clinical Tables) - Backup Robusto
             try {
-                const r2 = await fetch(`https://icd10api.com/?code=${query}&desc=short&r=json`);
+                const r2 = await fetch(`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?terms=${query}&max=1`);
                 const data2 = await r2.json();
-                if (data2 && data2.Name) {
-                    document.getElementById('lib-cid-descricao').innerText = data2.Name;
-                    document.getElementById('lib-cid-display-code').innerText = query;
+                if (data2 && data2[3] && data2[3][0]) {
+                    document.getElementById('lib-cid-descricao').innerText = data2[3][0][1];
+                    document.getElementById('lib-cid-display-code').innerText = data2[3][0][0];
                     if (resBox) resBox.classList.remove('hidden');
                     return;
                 }
             } catch (e2) { }
-            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. No momento as APIs públicas podem estar instáveis.', 'warning');
+
+            if (window.Swal) Swal.fire('CID não localizado', 'Verifique o código digitado. No momento as APIs públicas brasileiras estão instáveis.', 'warning');
         } finally {
             if (loading) loading.classList.add('hidden');
         }
