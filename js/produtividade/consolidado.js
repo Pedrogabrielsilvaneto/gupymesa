@@ -124,7 +124,7 @@ Produtividade.Consolidado = {
         const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
         if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
 
-        const vClt = config.dias_uteis_clt || (vTerc - 1);
+        const vClt = config.dias_uteis_clt || vTerc;
         if (filtroContrato === 'CLT') return vClt;
 
         return vTerc; // Padrão
@@ -317,7 +317,8 @@ Produtividade.Consolidado = {
         let rows = mkRow('Total de assistentes', 'fas fa-users-cog', 'text-indigo-400', (s, HC) => HC, true);
 
         // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
-        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => s.dias.size);
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
+        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => (filtroContrato === 'CLT' && s.dias.size > 0) ? s.dias.size - 1 : s.dias.size);
 
         // 2.1 Dias úteis configurados (V38 - Ocultar se não houver alteração)
         if (this.hasManualDU) {

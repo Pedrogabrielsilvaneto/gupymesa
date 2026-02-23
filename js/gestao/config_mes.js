@@ -101,7 +101,7 @@ Gestao.ConfigMes = {
         if (tipo === 'TERCEIROS') return vTerc;
 
         // Se o tipo for CLT
-        let vClt = (config && config.dias_uteis_clt) ? config.dias_uteis_clt : (vTerc - 1);
+        let vClt = (config && config.dias_uteis_clt) ? config.dias_uteis_clt : vTerc;
 
         if (tipo === 'CLT') return vClt;
 

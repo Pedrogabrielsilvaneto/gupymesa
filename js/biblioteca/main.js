@@ -463,19 +463,63 @@ window.GupyBiblioteca = {
         if (resBox) resBox.classList.add('hidden');
 
         try {
-            const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            const data = await r.json();
+            let data = null;
 
-            if (data.erro) throw new Error();
+            // 1. Tenta ViaCEP (Padrão)
+            try {
+                const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                if (r.ok) {
+                    const res = await r.json();
+                    if (!res.erro) data = res;
+                }
+            } catch (e) { console.warn("ViaCEP indisponível, tentando fallback..."); }
 
-            document.getElementById('lib-cep-logradouro').innerText = data.logradouro;
-            document.getElementById('lib-cep-bairro').innerText = data.bairro;
-            document.getElementById('lib-cep-localidade').innerText = `${data.localidade} - ${data.uf}`;
+            // 2. Tenta OpenCEP (Fallback 1) - Mesma estrutura
+            if (!data) {
+                try {
+                    const r = await fetch(`https://opencep.com/v1/${cep}`, {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
+                    if (r.ok) {
+                        const res = await r.json();
+                        if (!res.erro) data = res;
+                    }
+                } catch (e) { console.warn("OpenCEP indisponível, tentando AwesomeAPI..."); }
+            }
+
+            // 3. Tenta AwesomeAPI (Fallback 2) - Mapeia campos para compatibilidade
+            if (!data) {
+                try {
+                    const r = await fetch(`https://cep.awesomeapi.com.br/json/${cep}`);
+                    if (r.ok) {
+                        const res = await r.json();
+                        if (res.cep) {
+                            data = {
+                                logradouro: res.address,
+                                bairro: res.district,
+                                localidade: res.city,
+                                uf: res.state
+                            };
+                        }
+                    }
+                } catch (e) { console.warn("Fallback AwesomeAPI falhou."); }
+            }
+
+            if (!data) throw new Error("CEP não encontrado em nenhuma das bases.");
+
+            document.getElementById('lib-cep-logradouro').innerText = data.logradouro || '-';
+            document.getElementById('lib-cep-bairro').innerText = data.bairro || '-';
+            document.getElementById('lib-cep-localidade').innerText = (data.localidade && data.uf) ? `${data.localidade} - ${data.uf}` : (data.localidade || data.uf || '-');
             document.getElementById('lib-cep-display-num').innerText = cep.replace(/^(\d{5})(\d{3})/, "$1-$2");
 
             if (resBox) resBox.classList.remove('hidden');
         } catch (e) {
-            if (window.Swal) Swal.fire('CEP não localizado', 'Verifique o número digitado.', 'warning');
+            console.error("Erro CEP:", e);
+            if (window.Swal) Swal.fire('Consulta Indisponível', 'As APIs de busca de CEP estão instáveis no momento. Verifique o número digitado ou aguarde alguns instantes.', 'warning');
         } finally {
             if (loading) loading.classList.add('hidden');
         }

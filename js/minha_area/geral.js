@@ -211,7 +211,7 @@ MinhaArea.Geral = {
             const vTerc = configMes.dias_uteis_terceiros || configMes.dias_uteis || diasCal;
             if (contrato === 'TERCEIROS' || contrato === 'PJ') return vTerc;
 
-            const vClt = configMes.dias_uteis_clt || (vTerc - 1);
+            const vClt = configMes.dias_uteis_clt || vTerc;
             if (contrato === 'CLT') return vClt;
 
             return vTerc; // Default
@@ -325,9 +325,9 @@ MinhaArea.Geral = {
 
 
 
-            // [LOGIC] Meta Total do Período = Meta Diária * Dias Trabalhados
-            item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
-            item.meta_total_periodo = Math.round(item.meta_velocidade_media * diasUteisLiquidos);
+            // [LOGIC] Meta Total do Período = Meta Diária * (Dias Trabalhados - 1 se for CLT)
+            const multMeta = (contratoUser === 'CLT' && diasUteisLiquidos > 0) ? (diasUteisLiquidos - 1) : diasUteisLiquidos;
+            item.meta_total_periodo = Math.round(item.meta_velocidade_media * multMeta);
             item.dias_uteis_liquidos = diasUteisLiquidos;
             item.dias_uteis_brutos = diastUteisUser; // [FIX] Salva o dia útil cheio (sem desconto) para KPI Global
 
@@ -360,10 +360,16 @@ MinhaArea.Geral = {
 
         const item = this.state.listaTabela.find(i => String(i.uid) === String(uid));
         if (item) {
+            const uInfo = this.state.mapaUsuarios[item.uid];
+            const contratoUser = uInfo ? (uInfo.contrato || '').toUpperCase() : '';
+
             this.atualizarCardsKPI({
                 prod: { real: item.producao, meta: item.meta_total_periodo },
                 assert: { real: item.media_final || 0, meta: item.meta_assert },
-                capacidade: { diasReal: item.soma_fator, diasTotal: item.dias_uteis_liquidos },
+                capacidade: {
+                    diasReal: (contratoUser === 'CLT' && item.soma_fator > 0) ? item.soma_fator - 1 : item.soma_fator,
+                    diasTotal: item.dias_uteis_brutos || item.dias_uteis_liquidos
+                },
                 velocidade: { real: item.velocidade_acumulada, meta: item.meta_velocidade_media }
             });
 
@@ -441,10 +447,13 @@ MinhaArea.Geral = {
 
                 const obsText = row.justificativa_gestao || row.observacao_assistente ? 'Sim' : '-';
 
+                const uInfoRow = this.state.mapaUsuarios[row.uid];
+                const workedDays = (uInfoRow?.contrato === 'CLT' && row.soma_fator > 0) ? row.soma_fator - 1 : row.soma_fator;
+
                 return `
                     <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
                         <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
-                        <td class="px-2 py-3 text-center text-slate-700 font-medium bg-slate-50">${row.soma_fator}</td>
+                        <td class="px-2 py-3 text-center text-slate-700 font-medium bg-slate-50">${workedDays}</td>
                         <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
                         <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
                         <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>

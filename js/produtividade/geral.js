@@ -283,7 +283,7 @@ Produtividade.Geral = {
         const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
         if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
 
-        const vClt = config.dias_uteis_clt || (vTerc - 1);
+        const vClt = config.dias_uteis_clt || vTerc;
         if (filtroContrato === 'CLT') return vClt;
 
         // Se "Tudo", exibe Terceiros no KPI de topo por padrão
@@ -418,13 +418,13 @@ Produtividade.Geral = {
                 // [FIX] Só aplicar override da Configuração se estivermos olhando para o mês cheio (ou quase)
                 // Se o periodo filtrado for pequeno (ex: 5 dias), usar o calculo de dias do periodo e não o total do mês (21)
                 if (diasUteisPeriodo >= (vTerc * 0.8)) {
-                    const vClt = c.dias_uteis_clt || (vTerc - 1);
+                    const vClt = c.dias_uteis_clt || vTerc;
                     const contrato = (u.contrato || '').toUpperCase();
                     diasUsuario = (contrato === 'CLT') ? vClt : vTerc;
                 }
             }
 
-            const multiplicador = isPeriodo ? diasUsuario : 1;
+            const multiplicador = isPeriodo ? (contrato === 'CLT' ? Math.max(0, diasUsuario - 1) : diasUsuario) : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
@@ -702,7 +702,8 @@ Produtividade.Geral = {
         // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
         // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
         if (metaDiariaGestor > 0) {
-            totalMeta = metaDiariaGestor * this.getHeadcountConfig() * totalDiasUteis;
+            const multDias = (filtroContrato === 'CLT' && totalDiasUteis > 0) ? (totalDiasUteis - 1) : totalDiasUteis;
+            totalMeta = metaDiariaGestor * this.getHeadcountConfig() * multDias;
         } else {
             // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
             // O user pediu padronização. Se for 0, fica 0 ou soma. Vamos manter 0 para forçar configuração correta ou somar como fallback?
@@ -800,7 +801,7 @@ Produtividade.Geral = {
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
-                diasReal: datasComProducao.size,
+                diasReal: (filtroContrato === 'CLT' && datasComProducao.size > 0) ? datasComProducao.size - 1 : datasComProducao.size,
                 diasTotal: totalDiasUteis,
                 assisReal: assisRealFinal,
                 assisTotal: totalHeadcountDefinido // Mantém o headcount original como meta (ex: 17)
