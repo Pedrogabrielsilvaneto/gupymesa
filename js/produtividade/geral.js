@@ -732,10 +732,10 @@ Produtividade.Geral = {
             } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
                 totalMeta = metaDiariaGestor * hcTerc * diasTerc;
             } else {
-                // Geral: Soma proporcional
-                const metaClt = metaDiariaGestor * hcClt * Math.max(0, diasClt - 1);
-                const metaTerc = metaDiariaGestor * hcTerc * diasTerc;
-                totalMeta = metaClt + metaTerc;
+                // Geral: Padroniza pela Meta da Gestora e regra de -1 dia (pois a gestora é CLT)
+                const hcTotal = hcClt + hcTerc;
+                const diasBase = diasTerc; // diasTerc é o padrão de dias úteis do período/mês
+                totalMeta = metaDiariaGestor * hcTotal * Math.max(0, diasBase - 1);
             }
         } else {
             totalMeta = 0;
