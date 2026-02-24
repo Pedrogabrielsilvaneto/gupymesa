@@ -132,16 +132,27 @@ Produtividade.Consolidado = {
     },
 
     contarAssistentesAtivos: function () {
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
+
         let count = 0;
         for (const uid in this.mapaFuncoes) {
             const funcao = (this.mapaFuncoes[uid] || '').toLowerCase();
+            const contrato = (this.mapaContrato[uid] || '').toUpperCase();
             const ativo = this.mapaAtivo[uid];
+
             if (ativo === false || ativo === 0 || ativo === '0') continue;
             if (termosExcluidos.some(t => funcao.includes(t))) continue;
+
+            // Filtro de contrato para o count de ativos
+            if (filtroContrato !== 'todos') {
+                if (filtroContrato === 'CLT' && contrato !== 'CLT') continue;
+                if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && contrato !== 'PJ' && contrato !== 'TERCEIROS') continue;
+            }
+
             count++;
         }
-        return count || 17;
+        return count;
     },
 
     carregar: async function (forcar = false) {
@@ -227,6 +238,8 @@ Produtividade.Consolidado = {
                 ? Produtividade.Filtros.estado.contrato || 'todos'
                 : 'todos';
 
+            const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+
             rawData.forEach(r => {
                 // Filtra por contrato
                 if (filtroContrato && filtroContrato !== 'todos') {
@@ -235,9 +248,9 @@ Produtividade.Consolidado = {
                     if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && contrato !== 'PJ' && contrato !== 'TERCEIROS') return;
                 }
 
-                // Exclui gestão (AUDITORA, GESTORA)
-                const funcao = this.mapaFuncoes[r.usuario_id] || '';
-                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
+                // Exclui gestão (Seguindo a regra do Card Geral)
+                const funcao = (this.mapaFuncoes[r.usuario_id] || '').toLowerCase();
+                const isManager = termosExcluidos.some(t => funcao.includes(t));
 
                 // Exclui inativos
                 const ativo = this.mapaAtivo[r.usuario_id];
@@ -250,12 +263,14 @@ Produtividade.Consolidado = {
 
                 if (b >= 1 && b <= numCols) {
                     [b, 99].forEach(k => {
-                        // Produção: soma SEMPRE (inclusive gestão, porque elas produziram)
-                        st[k].qty += Number(r.quantidade) || 0;
-                        st[k].fifo += Number(r.fifo) || 0;
-                        st[k].gt += Number(r.gradual_total) || 0;
-                        st[k].gp += Number(r.gradual_parcial) || 0;
-                        st[k].fc += Number(r.perfil_fc) || 0;
+                        // [FIX] Produção: ignora produção de gestores para bater com Dashboard
+                        if (!isManager) {
+                            st[k].qty += Number(r.quantidade) || 0;
+                            st[k].fifo += Number(r.fifo) || 0;
+                            st[k].gt += Number(r.gradual_total) || 0;
+                            st[k].gp += Number(r.gradual_parcial) || 0;
+                            st[k].fc += Number(r.perfil_fc) || 0;
+                        }
 
                         // Headcount e dias: só assistentes ativos
                         if (!isManager && !isInativo) {
