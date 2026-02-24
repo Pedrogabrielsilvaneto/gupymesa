@@ -394,19 +394,20 @@ Produtividade.Geral = {
             item.fator = item.count_fator > 0 ? (item.soma_fator / item.count_fator) : 1.0;
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
 
-            // Meta Padrão: 100 para Assistentes, 0 para Gestão (Auditores/Líderes/Gestora)
-            // [MODIFIED] Permitimos que Gestores tenham meta base (ex: 650) gravada no objeto para uso posterior
+            // Meta Padrão: 650 para Assistentes CLT/Geral, 100 para Terceiros/PJ
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
-            const defaultMeta = 100; // Base para assistentes
+            const contratoUpper = (u.contrato || '').toUpperCase();
 
-            // [MODIFIED] Se for Gestão, define meta zero PARA O INDIVIDUO (na lista), mas guarda a meta base
+            // Se for Gestão, define meta zero PARA O INDIVIDUO (na lista), mas guarda a meta base
             if (ehGestao) {
                 item.meta_base_diaria = 0;
                 item._meta_gestor_base = Number(metaObj ? (metaObj.meta_producao || 0) : 0); // Guarda meta do gestor (ex 650)
                 item.meta_assert = 0;
             } else {
-                item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMeta) : defaultMeta);
+                // [FIX] Fallback para 650 em CLT/Geral, 100 em Terceiros
+                const defaultMetaByContrato = (contratoUpper === 'CLT' || filtroContrato === 'TODOS') ? 650 : 100;
+                item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMetaByContrato) : defaultMetaByContrato);
                 item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
             }
 
@@ -426,7 +427,9 @@ Produtividade.Geral = {
             }
 
             const contrato = (u.contrato || '').toUpperCase();
-            const multiplicador = isPeriodo ? (contrato === 'CLT' ? Math.max(0, diasUsuario - 1) : diasUsuario) : 1;
+            // [FIX] Se filtro for Geral (TODOS), aplica regra de -1 dia para TODOS, pois a gestora é CLT
+            const usaRegraClt = (contrato === 'CLT' || filtroContrato === 'TODOS');
+            const multiplicador = isPeriodo ? (usaRegraClt ? Math.max(0, diasUsuario - 1) : diasUsuario) : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
@@ -715,37 +718,21 @@ Produtividade.Geral = {
             listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
         }
 
-        // [FIX V4.6] Meta Total Padronizada por Contrato
-        if (true) { // Padronização Global solicitada
+        // [MOD] Agora calculamos totalMeta e totalHC dinamicamente a partir da lista filtrada no loop abaixo.
 
-            const config = this.state.configMes;
-            const range = this.state.range;
-            const diasCalendario = this.contarDiasUteis(range.inicio, range.fim);
-
-            // Valores base da configuração ou calculado
-            const diasTerc = (config?.dias_uteis_terceiros || config?.dias_uteis || diasCalendario);
-            const diasClt = (config?.dias_uteis_clt || diasTerc);
-            const hcTerc = Number(config?.hc_terceiros || 17); // Use local for geral calc
-            const hcClt = Number(config?.hc_clt || 0);
-
-            const metaReferencia = (metaDiariaGestor > 0) ? metaDiariaGestor : 650;
-            if (filtroContrato === 'CLT') {
-                totalMeta = metaReferencia * hcClt * Math.max(0, diasClt - 1);
-            } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
-                totalMeta = metaReferencia * hcTerc * diasTerc;
-            } else {
-                const hcTotal = (hcClt || 0) + (hcTerc || 17);
-                totalMeta = metaReferencia * Math.max(1, hcTotal) * Math.max(0, diasTerc - 1);
-            }
-        }
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
 
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
 
-            // [MOD] Metas individuais não são mais somadas ao totalMeta global para manter padronização pela regra da Gestora
-            // totalMeta já foi definido acima via fórmula padronizada.
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const cargo = (u.funcao || '').toLowerCase();
+            const ehGestaoLoop = termosExcluidos.some(t => cargo.includes(t));
 
+            // [FIX] Soma meta e headcount APENAS para quem não é gestão na lista filtrada
+            if (!ehGestaoLoop) {
+                totalMeta += (i.meta_real_calculada || 0);
+            }
 
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
             if (i.producao > 0) assistentesComProducao.add(i.uid);
@@ -831,15 +818,20 @@ Produtividade.Geral = {
             targetVelocidade = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
         }
 
+        const diasTotalKpi = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
+        const totalHeadcountFiltrado = listaExibicao.filter(i => {
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            return !i.isAggregatedManager && !termosExcluidos.some(t => (u.funcao || '').toLowerCase().includes(t));
+        }).length;
 
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
                 diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - 1) : datasComProducao.size,
-                diasTotal: totalDiasUteis,
+                diasTotal: diasTotalKpi,
                 assisReal: assisRealFinal,
-                assisTotal: totalHeadcountDefinido // Mantém o headcount original como meta (ex: 17)
+                assisTotal: totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : totalHeadcountDefinido
             },
             velocidade: { real: mediaVelocidadeReal, meta: targetVelocidade }
         };
