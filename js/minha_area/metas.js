@@ -389,7 +389,7 @@ MinhaArea.Metas = {
             // If Individual: Fetch only their ID -> Matches filtered view
             let sqlProd, paramsProd;
             if (isManagerEffective) {
-                console.log("🔍 [v4.38] Modo GESTÃO Ativo: Buscando Global (Produtividade Logic)");
+                // Modo GESTÃO Ativo: Buscando Global (Produtividade Logic)
                 sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ? `;
                 paramsProd = [inicio, fim];
             } else {
@@ -413,7 +413,7 @@ MinhaArea.Metas = {
                 Sistema.query(sqlMetas, paramsMetas)
             ]);
 
-            console.log('--- DEBUG DADOS METAS (TIDB) ---', dadosMetas);
+
 
             this._lastDadosProd = dadosProd || []; // [FIX v4.36] Store raw data for consistent global total
 
@@ -645,12 +645,26 @@ MinhaArea.Metas = {
 
         const kpiVolume = rawGlobalProd;
 
-        // Média das Médias Global (Equipe)
+        // [ALIGNMENT v4.41] Sync Global Velocity Card with Produtividade Dashboard Logic
         let kpiVelocidade = 0;
         if (this.isMacroView) {
             kpiVelocidade = contadorUsuariosComDados > 0 ? Math.round(somaDasMediasIndividuais / contadorUsuariosComDados) : 0;
         } else {
-            kpiVelocidade = globalDiasEfetivosMicro > 0 ? Math.round(globalProd / globalDiasEfetivosMicro) : 0;
+            // Logic: Total Prod / (Assistants count * (Elapsed Days - 1))
+            const hoje = new Date().toISOString().split('T')[0];
+            const range = MinhaArea.getDatasFiltro();
+            let diasContagem = this.cacheColunas.length; // Dias úteis no período selecionado
+
+            if (hoje >= range.inicio && hoje <= range.fim && typeof MinhaArea.Geral?.contarDiasUteis === 'function') {
+                diasContagem = MinhaArea.Geral.contarDiasUteis(range.inicio, hoje);
+            }
+
+            // Assume CLT rule for global view (-1 day)
+            const diasParaVelocidade = Math.max(0, diasContagem - 1);
+            const hcParaVelocidade = Object.values(this.statsUsers).filter(s => !s.isManagement).length || 1;
+            const divisor = hcParaVelocidade * diasParaVelocidade;
+
+            kpiVelocidade = divisor > 0 ? Math.round(globalProd / divisor) : (globalDiasEfetivosMicro > 0 ? Math.round(globalProd / globalDiasEfetivosMicro) : 0);
         }
 
         // [ALIGNMENT v4.34] Global Average = Sum(Ratios) / Count(Audits)

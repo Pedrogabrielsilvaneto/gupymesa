@@ -73,11 +73,9 @@ MinhaArea.Geral = {
                 const cols = await Sistema.query("SHOW COLUMNS FROM producao LIKE 'observacao_assistente'");
                 if (!cols || cols.length === 0) {
                     await Sistema.query("ALTER TABLE producao ADD COLUMN observacao_assistente TEXT");
-                    console.log("Coluna 'observacao_assistente' criada com sucesso.");
                 }
-            } catch (e) {
-                console.warn("Erro ao verificar/criar coluna observacao_assistente:", e);
-            }
+            } catch (e) { }
+
 
             await Promise.all([
                 this.buscarProducao(filtro, alvoReal),
@@ -91,9 +89,9 @@ MinhaArea.Geral = {
             // Como alvoReal agora sempre existe, ele sempre cairá no renderizarDiario
             // Security Fallback: Se não for admin, força o alvo ser o próprio usuário
             if (window.MinhaArea && !window.MinhaArea.isAdmin() && (!alvoReal || String(alvoReal) !== String(MinhaArea.usuario.id))) {
-                console.warn("🔒 [SEGURANÇA] Forçando visão para o usuário logado.");
                 alvoReal = MinhaArea.usuario.id;
             }
+
 
             if (alvoReal) {
                 this.renderizarDiario(alvoReal);
@@ -363,15 +361,27 @@ MinhaArea.Geral = {
             const uInfo = this.state.mapaUsuarios[item.uid];
             const contratoUser = uInfo ? (uInfo.contrato || '').toUpperCase() : '';
 
+            const statusContrato = (uInfo?.contrato || '').toUpperCase();
+            const workedDays = item.soma_fator || 0;
+            // Regra CLT: Desconta 1 dia da capacidade e da média
+            const workedDaysAjustado = (statusContrato === 'CLT' && workedDays > 0) ? Math.max(0, workedDays - 1) : workedDays;
+
+            const totalDaysBase = item.dias_uteis_brutos || item.dias_uteis_liquidos || 21;
+            const totalDaysAjustado = (statusContrato === 'CLT' && totalDaysBase > 0) ? Math.max(0, totalDaysBase - 1) : totalDaysBase;
+
             this.atualizarCardsKPI({
                 prod: { real: item.producao, meta: item.meta_total_periodo },
                 assert: { real: item.media_final || 0, meta: item.meta_assert },
                 capacidade: {
-                    diasReal: (contratoUser === 'CLT' && item.soma_fator > 0) ? item.soma_fator - 1 : item.soma_fator,
-                    diasTotal: item.dias_uteis_brutos || item.dias_uteis_liquidos
+                    diasReal: workedDaysAjustado,
+                    diasTotal: totalDaysAjustado
                 },
-                velocidade: { real: item.velocidade_acumulada, meta: item.meta_velocidade_media }
+                velocidade: {
+                    real: workedDaysAjustado > 0 ? Math.round(item.producao / workedDaysAjustado) : 0,
+                    meta: item.meta_velocidade_media
+                }
             });
+
 
             // [NEW] Calcular e Exibir Alerta de Meta Diária Restante
             this.calcularMetaDiariaRestante(item);
@@ -509,76 +519,58 @@ MinhaArea.Geral = {
             }
         });
 
+        // [FIX] Identifica a Gestora/Liderança no início para definir os parâmetros globais
+        const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
+
         // Headcount Configurado ou Padrão 17 (Conforme regra de negócio)
-        // [FIX] A regra agora é explicita: 17 Padrão se não houver config.
         let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : 17;
 
-        // Recupera Dias Úteis da Configuração ou usa o maior encontrado na lista (Calendário)
-        // Se `diasUteisCalendario` for 0 (ninguém na lista), tenta recalcular pelo range.
+        // Recupera Dias Úteis da Configuração ou usa o maior calendário encontrado
         let diasUteisMeta = diasUteisCalendario > 0 ? diasUteisCalendario : this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
-        // Se houver meta de gestão definida (Diária na Tabela Metas), ela prevalece.
-        // A regra diz: Meta Diária * HC * Dias. 
-        if (managerDailyMeta > 0) {
-            totalMeta = managerDailyMeta * hcFinal * diasUteisMeta;
-        } else {
-            // Se não tiver meta de gestor, tenta estimar: 650 * HC * Dias
-            const metaBase = 650;
-            const calc = metaBase * hcFinal * diasUteisMeta;
-            if (totalMeta === 0) totalMeta = calc;
-        }
+        // Identifica Meta Diária da Gestora (Se não tiver no item, tenta pegar meta base do DB)
+        managerDailyMeta = managerItemForDays ? managerItemForDays.meta_velocidade_media : 0;
 
+        // Aplica regra de -1 dia para CLT na meta global se o gestor for CLT
+        const contratacaoManager = (managerItemForDays?.contrato || 'CLT').toUpperCase();
+        const diasUteisAjustadosMeta = (contratacaoManager === 'CLT' && diasUteisMeta > 0) ? (diasUteisMeta - 1) : diasUteisMeta;
 
+        // [LOGIC] Meta Total = Meta Diária Gestora * HC * Dias Ajustados
+        // Se a meta da gestora for 0 ou 100 (fallback), usamos 650 conforme instrução do usuário
+        const metaBaseCalculo = (managerDailyMeta > 100) ? managerDailyMeta : 650;
+        totalMeta = metaBaseCalculo * hcFinal * diasUteisAjustadosMeta;
 
-
-        const realUserCount = countUsers;
-
-        // Cálculo de Dias Médios do Período (para Velocidade Diária)
-        // [FIX] Usar ehLiderancaReal para garantir que pegamos os dias da Gestora (Patrícia) e não de uma Auditora (Keila)
-        const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
-        const diasPeriodo = managerItemForDays ? (managerItemForDays.dias_uteis_liquidos || 1) : (diasUteisCalendario || 1);
-
-        // [FIX] Ajuste para Velocidade Real ("Pace"): Usar dias decorridos até hoje (se hoje estiver no range)
-        // Isso evita que no dia 5 a média seja dividida por 21, achatando o valor.
-        let diasDivisorReal = diasUteisMeta;
-
+        // [FIX] Define divisor de dias: Se hoje estiver no range, usa dias decorridos. Senão dias totais.
         const hoje = new Date().toISOString().split('T')[0];
         const rangeInicio = this.state.range.inicio;
         const rangeFim = this.state.range.fim;
 
-        // Se hoje estiver dentro do período selecionado, cortamos a contagem em HOJE.
-        console.log(`[DEBUG DATE] Hoje: ${hoje} | Range: ${rangeInicio} a ${rangeFim}`);
+        let diasDivisorCalculo = diasUteisMeta;
         if (hoje >= rangeInicio && hoje <= rangeFim) {
-            // Conta dias uteis de Inicio até Hoje (inclusive)
-            diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
-            console.log(`[DEBUG DATE] Aplicando Dias Decorridos: ${diasDivisorReal}`);
-        } else {
-            console.log(`[DEBUG DATE] Fora do range (ou futuro). Usando Total: ${diasDivisorReal}`);
+            diasDivisorCalculo = this.contarDiasUteis(rangeInicio, hoje);
         }
 
-        if (managerDailyMeta > 0 || totalProd > 0) {
-            console.log(`[DEBUG VERIFICATION] Velocity Calc:\n` +
-                `  Total Prod: ${totalProd}\n` +
-                `  Dias Periodo Total (Meta): ${diasUteisMeta}\n` +
-                `  Dias Decorridos ate Hoje (Real): ${diasDivisorReal}\n` +
-                `  Meta Diaria Gestor: ${managerDailyMeta}\n` +
-                `  HC Final (Mult. Meta): ${hcFinal}\n` +
-                `  >> Real Calc: ${totalProd} / ${diasDivisorReal} = ${Math.round(totalProd / (diasDivisorReal > 0 ? diasDivisorReal : 1))}\n` +
-                `  >> Meta Calc: ${managerDailyMeta} * ${hcFinal} = ${Math.round(managerDailyMeta * hcFinal)}`);
-        }
+        // Aplica regra de -1 dia para CLT na visão global (Geralmente visão de equipe segue padrão CLT)
+        const diasParaVelocidade = (diasDivisorCalculo > 0) ? Math.max(0, (contratacaoManager === 'CLT' ? diasDivisorCalculo - 1 : diasDivisorCalculo)) : 0;
+
+        // [LOGIC] Velocidade Team = Total Prod / Dias 
+        // Meta Team = Meta Indiv * HC
+        const metaDiariaEquipe = Math.round(metaBaseCalculo * hcFinal);
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
-            capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario },
+            capacidade: {
+                diasReal: Math.max(0, maxFator > 0 && contratacaoManager === 'CLT' ? maxFator - 1 : maxFator),
+                diasTotal: Math.max(0, diasUteisMeta > 0 && contratacaoManager === 'CLT' ? diasUteisMeta - 1 : diasUteisMeta)
+            },
             velocidade: {
-                // [FIX] Média Real = Total Produzido / Dias DECORRIDOS (Pace)
-                real: Math.round(totalProd / (diasDivisorReal > 0 ? diasDivisorReal : 1)),
-                meta: managerDailyMeta > 0
-                    ? Math.round(managerDailyMeta * hcFinal)
-                    : (realUserCount > 0 ? Math.round(somaMetasEquipe / realUserCount) : 100)
+                real: diasParaVelocidade > 0 ? Math.round(totalProd / diasParaVelocidade) : 0,
+                meta: metaDiariaEquipe
             }
         });
+
+
 
         // [NEW] Alerta Global (Visão Equipe)
         this.calcularMetaDiariaRestante({
@@ -678,15 +670,29 @@ MinhaArea.Geral = {
 
         const metaIndiv = item.meta_velocidade_media || 0;
 
-        // [LOGIC] Meta Equipe Periodo = Meta Diária Gestor * HC * Dias Úteis Gestor
-        const metaEquipePeriodo = metaIndiv * HC * (item.dias_uteis_liquidos || 0);
+        // [LOGIC] Meta Equipe Periodo = Meta Diária Gestor * HC * Dias Úteis Gestor (Ajustado CLT)
+        const duRefMeta = (item.dias_uteis_liquidos || 0);
+        const duAjustadoMeta = (item.contrato === 'CLT' && duRefMeta > 0) ? (duRefMeta - 1) : duRefMeta;
+        const metaEquipePeriodo = metaIndiv * HC * duAjustadoMeta;
+
+
+        const diasUteisParaMedia = (item.dias_uteis_liquidos || 0);
+        const diasAjustadosParaMedia = (item.contrato === 'CLT' && diasUteisParaMedia > 0) ? diasUteisParaMedia - 1 : diasUteisParaMedia;
 
         this.atualizarCardsKPI({
             prod: { real: totalProd, meta: metaEquipePeriodo },
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
-            capacidade: { diasReal: maxFator, diasTotal: diasUteisCalendario > 0 ? diasUteisCalendario : (item.dias_uteis_brutos || 21) },
-            velocidade: { real: Math.round(totalProd / (HC * (item.dias_uteis_liquidos || 1))), meta: metaIndiv }
+            capacidade: {
+                diasReal: (item.contrato === 'CLT' && maxFator > 0) ? maxFator - 1 : maxFator,
+                diasTotal: (item.contrato === 'CLT' && diasUteisCalendario > 0) ? diasUteisCalendario - 1 : (diasUteisCalendario || (item.dias_uteis_brutos || 21))
+            },
+            velocidade: {
+                real: diasAjustadosParaMedia > 0 ? Math.round(totalProd / diasAjustadosParaMedia) : 0,
+                meta: Math.round(metaIndiv * HC)
+            }
         });
+
+
 
         // [NEW] Alerta Global (Visão Diária Consolidada)
         this.calcularMetaDiariaRestante({
@@ -955,13 +961,10 @@ MinhaArea.Geral = {
         const hoje = new Date();
         const diaSemanaHoje = hoje.getDay(); // 0=Dom, 1=Seg...
 
-        console.log(`[CHECKIN DEBUG] Hoje: ${hoje.toLocaleDateString()} (Dia ${diaSemanaHoje})`);
-
-        // Se hoje for Sábado (6) ou Domingo (0), não pede checkin
         if (diaSemanaHoje === 0 || diaSemanaHoje === 6) {
-            console.log("[CHECKIN DEBUG] Fim de semana. Check-in dispensado.");
             return;
         }
+
 
         let dataAlvo = new Date(hoje);
 
@@ -978,11 +981,9 @@ MinhaArea.Geral = {
         const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
 
         if (!uid) {
-            console.warn("[CHECKIN DEBUG] Usuario nao autenticado (UID null).");
             return;
         }
 
-        console.log(`[CHECKIN DEBUG] Verificando check-in para UID: ${uid} | Data Ref: ${dataRef}`);
 
         try {
             // Verifica se já existe check-in para a data
@@ -991,17 +992,11 @@ MinhaArea.Geral = {
                 WHERE usuario_uid = ? AND data_referencia = ?
             `, [uid, dataRef]);
 
-            console.log(`[CHECKIN DEBUG] Resultado query:`, rows);
-
             if (!rows || rows.length === 0) {
-                console.log("[CHECKIN DEBUG] Check-in pendente. Exibindo modal...");
                 this.exibirModalCheckin(dataRef);
-            } else {
-                console.log("[CHECKIN DEBUG] Check-in já realizado.");
             }
-        } catch (e) {
-            console.error("[CHECKIN DEBUG] Erro ao verificar check-in:", e);
-        }
+        } catch (e) { }
+
     },
 
     exibirModalCheckin: function (dataRef) {

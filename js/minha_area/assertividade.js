@@ -86,7 +86,6 @@ MinhaArea.Assertividade = {
         }
 
         console.time("PerformanceTotal");
-        console.log("🚀 UX Dashboard: Iniciando Carga...");
 
         const uid = MinhaArea.getUsuarioAlvo();
         if (!uid && typeof MinhaArea.isAdmin === 'function' && !MinhaArea.isAdmin()) return;
@@ -107,9 +106,7 @@ MinhaArea.Assertividade = {
         if (containerFeed) containerFeed.innerHTML = '<div class="text-center py-12 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></i><br>Analisando auditorias...</div>';
 
         try {
-            console.log("Assertividade: Iniciando buscarTudoPaginado...");
             const dados = await this.buscarTudoPaginado(uid, inicio, fim);
-            console.log("Assertividade: buscarTudoPaginado retornou.", dados ? dados.length : "null");
             this.dadosBrutosCache = dados;
 
             console.log(`📦 Base Total: ${dados.length} registros auditados.`);
@@ -182,7 +179,7 @@ MinhaArea.Assertividade = {
     },
 
     buscarTudoPaginado: async function (uid, inicio, fim) {
-        console.log("Assertividade: Contando registros...", { uid, inicio, fim });
+
 
         let queryCount = Sistema.supabase.from('assertividade')
             .select('*', { count: 'exact', head: true })
@@ -198,7 +195,7 @@ MinhaArea.Assertividade = {
             console.error("Assertividade: Erro no count", errCount);
             throw errCount;
         }
-        console.log("Assertividade: Count total", count);
+
 
         if (count === 0) return [];
 
