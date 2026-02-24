@@ -119,15 +119,16 @@ Produtividade.Consolidado = {
         };
 
         const diasCalendario = contarSimples(datas.inicio, datas.fim);
-        if (!config) return diasCalendario;
+        if (!config) return (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? diasCalendario : Math.max(0, diasCalendario - 1);
 
         const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
-        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
+        // [FIX] Se não houver config de CLT, subtrai 1 do geral conforme regra de negócio
+        const vClt = config.dias_uteis_clt || (config.dias_uteis ? Math.max(0, config.dias_uteis - 1) : Math.max(0, diasCalendario - 1));
 
-        const vClt = config.dias_uteis_clt || vTerc;
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
         if (filtroContrato === 'CLT') return vClt;
 
-        return vTerc; // Padrão
+        return vClt; // Padrão Geral agora é CLT (-1 dia)
     },
 
     contarAssistentesAtivos: function () {
@@ -267,7 +268,7 @@ Produtividade.Consolidado = {
                 }
             });
         }
-        return { cols, st, numCols };
+        return { cols, st, numCols, datesMap };
     },
 
     processarEExibir: function (rawData, t, s, e) {
@@ -279,7 +280,7 @@ Produtividade.Consolidado = {
         this.renderizar(this.dadosCalculados);
     },
 
-    renderizar: function ({ cols, st, numCols }) {
+    renderizar: function ({ cols, st, numCols, datesMap }) {
         const tbody = document.getElementById('cons-table-body');
         const hRow = document.getElementById('cons-table-header');
         if (!tbody || !hRow) return;
@@ -299,15 +300,16 @@ Produtividade.Consolidado = {
             const bgLabel = rowClass ? rowClass : (isBold ? 'bg-slate-50/50' : '');
             let tr = `<tr class="${bgLabel} border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-6 py-3 sticky left-0 ${rowClass || 'bg-white'} z-10 border-r border-slate-200"><div class="flex items-center gap-3"><i class="${icon} ${color} text-sm w-4 text-center"></i><span class="text-xs uppercase ${isBold ? 'font-black' : 'font-medium'} text-slate-600">${label}</span></div></td>`;
 
-            [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(i => {
-                const s = st[i];
+            [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(idx => {
+                const s = st[idx];
+                const dMap = datesMap[idx] || null;
 
-                const val = isCalc ? getter(s, HC) : getter(s);
+                const val = isCalc ? getter(s, HC, idx, dMap) : getter(s);
                 let cellHTML = (val !== undefined && !isNaN(val)) ? Math.round(val).toLocaleString('pt-BR') : '-';
 
                 if (cellHTML === '0' || cellHTML === '-') cellHTML = `<span class="text-slate-300">-</span>`;
 
-                tr += `<td class="px-4 py-3 text-center text-xs ${i === 99 ? 'bg-blue-50/30 font-bold text-blue-800' : 'text-slate-600'}">${cellHTML}</td>`;
+                tr += `<td class="px-4 py-3 text-center text-xs ${idx === 99 ? 'bg-blue-50/30 font-bold text-blue-800' : 'text-slate-600'}">${cellHTML}</td>`;
             });
             return tr + '</tr>';
         };
@@ -334,6 +336,38 @@ Produtividade.Consolidado = {
 
         // 7. Total geral de documentos
         rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
+
+        // [FIX] Meta Total de Produção (Regra 650/100) baseada no Configurado
+        const targetMeta = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
+
+        // Função auxiliar para contar dias úteis entre datas para as colunas
+        const contarSimples = (ini, fim) => {
+            if (!ini || !fim) return 0;
+            let d = new Date(ini + 'T12:00:00'), end = new Date(fim + 'T12:00:00'), c = 0;
+            while (d <= end) { if (d.getDay() !== 0 && d.getDay() !== 6) c++; d.setDate(d.getDate() + 1); }
+            return c;
+        };
+
+        rows += mkRow('Meta de produção (Configurada)', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
+            if (idx === 99) return HC * this.diasUteisConfig * targetMeta;
+            if (dMap) {
+                const duColuna = contarSimples(dMap.ini, dMap.fim);
+                // Se for a visão mensal e a coluna for uma das semanas, aplicamos o proporcional
+                // Mas para CLT em modo Geral/CLT, a meta total do mês tira 1 dia.
+                // Como as colunas de semanas são fragmentos, a soma delas daria o 'diasCalendario'.
+                // Simplificamos: Se for a coluna Total (99), usa o diasUteisConfig (que já tira 1 se for CLT).
+                // Para as colunas individuais, usamos a proporção de dias úteis da agenda.
+                return HC * duColuna * targetMeta;
+            }
+            return 0;
+        }, true);
+
+        rows += mkRow('% Atingimento da Meta', 'fas fa-percentage', 'text-indigo-600', (s, HC, idx, dMap) => {
+            const meta = (idx === 99)
+                ? (HC * this.diasUteisConfig * targetMeta)
+                : (dMap ? HC * contarSimples(dMap.ini, dMap.fim) * targetMeta : 0);
+            return meta > 0 ? (s.qty / meta) * 100 : 0;
+        }, true, true);
 
         // 8. Média de produção por dia útil trabalhado: total / dias únicos
         rows += mkRow('Média diária (pelo realizado)', 'fas fa-calendar-day', 'text-amber-500',
