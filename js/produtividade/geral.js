@@ -299,6 +299,7 @@ Produtividade.Geral = {
         const isPeriodo = range.inicio !== range.fim;
         const diasUteisPeriodo = this.contarDiasUteis(range.inicio, range.fim);
         const HC = this.getHeadcountConfig();
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         const getChave = (uid, dataRaw) => {
             const date = this.normalizarData(dataRaw);
@@ -418,12 +419,12 @@ Produtividade.Geral = {
                 // [FIX] Só aplicar override da Configuração se estivermos olhando para o mês cheio (ou quase)
                 // Se o periodo filtrado for pequeno (ex: 5 dias), usar o calculo de dias do periodo e não o total do mês (21)
                 if (diasUteisPeriodo >= (vTerc * 0.8)) {
-                    const vClt = c.dias_uteis_clt || vTerc;
                     const contrato = (u.contrato || '').toUpperCase();
                     diasUsuario = (contrato === 'CLT') ? vClt : vTerc;
                 }
             }
 
+            const contrato = (u.contrato || '').toUpperCase();
             const multiplicador = isPeriodo ? (contrato === 'CLT' ? Math.max(0, diasUsuario - 1) : diasUsuario) : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
@@ -681,6 +682,7 @@ Produtividade.Geral = {
         let somaMetaAssert = 0, countUsersMeta = 0;
         let assistentesComProducao = new Set();
         let datasComProducao = new Set();
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
         let totalDiasUteis = this.getDiasUteisConfig();
         let totalAbonoEquipe = 0;
 
