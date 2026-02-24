@@ -533,8 +533,9 @@ Produtividade.Geral = {
 
             const metaBaseGestor = gestoraItem._rawBaseMeta || 650;
             gestoraItem.meta_base_diaria = metaBaseGestor;
-            gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * diasFinal);
-            gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${diasFinal}`;
+            const multDiasGestor = (filtroContrato === 'CLT') ? Math.max(0, diasFinal - 1) : diasFinal;
+            gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * multDiasGestor);
+            gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
 
             listaParaGrid.unshift(gestoraItem);
         }
@@ -705,7 +706,7 @@ Produtividade.Geral = {
         // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
         // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
         if (metaDiariaGestor > 0) {
-            const multDias = (filtroContrato === 'CLT' && totalDiasUteis > 0) ? (totalDiasUteis - 1) : totalDiasUteis;
+            const multDias = (filtroContrato === 'CLT') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
             totalMeta = metaDiariaGestor * this.getHeadcountConfig() * multDias;
         } else {
             // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
