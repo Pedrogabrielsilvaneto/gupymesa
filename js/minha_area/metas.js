@@ -87,6 +87,10 @@ MinhaArea.Metas = {
                             </div>
                             <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Erros NDF</span><span id="card-erros-ndf" class="text-xs font-black text-amber-600">--</span></div>
                             <div class="flex justify-between items-center pl-2 mt-0.5"><span class="text-[9px] font-bold text-amber-500/80 flex items-center gap-1"><i class="fas fa-level-up-alt rotate-90 text-[8px]"></i> Empresa Valida</span><span id="card-empresa-validar" class="text-[10px] font-bold text-amber-500">--</span></div>
+                            <!-- NEW GAP CARD -->
+                            <div class="flex justify-between items-center py-1.5 border-t border-slate-100 mt-2">
+                                <span class="text-[10px] font-bold text-slate-600">GAP Assistentes</span><span id="card-gap-assistentes" class="text-xs font-black text-blue-600">--</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -619,6 +623,14 @@ MinhaArea.Metas = {
         let contadorUsuariosComDados = 0;
         let globalDiasEfetivosMicro = 0;
 
+        // For Assertividade Dashboard
+        let countTotalAuditados = 0;
+        let totalAcertos = 0;
+        let totalErrosReais = 0;
+        let countErrosGupy = 0;
+        let countErrosNdf = 0;
+        let countNdfEmpresa = 0;
+
         Object.values(this.statsUsers).forEach(s => {
             // [SYNC v4.35] Volume is GLOBAL (All production)
             globalProd += s.prod;
@@ -626,6 +638,12 @@ MinhaArea.Metas = {
             // [ALIGNMENT v4.34] Aggregate Global Assertiveness
             globalOk += s.acc_assert_ratio;
             globalTotalAud += s.qtd_auditorias;
+
+            // For Assertividade Dashboard
+            countTotalAuditados += s.qtd_auditorias;
+            totalAcertos += (s.acc_assert_ratio * s.qtd_auditorias); // Sum of (ratio * count)
+            totalErrosReais += (s.qtd_auditorias - (s.acc_assert_ratio * s.qtd_auditorias)); // Total - Acertos
+            // Note: countErrosGupy, countErrosNdf, countNdfEmpresa are calculated in MinhaArea.Comparativo.carregar()
 
             // [SYNC v4.35] Divisor for Velocity (Effort) is only for ASSISTANTS (Non-Management)
             if (!s.isManagement) {
@@ -677,6 +695,24 @@ MinhaArea.Metas = {
         if (elProd) elProd.innerText = kpiVolume.toLocaleString('pt-BR');
         if (elMedia) elMedia.innerText = kpiVelocidade.toLocaleString('pt-BR');
         if (elAssert) elAssert.innerText = (globalTotalAud > 0) ? kpiAssert.toFixed(2) + '%' : '--%';
+
+        // Update Assertividade Dashboard cards (if they exist)
+        const elTotalAuditados = document.getElementById('card-total-auditados');
+        const elTotalAcertos = document.getElementById('card-total-acertos');
+        const elTotalErros = document.getElementById('card-total-erros');
+        const elErrosGupy = document.getElementById('card-erros-gupy');
+        const elErrosNdf = document.getElementById('card-erros-ndf');
+        const elEmpresaValidar = document.getElementById('card-empresa-validar');
+
+        if (elTotalAuditados) elTotalAuditados.innerText = countTotalAuditados.toLocaleString('pt-BR');
+        if (elTotalAcertos) elTotalAcertos.innerText = totalAcertos.toLocaleString('pt-BR');
+        if (elTotalErros) elTotalErros.innerText = totalErrosReais.toLocaleString('pt-BR');
+        if (elErrosGupy) elErrosGupy.innerText = countErrosGupy.toLocaleString('pt-BR');
+        if (elErrosNdf) elErrosNdf.innerText = countErrosNdf.toLocaleString('pt-BR');
+        if (elEmpresaValidar) elEmpresaValidar.innerText = countNdfEmpresa.toLocaleString('pt-BR');
+        // GAP Assistentes: diferença entre total auditados e total de acertos
+        const elGap = document.getElementById('card-gap-assistentes');
+        if (elGap) elGap.innerText = (countTotalAuditados - totalAcertos).toLocaleString('pt-BR');
     },
 
     renderizarMatriz: function () {
