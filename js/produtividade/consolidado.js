@@ -133,26 +133,33 @@ Produtividade.Consolidado = {
 
     contarAssistentesAtivos: function () {
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
-        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
+        const filtros = window.Produtividade.Filtros;
 
-        let count = 0;
+        // Criamos uma lista de "usuários candidatos" para o preFiltrar
+        let users = [];
         for (const uid in this.mapaFuncoes) {
-            const funcao = (this.mapaFuncoes[uid] || '').toLowerCase();
-            const contrato = (this.mapaContrato[uid] || '').toUpperCase();
-            const ativo = this.mapaAtivo[uid];
-
-            if (ativo === false || ativo === 0 || ativo === '0') continue;
-            if (termosExcluidos.some(t => funcao.includes(t))) continue;
-
-            // Filtro de contrato para o count de ativos
-            if (filtroContrato !== 'todos') {
-                if (filtroContrato === 'CLT' && contrato !== 'CLT') continue;
-                if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && contrato !== 'PJ' && contrato !== 'TERCEIROS') continue;
-            }
-
-            count++;
+            users.push({
+                uid: uid,
+                usuario_id: uid,
+                nome: (window.Produtividade.Geral?.state?.mapaUsuarios[uid]?.nome || 'ID: ' + uid)
+            });
         }
-        return count;
+
+        // Filtra apenas ativos e não gestão para o count base
+        const assistentesApenas = users.filter(u => {
+            const func = (this.mapaFuncoes[u.uid] || '').toLowerCase();
+            const ativo = this.mapaAtivo[u.uid];
+            const ehGestao = termosExcluidos.some(t => func.includes(t));
+            const ehAtivo = (ativo !== false && ativo !== 0 && ativo !== '0');
+            return ehAtivo && !ehGestao;
+        });
+
+        // Aplica os filtros atuais do HUD (Nome, Função, Contrato)
+        const candidatosFiltrados = filtros && typeof filtros.preFiltrar === 'function'
+            ? filtros.preFiltrar(assistentesApenas)
+            : assistentesApenas;
+
+        return candidatosFiltrados.length;
     },
 
     carregar: async function (forcar = false) {
@@ -233,24 +240,15 @@ Produtividade.Consolidado = {
         st[99] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
 
         if (rawData) {
-            // Filtro de contrato ativo
-            const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
-                ? Produtividade.Filtros.estado.contrato || 'todos'
-                : 'todos';
-
             const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
 
             rawData.forEach(r => {
-                // Filtra por contrato
-                if (filtroContrato && filtroContrato !== 'todos') {
-                    const contrato = this.mapaContrato[r.usuario_id] || '';
-                    if (filtroContrato === 'CLT' && contrato !== 'CLT') return;
-                    if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && contrato !== 'PJ' && contrato !== 'TERCEIROS') return;
-                }
+                // [NOTE] Filtro de contrato, nome e função já aplicados no preFiltrar (processarEExibir)
 
                 // Exclui gestão (Seguindo a regra do Card Geral)
                 const funcao = (this.mapaFuncoes[r.usuario_id] || '').toLowerCase();
                 const isManager = termosExcluidos.some(t => funcao.includes(t));
+
 
                 // Exclui inativos
                 const ativo = this.mapaAtivo[r.usuario_id];
@@ -300,7 +298,14 @@ Produtividade.Consolidado = {
         const hRow = document.getElementById('cons-table-header');
         if (!tbody || !hRow) return;
 
-        const HC = this.headcountConfig;
+        const filtrosEstado = window.Produtividade.Filtros?.estado;
+        const temFiltroHabilitado = filtrosEstado && (filtrosEstado.nome !== '' || filtrosEstado.funcao !== 'todos' || filtrosEstado.contrato !== 'todos');
+
+        const HC_Real = this.contarAssistentesAtivos();
+        const HC_Base = this.headcountConfig;
+
+        // Se houver filtro ativo, o HC base de cálculo vira o HC real filtrado (para bater com Dashboard)
+        const HC = temFiltroHabilitado ? HC_Real : HC_Base;
 
         let headerHTML = `<tr class="bg-slate-50 border-b border-slate-200"><th class="px-6 py-4 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 text-left min-w-[250px]"><span class="text-xs font-black text-slate-400 uppercase tracking-widest">Indicador</span></th>`;
 
@@ -331,8 +336,9 @@ Produtividade.Consolidado = {
 
         // === LINHAS DA TABELA ===
         // 1. HC: Real vs Configurado
-        let rows = mkRow('Total de assistentes (Ativos)', 'fas fa-users', 'text-blue-400', (s, HC) => this.contarAssistentesAtivos(), true);
-        rows += mkRow('Total de assistentes (Configurado)', 'fas fa-users-cog', 'text-indigo-400', (s, HC) => HC, true);
+        let rows = mkRow('Total de assistentes (Ativos)', 'fas fa-users', 'text-blue-400', (s) => HC_Real);
+        rows += mkRow('Total de assistentes (Configurado)', 'fas fa-users-cog', 'text-indigo-400', (s) => HC);
+
 
         // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
         const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
