@@ -795,10 +795,30 @@ Produtividade.Geral = {
             diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
         }
 
-        // Média Diária Global usa dias decorridos para mostrar o "Pace" real atual
-        const mediaProducaoDiariaGlobal = diasDivisorReal > 0 ? (totalProd / diasDivisorReal) : 0;
-        const denominadorVelocidade = headcountEfetivo;
-        const mediaVelocidadeReal = Math.round(mediaProducaoDiariaGlobal / denominadorVelocidade);
+        // [MOD] Velocidade Média Diária Global
+        // Se houver CLT na mistura, o divisor de dias deve ser ajustado proporcionalmente ao HC
+        const HC_Total = headcountEfetivo;
+        let divisorTotalDias = 0;
+
+        if (filtroContrato === 'CLT') {
+            divisorTotalDias = HC_Total * Math.max(0, diasDivisorReal - 1);
+        } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+            divisorTotalDias = HC_Total * diasDivisorReal;
+        } else {
+            // Geral (Mix): Precisamos saber quantos do HC são CLT
+            const assistentes = this.contarAssistentesElegiveis('todos', 'todos');
+            const cltCount = this.contarAssistentesElegiveis('CLT', 'todos');
+            const tercCount = Math.max(0, assistentes - cltCount);
+
+            // Proporção do HC Efetivo
+            const propClt = assistentes > 0 ? (cltCount / assistentes) : 0;
+            const hcClt = HC_Total * propClt;
+            const hcTerc = HC_Total - hcClt;
+
+            divisorTotalDias = (hcClt * Math.max(0, diasDivisorReal - 1)) + (hcTerc * diasDivisorReal);
+        }
+
+        const mediaVelocidadeReal = divisorTotalDias > 0 ? Math.round(totalProd / divisorTotalDias) : 0;
 
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
@@ -1116,21 +1136,25 @@ Produtividade.Geral = {
     },
     renderizarDetalhes: function (uid) {
         const itemConsolidado = this.state.listaTabela.find(i => String(i.uid) === String(uid));
-        const u = this.state.mapaUsuarios[uid]; const nomeUsuario = itemConsolidado ? itemConsolidado.nome : (u ? u.nome : 'Usuário');
+        const u = this.state.mapaUsuarios[uid];
+        const nomeUsuario = itemConsolidado ? itemConsolidado.nome : (u ? u.nome : 'Usuário');
+
         if (itemConsolidado) {
-            const u = this.state.mapaUsuarios[uid];
             const contrato = (u && u.contrato || '').toUpperCase();
             const diasTotalBase = this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-            // [FIX] Desconta 1 dia para CLT na visão individual também
-            const diasTotalAjustado = (contrato === 'CLT') ? Math.max(0, diasTotalBase - 1) : diasTotalBase;
+
+            // [FIX] Desconta 1 dia dos TRABALHADOS (diasReal) para CLT, não dos úteis (diasTotal)
+            const diasTrabalhadosBase = itemConsolidado.count_fator || 0;
+            const diasTrabalhadosAjustado = (contrato === 'CLT') ? Math.max(0, diasTrabalhadosBase - 1) : diasTrabalhadosBase;
 
             this.atualizarCardsKPI({
                 prod: { real: itemConsolidado.producao, meta: itemConsolidado.meta_real_calculada },
                 assert: { real: itemConsolidado.media_final || 0, meta: itemConsolidado.meta_assert },
-                capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: diasTotalAjustado, assisReal: 1, assisTotal: 1 },
-                velocidade: { real: Math.round(itemConsolidado.producao / (itemConsolidado.count_fator || 1)), meta: itemConsolidado.meta_base_diaria }
+                capacidade: { diasReal: diasTrabalhadosAjustado, diasTotal: diasTotalBase, assisReal: 1, assisTotal: 1 },
+                velocidade: { real: Math.round(itemConsolidado.producao / (diasTrabalhadosAjustado || 1)), meta: itemConsolidado.meta_base_diaria }
             });
         }
+
         if (this.els.selectionHeader) {
             this.els.selectionHeader.classList.remove('hidden');
             this.els.selectionHeader.className = "bg-blue-50 border border-blue-100 p-2 rounded-lg flex justify-between items-center animate-fade-in mb-4";

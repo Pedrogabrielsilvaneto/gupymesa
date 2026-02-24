@@ -313,8 +313,9 @@ Produtividade.Consolidado = {
         };
 
         // === LINHAS DA TABELA ===
-        // 1. HC: Definido pela gestora
-        let rows = mkRow('Total de assistentes', 'fas fa-users-cog', 'text-indigo-400', (s, HC) => HC, true);
+        // 1. HC: Real vs Configurado
+        let rows = mkRow('Total de assistentes (Ativos)', 'fas fa-users', 'text-blue-400', (s, HC) => this.contarAssistentesAtivos(), true);
+        rows += mkRow('Total de assistentes (Configurado)', 'fas fa-users-cog', 'text-indigo-400', (s, HC) => HC, true);
 
         // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
         const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
@@ -335,16 +336,20 @@ Produtividade.Consolidado = {
         rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
 
         // 8. Média de produção por dia útil trabalhado: total / dias únicos
-        rows += mkRow('Média diária (por dia útil)', 'fas fa-calendar-check', 'text-amber-600',
+        rows += mkRow('Média diária (pelo realizado)', 'fas fa-calendar-day', 'text-amber-500',
             (s, HC) => (s.dias.size > 0) ? s.qty / s.dias.size : 0, true);
+
+        // [MOD] Média diária (pelo configurado): total / dias úteis do mês
+        rows += mkRow('Média diária (pelo configurado)', 'fas fa-calendar-check', 'text-emerald-600',
+            (s, HC) => (this.diasUteisConfig > 0) ? s.qty / this.diasUteisConfig : 0, true, true);
 
         // 9. Média de produção por assistente (período inteiro): total / HC
         rows += mkRow('Média por assistente (período)', 'fas fa-users', 'text-orange-600',
             (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
 
-        // 10. Média diária por assistente: total / dias / HC
+        // 10. Média diária por assistente
         rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700',
-            (s, HC) => (s.dias.size > 0 && HC > 0) ? s.qty / s.dias.size / HC : 0, true, true, 'bg-emerald-50 border-emerald-200');
+            (s, HC) => (this.diasUteisConfig > 0 && HC > 0) ? s.qty / this.diasUteisConfig / HC : 0, true, true, 'bg-emerald-50 border-emerald-200');
 
         tbody.innerHTML = rows;
         const footerEl = document.getElementById('total-consolidado-footer');
