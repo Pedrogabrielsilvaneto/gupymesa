@@ -804,12 +804,19 @@ Produtividade.Geral = {
             diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
         }
 
-        // [MOD V4.5] Velocidade Média Diária Global (Nova fórmula solicitada)
-        const HC_Config = this.getHeadcountConfig();
+        // [MOD V4.5] Velocidade Média Diária Global (Refletindo Filtros)
+        const totalHeadcountFiltrado = listaExibicao.filter(i => {
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            return !i.isAggregatedManager && !termosExcluidos.some(t => (u.funcao || '').toLowerCase().includes(t));
+        }).length;
+
+        // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
+        const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
         const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, diasDivisorReal - 1) : diasDivisorReal;
 
-        const divisorVelocidade = HC_Config * diasParaVelocidade;
+        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
+
 
         // Target da Velocidade (Usa meta da gestora ou fallback conforme contrato)
         let targetVelocidade = metaDiariaGestor;
@@ -818,10 +825,7 @@ Produtividade.Geral = {
         }
 
         const diasTotalKpi = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
-        const totalHeadcountFiltrado = listaExibicao.filter(i => {
-            const u = this.state.mapaUsuarios[i.uid] || {};
-            return !i.isAggregatedManager && !termosExcluidos.some(t => (u.funcao || '').toLowerCase().includes(t));
-        }).length;
+
 
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
