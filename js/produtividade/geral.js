@@ -676,8 +676,21 @@ Produtividade.Geral = {
             ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
             : listaOriginal;
 
-        // [FIX v4.36] Sum directly from raw production array to avoid missing filtered individuals (managers/auditors)
-        let totalProd = this.state.dadosProducao.reduce((acc, p) => acc + (Number(p.quantidade) || 0), 0);
+        // [FIX v4.5] Sum production from filtered list, excluding management in "Geral" view to match user expectations
+        const termosGestaoLocal = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        let totalProd = 0;
+
+        listaExibicao.forEach(i => {
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const cargo = (u.funcao || '').toLowerCase();
+            const ehGestao = termosGestaoLocal.some(t => cargo.includes(t));
+            const filtroFuncao = (window.Produtividade.Filtros?.estado?.funcao || 'todos').toLowerCase();
+
+            // Se filtro for global ou por contrato (CLT/PJ), ignora produção de gestores no card topo
+            if (filtroFuncao === 'todos' && ehGestao) return;
+            totalProd += Number(i.producao) || 0;
+        });
+
         let totalMeta = 0;
         let somaPontosAssert = 0, totalDocsAssert = 0;
         let somaMetaAssert = 0, countUsersMeta = 0;
@@ -703,9 +716,8 @@ Produtividade.Geral = {
         }
 
         // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
-        // Se não tiver gestor definido, usa defaults (100 * 17 * Dias)?? Não, só se tiver gestor.
         if (metaDiariaGestor > 0) {
-            const multDias = (filtroContrato === 'CLT') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
+            const multDias = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
             totalMeta = metaDiariaGestor * this.getHeadcountConfig() * multDias;
         } else {
             // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
@@ -795,41 +807,30 @@ Produtividade.Geral = {
             diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
         }
 
-        // [MOD] Velocidade Média Diária Global
-        // Se houver CLT na mistura, o divisor de dias deve ser ajustado proporcionalmente ao HC
-        const HC_Total = headcountEfetivo;
-        let divisorTotalDias = 0;
+        // [MOD V4.5] Velocidade Média Diária Global (Nova fórmula solicitada)
+        const HC_Config = this.getHeadcountConfig();
+        const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, diasDivisorReal - 1) : diasDivisorReal;
 
-        if (filtroContrato === 'CLT') {
-            divisorTotalDias = HC_Total * Math.max(0, diasDivisorReal - 1);
-        } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
-            divisorTotalDias = HC_Total * diasDivisorReal;
-        } else {
-            // Geral (Mix): Precisamos saber quantos do HC são CLT
-            const assistentes = this.contarAssistentesElegiveis('todos', 'todos');
-            const cltCount = this.contarAssistentesElegiveis('CLT', 'todos');
-            const tercCount = Math.max(0, assistentes - cltCount);
+        const divisorVelocidade = HC_Config * diasParaVelocidade;
+        const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
-            // Proporção do HC Efetivo
-            const propClt = assistentes > 0 ? (cltCount / assistentes) : 0;
-            const hcClt = HC_Total * propClt;
-            const hcTerc = HC_Total - hcClt;
-
-            divisorTotalDias = (hcClt * Math.max(0, diasDivisorReal - 1)) + (hcTerc * diasDivisorReal);
+        // Target da Velocidade (Usa meta da gestora ou fallback conforme contrato)
+        let targetVelocidade = metaDiariaGestor;
+        if (targetVelocidade <= 0) {
+            targetVelocidade = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
         }
 
-        const mediaVelocidadeReal = divisorTotalDias > 0 ? Math.round(totalProd / divisorTotalDias) : 0;
 
         const dadosKPI = {
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
-                diasReal: (filtroContrato === 'CLT' && datasComProducao.size > 0) ? datasComProducao.size - 1 : datasComProducao.size,
+                diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - 1) : datasComProducao.size,
                 diasTotal: totalDiasUteis,
                 assisReal: assisRealFinal,
                 assisTotal: totalHeadcountDefinido // Mantém o headcount original como meta (ex: 17)
             },
-            velocidade: { real: mediaVelocidadeReal, meta: maxMetaProducao }
+            velocidade: { real: mediaVelocidadeReal, meta: targetVelocidade }
         };
 
         this.state.totalDiasUteisConfig = totalDiasUteis;
