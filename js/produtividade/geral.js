@@ -151,7 +151,7 @@ Produtividade.Geral = {
                AVG(assertividade_val) as media_assertividade
         FROM assertividade
         WHERE data_referencia >= ? AND data_referencia <= ?
-          AND (auditora_nome IS NOT NULL OR assertividade_val IS NOT NULL)
+          AND assertividade_val IS NOT NULL
         GROUP BY usuario_id
     `;
         let params = [range.inicio, range.fim];
@@ -535,9 +535,8 @@ Produtividade.Geral = {
             gestoraItem.meta_base_diaria = metaBaseGestor;
             const multDiasGestor = (filtroContrato === 'CLT') ? Math.max(0, diasFinal - 1) : diasFinal;
             gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * multDiasGestor);
-            gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
-
-            listaParaGrid.unshift(gestoraItem);
+            // gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
+            // listaParaGrid.unshift(gestoraItem);
         }
 
         const listaExibicao = listaParaGrid;
@@ -1119,10 +1118,16 @@ Produtividade.Geral = {
         const itemConsolidado = this.state.listaTabela.find(i => String(i.uid) === String(uid));
         const u = this.state.mapaUsuarios[uid]; const nomeUsuario = itemConsolidado ? itemConsolidado.nome : (u ? u.nome : 'Usuário');
         if (itemConsolidado) {
+            const u = this.state.mapaUsuarios[uid];
+            const contrato = (u && u.contrato || '').toUpperCase();
+            const diasTotalBase = this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            // [FIX] Desconta 1 dia para CLT na visão individual também
+            const diasTotalAjustado = (contrato === 'CLT') ? Math.max(0, diasTotalBase - 1) : diasTotalBase;
+
             this.atualizarCardsKPI({
                 prod: { real: itemConsolidado.producao, meta: itemConsolidado.meta_real_calculada },
                 assert: { real: itemConsolidado.media_final || 0, meta: itemConsolidado.meta_assert },
-                capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim), assisReal: 1, assisTotal: 1 },
+                capacidade: { diasReal: itemConsolidado.count_fator || 0, diasTotal: diasTotalAjustado, assisReal: 1, assisTotal: 1 },
                 velocidade: { real: Math.round(itemConsolidado.producao / (itemConsolidado.count_fator || 1)), meta: itemConsolidado.meta_base_diaria }
             });
         }
