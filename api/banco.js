@@ -5,8 +5,8 @@ export default async function handler(req, res) {
     host: process.env.TIDB_HOST,
     user: process.env.TIDB_USER,
     password: process.env.TIDB_PASSWORD,
-    database: 'GupyMesa', // <--- AQUI ESTAVA O ERRO
-    port: 4000,
+    database: process.env.TIDB_DATABASE || 'GupyMesa',
+    port: parseInt(process.env.TIDB_PORT || '4000'),
     ssl: {
       minVersion: 'TLSv1.2',
       rejectUnauthorized: true

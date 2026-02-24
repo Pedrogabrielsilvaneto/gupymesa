@@ -1,6 +1,7 @@
 {
   "name": "performance-pro",
   "version": "1.0.0",
+  "type": "module",
   "dependencies": {
     "@ai-sdk/openai": "^3.0.29",
     "ai": "^6.0.90",
