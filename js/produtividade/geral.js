@@ -742,10 +742,9 @@ Produtividade.Geral = {
             }
 
             // Cálculo para redução de HC por Abono (Apenas Equipe)
-            const u = this.state.mapaUsuarios[i.uid] || {};
-            const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            const ehGestao = termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t));
+            const ehGestao = termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t));
+
 
             if (!ehGestao && !this.ehAdmin(i.uid)) {
                 if (i.fator < 1.0) {
