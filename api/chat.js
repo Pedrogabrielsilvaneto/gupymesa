@@ -6,7 +6,7 @@ import { streamText } from 'ai';
 const openai = createOpenAI({
     // A chave da API fornecida pelo usuário (AI_GATEWAY_API_KEY) deve ser usada aqui.
     // O Vercel AI Gateway atua como um proxy compatível com a API da OpenAI.
-    apiKey: process.env.AI_GATEWAY_API_KEY,
+    apiKey: process.env.AI_GATEWAY_API_KEY?.trim(),
     baseURL: "https://gateway.ai.vercel-api.com", // Endpoint padrão do Vercel AI Gateway
 });
 
