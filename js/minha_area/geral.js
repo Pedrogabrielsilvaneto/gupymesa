@@ -374,8 +374,9 @@ MinhaArea.Geral = {
                 assert: { real: item.media_final || 0, meta: item.meta_assert },
                 capacidade: {
                     diasReal: workedDaysAjustado,
-                    diasTotal: totalDaysAjustado
+                    diasTotal: totalDaysBase
                 },
+
                 velocidade: {
                     real: workedDaysAjustado > 0 ? Math.round(item.producao / workedDaysAjustado) : 0,
                     meta: item.meta_velocidade_media
@@ -562,7 +563,7 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: {
                 diasReal: Math.max(0, maxFator > 0 && contratacaoManager === 'CLT' ? maxFator - 1 : maxFator),
-                diasTotal: Math.max(0, diasUteisMeta > 0 && contratacaoManager === 'CLT' ? diasUteisMeta - 1 : diasUteisMeta)
+                diasTotal: diasUteisMeta
             },
             velocidade: {
                 real: diasParaVelocidade > 0 ? Math.round(totalProd / diasParaVelocidade) : 0,
@@ -684,8 +685,9 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: item.meta_assert || 97 },
             capacidade: {
                 diasReal: (item.contrato === 'CLT' && maxFator > 0) ? maxFator - 1 : maxFator,
-                diasTotal: (item.contrato === 'CLT' && diasUteisCalendario > 0) ? diasUteisCalendario - 1 : (diasUteisCalendario || (item.dias_uteis_brutos || 21))
+                diasTotal: (diasUteisCalendario || (item.dias_uteis_brutos || 21))
             },
+
             velocidade: {
                 real: diasAjustadosParaMedia > 0 ? Math.round(totalProd / diasAjustadosParaMedia) : 0,
                 meta: Math.round(metaIndiv * HC)
