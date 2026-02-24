@@ -716,7 +716,8 @@ Produtividade.Geral = {
         }
 
         // [FIX V4.6] Meta Total Padronizada por Contrato
-        if (metaDiariaGestor > 0) {
+        if (true) { // Padronização Global solicitada
+
             const config = this.state.configMes;
             const range = this.state.range;
             const diasCalendario = this.contarDiasUteis(range.inicio, range.fim);
@@ -727,29 +728,24 @@ Produtividade.Geral = {
             const hcTerc = Number(config?.hc_terceiros || 17); // Use local for geral calc
             const hcClt = Number(config?.hc_clt || 0);
 
+            const metaReferencia = (metaDiariaGestor > 0) ? metaDiariaGestor : 650;
             if (filtroContrato === 'CLT') {
-                totalMeta = metaDiariaGestor * hcClt * Math.max(0, diasClt - 1);
+                totalMeta = metaReferencia * hcClt * Math.max(0, diasClt - 1);
             } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
-                totalMeta = metaDiariaGestor * hcTerc * diasTerc;
+                totalMeta = metaReferencia * hcTerc * diasTerc;
             } else {
-                // Geral: Padroniza pela Meta da Gestora e regra de -1 dia (pois a gestora é CLT)
-                const hcTotal = hcClt + hcTerc;
-                const diasBase = diasTerc; // diasTerc é o padrão de dias úteis do período/mês
-                totalMeta = metaDiariaGestor * hcTotal * Math.max(0, diasBase - 1);
+                const hcTotal = (hcClt || 0) + (hcTerc || 17);
+                totalMeta = metaReferencia * Math.max(1, hcTotal) * Math.max(0, diasTerc - 1);
             }
-        } else {
-            totalMeta = 0;
         }
-
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
 
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
 
-            // [FIX] Só soma meta individual se NÃO tivermos calculado a meta global via Formula da Gestora
-            if (metaDiariaGestor === 0) {
-                totalMeta += i.meta_real_calculada;
-            }
+            // [MOD] Metas individuais não são mais somadas ao totalMeta global para manter padronização pela regra da Gestora
+            // totalMeta já foi definido acima via fórmula padronizada.
+
 
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
             if (i.producao > 0) assistentesComProducao.add(i.uid);
