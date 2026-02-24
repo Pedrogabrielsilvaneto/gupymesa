@@ -415,6 +415,7 @@ Produtividade.Geral = {
             if (this.state.configMes) {
                 const c = this.state.configMes;
                 const vTerc = c.dias_uteis_terceiros || c.dias_uteis || diasUteisPeriodo;
+                const vClt = c.dias_uteis_clt || vTerc;
 
                 // [FIX] Só aplicar override da Configuração se estivermos olhando para o mês cheio (ou quase)
                 // Se o periodo filtrado for pequeno (ex: 5 dias), usar o calculo de dias do periodo e não o total do mês (21)
