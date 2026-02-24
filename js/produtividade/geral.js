@@ -715,14 +715,29 @@ Produtividade.Geral = {
             listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
         }
 
-        // [FIX] Meta Total Padronizada: MetaDiariaGestor * HC * DiasUteis
+        // [FIX V4.6] Meta Total Padronizada por Contrato
         if (metaDiariaGestor > 0) {
-            const multDias = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
-            totalMeta = metaDiariaGestor * this.getHeadcountConfig() * multDias;
+            const config = this.state.configMes;
+            const range = this.state.range;
+            const diasCalendario = this.contarDiasUteis(range.inicio, range.fim);
+
+            // Valores base da configuração ou calculado
+            const diasTerc = (config?.dias_uteis_terceiros || config?.dias_uteis || diasCalendario);
+            const diasClt = (config?.dias_uteis_clt || diasTerc);
+            const hcTerc = Number(config?.hc_terceiros || 17); // Use local for geral calc
+            const hcClt = Number(config?.hc_clt || 0);
+
+            if (filtroContrato === 'CLT') {
+                totalMeta = metaDiariaGestor * hcClt * Math.max(0, diasClt - 1);
+            } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+                totalMeta = metaDiariaGestor * hcTerc * diasTerc;
+            } else {
+                // Geral: Soma proporcional
+                const metaClt = metaDiariaGestor * hcClt * Math.max(0, diasClt - 1);
+                const metaTerc = metaDiariaGestor * hcTerc * diasTerc;
+                totalMeta = metaClt + metaTerc;
+            }
         } else {
-            // Fallback se não tiver meta de gestor definida: usa soma das metas individuais?
-            // O user pediu padronização. Se for 0, fica 0 ou soma. Vamos manter 0 para forçar configuração correta ou somar como fallback?
-            // Vamos zerar aqui e deixar o loop abaixo somar SE não tiver meta definida.
             totalMeta = 0;
         }
 
