@@ -44,6 +44,23 @@ Produtividade.Consolidado = {
         } catch (e) { console.error("Erro carregando funções:", e); }
     },
 
+    toggleGroup: function (groupId) {
+        const children = document.querySelectorAll(`.child-of-${groupId}`);
+        const arrow = document.getElementById(`arrow-${groupId}`);
+        if (!children.length) return;
+
+        const isHidden = children[0].classList.contains('hidden');
+        children.forEach(el => {
+            if (isHidden) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        });
+
+        if (arrow) {
+            arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+    },
+
+
     carregarHeadcountConfig: async function () {
         const datas = Produtividade.getDatasFiltro();
         if (!datas.inicio) return;
@@ -316,9 +333,24 @@ Produtividade.Consolidado = {
         headerHTML += `<th class="px-4 py-3 text-center bg-blue-50 border-l border-blue-100 min-w-[100px]"><span class="text-xs font-black text-blue-600 uppercase">TOTAL</span></th></tr>`;
         hRow.innerHTML = headerHTML;
 
-        const mkRow = (label, icon, color, getter, isCalc = false, isBold = false, rowClass = '') => {
+        const mkRow = (label, icon, color, getter, isCalc = false, isBold = false, rowClass = '', groupId = '', isChild = false) => {
             const bgLabel = rowClass ? rowClass : (isBold ? 'bg-slate-50/50' : '');
-            let tr = `<tr class="${bgLabel} border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-6 py-3 sticky left-0 ${rowClass || 'bg-white'} z-10 border-r border-slate-200"><div class="flex items-center gap-3"><i class="${icon} ${color} text-sm w-4 text-center"></i><span class="text-xs uppercase ${isBold ? 'font-black' : 'font-medium'} text-slate-600">${label}</span></div></td>`;
+            let trClass = `${bgLabel} border-b border-slate-100 hover:bg-slate-50 transition`;
+            if (isChild) trClass += ` hidden child-of-${groupId}`;
+
+            let arrow = '';
+            if (groupId && !isChild) {
+                arrow = `<i class="fas fa-chevron-right text-[10px] text-slate-400 cursor-pointer transition-transform duration-200" id="arrow-${groupId}" onclick="Produtividade.Consolidado.toggleGroup('${groupId}')" style="display: inline-block;"></i>`;
+            }
+
+            let tr = `<tr class="${trClass}" ${isChild ? `data-parent="${groupId}"` : ''}>
+                <td class="px-6 py-3 sticky left-0 ${(isChild || rowClass) ? (rowClass || 'bg-slate-50/20') : 'bg-white'} z-10 border-r border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 flex justify-center">${arrow}</div>
+                        <i class="${icon} ${color} text-sm w-4 text-center"></i>
+                        <span class="text-xs uppercase ${isBold ? 'font-black' : 'font-medium'} text-slate-600">${label}</span>
+                    </div>
+                </td>`;
 
             [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(idx => {
                 const s = st[idx];
@@ -334,20 +366,28 @@ Produtividade.Consolidado = {
             return tr + '</tr>';
         };
 
-        // === LINHAS DA TABELA ===
-        // 1. HC: Real vs Configurado
-        let rows = mkRow('Total de assistentes (Ativos)', 'fas fa-users', 'text-blue-400', (s) => HC_Real);
-        rows += mkRow('Total de assistentes (Configurado)', 'fas fa-users-cog', 'text-indigo-400', (s) => HC);
 
+        // Função auxiliar para contar dias úteis entre datas para as colunas
+        const contarSimples = (ini, fim) => {
+            if (!ini || !fim) return 0;
+            let d = new Date(ini + 'T12:00:00'), end = new Date(fim + 'T12:00:00'), c = 0;
+            while (d <= end) { if (d.getDay() !== 0 && d.getDay() !== 6) c++; d.setDate(d.getDate() + 1); }
+            return c;
+        };
 
-        // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator)
         const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
-        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => (filtroContrato === 'CLT' && s.dias.size > 0) ? s.dias.size - 1 : s.dias.size);
 
-        // 2.1 Dias úteis configurados (V38 - Ocultar se não houver alteração)
-        if (this.hasManualDU) {
-            rows += mkRow('Dias úteis do mês (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC) => this.diasUteisConfig, true, false, 'bg-emerald-50/30');
-        }
+        // === LINHAS DA TABELA ===
+        // 1. HC Group
+        let rows = mkRow('Total de assistentes (Configurado)', 'fas fa-users-cog', 'text-indigo-400', (s) => HC, false, true, '', 'group-hc', false);
+        rows += mkRow('Total de assistentes (Ativos)', 'fas fa-users', 'text-blue-400', (s) => HC_Real, false, false, '', 'group-hc', true);
+
+        // 2. Dias Group (V39 - Agora colapsável)
+        rows += mkRow('Dias úteis (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC, idx, dMap) => {
+            if (idx === 99) return this.diasUteisConfig;
+            return dMap ? contarSimples(dMap.ini, dMap.fim) : 0;
+        }, true, true, '', 'group-dias', false);
+        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => (filtroContrato === 'CLT' && s.dias.size > 0) ? s.dias.size - 1 : s.dias.size, false, false, '', 'group-dias', true);
 
         // 3-6. Produção por tipo
         rows += mkRow('Total documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
@@ -360,14 +400,6 @@ Produtividade.Consolidado = {
 
         // [FIX] Meta Total de Produção (Regra 650/100) baseada no Configurado
         const targetMeta = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
-
-        // Função auxiliar para contar dias úteis entre datas para as colunas
-        const contarSimples = (ini, fim) => {
-            if (!ini || !fim) return 0;
-            let d = new Date(ini + 'T12:00:00'), end = new Date(fim + 'T12:00:00'), c = 0;
-            while (d <= end) { if (d.getDay() !== 0 && d.getDay() !== 6) c++; d.setDate(d.getDate() + 1); }
-            return c;
-        };
 
         rows += mkRow('Meta de produção (Configurada)', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
             if (idx === 99) return HC * this.diasUteisConfig * targetMeta;
