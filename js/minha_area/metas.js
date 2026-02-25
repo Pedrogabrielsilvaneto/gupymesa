@@ -1289,8 +1289,8 @@ MinhaArea.Metas = {
                             }
                         },
                         scales: {
-                            x: { display: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } },
-                            y: { display: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } }
+                            x: { display: true, grid: { display: false }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
+                            y: { display: true, grid: { color: 'rgba(71, 85, 105, 0.08)' }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } }
                         }
                     }
                 };
