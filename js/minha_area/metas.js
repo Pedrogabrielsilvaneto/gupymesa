@@ -1039,50 +1039,62 @@ MinhaArea.Metas = {
     // Agrupa dados por granularidade (dia, semana, mês, trimestre, semestre, ano)
     _agruparPorGranularidade: function (uid, granularidade) {
         const grupos = {};
+
+        // Se o usuário escolher Trimestre/Semestre/Ano, mostramos os meses internos dele
+        const forceMes = ['trimestre', 'semestre', 'ano'].includes(granularidade);
+        const actualGran = forceMes ? 'mes' : granularidade;
+
         this.cacheColunas.forEach(col => {
             const dados = this.cacheDados[col.key]?.[String(uid)];
             let gKey = col.label;
-            // Tenta extrair a data do label (YYYY-MM ou DD/MM)
-            if (granularidade !== 'mes') {
-                // col.key é YYYY-MM ou YYYY-MM-DD
-                const partes = col.key.split('-');
-                const ano = partes[0];
-                const mes = partes[1] ? parseInt(partes[1]) : 1;
-                if (granularidade === 'trimestre') {
-                    const tri = Math.ceil(mes / 3);
-                    gKey = `${ano} T${tri}`;
-                } else if (granularidade === 'semestre') {
-                    gKey = `${ano} S${mes <= 6 ? 1 : 2}`;
-                } else if (granularidade === 'ano') {
-                    gKey = `${ano}`;
-                } else if (granularidade === 'semana') {
-                    // Tenta identificar a semana relativa ao período (Semana 01, 02...)
-                    const d = new Date((col.key.length === 7 ? col.key + '-01' : col.key) + 'T12:00:00');
-                    const datas = MinhaArea.getDatasFiltro();
-                    let weekNum = 1;
-                    if (datas) {
-                        const start = new Date(datas.inicio + 'T12:00:00');
-                        const diff = d - start;
-                        weekNum = Math.floor(diff / (7 * 86400000)) + 1;
-                    }
-                    gKey = `Sem. ${String(Math.max(1, weekNum)).padStart(2, '0')}`;
-                } else {
-                    // dia: usa o label diretamente
-                    gKey = col.label;
+
+            // Lógica de agrupamento baseada na granularidade efetiva
+            if (actualGran === 'semana') {
+                const d = new Date((col.key.length === 7 ? col.key + '-01' : col.key) + 'T12:00:00');
+                const datas = MinhaArea.getDatasFiltro();
+                let weekNum = 1;
+                if (datas) {
+                    const start = new Date(datas.inicio + 'T12:00:00');
+                    const diff = d - start;
+                    weekNum = Math.floor(diff / (7 * 86400000)) + 1;
                 }
+                gKey = `Sem. ${String(Math.max(1, weekNum)).padStart(2, '0')}`;
+            } else if (actualGran === 'trimestre') {
+                const partes = col.key.split('-');
+                const mes = partes[1] ? parseInt(partes[1]) : 1;
+                gKey = `${partes[0]} T${Math.ceil(mes / 3)}`;
+            } else if (actualGran === 'semestre') {
+                const partes = col.key.split('-');
+                const mes = partes[1] ? parseInt(partes[1]) : 1;
+                gKey = `${partes[0]} S${mes <= 6 ? 1 : 2}`;
+            } else if (actualGran === 'ano') {
+                gKey = col.key.split('-')[0];
+            } else if (actualGran === 'dia') {
+                gKey = col.label; // DD/MM
+            } else {
+                // Mês: usa o label Jan/24 etc
+                gKey = col.label;
             }
-            if (!grupos[gKey]) grupos[gKey] = { somaVel: 0, countVel: 0, somaAssert: 0, countAssert: 0 };
+
+            if (!grupos[gKey]) {
+                grupos[gKey] = { somaVel: 0, countVel: 0, somaAssert: 0, countAssert: 0, start: col.key, end: col.key };
+            }
             const g = grupos[gKey];
+            if (col.key < g.start) g.start = col.key;
+            if (col.key > g.end) g.end = col.key;
+
             if (dados) {
                 if (dados.velocidade !== null && dados.velocidade !== undefined) { g.somaVel += (dados.velocidade || 0); g.countVel++; }
                 if (dados.assert !== null && dados.assert !== undefined && dados.qtd_auditorias > 0) { g.somaAssert += (dados.assert * 100); g.countAssert++; }
             }
         });
-        // Transforma em arrays
+
         const labels = Object.keys(grupos);
         const prodData = labels.map(k => grupos[k].countVel > 0 ? Math.round(grupos[k].somaVel / grupos[k].countVel) : null);
         const assertData = labels.map(k => grupos[k].countAssert > 0 ? parseFloat((grupos[k].somaAssert / grupos[k].countAssert).toFixed(2)) : null);
-        return { labels, prodData, assertData };
+        const ranges = labels.map(k => ({ start: grupos[k].start, end: grupos[k].end }));
+
+        return { labels, prodData, assertData, ranges };
     },
 
     renderizarGraficosComparativos: function (userIds, granularidade) {
@@ -1103,6 +1115,40 @@ MinhaArea.Metas = {
 
         // Renderiza VS Panel (novo design com mini charts no card central + grids por período)
         this._renderizarVSPanel(userData, allLabels);
+    },
+
+    drillDownComparativo: function (label, start, end) {
+        // Tenta encontrar os elementos de filtro global
+        const elAno = document.getElementById('sel-ano');
+        const elMes = document.getElementById('sel-mes');
+        const elSemana = document.getElementById('sel-semana');
+        const selGran = document.getElementById('comp-granularidade');
+
+        // Se for uma semana específica, tentamos setar o filtro global de semana
+        if (label.startsWith('Sem.')) {
+            MinhaArea.mudarPeriodo('semana');
+            if (elSemana) {
+                // Formato do valor no select: "YYYY-MM-DD|YYYY-MM-DD"
+                // Se não encontrar o valor exato, usamos o modo 'dia' no modal comparativo mesmo
+                const valor = `${start}|${end}`;
+                let found = false;
+                for (let i = 0; i < elSemana.options.length; i++) {
+                    if (elSemana.options[i].value === valor) {
+                        elSemana.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        // Se for mês ou outros, mudamos o range global conforme possível
+        // Mas para simplificar o Drill Down imediato sem perder o contexto do modal:
+        // Apenas mudamos para a granularidade 'dia' e deixamos o range atual se for macro
+
+        if (selGran) {
+            selGran.value = 'dia';
+            this.atualizarComparativoManual(true);
+        }
     },
 
     _renderizarVSPanel: function (userData, allLabels) {
@@ -1193,23 +1239,25 @@ MinhaArea.Metas = {
             const aS1 = getSeries(0, 'assertData');
             const aS2 = getSeries(1, 'assertData');
 
-            const createConfig = (labelA1, data1, data2, isPct) => {
-                const deltaData = data1.map((v, i) => (v || 0) - (data2[i] || 0));
+            const createConfig = (label1, data1, label2, data2, isPct) => {
                 return {
                     type: 'line',
                     data: {
                         labels: allLabels,
                         datasets: [
                             {
-                                label: `Evolução de ${labelA1}`,
-                                data: deltaData,
-                                borderColor: '#93c5fd',
-                                backgroundColor: 'rgba(147,197,253,0.1)',
-                                fill: true,
-                                borderWidth: 4,
-                                pointRadius: 4,
-                                pointBackgroundColor: '#3b82f6',
-                                tension: 0.4
+                                label: label1,
+                                data: data1,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59,130,246,0.1)',
+                                fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3
+                            },
+                            {
+                                label: label2,
+                                data: data2,
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16,185,129,0.1)',
+                                fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3
                             }
                         ]
                     },
@@ -1221,26 +1269,28 @@ MinhaArea.Metas = {
                                 enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
                                 callbacks: {
                                     label: ctx => {
-                                        const gap = ctx.parsed.y;
-                                        const prefix = gap > 0 ? 'Superior em ' : (gap < 0 ? 'Inferior em ' : 'Igual: ');
-                                        const absGap = Math.abs(gap);
-                                        return `${prefix}${isPct ? absGap.toFixed(1) + 'pp' : absGap + ' pcs'}`;
+                                        const val = ctx.parsed.y;
+                                        const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
+                                        const diff = val - (other || 0);
+                                        const prefix = diff > 0 ? '+' : '';
+                                        const unit = isPct ? '%' : ' pcs';
+                                        const dUnit = isPct ? 'pp' : '';
+                                        return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) : val}${unit} (${prefix}${isPct ? diff.toFixed(1) : diff}${dUnit})`;
                                     }
                                 }
                             }
                         },
-                        onClick: () => {
-                            const sel = document.getElementById('comp-granularidade');
-                            if (sel && sel.value !== 'dia') { sel.value = 'dia'; this.atualizarComparativoManual(true); }
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const idx = elements[0].index;
+                                const label = allLabels[idx];
+                                const range = userData[0].grouped.ranges[idx];
+                                if (range) this.drillDownComparativo(label, range.start, range.end);
+                            }
                         },
                         scales: {
                             x: { display: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } },
-                            y: {
-                                display: true,
-                                grid: { color: 'rgba(255,255,255,0.05)' },
-                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } },
-                                title: { display: true, text: 'Diferença (GAP)', color: 'rgba(255,255,255,0.3)', font: { size: 10 } }
-                            }
+                            y: { display: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } }
                         }
                     }
                 };
@@ -1265,12 +1315,13 @@ MinhaArea.Metas = {
             if (elG1Title) elG1Title.textContent = nome1;
             if (elG2Title) elG2Title.textContent = nome2;
 
-            const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
+            const buildGridRow = (label, prodVal, assertVal, isHighlight, range) => {
                 const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
                 const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
                 const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
                 const bg = isHighlight ? 'bg-slate-50/50' : '';
-                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-pointer" onclick="const sel = document.getElementById('comp-granularidade'); if(sel && sel.value!=='dia'){sel.value='dia'; MinhaArea.Metas.atualizarComparativoManual(true);}">
+                const clickAction = range ? `onclick="MinhaArea.Metas.drillDownComparativo('${label}', '${range.start}', '${range.end}')"` : '';
+                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-pointer" ${clickAction}>
                     <td class="px-3 py-2 text-slate-500 font-bold text-[10px]">${label}</td>
                     <td class="px-3 py-2 text-right font-black text-slate-700 text-[11px]">${prodStr}</td>
                     <td class="px-3 py-2 text-right text-[11px] ${assertColor}">${assertStr}</td>
@@ -1279,12 +1330,12 @@ MinhaArea.Metas = {
 
             const htmlG1 = allLabels.map((label, idx) => {
                 const i = userData[0].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0, userData[0].grouped.ranges[idx]);
             }).join('');
 
             const htmlG2 = allLabels.map((label, idx) => {
                 const i = userData[1].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0, userData[1].grouped.ranges[idx]);
             }).join('');
 
             const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
