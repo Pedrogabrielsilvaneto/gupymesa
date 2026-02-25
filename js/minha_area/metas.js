@@ -1167,26 +1167,126 @@ MinhaArea.Metas = {
         ['comp-sel-1', 'comp-sel-2'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 
-    atualizarComparativoManual: function () {
+    // Cache exclusivo do comparativo (independente do cache global do grid)
+    compCache: { colunas: [], dados: {}, periodo: null },
+
+    // Verifica se o período local já está no compCache, senão busca no banco
+    atualizarComparativoManual: async function () {
         const id1 = document.getElementById('comp-sel-1')?.value;
         const id2 = document.getElementById('comp-sel-2')?.value;
+        const ids = [id1, id2].filter(id => id);
+        if (ids.length === 0) return;
+
+        const datas = this.compGetDatasFiltro();
+        const chave = `${datas.inicio}|${datas.fim}`;
+
+        // Só vai ao banco se o período mudou
+        if (this.compCache.periodo !== chave) {
+            await this.compCarregarPeriodo(datas.inicio, datas.fim);
+            this.compCache.periodo = chave;
+        }
 
         // Granularidade baseada no tipo de filtro atual
         const tipo = this.compFiltroPeriodo;
         let granularidade = 'dia';
-        if (tipo === 'semana') {
-            granularidade = 'dia'; // Sempre dia para visões semanais
-        } else if (tipo === 'mes') {
-            granularidade = 'dia'; // Dia a dia no mês
-        } else {
+        if (tipo === 'ano') {
             granularidade = 'mes'; // Mês a mês em Ano/Trimestre/Semestre
+        } else {
+            granularidade = 'dia'; // Dia a dia em Mês ou Semana
         }
 
-        const ids = [id1, id2].filter(id => id);
-        this.renderizarGraficosComparativos(ids, granularidade);
+        const ids2 = [id1, id2].filter(id => id);
+        this.renderizarGraficosComparativos(ids2, granularidade);
     },
 
-    // Agrupa dados por granularidade usando o NOVO sistema de filtros (compGetDatasFiltro)
+    // Busca dados do banco para o período local e popula compCache
+    compCarregarPeriodo: async function (inicio, fim) {
+        try {
+            const userIds = this.cacheUsers.map(u => u.id);
+            if (userIds.length === 0) return;
+
+            const placeholders = this.gerarPlaceholders(userIds);
+            const diffDias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24);
+            const isMacro = diffDias > 45;
+
+            const [dadosProd, dadosAssert] = await Promise.all([
+                Sistema.query(`SELECT usuario_id, data_referencia, quantidade, fator FROM producao WHERE data_referencia >= ? AND data_referencia <= ?`, [inicio, fim]),
+                Sistema.query(`SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN(${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`, [...userIds, inicio, fim])
+            ]);
+
+            // Zera e reconstrói compCache
+            this.compCache.colunas = [];
+            this.compCache.dados = {};
+
+            let curr = new Date(inicio + 'T12:00:00');
+            const end = new Date(fim + 'T12:00:00');
+
+            if (isMacro) {
+                curr.setDate(1);
+                while (curr <= end) {
+                    const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}`;
+                    if (!this.compCache.colunas.find(c => c.key === key)) {
+                        this.compCache.colunas.push({ key, label: curr.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase() });
+                        this.compCache.dados[key] = {};
+                        userIds.forEach(uid => this.compCache.dados[key][String(uid)] = { velocidade: null, assert: null, qtd_auditorias: 0, somaVel: 0, countVel: 0, somaOk: 0, somaTot: 0 });
+                    }
+                    curr.setMonth(curr.getMonth() + 1);
+                }
+            } else {
+                while (curr <= end) {
+                    const dow = curr.getDay();
+                    if (dow !== 0 && dow !== 6) { // Pula fim de semana
+                        const key = curr.toISOString().split('T')[0];
+                        const label = String(curr.getDate()).padStart(2, '0');
+                        this.compCache.colunas.push({ key, label });
+                        this.compCache.dados[key] = {};
+                        userIds.forEach(uid => this.compCache.dados[key][String(uid)] = { velocidade: null, assert: null, qtd_auditorias: 0, somaVel: 0, countVel: 0, somaOk: 0, somaTot: 0 });
+                    }
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+
+            const getKey = (dateStr) => {
+                const d = new Date(String(dateStr).split('T')[0] + 'T12:00:00');
+                if (isMacro) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                return d.toISOString().split('T')[0];
+            };
+
+            (dadosProd || []).forEach(reg => {
+                const key = getKey(reg.data_referencia);
+                const uid = String(reg.usuario_id);
+                if (this.compCache.dados[key]?.[uid]) {
+                    this.compCache.dados[key][uid].somaVel += Number(reg.quantidade || 0);
+                    this.compCache.dados[key][uid].countVel++;
+                }
+            });
+
+            (dadosAssert || []).forEach(reg => {
+                const key = getKey(reg.data_referencia);
+                const uid = String(reg.usuario_id);
+                if (this.compCache.dados[key]?.[uid]) {
+                    this.compCache.dados[key][uid].somaOk += Number(reg.qtd_ok || 0);
+                    this.compCache.dados[key][uid].somaTot += Number(reg.qtd_campos || 0);
+                    this.compCache.dados[key][uid].qtd_auditorias++;
+                }
+            });
+
+            // Finaliza velocidade média e assertividade por período
+            this.compCache.colunas.forEach(col => {
+                userIds.forEach(uid => {
+                    const d = this.compCache.dados[col.key]?.[String(uid)];
+                    if (!d) return;
+                    d.velocidade = d.countVel > 0 ? Math.round(d.somaVel / d.countVel) : null;
+                    d.assert = d.somaTot > 0 ? d.somaOk / d.somaTot : null;
+                });
+            });
+        } catch (e) {
+            console.error('[Comparativo] Erro ao carregar dados do período:', e);
+        }
+    },
+    // ═══════════════════════════════════════════════════════════════════
+    // Agrupa dados usando o compCache (dados próprios do comparativo)
+    // ═══════════════════════════════════════════════════════════════════
     _agruparPorGranularidade: function (uid, granularidade) {
         const datas = this.compGetDatasFiltro();
         const start = new Date(datas.inicio + 'T00:00:00');
@@ -1194,11 +1294,12 @@ MinhaArea.Metas = {
 
         const grupos = {};
 
-        this.cacheColunas.forEach(col => {
+        // Usa compCache — dados do período local, não o cache global
+        this.compCache.colunas.forEach(col => {
             const dCol = new Date(col.key + 'T12:00:00');
             if (dCol < start || dCol > end) return;
 
-            const dados = this.cacheDados[col.key]?.[String(uid)];
+            const dados = this.compCache.dados[col.key]?.[String(uid)];
             let gKey = col.label;
 
             if (granularidade === 'mes') {
