@@ -1128,104 +1128,119 @@ MinhaArea.Metas = {
 
         // GAP dataset for ASSERT
         if (userIds.length === 2 && userData[0].user && userData[1].user) {
-            const gapAssert = allLabels.map(l => {
-                const i0 = userData[0].grouped.labels.indexOf(l);
-                const i1 = userData[1].grouped.labels.indexOf(l);
-                const v0 = i0 >= 0 ? (userData[0].grouped.assertData[i0] || 0) : 0;
-                const v1 = i1 >= 0 ? (userData[1].grouped.assertData[i1] || 0) : 0;
-                return parseFloat(Math.abs(v0 - v1).toFixed(2));
-            });
-            datasetsAssert.push({
-                label: 'GAP (%)',
-                data: gapAssert,
-                borderColor: colorsGap,
-                backgroundColor: colorsGap,
-                borderWidth: 2,
-                borderDash: [5, 5],
-                pointRadius: 0,
-                fill: false,
-                tension: 0.3
-            });
+            // No GAP line on assert chart — keep it clean
         }
 
         this.createChartComp('chart-comp-prod', allLabels, datasetsProd, false);
         this.createChartComp('chart-comp-assert', allLabels, datasetsAssert, true);
 
-        // Renderiza painel de GAP em GRID
-        this._renderizarGapGrid(userData, allLabels);
+        // Renderiza VS Cards + Breakdown por Período
+        this._renderizarVSPanel(userData, allLabels);
     },
 
-    _renderizarGapGrid: function (userData, allLabels) {
-        const panel = document.getElementById('gap-grid-panel');
-        const tbody = document.getElementById('gap-grid-body');
-        if (!panel || !tbody) return;
+    _renderizarVSPanel: function (userData, allLabels) {
+        const vsCards = document.getElementById('gap-vs-cards');
+        const breakdown = document.getElementById('gap-period-breakdown');
 
         if (userData.length < 2 || !userData[0].user || !userData[1].user) {
-            panel.classList.add('hidden');
+            if (vsCards) vsCards.classList.add('hidden');
+            if (breakdown) breakdown.innerHTML = '<div class="text-xs text-slate-400 text-center py-8">Selecione 2 assistentes para ver o detalhamento</div>';
             return;
         }
-        panel.classList.remove('hidden');
 
-        // Headers
         const nome1 = userData[0].user.nome.split(' ')[0];
         const nome2 = userData[1].user.nome.split(' ')[0];
-        document.getElementById('gap-header-a1').textContent = nome1;
-        document.getElementById('gap-header-a2').textContent = nome2;
 
-        let html = '';
-        allLabels.forEach(label => {
-            const i0 = userData[0].grouped.labels.indexOf(label);
-            const i1 = userData[1].grouped.labels.indexOf(label);
+        // Médias globais
+        const prodVals1 = userData[0].grouped.prodData.filter(v => v !== null);
+        const prodVals2 = userData[1].grouped.prodData.filter(v => v !== null);
+        const assertVals1 = userData[0].grouped.assertData.filter(v => v !== null);
+        const assertVals2 = userData[1].grouped.assertData.filter(v => v !== null);
 
-            const v0P = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
-            const v1P = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
-            const gapP = Math.abs(v0P - v1P);
+        const med1P = prodVals1.reduce((s, v) => s + v, 0) / (prodVals1.length || 1);
+        const med2P = prodVals2.reduce((s, v) => s + v, 0) / (prodVals2.length || 1);
+        const med1A = assertVals1.reduce((s, v) => s + v, 0) / (assertVals1.length || 1);
+        const med2A = assertVals2.reduce((s, v) => s + v, 0) / (assertVals2.length || 1);
 
-            const v0A = i0 >= 0 ? (userData[0].grouped.assertData[i0] || 0) : 0;
-            const v1A = i1 >= 0 ? (userData[1].grouped.assertData[i1] || 0) : 0;
-            const gapA = Math.abs(v0A - v1A).toFixed(1);
+        const gapP = Math.abs(med1P - med2P);
+        const gapA = Math.abs(med1A - med2A);
+        const liderP = med1P >= med2P ? nome1 : nome2;
+        const liderA = med1A >= med2A ? nome1 : nome2;
+        const winner = (med1P + med1A) >= (med2P + med2A) ? nome1 : nome2;
 
-            const liderP = v0P > v1P ? nome1 : (v1P > v0P ? nome2 : 'Empate');
-            const liderA = v0A > v1A ? nome1 : (v1A > v0A ? nome2 : 'Empate');
+        // VS Cards
+        if (vsCards) {
+            vsCards.classList.remove('hidden');
+            document.getElementById('gap-a1-nome').textContent = nome1;
+            document.getElementById('gap-a1-prod').textContent = `${Math.round(med1P)} pcs/dia`;
+            document.getElementById('gap-a1-assert').textContent = `${med1A.toFixed(1)}%`;
+            document.getElementById('gap-a1-periodos').textContent = `${prodVals1.length} período(s)`;
 
-            html += `<tr>
-                <td class="px-4 py-2 border-r border-slate-50 font-bold text-slate-500">${label}</td>
-                <td class="px-4 py-2 border-r border-slate-50">
-                    <div class="flex flex-col">
-                        <span class="font-bold text-slate-700">${v0P} pcs/dia</span>
-                        <span class="text-[9px] text-emerald-600 font-bold">${v0A}% qual.</span>
+            document.getElementById('gap-a2-nome').textContent = nome2;
+            document.getElementById('gap-a2-prod').textContent = `${Math.round(med2P)} pcs/dia`;
+            document.getElementById('gap-a2-assert').textContent = `${med2A.toFixed(1)}%`;
+            document.getElementById('gap-a2-periodos').textContent = `${prodVals2.length} período(s)`;
+
+            document.getElementById('gap-center-prod').textContent = `Δ ${Math.round(gapP)}`;
+            document.getElementById('gap-center-prod-lider').textContent = `${liderP} produz mais`;
+            document.getElementById('gap-center-assert').textContent = `Δ ${gapA.toFixed(1)}pp`;
+            document.getElementById('gap-center-assert-lider').textContent = `${liderA} tem maior qualidade`;
+            document.getElementById('gap-winner-badge').textContent = `🏆 ${winner} é a mais performante`;
+        }
+
+        // Breakdown por Período com barras horizontais
+        if (breakdown) {
+            const maxProd = Math.max(...allLabels.map(l => {
+                const i0 = userData[0].grouped.labels.indexOf(l);
+                const i1 = userData[1].grouped.labels.indexOf(l);
+                const v0 = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
+                const v1 = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
+                return Math.max(v0, v1);
+            }), 1);
+
+            let html = allLabels.map(label => {
+                const i0 = userData[0].grouped.labels.indexOf(label);
+                const i1 = userData[1].grouped.labels.indexOf(label);
+
+                const v0P = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
+                const v1P = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
+                const v0A = i0 >= 0 ? (userData[0].grouped.assertData[i0] || 0) : 0;
+                const v1A = i1 >= 0 ? (userData[1].grouped.assertData[i1] || 0) : 0;
+
+                const pct0 = maxProd > 0 ? Math.round((v0P / maxProd) * 100) : 0;
+                const pct1 = maxProd > 0 ? Math.round((v1P / maxProd) * 100) : 0;
+                const gapPLabel = Math.abs(v0P - v1P);
+                const winnerLabel = v0P > v1P ? `+${gapPLabel} ${nome1}` : (v1P > v0P ? `+${gapPLabel} ${nome2}` : 'Empate');
+
+                return `<div class="group rounded-lg hover:bg-slate-50/70 p-2 transition-all">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-bold text-slate-500">${label}</span>
+                        <span class="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">${winnerLabel}</span>
                     </div>
-                </td>
-                <td class="px-4 py-2 border-r border-slate-50">
-                    <div class="flex flex-col">
-                        <span class="font-bold text-slate-700">${v1P} pcs/dia</span>
-                        <span class="text-[9px] text-emerald-600 font-bold">${v1A}% qual.</span>
+                    <!-- Barras Produtividade -->
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] text-blue-500 w-14 text-right shrink-0 font-bold">${v0P}</span>
+                            <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:${pct0}%"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] text-emerald-500 w-14 text-right shrink-0 font-bold">${v1P}</span>
+                            <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width:${pct1}%"></div>
+                            </div>
+                        </div>
                     </div>
-                </td>
-                <td class="px-4 py-2 border-r border-slate-50 bg-indigo-50/20 font-black">
-                    <div class="flex flex-col text-indigo-700">
-                        <span>GAP: ${gapP} pcs</span>
-                        <span class="text-[9px]">${gapA}pp qual.</span>
+                    <!-- Assert -->
+                    <div class="flex gap-3 mt-1 justify-end">
+                        <span class="text-[9px] text-blue-400 font-semibold">${v0A > 0 ? v0A.toFixed(1) + '%' : '--'}</span>
+                        <span class="text-[9px] text-slate-300">·</span>
+                        <span class="text-[9px] text-emerald-400 font-semibold">${v1A > 0 ? v1A.toFixed(1) + '%' : '--'}</span>
                     </div>
-                </td>
-                <td class="px-4 py-2 italic text-slate-400">
-                    ${liderP === liderA ? liderP + ' domina' : 'Misto (' + liderP + '/' + liderA + ')'}
-                </td>
-            </tr>`;
-        });
-        tbody.innerHTML = html;
-
-        // Conclusão Geral
-        const badge = document.getElementById('gap-conclusao-badge');
-        if (badge) {
-            const med0P = userData[0].grouped.prodData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (userData[0].grouped.prodData.filter(v => v !== null).length || 1);
-            const med1P = userData[1].grouped.prodData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (userData[1].grouped.prodData.filter(v => v !== null).length || 1);
-            const med0A = userData[0].grouped.assertData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (userData[0].grouped.assertData.filter(v => v !== null).length || 1);
-            const med1A = userData[1].grouped.assertData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (userData[1].grouped.assertData.filter(v => v !== null).length || 1);
-
-            const winP = med0P > med1P ? nome1 : nome2;
-            const winA = med0A > med1A ? nome1 : nome2;
-            badge.textContent = winP === winA ? `${winP} é a mais performante` : `Performance Mista: ${winP} (Vol) / ${winA} (Qual)`;
+                </div>`;
+            }).join('');
+            breakdown.innerHTML = html || '<div class="text-xs text-slate-400 text-center py-8">Nenhum dado no período selecionado</div>';
         }
     },
 
@@ -1237,15 +1252,19 @@ MinhaArea.Metas = {
             data: { labels, datasets },
             options: {
                 responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'top', labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 6, boxHeight: 6 } } },
+                plugins: {
+                    legend: { position: 'top', labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 6, boxHeight: 6, padding: 14 } },
+                    tooltip: { cornerRadius: 8, padding: 10 }
+                },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+                    x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#94a3b8' } },
                     y: {
                         beginAtZero: !isPct,
-                        min: isPct ? 80 : undefined,
+                        min: isPct ? 85 : undefined,
                         max: isPct ? 105 : undefined,
-                        grid: { color: '#f8fafc' },
-                        ticks: { font: { size: 9 } }
+                        grid: { color: '#f8fafc', lineWidth: 1 },
+                        ticks: { font: { size: 9 }, color: '#94a3b8' },
+                        border: { display: false }
                     }
                 }
             }
