@@ -1500,13 +1500,14 @@ MinhaArea.Metas = {
             const scaleMax = (gT, gB) => Math.ceil(Math.max(...gT, ...gB, 1) * 1.2);
 
             /**
-             * createHalfConfig: cria config para metade do espelho.
-             * @param gapData - série de GAP (diferença ponto a ponto, sempre >= 0)
-             * @param color - cor das barras
-             * @param reversed - TRUE = gráfico superior (A1), eixo Y invertido (barras descem ao zero)
-             * @param maxVal - escala máxima do eixo
-             * @param isPct
-             * @param winnerLabel - nome do assistente que lidera quando a barra é > 0
+             * createHalfConfig: cria config para metade do espelho de GAP.
+             * @param gapData  - série de GAP (diferença ponto a ponto, sempre >= 0)
+             * @param color    - cor das barras
+             * @param reversed - FALSE = gráfico TOP (A1): zero na base (centro), barras sobem afastando do centro
+             *                   TRUE  = gráfico BOT (A2): zero no topo (centro), barras descem afastando do centro
+             * @param maxVal   - escala máxima do eixo
+             * @param isPct    - se true, formata como porcentagem
+             * @param winnerLabel - nome do assistente que lidera
              */
             const createHalfConfig = (gapData, color, reversed, maxVal, isPct, winnerLabel) => ({
                 type: 'bar',
@@ -1519,8 +1520,8 @@ MinhaArea.Metas = {
                         borderColor: color,
                         borderWidth: 1,
                         borderRadius: reversed
-                            ? { bottomLeft: 5, bottomRight: 5 }  // topo: cantos arredondados em baixo (beira do zero)
-                            : { topLeft: 5, topRight: 5 },       // base: cantos arredondados em cima (beira do zero)
+                            ? { bottomLeft: 5, bottomRight: 5 }  // BOT (A2, reversed): pico da barra está embaixo → arredonda embaixo
+                            : { topLeft: 5, topRight: 5 },       // TOP (A1, normal):   pico da barra está em cima → arredonda em cima
                         barPercentage: 0.72
                     }]
                 },
@@ -1550,14 +1551,16 @@ MinhaArea.Metas = {
                     },
                     scales: {
                         x: {
-                            display: !reversed, // só exibe os labels X no gráfico de baixo (A2)
+                            // Labels X aparecem no gráfico de BAIXO (que tem reversed=true, pois está invertido e as datas ficam na base)
+                            // Na prática: mostrar labels no gráfico cujo zero está no TOPO (= gráfico inferior = reversed:true)
+                            display: reversed,
                             grid: { display: false },
                             ticks: { color: 'rgba(71,85,105,0.7)', font: { size: 8, weight: 'bold' } }
                         },
                         y: {
                             type: 'linear',
                             display: true,
-                            reverse: reversed, // CHAVE: inverte o eixo no gráfico superior
+                            reverse: reversed, // TOP chart (A1): reversed=false → zero na base (= linha central) | BOT chart (A2): reversed=true → zero no topo (= linha central)
                             min: 0,
                             max: maxVal,
                             grid: { color: 'rgba(71,85,105,0.06)' },
@@ -1575,15 +1578,18 @@ MinhaArea.Metas = {
             const maxP = scaleMax(pGapTop, pGapBot);
             const ctxPTop = document.getElementById('chart-gap-prod-top');
             const ctxPBot = document.getElementById('chart-gap-prod-bot');
-            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(pGapTop, '#3b82f6', true, maxP, false, nome1));
-            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(pGapBot, '#10b981', false, maxP, false, nome2));
+            //  TOP (A1): reversed=false → eixo normal → 0 na BASE do canvas (= na linha central) → barras crescem pra CIMA (afastando do centro)
+            //  BOT (A2): reversed=true  → eixo invertido → 0 no TOPO do canvas (= na linha central) → barras crescem pra BAIXO (afastando do centro)
+            //  GAP=0 em todos os períodos → barras com altura 0 → todos 'beijando' a linha central
+            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(pGapTop, '#3b82f6', false, maxP, false, nome1));
+            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(pGapBot, '#10b981', true, maxP, false, nome2));
 
             // === Assertividade ===
             const maxA = scaleMax(aGapTop, aGapBot);
             const ctxATop = document.getElementById('chart-gap-assert-top');
             const ctxABot = document.getElementById('chart-gap-assert-bot');
-            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(aGapTop, '#3b82f6', true, maxA, true, nome1));
-            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(aGapBot, '#10b981', false, maxA, true, nome2));
+            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(aGapTop, '#3b82f6', false, maxA, true, nome1));
+            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(aGapBot, '#10b981', true, maxA, true, nome2));
         }, 50);
 
         if (gridsContainer) {
