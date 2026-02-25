@@ -826,51 +826,50 @@ Produtividade.Geral = {
 
         const diasTotalKpi = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
 
-        // --- CÁLCULO DA META GLOBAL (Produção Esperada) conforme regras da Gestora ---
+        // --- CÁLCULO DA META GLOBAL (Produção Esperada) conforme regras fornecidas ---
         let totalMetaAjustada = 0;
         const configMesParaMeta = this.state.configMes || {};
         const isPeriodo = this.state.range.inicio !== this.state.range.fim;
         const diasMetaCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
 
-        // Verifica se chegamos a pelo menos 80% do mês para usar os dias cravados do RH (config)
-        let dCltMeta = configMesParaMeta.dias_uteis_clt || configMesParaMeta.dias_uteis || diasMetaCal;
-        let dTercMeta = configMesParaMeta.dias_uteis_terceiros || configMesParaMeta.dias_uteis || diasMetaCal;
-        if (diasMetaCal < (dTercMeta * 0.8)) {
+        // Pega dias da configuração ou do calendário
+        let dBase = configMesParaMeta.dias_uteis || diasMetaCal;
+        let dCltMeta = configMesParaMeta.dias_uteis_clt || dBase;
+        let dTercMeta = configMesParaMeta.dias_uteis_terceiros || dBase;
+
+        // Se não for período completo do mês, usa o calendário selecionado
+        if (diasMetaCal < (dBase * 0.8)) {
             dCltMeta = diasMetaCal;
             dTercMeta = diasMetaCal;
         }
 
-        let hCltMeta = Number(configMesParaMeta.hc_clt || 17);
-        let hTercMeta = Number(configMesParaMeta.hc_terceiros || 0);
+        // Lógica de Metas e HC
+        // CLT: Meta 650, HC 8 (se não houver config), Dias -1
+        let mClt = 650;
+        let hClt = Number(configMesParaMeta.hc_clt || 8);
+        const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
+        let valorMetaCLT = mClt * hClt * multCltMeta;
 
-        // Se Terc está filtrado mas HC é 0 na config, tentamos usar a configuração global
-        if (filtroContrato === 'TERCEIROS' && hTercMeta === 0) hTercMeta = this.getHeadcountConfig();
-
-        let mGestorMeta = metaDiariaGestor > 0 ? metaDiariaGestor : 650;
-        let mTercMeta = 100;
-
-        // Se é período, CLT desconta 1 dia (regra de fechamento). Se é um único dia, não tem sentido descontar um dia e zerar.
-        const multClt = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
+        // Terceiros: Meta 750, HC 9 (se não houver config), Dias Normais
+        let mTerc = 750;
+        let hTerc = Number(configMesParaMeta.hc_terceiros || 9);
+        let valorMetaTerc = mTerc * hTerc * dTercMeta;
 
         if (filtroContrato === 'CLT') {
-            totalMetaAjustada = (mGestorMeta * hCltMeta * multClt);
-        } else if (filtroContrato === 'TERCEIROS') {
-            totalMetaAjustada = (mTercMeta * hTercMeta * dTercMeta);
+            totalMetaAjustada = valorMetaCLT;
+        } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+            totalMetaAjustada = valorMetaTerc;
         } else {
-            // TODOS (Geral)
-            totalMetaAjustada = (mGestorMeta * hCltMeta * multClt) + (mTercMeta * hTercMeta * dTercMeta);
+            // GERAL (TODOS)
+            totalMetaAjustada = valorMetaCLT + valorMetaTerc;
         }
 
-        // --- APLICA REDUÇÃO GLOBAL DE ABONO NA META ---
+        // --- APLICA REDUÇÃO DE ABONO (Opcional, mas mantido para precisão de quem está na lista) ---
         if (totalAbonoEquipe > 0) {
-            let metaAbonoBase = mGestorMeta;
-            let multAbono = multClt;
-            if (filtroContrato === 'TERCEIROS') {
-                metaAbonoBase = mTercMeta;
-                multAbono = dTercMeta;
-            }
-            // totalAbonoEquipe representa o fator fracional de perda no período para 1 pessoa (Ex: 0.05 da meta teórica)
-            totalMetaAjustada -= (totalAbonoEquipe * metaAbonoBase * multAbono);
+            let metaRefAbono = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? mTerc : mClt;
+            let diasRefAbono = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? dTercMeta : multCltMeta;
+            // totalAbonoEquipe é a soma de (1.0 - fator) da equipe visível
+            totalMetaAjustada -= (totalAbonoEquipe * metaRefAbono * (isPeriodo ? diasRefAbono : 1));
         }
 
         window.Produtividade.MetaGlobalCalculada = Math.max(0, Math.round(totalMetaAjustada));
