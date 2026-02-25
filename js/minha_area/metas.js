@@ -981,8 +981,8 @@ MinhaArea.Metas = {
             else { id1 = this.cacheUsers[index - 1].id; id2 = this.cacheUsers[index].id; id3 = this.cacheUsers[index + 1].id; }
         }
         this.popularSelectsManual();
-        const el1 = document.getElementById('comp-sel-1'); const el2 = document.getElementById('comp-sel-2'); const el3 = document.getElementById('comp-sel-3');
-        if (el1) el1.value = id1 || ''; if (el2) el2.value = id2 || ''; if (el3) el3.value = id3 || '';
+        const el1 = document.getElementById('comp-sel-1'); const el2 = document.getElementById('comp-sel-2');
+        if (el1) el1.value = id1 || ''; if (el2) el2.value = id2 || '';
         this.atualizarComparativoManual();
         const modal = document.getElementById('modal-comparativo-metas');
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
@@ -993,14 +993,21 @@ MinhaArea.Metas = {
         ['comp-sel-1', 'comp-sel-2'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 
-    atualizarComparativoManual: function () {
+    atualizarComparativoManual: function (isManualGran) {
         const id1 = document.getElementById('comp-sel-1')?.value;
         const id2 = document.getElementById('comp-sel-2')?.value;
-        // Granularidade derivada do filtro principal (range de datas)
-        const granularidade = this._granularidadeDoPeriodo();
-        // Atualiza o select visual para refletir a granularidade usada
+
         const selGran = document.getElementById('comp-granularidade');
-        if (selGran) selGran.value = granularidade;
+        let granularidade;
+
+        if (isManualGran && selGran) {
+            granularidade = selGran.value;
+        } else {
+            // Automático baseado no range de datas
+            granularidade = this._granularidadeDoPeriodo();
+            if (selGran) selGran.value = granularidade;
+        }
+
         const ids = [id1, id2].filter(id => id);
         this.renderizarGraficosComparativos(ids, granularidade);
     },
@@ -1141,6 +1148,12 @@ MinhaArea.Metas = {
             document.getElementById('gap-center-assert').textContent = `Δ ${gapA.toFixed(1)}pp`;
             document.getElementById('gap-center-assert-lider').textContent = `${liderA} tem maior qualidade`;
             document.getElementById('gap-winner-badge').textContent = `🏆 ${winner} é a mais performante`;
+
+            // Atribui nomes às legendas do card central
+            const leg1 = document.getElementById('legend-a1-label');
+            const leg2 = document.getElementById('legend-a2-label');
+            if (leg1) leg1.textContent = `${nome1} (+)`;
+            if (leg2) leg2.textContent = `${nome2} (-)`;
         }
 
         // ── Mini Charts GAP (diferença A1 - A2 ao longo do tempo) ──────────────
@@ -1192,9 +1205,21 @@ MinhaArea.Metas = {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
                             legend: { display: false },
-                            tooltip: { callbacks: { label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y} (${nome1} na frente)` : `${ctx.parsed.y} (${nome2} na frente)` } }
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleFont: { size: 10 },
+                                bodyFont: { size: 10, weight: 'bold' },
+                                padding: 8,
+                                callbacks: {
+                                    label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y} (${nome1})` : `${ctx.parsed.y} (${nome2})`
+                                }
+                            }
                         },
-                        scales: { x: { display: false }, y: { display: false } }
+                        scales: {
+                            x: { display: true, grid: { display: false }, ticks: { display: false } },
+                            y: { display: false }
+                        }
                     }
                 });
             }
@@ -1221,9 +1246,18 @@ MinhaArea.Metas = {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
                             legend: { display: false },
-                            tooltip: { callbacks: { label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y.toFixed(1)}pp (${nome1})` : `${ctx.parsed.y.toFixed(1)}pp (${nome2})` } }
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                callbacks: {
+                                    label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y.toFixed(1)}% (${nome1})` : `${ctx.parsed.y.toFixed(1)}% (${nome2})`
+                                }
+                            }
                         },
-                        scales: { x: { display: false }, y: { display: false } }
+                        scales: {
+                            x: { display: true, grid: { display: false }, ticks: { display: false } },
+                            y: { display: false }
+                        }
                     }
                 });
             }
