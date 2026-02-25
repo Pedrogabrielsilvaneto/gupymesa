@@ -1473,38 +1473,54 @@ MinhaArea.Metas = {
         ['comp-label-prod-a1', 'comp-label-assert-a1'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = nome1; });
         ['comp-label-prod-a2', 'comp-label-assert-a2'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = nome2; });
 
+        // Oculta os badges Δ (não fazem mais sentido no novo visual)
+        const elGapProdBadge = document.getElementById('gap-center-prod');
+        const elGapAssertBadge = document.getElementById('gap-center-assert');
+        if (elGapProdBadge) elGapProdBadge.classList.add('hidden');
+        if (elGapAssertBadge) elGapAssertBadge.classList.add('hidden');
+
         setTimeout(() => {
             // Destroi todos os 4 charts se existirem
             ['chartGapProdTop', 'chartGapProdBot', 'chartGapAssertTop', 'chartGapAssertBot'].forEach(k => {
                 if (this[k]) { this[k].destroy(); this[k] = null; }
             });
 
-            // Escala simétrica compartilhada entre topo e base para cada métrica
-            const scaleMax = (data1, data2) => Math.ceil(Math.max(...data1.map(v => v || 0), ...data2.map(v => v || 0), 1) * 1.15);
+            // GAP ponto a ponto: quanto cada um está À FRENTE do outro em cada período
+            // Se A1 > A2 → A1 tem vantagem → barra de cima cresce, barra de baixo = 0
+            // Se A2 > A1 → A2 tem vantagem → barra de baixo cresce, barra de cima = 0
+            const gapTop = (s1, s2) => s1.map((v, i) => Math.max(0, (v || 0) - (s2[i] || 0)));
+            const gapBot = (s1, s2) => s1.map((v, i) => Math.max(0, (s2[i] || 0) - (v || 0)));
+
+            const pGapTop = gapTop(pS1, pS2); // quanto A1 está à frente em produção
+            const pGapBot = gapBot(pS1, pS2); // quanto A2 está à frente em produção
+            const aGapTop = gapTop(aS1, aS2); // quanto A1 está à frente em assertividade
+            const aGapBot = gapBot(aS1, aS2); // quanto A2 está à frente em assertividade
+
+            // Escala máxima = maior gap registrado (garante que o zero fica no centro e a maior barra toca o topo)
+            const scaleMax = (gT, gB) => Math.ceil(Math.max(...gT, ...gB, 1) * 1.2);
 
             /**
-             * createHalfConfig: cria a config para metade do gráfico espelhado.
-             * @param data - série do assistente
+             * createHalfConfig: cria config para metade do espelho.
+             * @param gapData - série de GAP (diferença ponto a ponto, sempre >= 0)
              * @param color - cor das barras
-             * @param reversed - TRUE = barras descem do topo (gráfico superior, A1)
-             * @param maxVal - topo da escala
+             * @param reversed - TRUE = gráfico superior (A1), eixo Y invertido (barras descem ao zero)
+             * @param maxVal - escala máxima do eixo
              * @param isPct
-             * @param label - nome do assistente (tooltip)
-             * @param otherData - série do outro assistente (para diff no tooltip)
+             * @param winnerLabel - nome do assistente que lidera quando a barra é > 0
              */
-            const createHalfConfig = (data, color, reversed, maxVal, isPct, label, otherData) => ({
+            const createHalfConfig = (gapData, color, reversed, maxVal, isPct, winnerLabel) => ({
                 type: 'bar',
                 data: {
                     labels: allLabels,
                     datasets: [{
-                        label,
-                        data,
-                        backgroundColor: color + 'cc', // ~80% alpha
+                        label: winnerLabel,
+                        data: gapData,
+                        backgroundColor: color + 'cc',
                         borderColor: color,
                         borderWidth: 1,
                         borderRadius: reversed
-                            ? { bottomLeft: 5, bottomRight: 5 }  // A1 topo: arredondado embaixo (próximo ao centro)
-                            : { topLeft: 5, topRight: 5 },       // A2 base: arredondado em cima (próximo ao centro)
+                            ? { bottomLeft: 5, bottomRight: 5 }  // topo: cantos arredondados em baixo (beira do zero)
+                            : { topLeft: 5, topRight: 5 },       // base: cantos arredondados em cima (beira do zero)
                         barPercentage: 0.72
                     }]
                 },
@@ -1518,11 +1534,9 @@ MinhaArea.Metas = {
                             backgroundColor: 'rgba(15,23,42,0.9)',
                             callbacks: {
                                 label: ctx => {
-                                    const val = ctx.parsed.y;
-                                    const other = otherData[ctx.dataIndex] || 0;
-                                    const diff = val - other;
-                                    const prefix = diff > 0 ? '+' : '';
-                                    return `${label}: ${isPct ? val.toFixed(1) + '%' : val} pcs  (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff + ' pcs'})`;
+                                    const gap = ctx.parsed.y;
+                                    if (gap === 0) return `${winnerLabel}: empatadas no período`;
+                                    return `${winnerLabel} está ${isPct ? gap.toFixed(1) + 'pp' : gap + ' pcs'} à frente`;
                                 }
                             }
                         }
@@ -1558,18 +1572,18 @@ MinhaArea.Metas = {
             });
 
             // === Produção ===
-            const maxP = scaleMax(pS1, pS2);
+            const maxP = scaleMax(pGapTop, pGapBot);
             const ctxPTop = document.getElementById('chart-gap-prod-top');
             const ctxPBot = document.getElementById('chart-gap-prod-bot');
-            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(pS1, '#3b82f6', true, maxP, false, nome1, pS2));
-            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(pS2, '#10b981', false, maxP, false, nome2, pS1));
+            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(pGapTop, '#3b82f6', true, maxP, false, nome1));
+            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(pGapBot, '#10b981', false, maxP, false, nome2));
 
             // === Assertividade ===
-            const maxA = scaleMax(aS1, aS2);
+            const maxA = scaleMax(aGapTop, aGapBot);
             const ctxATop = document.getElementById('chart-gap-assert-top');
             const ctxABot = document.getElementById('chart-gap-assert-bot');
-            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(aS1, '#3b82f6', true, maxA, true, nome1, aS2));
-            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(aS2, '#10b981', false, maxA, true, nome2, aS1));
+            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(aGapTop, '#3b82f6', true, maxA, true, nome1));
+            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(aGapBot, '#10b981', false, maxA, true, nome2));
         }, 50);
 
         if (gridsContainer) {
