@@ -996,9 +996,27 @@ MinhaArea.Metas = {
     atualizarComparativoManual: function () {
         const id1 = document.getElementById('comp-sel-1')?.value;
         const id2 = document.getElementById('comp-sel-2')?.value;
-        const granularidade = document.getElementById('comp-granularidade')?.value || 'mes';
+        // Granularidade derivada do filtro principal (range de datas)
+        const granularidade = this._granularidadeDoPeriodo();
+        // Atualiza o select visual para refletir a granularidade usada
+        const selGran = document.getElementById('comp-granularidade');
+        if (selGran) selGran.value = granularidade;
         const ids = [id1, id2].filter(id => id);
         this.renderizarGraficosComparativos(ids, granularidade);
+    },
+
+    _granularidadeDoPeriodo: function () {
+        try {
+            const datas = MinhaArea.getDatasFiltro();
+            if (!datas) return 'mes';
+            const diffDias = (new Date(datas.fim) - new Date(datas.inicio)) / (1000 * 60 * 60 * 24);
+            if (diffDias <= 14) return 'dia';
+            if (diffDias <= 60) return 'semana';
+            if (diffDias <= 400) return 'mes';
+            if (diffDias <= 730) return 'trimestre';
+            if (diffDias <= 1095) return 'semestre';
+            return 'ano';
+        } catch (e) { return 'mes'; }
     },
 
     fecharModalComparativo: function () {
@@ -1125,71 +1143,83 @@ MinhaArea.Metas = {
             document.getElementById('gap-winner-badge').textContent = `🏆 ${winner} é a mais performante`;
         }
 
-        // ── Mini Charts no card central ─────────────────────────────
+        // ── Mini Charts GAP (diferença A1 - A2 ao longo do tempo) ──────────────
         setTimeout(() => {
             if (this.chartGapProd) { this.chartGapProd.destroy(); this.chartGapProd = null; }
             if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
 
-            // Mini: Produção (barras)
+            // Calcular série GAP (A1 - A2) para cada label
+            const gapProdSeries = allLabels.map(l => {
+                const i0 = userData[0].grouped.labels.indexOf(l);
+                const i1 = userData[1].grouped.labels.indexOf(l);
+                const v0 = i0 >= 0 ? (userData[0].grouped.prodData[i0] ?? 0) : 0;
+                const v1 = i1 >= 0 ? (userData[1].grouped.prodData[i1] ?? 0) : 0;
+                return v0 - v1; // positivo: A1 à frente; negativo: A2 à frente
+            });
+
+            const gapAssertSeries = allLabels.map(l => {
+                const i0 = userData[0].grouped.labels.indexOf(l);
+                const i1 = userData[1].grouped.labels.indexOf(l);
+                const v0 = i0 >= 0 ? (userData[0].grouped.assertData[i0] ?? null) : null;
+                const v1 = i1 >= 0 ? (userData[1].grouped.assertData[i1] ?? null) : null;
+                if (v0 === null || v1 === null) return null;
+                return parseFloat((v0 - v1).toFixed(2));
+            });
+
+            // Cores dinâmicas: positivo = azul (A1 ganha), negativo = verde (A2 ganha)
+            const barColors = gapProdSeries.map(v => v >= 0 ? 'rgba(99,179,237,0.85)' : 'rgba(110,231,183,0.85)');
+
+            // Mini: GAP Produção (barras - positivo/negativo)
             const ctxP = document.getElementById('chart-gap-prod');
             if (ctxP) {
                 this.chartGapProd = new Chart(ctxP, {
                     type: 'bar',
                     data: {
                         labels: allLabels,
-                        datasets: [
-                            {
-                                label: nome1,
-                                data: allLabels.map(l => { const i = userData[0].grouped.labels.indexOf(l); return i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0; }),
-                                backgroundColor: 'rgba(99,179,237,0.85)',
-                                borderRadius: 3,
-                                borderSkipped: false
-                            },
-                            {
-                                label: nome2,
-                                data: allLabels.map(l => { const i = userData[1].grouped.labels.indexOf(l); return i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0; }),
-                                backgroundColor: 'rgba(110,231,183,0.85)',
-                                borderRadius: 3,
-                                borderSkipped: false
-                            }
-                        ]
+                        datasets: [{
+                            label: 'GAP Prod',
+                            data: gapProdSeries,
+                            backgroundColor: barColors,
+                            borderRadius: 3,
+                            borderSkipped: false
+                        }]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y} (${nome1} na frente)` : `${ctx.parsed.y} (${nome2} na frente)` } }
+                        },
+                        scales: { x: { display: false }, y: { display: false } }
                     }
                 });
             }
 
-            // Mini: Assertividade (linha)
+            // Mini: GAP Assertividade (linha - positivo/negativo)
             const ctxA = document.getElementById('chart-gap-assert');
             if (ctxA) {
+                const lineColors = gapAssertSeries.map(v => v === null ? 'transparent' : (v >= 0 ? 'rgba(147,197,253,1)' : 'rgba(110,231,183,1)'));
                 this.chartGapAssert = new Chart(ctxA, {
                     type: 'line',
                     data: {
                         labels: allLabels,
-                        datasets: [
-                            {
-                                label: nome1,
-                                data: allLabels.map(l => { const i = userData[0].grouped.labels.indexOf(l); return i >= 0 ? (userData[0].grouped.assertData[i] || null) : null; }),
-                                borderColor: 'rgba(147,197,253,1)',
-                                backgroundColor: 'transparent',
-                                borderWidth: 2, pointRadius: 2, tension: 0.3
-                            },
-                            {
-                                label: nome2,
-                                data: allLabels.map(l => { const i = userData[1].grouped.labels.indexOf(l); return i >= 0 ? (userData[1].grouped.assertData[i] || null) : null; }),
-                                borderColor: 'rgba(110,231,183,1)',
-                                backgroundColor: 'transparent',
-                                borderWidth: 2, pointRadius: 2, tension: 0.3
-                            }
-                        ]
+                        datasets: [{
+                            label: 'GAP Assert',
+                            data: gapAssertSeries,
+                            borderColor: 'rgba(255,255,255,0.7)',
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            fill: true,
+                            borderWidth: 2, pointRadius: 2, tension: 0.4,
+                            pointBackgroundColor: gapAssertSeries.map(v => v >= 0 ? 'rgba(147,197,253,1)' : 'rgba(110,231,183,1)')
+                        }]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { x: { display: false }, y: { display: false, min: 80, max: 105 } }
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y.toFixed(1)}pp (${nome1})` : `${ctx.parsed.y.toFixed(1)}pp (${nome2})` } }
+                        },
+                        scales: { x: { display: false }, y: { display: false } }
                     }
                 });
             }
