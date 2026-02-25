@@ -846,16 +846,21 @@
 
                             <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <!-- Chart Produção -->
-                                <div class="bg-white/5 rounded-2xl p-5 border border-white/10 flex flex-col gap-4">
-                                    <div class="flex justify-between items-end">
-                                        <div>
-                                            <div
-                                                class="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">
-                                                Diferença de Produção (Δ)</div>
-                                            <div id="gap-center-prod-lider" class="text-xs font-black text-blue-200">--
+                                <div
+                                    class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col gap-4">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex flex-col gap-1">
+                                            <div class="text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                                Diferença (GAP)</div>
+                                            <div id="gap-center-prod-lider" class="text-xs font-black text-slate-500">
+                                                --</div>
+                                            <!-- Pílula de Tendência -->
+                                            <div id="trend-prod"
+                                                class="mt-1 text-[9px] font-bold px-2 py-0.5 rounded w-fit uppercase tracking-tighter">
                                             </div>
                                         </div>
-                                        <div id="gap-center-prod" class="text-3xl font-black italic">--</div>
+                                        <div id="gap-center-prod" class="text-3xl font-black italic text-slate-800">--
+                                        </div>
                                     </div>
                                     <div class="flex-1 w-full min-h-0">
                                         <canvas id="chart-gap-prod"></canvas>
@@ -863,16 +868,21 @@
                                 </div>
 
                                 <!-- Chart Qualidade -->
-                                <div class="bg-white/5 rounded-2xl p-5 border border-white/10 flex flex-col gap-4">
-                                    <div class="flex justify-between items-end">
-                                        <div>
-                                            <div
-                                                class="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">
-                                                Diferença de Qualidade (Δ)</div>
-                                            <div id="gap-center-assert-lider"
-                                                class="text-xs font-black text-emerald-200">--</div>
+                                <div
+                                    class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col gap-4">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex flex-col gap-1">
+                                            <div class="text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                                Diferença (GAP)</div>
+                                            <div id="gap-center-assert-lider" class="text-xs font-black text-slate-500">
+                                                --</div>
+                                            <!-- Pílula de Tendência -->
+                                            <div id="trend-assert"
+                                                class="mt-1 text-[9px] font-bold px-2 py-0.5 rounded w-fit uppercase tracking-tighter">
+                                            </div>
                                         </div>
-                                        <div id="gap-center-assert" class="text-3xl font-black italic">--</div>
+                                        <div id="gap-center-assert" class="text-3xl font-black italic text-slate-800">--
+                                        </div>
                                     </div>
                                     <div class="flex-1 w-full min-h-0">
                                         <canvas id="chart-gap-assert"></canvas>
@@ -1059,7 +1069,7 @@
     <script src="js/minha_area/main.js?v=20260224_2240"></script>
     <script src="js/minha_area/assertividade.js?v=20260224_2240"></script>
     <script src="js/minha_area/geral.js?v=20260224_2240"></script>
-    <script src="js/minha_area/metas.js?v=20260224_2351"></script>
+    <script src="js/minha_area/metas.js?v=20260225_0005"></script>
     <script src="js/minha_area/auditoria.js?v=20260224_2240"></script>
     <script src="js/minha_area/comparativo.js?v=20260224_2240"></script>
     <script src="js/minha_area/feedback.js?v=20260224_2240"></script>

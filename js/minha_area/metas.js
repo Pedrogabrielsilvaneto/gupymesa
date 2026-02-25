@@ -1231,52 +1231,102 @@ MinhaArea.Metas = {
             if (elLiderA) elLiderA.textContent = `${liderA} tem maior qualidade`;
         }
 
+        // Extrai as séries temporais antes do setTimeout para gerar os Insights Automáticos
+        const getSeries = (userIdx, dataKey) => allLabels.map(l => {
+            const i = userData[userIdx].grouped.labels.indexOf(l);
+            return i >= 0 ? userData[userIdx].grouped[dataKey][i] : 0;
+        });
+
+        const pS1 = getSeries(0, 'prodData');
+        const pS2 = getSeries(1, 'prodData');
+        const aS1 = getSeries(0, 'assertData');
+        const aS2 = getSeries(1, 'assertData');
+
+        // Motor de análise de tendência do GAP
+        const buildTrendHtml = (d1, d2, isPct) => {
+            const limit = Math.floor(d1.length / 2);
+            if (limit < 1) return '<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded shadow-sm">Sem histórico suficiente</span>';
+
+            const gaps = d1.map((v, i) => Math.abs((v || 0) - (d2[i] || 0)));
+            const h1 = gaps.slice(0, limit);
+            const h2 = gaps.slice(-limit); // pega os últimos períodos
+            const a1 = h1.reduce((a, b) => a + b, 0) / h1.length;
+            const a2 = h2.reduce((a, b) => a + b, 0) / h2.length;
+
+            if (a1 === 0 && a2 === 0) return '<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded shadow-sm">Estável</span>';
+
+            const reduziu = a2 < a1;
+            const diff = Math.abs(a2 - a1);
+            if (diff < 0.5) return '<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded shadow-sm flex items-center gap-1"><i class="fas fa-minus"></i> GAP Estável</span>';
+
+            const valStr = isPct ? diff.toFixed(1) + 'pp' : Math.round(diff) + ' pcs';
+
+            if (reduziu) {
+                return `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded shadow-sm flex items-center gap-1" title="Média inicial do período era ${isPct ? a1.toFixed(1) + '%' : Math.round(a1)} e agora é ${isPct ? a2.toFixed(1) + '%' : Math.round(a2)}"><i class="fas fa-arrow-down"></i>Aproximando (-${valStr})</span>`;
+            } else {
+                return `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded shadow-sm flex items-center gap-1" title="Média inicial do período era ${isPct ? a1.toFixed(1) + '%' : Math.round(a1)} e agora é ${isPct ? a2.toFixed(1) + '%' : Math.round(a2)}"><i class="fas fa-arrow-up"></i>Distanciando (+${valStr})</span>`;
+            }
+        };
+
+        const elTrendP = document.getElementById('trend-prod');
+        const elTrendA = document.getElementById('trend-assert');
+        if (elTrendP) elTrendP.innerHTML = buildTrendHtml(pS1, pS2, false);
+        if (elTrendA) elTrendA.innerHTML = buildTrendHtml(aS1, aS2, true);
+
         setTimeout(() => {
             if (this.chartGapProd) { this.chartGapProd.destroy(); this.chartGapProd = null; }
             if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
 
-            const getSeries = (userIdx, dataKey) => allLabels.map(l => {
-                const i = userData[userIdx].grouped.labels.indexOf(l);
-                return i >= 0 ? userData[userIdx].grouped[dataKey][i] : 0;
-            });
+            const createConfig = (label1, data1, label2, data2, isPct) => {
+                const deltaData = data1.map((v, i) => Math.abs((v || 0) - (data2[i] || 0)));
+                const deltaMax = Math.max(...deltaData, 1);
+                // A cor da barra de GAP é a cor do assistente que está liderando naquele momento
+                const deltaColors = data1.map((v, i) => (v || 0) >= (data2[i] || 0) ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)');
 
-            const pS1 = getSeries(0, 'prodData');
-            const pS2 = getSeries(1, 'prodData');
-            const aS1 = getSeries(0, 'assertData');
-            const aS2 = getSeries(1, 'assertData');
-
-            const createConfig = (label1, data1, label2, data2, isPct) => ({
-                type: 'line',
-                data: {
-                    labels: allLabels,
-                    datasets: [
-                        { label: label1, data: data1, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 },
-                        { label: label2, data: data2, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            callbacks: {
-                                label: ctx => {
-                                    const val = ctx.parsed.y;
-                                    const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
-                                    const diff = val - (other || 0);
-                                    const prefix = diff > 0 ? '+' : '';
-                                    return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) + '%' : val + ' pcs'} (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff + ' pcs'})`;
+                return {
+                    type: 'line',
+                    data: {
+                        labels: allLabels,
+                        datasets: [
+                            { label: label1, type: 'line', data: data1, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 3, tension: 0.3, yAxisID: 'y' },
+                            { label: label2, type: 'line', data: data2, borderColor: '#10b981', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 3, tension: 0.3, yAxisID: 'y' },
+                            { label: 'Largura do GAP', type: 'bar', data: deltaData, backgroundColor: deltaColors, borderRadius: 4, barPercentage: 0.6, yAxisID: 'yGap' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                callbacks: {
+                                    label: ctx => {
+                                        if (ctx.dataset.type === 'bar') return null; // Não exibe tooltip duplo para as barras, fica sujo
+                                        const val = ctx.parsed.y;
+                                        const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
+                                        const diff = val - (other || 0);
+                                        const prefix = diff > 0 ? '+' : '';
+                                        return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) + '%' : val} (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff})`;
+                                    }
                                 }
                             }
+                        },
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const idx = elements[0].index;
+                                const label = allLabels[idx];
+                                const range = userData[0].grouped.ranges[idx];
+                                if (range) this.drillDownComparativo(label, range.start, range.end);
+                            }
+                        },
+                        scales: {
+                            x: { display: true, grid: { display: false }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
+                            y: { type: 'linear', display: true, position: 'left', grid: { color: 'rgba(71, 85, 105, 0.08)' }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
+                            yGap: { type: 'linear', display: false, position: 'right', min: 0, max: deltaMax * 3.5 } // Multiplicador para as barras ficarem no fundo do gráfico (terço inferior)
                         }
-                    },
-                    scales: {
-                        x: { display: true, grid: { display: false }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
-                        y: { display: true, grid: { color: 'rgba(71, 85, 105, 0.08)' }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } }
                     }
-                }
-            });
+                };
+            };
 
             const ctxP = document.getElementById('chart-gap-prod');
             if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, nome2, pS2, false));
