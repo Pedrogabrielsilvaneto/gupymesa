@@ -1017,8 +1017,8 @@ MinhaArea.Metas = {
             const datas = MinhaArea.getDatasFiltro();
             if (!datas) return 'mes';
             const diffDias = (new Date(datas.fim) - new Date(datas.inicio)) / (1000 * 60 * 60 * 24);
-            if (diffDias <= 14) return 'dia';
-            if (diffDias <= 60) return 'semana';
+            if (diffDias <= 45) return 'dia';
+            if (diffDias <= 70) return 'semana';
             if (diffDias <= 400) return 'mes';
             if (diffDias <= 730) return 'trimestre';
             if (diffDias <= 1095) return 'semestre';
@@ -1130,26 +1130,43 @@ MinhaArea.Metas = {
         const liderA = med1A >= med2A ? nome1 : nome2;
         const winner = (med1P + med1A) >= (med2P + med2A) ? nome1 : nome2;
 
-        // ── VS Cards KPIs ──────────────────────────────────────────
-        if (vsCards) {
-            vsCards.classList.remove('hidden');
-            document.getElementById('gap-a1-nome').textContent = nome1;
-            document.getElementById('gap-a1-prod').textContent = `${Math.round(med1P)} pcs`;
-            document.getElementById('gap-a1-assert').textContent = `${med1A.toFixed(1)}%`;
-            document.getElementById('gap-a1-periodos').textContent = `${prodVals1.length} período(s)`;
+        // ── Grids KPIs & Summaries ─────────────────────────────────
+        if (vsCards) vsCards.classList.remove('hidden');
+        if (gridsContainer) {
+            gridsContainer.classList.remove('hidden');
 
-            document.getElementById('gap-a2-nome').textContent = nome2;
-            document.getElementById('gap-a2-prod').textContent = `${Math.round(med2P)} pcs`;
-            document.getElementById('gap-a2-assert').textContent = `${med2A.toFixed(1)}%`;
-            document.getElementById('gap-a2-periodos').textContent = `${prodVals2.length} período(s)`;
+            // Títulos das tabelas
+            const elG1Title = document.getElementById('grid-a1-title');
+            const elG2Title = document.getElementById('grid-a2-title');
+            if (elG1Title) elG1Title.textContent = nome1;
+            if (elG2Title) elG2Title.textContent = nome2;
 
-            document.getElementById('gap-center-prod').textContent = `Δ ${Math.round(gapP)}`;
-            document.getElementById('gap-center-prod-lider').textContent = `${liderP} produz mais`;
-            document.getElementById('gap-center-assert').textContent = `Δ ${gapA.toFixed(1)}pp`;
-            document.getElementById('gap-center-assert-lider').textContent = `${liderA} tem maior qualidade`;
-            document.getElementById('gap-winner-badge').textContent = `🏆 ${winner} é a mais performante`;
+            // Mini resumos nos headers das tabelas
+            const elMiniA1P = document.getElementById('mini-a1-prod');
+            const elMiniA1A = document.getElementById('mini-a1-assert');
+            const elMiniA2P = document.getElementById('mini-a2-prod');
+            const elMiniA2A = document.getElementById('mini-a2-assert');
 
-            // Atribui nomes às legendas do card central
+            if (elMiniA1P) elMiniA1P.textContent = `${Math.round(med1P)} pcs`;
+            if (elMiniA1A) elMiniA1A.textContent = `${med1A.toFixed(1)}%`;
+            if (elMiniA2P) elMiniA2P.textContent = `${Math.round(med2P)} pcs`;
+            if (elMiniA2A) elMiniA2A.textContent = `${med2A.toFixed(1)}%`;
+
+            // Badge de Vencedor e GAP Central
+            const badge = document.getElementById('gap-winner-badge');
+            if (badge) badge.textContent = `🏆 ${winner} é a mais performante`;
+
+            const elGapP = document.getElementById('gap-center-prod');
+            const elGapA = document.getElementById('gap-center-assert');
+            if (elGapP) elGapP.textContent = `Δ ${Math.round(gapP)}`;
+            if (elGapA) elGapA.textContent = `Δ ${gapA.toFixed(1)}pp`;
+
+            const elLiderP = document.getElementById('gap-center-prod-lider');
+            const elLiderA = document.getElementById('gap-center-assert-lider');
+            if (elLiderP) elLiderP.textContent = `${liderP} produz mais`;
+            if (elLiderA) elLiderA.textContent = `${liderA} tem maior qualidade`;
+
+            // Legendas dos gráficos
             const leg1 = document.getElementById('legend-a1-label');
             const leg2 = document.getElementById('legend-a2-label');
             if (leg1) leg1.textContent = `${nome1} (+)`;
