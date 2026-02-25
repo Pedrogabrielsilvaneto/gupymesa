@@ -1169,19 +1169,23 @@ MinhaArea.Metas = {
             // Cores dinâmicas: positivo = azul (A1 ganha), negativo = verde (A2 ganha)
             const barColors = gapProdSeries.map(v => v >= 0 ? 'rgba(99,179,237,0.85)' : 'rgba(110,231,183,0.85)');
 
-            // Mini: GAP Produção (barras - positivo/negativo)
+            // Mini: GAP Produção (linha - positivo/negativo)
             const ctxP = document.getElementById('chart-gap-prod');
             if (ctxP) {
                 this.chartGapProd = new Chart(ctxP, {
-                    type: 'bar',
+                    type: 'line',
                     data: {
                         labels: allLabels,
                         datasets: [{
                             label: 'GAP Prod',
                             data: gapProdSeries,
-                            backgroundColor: barColors,
-                            borderRadius: 3,
-                            borderSkipped: false
+                            borderColor: 'rgba(255,255,255,0.7)',
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            tension: 0.4,
+                            pointBackgroundColor: gapProdSeries.map(v => v >= 0 ? 'rgba(147,197,253,1)' : 'rgba(110,231,183,1)')
                         }]
                     },
                     options: {
