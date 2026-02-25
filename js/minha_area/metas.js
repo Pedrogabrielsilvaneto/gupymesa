@@ -990,15 +990,15 @@ MinhaArea.Metas = {
 
     popularSelectsManual: function () {
         const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
-        ['comp-sel-1', 'comp-sel-2', 'comp-sel-3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
+        ['comp-sel-1', 'comp-sel-2'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 
     atualizarComparativoManual: function () {
         const id1 = document.getElementById('comp-sel-1')?.value;
         const id2 = document.getElementById('comp-sel-2')?.value;
-        const id3 = document.getElementById('comp-sel-3')?.value;
-        const ids = [id1, id2, id3].filter(id => id);
-        this.renderizarGraficosComparativos(ids);
+        const granularidade = document.getElementById('comp-granularidade')?.value || 'mes';
+        const ids = [id1, id2].filter(id => id);
+        this.renderizarGraficosComparativos(ids, granularidade);
     },
 
     fecharModalComparativo: function () {
@@ -1011,90 +1011,197 @@ MinhaArea.Metas = {
         if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
     },
 
-    renderizarGraficosComparativos: function (userIds) {
-        const labels = this.cacheColunas.map(c => c.label);
-        const slotColors = ['#3b82f6', '#10b981', '#f59e0b'];
-        const datasetsProd = []; const datasetsAssert = [];
-
-        // [NEW] Linhas de Meta (Referência)
-        const metaProd = [];
-        const metaAssert = [];
-        // Usa o primeiro usuário como referência para as metas (assumindo metas iguais para o grupo comparado)
-        const referenceUid = userIds[0] || (this.cacheUsers[0] ? this.cacheUsers[0].id : null);
-
+    // Agrupa dados por granularidade (dia, semana, mês, trimestre, semestre, ano)
+    _agruparPorGranularidade: function (uid, granularidade) {
+        const grupos = {};
         this.cacheColunas.forEach(col => {
-            let mp = 0;
-            let ma = 0;
-            if (referenceUid) {
-                const d = this.cacheDados[col.key][String(referenceUid)];
-                if (d) { mp = d.metaProd || 0; ma = d.metaAssert || 0; }
+            const dados = this.cacheDados[col.key]?.[String(uid)];
+            let gKey = col.label;
+            // Tenta extrair a data do label (YYYY-MM ou DD/MM)
+            if (granularidade !== 'mes') {
+                // col.key é YYYY-MM ou YYYY-MM-DD
+                const partes = col.key.split('-');
+                const ano = partes[0];
+                const mes = partes[1] ? parseInt(partes[1]) : 1;
+                if (granularidade === 'trimestre') {
+                    const tri = Math.ceil(mes / 3);
+                    gKey = `${ano} T${tri}`;
+                } else if (granularidade === 'semestre') {
+                    gKey = `${ano} S${mes <= 6 ? 1 : 2}`;
+                } else if (granularidade === 'ano') {
+                    gKey = `${ano}`;
+                } else if (granularidade === 'semana') {
+                    // Exemplo: Semana ISO
+                    const d = new Date((col.key.length === 7 ? col.key + '-01' : col.key) + 'T12:00:00');
+                    const onejan = new Date(d.getFullYear(), 0, 1);
+                    const week = Math.ceil(((d - onejan) / 86400000 + onejan.getDay() + 1) / 7);
+                    gKey = `${ano} S${String(week).padStart(2, '0')}`;
+                } else {
+                    // dia: usa o label diretamente
+                    gKey = col.label;
+                }
             }
-            metaProd.push(mp);
-            metaAssert.push(ma);
+            if (!grupos[gKey]) grupos[gKey] = { somaVel: 0, countVel: 0, somaAssert: 0, countAssert: 0 };
+            const g = grupos[gKey];
+            if (dados) {
+                if (dados.velocidade !== null && dados.velocidade !== undefined) { g.somaVel += (dados.velocidade || 0); g.countVel++; }
+                if (dados.assert !== null && dados.assert !== undefined && dados.qtd_auditorias > 0) { g.somaAssert += (dados.assert * 100); g.countAssert++; }
+            }
         });
+        // Transforma em arrays
+        const labels = Object.keys(grupos);
+        const prodData = labels.map(k => grupos[k].countVel > 0 ? Math.round(grupos[k].somaVel / grupos[k].countVel) : null);
+        const assertData = labels.map(k => grupos[k].countAssert > 0 ? parseFloat((grupos[k].somaAssert / grupos[k].countAssert).toFixed(2)) : null);
+        return { labels, prodData, assertData };
+    },
 
-        // Adiciona datasets de Meta primeiro (back layer)
-        datasetsProd.push({
-            label: 'Meta',
-            data: metaProd,
-            borderColor: '#94a3b8',
-            borderWidth: 2,
-            pointRadius: 0,
-            borderDash: [5, 5],
-            fill: false,
-            order: 1
-        });
+    renderizarGraficosComparativos: function (userIds, granularidade) {
+        granularidade = granularidade || 'mes';
+        const colors = ['#3b82f6', '#10b981'];
+        const colorsLight = ['rgba(59,130,246,0.18)', 'rgba(16,185,129,0.18)'];
+        const colorsGap = 'rgba(99,102,241,0.7)'; // indigo for GAP
 
-        datasetsAssert.push({
-            label: 'Meta Qualidade',
-            data: metaAssert,
-            borderColor: '#10b981',
-            borderWidth: 2,
-            pointRadius: 0,
-            borderDash: [2, 2],
-            fill: false,
-            order: 1
-        });
-
-        // Adiciona datasets dos usuários
-        userIds.forEach((uid, idx) => {
+        // Collect grouped data per user
+        const userData = userIds.map((uid, idx) => {
             const user = this.cacheUsers.find(u => String(u.id) === String(uid));
-            if (!user) return;
-            const color = slotColors[idx % 3];
-            const dataProd = []; const dataAssert = [];
-            this.cacheColunas.forEach(col => {
-                const dados = this.cacheDados[col.key][String(uid)] || { velocidade: null, assert: null };
-                dataProd.push(dados.velocidade);
-                dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
-            });
-            const dsBase = {
-                label: user.nome.split(' ')[0],
-                borderColor: color,
-                backgroundColor: color,
-                borderWidth: 3,
-                pointRadius: 4,
-                tension: 0.2,
-                fill: false,
-                order: 2
-            };
-            datasetsProd.push({ ...dsBase, data: dataProd });
-            datasetsAssert.push({ ...dsBase, data: dataAssert });
+            const grouped = this._agruparPorGranularidade(uid, granularidade);
+            return { uid, user, grouped, color: colors[idx] || '#94a3b8', colorLight: colorsLight[idx] || 'rgba(100,100,100,0.1)' };
         });
 
-        this.createChartComp('chart-comp-prod', labels, datasetsProd, false);
-        this.createChartComp('chart-comp-assert', labels, datasetsAssert, true);
+        // Build common labels (union of all)
+        let allLabels = [];
+        userData.forEach(d => { d.grouped.labels.forEach(l => { if (!allLabels.includes(l)) allLabels.push(l); }); });
+
+        // Build datasets for PROD chart
+        const datasetsProd = userData.map(d => ({
+            label: d.user ? d.user.nome.split(' ')[0] : 'A',
+            data: allLabels.map(l => {
+                const idx2 = d.grouped.labels.indexOf(l);
+                return idx2 >= 0 ? d.grouped.prodData[idx2] : null;
+            }),
+            backgroundColor: d.color,
+            borderColor: d.color,
+            borderRadius: 6,
+            borderSkipped: false,
+        }));
+
+        // If exactly 2 users, add GAP dataset for PROD
+        if (userIds.length === 2 && userData[0].user && userData[1].user) {
+            const gapProd = allLabels.map(l => {
+                const i0 = userData[0].grouped.labels.indexOf(l);
+                const i1 = userData[1].grouped.labels.indexOf(l);
+                const v0 = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
+                const v1 = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
+                return Math.abs(v0 - v1);
+            });
+            datasetsProd.push({
+                label: 'GAP',
+                data: gapProd,
+                backgroundColor: colorsGap,
+                borderColor: 'rgba(99,102,241,0.9)',
+                borderRadius: 6,
+                borderSkipped: false,
+            });
+        }
+
+        // Build datasets for ASSERT chart
+        const datasetsAssert = userData.map(d => ({
+            label: d.user ? d.user.nome.split(' ')[0] : 'A',
+            data: allLabels.map(l => {
+                const idx2 = d.grouped.labels.indexOf(l);
+                return idx2 >= 0 ? d.grouped.assertData[idx2] : null;
+            }),
+            backgroundColor: d.color,
+            borderColor: d.color,
+            borderRadius: 6,
+            borderSkipped: false,
+        }));
+
+        // GAP dataset for ASSERT
+        if (userIds.length === 2 && userData[0].user && userData[1].user) {
+            const gapAssert = allLabels.map(l => {
+                const i0 = userData[0].grouped.labels.indexOf(l);
+                const i1 = userData[1].grouped.labels.indexOf(l);
+                const v0 = i0 >= 0 ? (userData[0].grouped.assertData[i0] || 0) : 0;
+                const v1 = i1 >= 0 ? (userData[1].grouped.assertData[i1] || 0) : 0;
+                return parseFloat(Math.abs(v0 - v1).toFixed(2));
+            });
+            datasetsAssert.push({
+                label: 'GAP',
+                data: gapAssert,
+                backgroundColor: colorsGap,
+                borderColor: 'rgba(99,102,241,0.9)',
+                borderRadius: 6,
+                borderSkipped: false,
+            });
+        }
+
+        this.createChartComp('chart-comp-prod', allLabels, datasetsProd, false);
+        this.createChartComp('chart-comp-assert', allLabels, datasetsAssert, true);
+
+        // Renderiza painel de GAP textual
+        this._renderizarGapPanel(userData);
+    },
+
+    _renderizarGapPanel: function (userData) {
+        const panel = document.getElementById('gap-legend-panel');
+        if (!panel) return;
+        if (userData.length < 2 || !userData[0].user || !userData[1].user) {
+            panel.classList.add('hidden');
+            return;
+        }
+        panel.classList.remove('hidden');
+
+        const u1 = userData[0]; const u2 = userData[1];
+        const nome1 = u1.user.nome.split(' ')[0]; const nome2 = u2.user.nome.split(' ')[0];
+
+        // Calcula médias globais de prod
+        const med1Prod = u1.grouped.prodData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (u1.grouped.prodData.filter(v => v !== null).length || 1);
+        const med2Prod = u2.grouped.prodData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (u2.grouped.prodData.filter(v => v !== null).length || 1);
+        const gapProd = Math.abs(med1Prod - med2Prod);
+        const liderProd = med1Prod >= med2Prod ? nome1 : nome2;
+
+        // Médias globais de assertividade
+        const med1Assert = u1.grouped.assertData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (u1.grouped.assertData.filter(v => v !== null).length || 1);
+        const med2Assert = u2.grouped.assertData.filter(v => v !== null).reduce((s, v) => s + v, 0) / (u2.grouped.assertData.filter(v => v !== null).length || 1);
+        const gapAssert = Math.abs(med1Assert - med2Assert);
+        const liderAssert = med1Assert >= med2Assert ? nome1 : nome2;
+
+        document.getElementById('gap-prod-label').innerHTML =
+            `<span class="text-blue-600">${nome1}</span>: <strong>${Math.round(med1Prod)}</strong> &nbsp;|&nbsp; <span class="text-emerald-600">${nome2}</span>: <strong>${Math.round(med2Prod)}</strong>`;
+        document.getElementById('gap-prod-diff').innerHTML =
+            `Diferença: <strong class="text-indigo-600">${Math.round(gapProd)}</strong> peças/dia &mdash; <em>${liderProd} produz mais</em>`;
+
+        document.getElementById('gap-assert-label').innerHTML =
+            `<span class="text-blue-600">${nome1}</span>: <strong>${med1Assert.toFixed(1)}%</strong> &nbsp;|&nbsp; <span class="text-emerald-600">${nome2}</span>: <strong>${med2Assert.toFixed(1)}%</strong>`;
+        document.getElementById('gap-assert-diff').innerHTML =
+            `Diferença: <strong class="text-indigo-600">${gapAssert.toFixed(1)}pp</strong> &mdash; <em>${liderAssert} tem maior qualidade</em>`;
+
+        const conclusao = liderProd === liderAssert
+            ? `${liderProd} lidera em produtividade e qualidade.`
+            : `${liderProd} lidera em volume; ${liderAssert} lidera em qualidade.`;
+        document.getElementById('gap-conclusao').textContent = conclusao;
     },
 
     createChartComp: function (canvasId, labels, datasets, isPct) {
         const ctx = document.getElementById(canvasId); if (!ctx) return;
         if (canvasId === 'chart-comp-prod') { if (this.chartCompProd) this.chartCompProd.destroy(); } else { if (this.chartCompAssert) this.chartCompAssert.destroy(); }
         const chart = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: { labels, datasets },
             options: {
                 responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'top' } },
-                scales: { y: { beginAtZero: true } }
+                plugins: { legend: { position: 'top', labels: { font: { size: 11 }, usePointStyle: true, padding: 16 } } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: {
+                        beginAtZero: !isPct,
+                        min: isPct ? 80 : undefined,
+                        max: isPct ? 105 : undefined,
+                        grid: { color: '#f1f5f9' },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
             }
         });
         if (canvasId === 'chart-comp-prod') this.chartCompProd = chart; else this.chartCompAssert = chart;

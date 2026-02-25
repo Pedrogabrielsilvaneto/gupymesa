@@ -684,44 +684,82 @@
                         <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
                             <i class="fas fa-balance-scale text-blue-600"></i> Comparador de Performance
                         </h3>
-                        <p class="text-xs text-slate-500">Gráficos de colunas para facilitar a comparação visual.</p>
+                        <p class="text-xs text-slate-500">Selecione 2 assistentes e o período para comparar
+                            produtividade, assertividade e ver o GAP.</p>
                     </div>
                     <button onclick="MinhaArea.Metas.fecharModalComparativo()"
                         class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                     <div class="border-t-4 border-blue-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
-                        <label class="text-[10px] font-bold text-blue-500 uppercase block mb-1">Comparativo 1</label>
+                        <label class="text-[10px] font-bold text-blue-500 uppercase block mb-1">Assistente 1</label>
                         <select id="comp-sel-1" onchange="MinhaArea.Metas.atualizarComparativoManual()"
                             class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-blue-500"></select>
                     </div>
                     <div class="border-t-4 border-emerald-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
-                        <label class="text-[10px] font-bold text-emerald-500 uppercase block mb-1">Comparativo 2</label>
+                        <label class="text-[10px] font-bold text-emerald-500 uppercase block mb-1">Assistente 2</label>
                         <select id="comp-sel-2" onchange="MinhaArea.Metas.atualizarComparativoManual()"
                             class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-emerald-500"></select>
                     </div>
-                    <div class="border-t-4 border-amber-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
-                        <label class="text-[10px] font-bold text-amber-500 uppercase block mb-1">Comparativo 3</label>
-                        <select id="comp-sel-3" onchange="MinhaArea.Metas.atualizarComparativoManual()"
-                            class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-amber-500"></select>
+                    <div class="bg-white rounded-lg p-2 shadow-sm border border-slate-200">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1"><i
+                                class="fas fa-calendar-alt mr-1"></i>Granularidade</label>
+                        <select id="comp-granularidade" onchange="MinhaArea.Metas.atualizarComparativoManual()"
+                            class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-slate-400">
+                            <option value="dia">Diário</option>
+                            <option value="semana">Semanal</option>
+                            <option value="mes" selected>Mensal</option>
+                            <option value="trimestre">Trimestral</option>
+                            <option value="semestre">Semestral</option>
+                            <option value="ano">Anual</option>
+                        </select>
                     </div>
                 </div>
             </div>
-
-            <div class="flex-1 p-6 overflow-y-auto bg-slate-50/50">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[400px]">
-                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Validação</h4>
-                        <div class="flex-1 w-full min-h-0 relative">
+            <div class="flex-1 p-5 overflow-y-auto bg-slate-50/50 flex flex-col gap-4">
+                <!-- Painel de GAP (Legenda Textual) -->
+                <div id="gap-legend-panel" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hidden">
+                    <h5
+                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fas fa-arrows-alt-h text-indigo-400"></i> GAP entre Assistentes
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                            <div class="text-[9px] font-bold text-blue-400 uppercase mb-1">Produtividade</div>
+                            <div id="gap-prod-label" class="text-sm font-black text-slate-700">--</div>
+                            <div id="gap-prod-diff" class="text-[10px] text-slate-500 mt-1">--</div>
+                        </div>
+                        <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                            <div class="text-[9px] font-bold text-emerald-400 uppercase mb-1">Assertividade</div>
+                            <div id="gap-assert-label" class="text-sm font-black text-slate-700">--</div>
+                            <div id="gap-assert-diff" class="text-[10px] text-slate-500 mt-1">--</div>
+                        </div>
+                        <div class="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                            <div class="text-[9px] font-bold text-indigo-400 uppercase mb-1">Conclusão</div>
+                            <div id="gap-conclusao" class="text-xs font-bold text-slate-700 leading-snug">--</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Gráficos comparativos -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 min-h-[300px]">
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                        <h4
+                            class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> Produtividade
+                            (Média/Dia)
+                        </h4>
+                        <div class="flex-1 relative min-h-[200px]">
                             <canvas id="chart-comp-prod"></canvas>
                         </div>
                     </div>
-                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Assertividade</h4>
-                        <div class="flex-1 w-full min-h-0 relative">
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                        <h4
+                            class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> Assertividade (%)
+                        </h4>
+                        <div class="flex-1 relative min-h-[200px]">
                             <canvas id="chart-comp-assert"></canvas>
                         </div>
                     </div>
@@ -729,6 +767,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- [NEW] Modal de Evolução Individual (Bar Chart) -->
     <div id="modal-evolucao-metas"
@@ -878,13 +917,13 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260224_2030"></script>
-    <script src="js/minha_area/assertividade.js?v=20260224_2030"></script>
-    <script src="js/minha_area/geral.js?v=20260224_2030"></script>
-    <script src="js/minha_area/metas.js?v=20260224_2030"></script>
-    <script src="js/minha_area/auditoria.js?v=20260224_2030"></script>
-    <script src="js/minha_area/comparativo.js?v=20260224_2030"></script>
-    <script src="js/minha_area/feedback.js?v=20260224_2030"></script>
+    <script src="js/minha_area/main.js?v=20260224_2100"></script>
+    <script src="js/minha_area/assertividade.js?v=20260224_2100"></script>
+    <script src="js/minha_area/geral.js?v=20260224_2100"></script>
+    <script src="js/minha_area/metas.js?v=20260224_2100"></script>
+    <script src="js/minha_area/auditoria.js?v=20260224_2100"></script>
+    <script src="js/minha_area/comparativo.js?v=20260224_2100"></script>
+    <script src="js/minha_area/feedback.js?v=20260224_2100"></script>
 
 
 </body>
