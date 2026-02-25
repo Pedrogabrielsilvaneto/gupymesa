@@ -981,11 +981,51 @@ MinhaArea.Metas = {
             else { id1 = this.cacheUsers[index - 1].id; id2 = this.cacheUsers[index].id; id3 = this.cacheUsers[index + 1].id; }
         }
         this.popularSelectsManual();
-        const el1 = document.getElementById('comp-sel-1'); const el2 = document.getElementById('comp-sel-2');
-        if (el1) el1.value = id1 || ''; if (el2) el2.value = id2 || '';
+        const el1 = document.getElementById('comp-sel-1');
+        const el2 = document.getElementById('comp-sel-2');
+        if (el1) el1.value = id1 || '';
+        if (el2) el2.value = id2 || '';
+
+        // Inicializa filtros locais do comparador
+        const elAno = document.getElementById('comp-filter-year');
+        if (elAno) {
+            const anoAtual = new Date().getFullYear();
+            elAno.innerHTML = `<option value="${anoAtual}">${anoAtual}</option><option value="${anoAtual - 1}">${anoAtual - 1}</option>`;
+            elAno.value = anoAtual;
+        }
+        this.popularValoresSubFiltro();
+
         this.atualizarComparativoManual();
         const modal = document.getElementById('modal-comparativo-metas');
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
+    },
+
+    popularValoresSubFiltro: function () {
+        const type = document.getElementById('comp-filter-type')?.value;
+        const year = document.getElementById('comp-filter-year')?.value || new Date().getFullYear();
+        const elVal = document.getElementById('comp-filter-value');
+        if (!elVal) return;
+
+        let html = '';
+        if (type === 'semana') {
+            html += '<option value="all">Todas as Semanas</option>';
+            for (let i = 1; i <= 5; i++) html += `<option value="S${i}">Semana ${i}</option>`;
+        } else if (type === 'mes') {
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            meses.forEach((m, i) => {
+                const sel = (i === new Date().getMonth()) ? 'selected' : '';
+                html += `<option value="${i}" ${sel}>${m}</option>`;
+            });
+        } else if (type === 'trimestre') {
+            for (let i = 1; i <= 4; i++) html += `<option value="T${i}">Trimestre ${i}</option>`;
+        } else if (type === 'semestre') {
+            html += '<option value="S1">1º Semestre</option><option value="S2">2º Semestre</option>';
+        } else if (type === 'ano') {
+            html += `<option value="full">Ano Inteiro (${year})</option>`;
+        }
+
+        elVal.innerHTML = html;
+        this.atualizarComparativoManual(true);
     },
 
     popularSelectsManual: function () {
@@ -993,87 +1033,88 @@ MinhaArea.Metas = {
         ['comp-sel-1', 'comp-sel-2'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
     },
 
-    atualizarComparativoManual: function (isManualGran) {
+    atualizarComparativoManual: function () {
         const id1 = document.getElementById('comp-sel-1')?.value;
         const id2 = document.getElementById('comp-sel-2')?.value;
 
-        const selGran = document.getElementById('comp-granularidade');
-        let granularidade;
+        // Captura o período local do comparador
+        const type = document.getElementById('comp-filter-type')?.value;
+        const val = document.getElementById('comp-filter-value')?.value;
 
-        if (isManualGran && selGran) {
-            granularidade = selGran.value;
+        let granularidade = 'dia';
+        if (type === 'semana') {
+            granularidade = (val === 'all') ? 'semana' : 'dia';
+        } else if (type === 'mes') {
+            granularidade = 'dia';
         } else {
-            // Automático baseado no range de datas
-            granularidade = this._granularidadeDoPeriodo();
-            if (selGran) selGran.value = granularidade;
+            granularidade = 'mes'; // Tri/Sem/Ano mostram evolução mensal
         }
 
         const ids = [id1, id2].filter(id => id);
         this.renderizarGraficosComparativos(ids, granularidade);
     },
 
-    _granularidadeDoPeriodo: function () {
-        try {
-            const datas = MinhaArea.getDatasFiltro();
-            if (!datas) return 'mes';
-            const diffDias = (new Date(datas.fim) - new Date(datas.inicio)) / (1000 * 60 * 60 * 24);
-            if (diffDias <= 45) return 'dia';
-            if (diffDias <= 70) return 'semana';
-            if (diffDias <= 400) return 'mes';
-            if (diffDias <= 730) return 'trimestre';
-            if (diffDias <= 1095) return 'semestre';
-            return 'ano';
-        } catch (e) { return 'mes'; }
-    },
-
-    fecharModalComparativo: function () {
-        const modal = document.getElementById('modal-comparativo-metas');
-        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
-    },
-
-    fecharModalEvolucao: function () {
-        const modal = document.getElementById('modal-evolucao-metas');
-        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
-    },
-
-    // Agrupa dados por granularidade (dia, semana, mês, trimestre, semestre, ano)
+    // Agrupa dados por granularidade baseada no Filtro Local do Comparador
     _agruparPorGranularidade: function (uid, granularidade) {
+        const type = document.getElementById('comp-filter-type')?.value;
+        const year = parseInt(document.getElementById('comp-filter-year')?.value);
+        const val = document.getElementById('comp-filter-value')?.value;
+
+        // Determina o range de datas do filtro local
+        let start, end;
+        if (type === 'mes') {
+            const m = parseInt(val);
+            start = new Date(year, m, 1);
+            end = new Date(year, m + 1, 0);
+        } else if (type === 'trimestre') {
+            const t = parseInt(val.replace('T', ''));
+            start = new Date(year, (t - 1) * 3, 1);
+            end = new Date(year, t * 3, 0);
+        } else if (type === 'semestre') {
+            const s = parseInt(val.replace('S', ''));
+            start = new Date(year, (s - 1) * 6, 1);
+            end = new Date(year, s * 6, 0);
+        } else if (type === 'ano') {
+            start = new Date(year, 0, 1);
+            end = new Date(year, 11, 31);
+        } else {
+            // Semana
+            const gDates = MinhaArea.getDatasFiltro();
+            start = new Date(gDates.inicio + 'T00:00:00');
+            end = new Date(gDates.fim + 'T23:59:59');
+
+            if (val !== 'all') {
+                const wIdx = parseInt(val.replace('S', '')) - 1;
+                const base = new Date(start);
+                start = new Date(base.setDate(base.getDate() + (wIdx * 7)));
+                end = new Date(new Date(start).setDate(start.getDate() + 6));
+            }
+        }
+
+        // Normalização para comparação segura (meio-dia para evitar problemas de fuso)
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+
         const grupos = {};
 
-        // Se o usuário escolher Trimestre/Semestre/Ano, mostramos os meses internos dele
-        const forceMes = ['trimestre', 'semestre', 'ano'].includes(granularidade);
-        const actualGran = forceMes ? 'mes' : granularidade;
-
+        // Filtra colunas do cache que estão dentro do novo range local
         this.cacheColunas.forEach(col => {
+            const dCol = new Date(col.key + 'T12:00:00');
+            if (dCol < start || dCol > end) return;
+
             const dados = this.cacheDados[col.key]?.[String(uid)];
             let gKey = col.label;
 
-            // Lógica de agrupamento baseada na granularidade efetiva
-            if (actualGran === 'semana') {
-                const d = new Date((col.key.length === 7 ? col.key + '-01' : col.key) + 'T12:00:00');
-                const datas = MinhaArea.getDatasFiltro();
-                let weekNum = 1;
-                if (datas) {
-                    const start = new Date(datas.inicio + 'T12:00:00');
-                    const diff = d - start;
-                    weekNum = Math.floor(diff / (7 * 86400000)) + 1;
-                }
-                gKey = `Sem. ${String(Math.max(1, weekNum)).padStart(2, '0')}`;
-            } else if (actualGran === 'trimestre') {
-                const partes = col.key.split('-');
-                const mes = partes[1] ? parseInt(partes[1]) : 1;
-                gKey = `${partes[0]} T${Math.ceil(mes / 3)}`;
-            } else if (actualGran === 'semestre') {
-                const partes = col.key.split('-');
-                const mes = partes[1] ? parseInt(partes[1]) : 1;
-                gKey = `${partes[0]} S${mes <= 6 ? 1 : 2}`;
-            } else if (actualGran === 'ano') {
-                gKey = col.key.split('-')[0];
-            } else if (actualGran === 'dia') {
-                gKey = col.label; // DD/MM
+            if (granularidade === 'mes') {
+                const m = dCol.getMonth();
+                const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                gKey = meses[m] + '/' + (dCol.getFullYear().toString().slice(-2));
+            } else if (granularidade === 'semana') {
+                const diff = dCol - start;
+                const weekNum = Math.floor(diff / (7 * 86400000)) + 1;
+                gKey = `Sem. ${String(weekNum).padStart(2, '0')}`;
             } else {
-                // Mês: usa o label Jan/24 etc
-                gKey = col.label;
+                gKey = col.label; // dia
             }
 
             if (!grupos[gKey]) {
@@ -1089,7 +1130,8 @@ MinhaArea.Metas = {
             }
         });
 
-        const labels = Object.keys(grupos);
+        // Ordenação cronológica correta
+        const labels = Object.keys(grupos).sort((a, b) => (grupos[a].start > grupos[b].start ? 1 : -1));
         const prodData = labels.map(k => grupos[k].countVel > 0 ? Math.round(grupos[k].somaVel / grupos[k].countVel) : null);
         const assertData = labels.map(k => grupos[k].countAssert > 0 ? parseFloat((grupos[k].somaAssert / grupos[k].countAssert).toFixed(2)) : null);
         const ranges = labels.map(k => ({ start: grupos[k].start, end: grupos[k].end }));
@@ -1102,52 +1144,27 @@ MinhaArea.Metas = {
         const colors = ['#3b82f6', '#10b981'];
         const colorsLight = ['rgba(59,130,246,0.18)', 'rgba(16,185,129,0.18)'];
 
-        // Collect grouped data per user
         const userData = userIds.map((uid, idx) => {
             const user = this.cacheUsers.find(u => String(u.id) === String(uid));
             const grouped = this._agruparPorGranularidade(uid, granularidade);
             return { uid, user, grouped, color: colors[idx] || '#94a3b8', colorLight: colorsLight[idx] || 'rgba(100,100,100,0.1)' };
         });
 
-        // Build common labels (union of all)
         let allLabels = [];
         userData.forEach(d => { d.grouped.labels.forEach(l => { if (!allLabels.includes(l)) allLabels.push(l); }); });
 
-        // Renderiza VS Panel (novo design com mini charts no card central + grids por período)
         this._renderizarVSPanel(userData, allLabels);
     },
 
     drillDownComparativo: function (label, start, end) {
-        // Tenta encontrar os elementos de filtro global
-        const elAno = document.getElementById('sel-ano');
-        const elMes = document.getElementById('sel-mes');
-        const elSemana = document.getElementById('sel-semana');
-        const selGran = document.getElementById('comp-granularidade');
+        const selType = document.getElementById('comp-filter-type');
+        const selVal = document.getElementById('comp-filter-value');
 
-        // Se for uma semana específica, tentamos setar o filtro global de semana
-        if (label.startsWith('Sem.')) {
-            MinhaArea.mudarPeriodo('semana');
-            if (elSemana) {
-                // Formato do valor no select: "YYYY-MM-DD|YYYY-MM-DD"
-                // Se não encontrar o valor exato, usamos o modo 'dia' no modal comparativo mesmo
-                const valor = `${start}|${end}`;
-                let found = false;
-                for (let i = 0; i < elSemana.options.length; i++) {
-                    if (elSemana.options[i].value === valor) {
-                        elSemana.selectedIndex = i;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-        }
-        // Se for mês ou outros, mudamos o range global conforme possível
-        // Mas para simplificar o Drill Down imediato sem perder o contexto do modal:
-        // Apenas mudamos para a granularidade 'dia' e deixamos o range atual se for macro
-
-        if (selGran) {
-            selGran.value = 'dia';
-            this.atualizarComparativoManual(true);
+        // Se estiver em modo Todas as Semanas/Mês/etc, clicar detalha para dia dentro do comparador
+        if (selType && selType.value !== 'dia') {
+            // Simplesmente mudamos a visualização local para detalhada se clicou em algo macro
+            // (A lógica de atualizarComparativoManual já decide a granularidade)
+            // Por enquanto, o drill-down local é feito via atualização de filtros ou clique no gráfico
         }
     },
 
@@ -1181,18 +1198,15 @@ MinhaArea.Metas = {
         const liderA = med1A >= med2A ? nome1 : nome2;
         const winner = (med1P + med1A) >= (med2P + med2A) ? nome1 : nome2;
 
-        // ── Grids KPIs & Summaries ─────────────────────────────────
         if (vsCards) vsCards.classList.remove('hidden');
         if (gridsContainer) {
             gridsContainer.classList.remove('hidden');
 
-            // Títulos das tabelas
             const elG1Title = document.getElementById('grid-a1-title');
             const elG2Title = document.getElementById('grid-a2-title');
             if (elG1Title) elG1Title.textContent = nome1;
             if (elG2Title) elG2Title.textContent = nome2;
 
-            // Mini resumos nos headers das tabelas
             const elMiniA1P = document.getElementById('mini-a1-prod');
             const elMiniA1A = document.getElementById('mini-a1-assert');
             const elMiniA2P = document.getElementById('mini-a2-prod');
@@ -1203,7 +1217,6 @@ MinhaArea.Metas = {
             if (elMiniA2P) elMiniA2P.textContent = `${Math.round(med2P)} pcs`;
             if (elMiniA2A) elMiniA2A.textContent = `${med2A.toFixed(1)}%`;
 
-            // Badge de Vencedor e GAP Central
             const badge = document.getElementById('gap-winner-badge');
             if (badge) badge.textContent = `🏆 ${winner} é a mais performante`;
 
@@ -1216,15 +1229,8 @@ MinhaArea.Metas = {
             const elLiderA = document.getElementById('gap-center-assert-lider');
             if (elLiderP) elLiderP.textContent = `${liderP} produz mais`;
             if (elLiderA) elLiderA.textContent = `${liderA} tem maior qualidade`;
-
-            // Legendas dos gráficos
-            const leg1 = document.getElementById('legend-a1-label');
-            const leg2 = document.getElementById('legend-a2-label');
-            if (leg1) leg1.textContent = `${nome1} (+)`;
-            if (leg2) leg2.textContent = `${nome2} (-)`;
         }
 
-        // ── Gráficos Comparativos (Duas Linhas: A1 vs A2) ──────────────────────
         setTimeout(() => {
             if (this.chartGapProd) { this.chartGapProd.destroy(); this.chartGapProd = null; }
             if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
@@ -1239,62 +1245,38 @@ MinhaArea.Metas = {
             const aS1 = getSeries(0, 'assertData');
             const aS2 = getSeries(1, 'assertData');
 
-            const createConfig = (label1, data1, label2, data2, isPct) => {
-                return {
-                    type: 'line',
-                    data: {
-                        labels: allLabels,
-                        datasets: [
-                            {
-                                label: label1,
-                                data: data1,
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59,130,246,0.1)',
-                                fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3
-                            },
-                            {
-                                label: label2,
-                                data: data2,
-                                borderColor: '#10b981',
-                                backgroundColor: 'rgba(16,185,129,0.1)',
-                                fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                                callbacks: {
-                                    label: ctx => {
-                                        const val = ctx.parsed.y;
-                                        const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
-                                        const diff = val - (other || 0);
-                                        const prefix = diff > 0 ? '+' : '';
-                                        const unit = isPct ? '%' : ' pcs';
-                                        const dUnit = isPct ? 'pp' : '';
-                                        return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) : val}${unit} (${prefix}${isPct ? diff.toFixed(1) : diff}${dUnit})`;
-                                    }
+            const createConfig = (label1, data1, label2, data2, isPct) => ({
+                type: 'line',
+                data: {
+                    labels: allLabels,
+                    datasets: [
+                        { label: label1, data: data1, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 },
+                        { label: label2, data: data2, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            callbacks: {
+                                label: ctx => {
+                                    const val = ctx.parsed.y;
+                                    const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
+                                    const diff = val - (other || 0);
+                                    const prefix = diff > 0 ? '+' : '';
+                                    return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) + '%' : val + ' pcs'} (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff + ' pcs'})`;
                                 }
                             }
-                        },
-                        onClick: (e, elements) => {
-                            if (elements.length > 0) {
-                                const idx = elements[0].index;
-                                const label = allLabels[idx];
-                                const range = userData[0].grouped.ranges[idx];
-                                if (range) this.drillDownComparativo(label, range.start, range.end);
-                            }
-                        },
-                        scales: {
-                            x: { display: true, grid: { display: false }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
-                            y: { display: true, grid: { color: 'rgba(71, 85, 105, 0.08)' }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } }
                         }
+                    },
+                    scales: {
+                        x: { display: true, grid: { display: false }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
+                        y: { display: true, grid: { color: 'rgba(71, 85, 105, 0.08)' }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } }
                     }
-                };
-            };
+                }
+            });
 
             const ctxP = document.getElementById('chart-gap-prod');
             if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, nome2, pS2, false));
@@ -1303,25 +1285,16 @@ MinhaArea.Metas = {
             if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, nome2, aS2, true));
         }, 50);
 
-        // ── Grids por período ───────────────────────────────────────
         if (gridsContainer) {
-            gridsContainer.classList.remove('hidden');
-
-            const elG1Title = document.getElementById('grid-a1-title');
-            const elG2Title = document.getElementById('grid-a2-title');
             const elG1Body = document.getElementById('grid-a1-body');
             const elG2Body = document.getElementById('grid-a2-body');
 
-            if (elG1Title) elG1Title.textContent = nome1;
-            if (elG2Title) elG2Title.textContent = nome2;
-
-            const buildGridRow = (label, prodVal, assertVal, isHighlight, range) => {
+            const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
                 const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
                 const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
                 const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
                 const bg = isHighlight ? 'bg-slate-50/50' : '';
-                const clickAction = range ? `onclick="MinhaArea.Metas.drillDownComparativo('${label}', '${range.start}', '${range.end}')"` : '';
-                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-pointer" ${clickAction}>
+                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-default">
                     <td class="px-3 py-2 text-slate-500 font-bold text-[10px]">${label}</td>
                     <td class="px-3 py-2 text-right font-black text-slate-700 text-[11px]">${prodStr}</td>
                     <td class="px-3 py-2 text-right text-[11px] ${assertColor}">${assertStr}</td>
@@ -1330,12 +1303,12 @@ MinhaArea.Metas = {
 
             const htmlG1 = allLabels.map((label, idx) => {
                 const i = userData[0].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0, userData[0].grouped.ranges[idx]);
+                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
             }).join('');
 
             const htmlG2 = allLabels.map((label, idx) => {
                 const i = userData[1].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0, userData[1].grouped.ranges[idx]);
+                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
             }).join('');
 
             const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
