@@ -849,7 +849,7 @@ MinhaArea.Metas = {
 
         this.cacheColunas.forEach(col => {
             labels.push(col.label);
-            const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
+            const dados = this.cacheDados[col.key]?.[String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
 
             dataProd.push(dados.velocidade);
             dataMetaProd.push(dados.metaProd || 0); // Garante que usa a meta individual do cache
@@ -1193,48 +1193,64 @@ MinhaArea.Metas = {
             const aS1 = getSeries(0, 'assertData');
             const aS2 = getSeries(1, 'assertData');
 
-            const createConfig = (label1, data1, label2, data2, isPct) => ({
-                type: 'line',
-                data: {
-                    labels: allLabels,
-                    datasets: [
-                        { label: label1, data: data1, borderColor: '#93c5fd', backgroundColor: 'rgba(147,197,253,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 },
-                        { label: label2, data: data2, borderColor: '#6ee7b7', backgroundColor: 'rgba(110,231,183,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            callbacks: {
-                                label: ctx => {
-                                    const val = ctx.parsed.y;
-                                    const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
-                                    const diff = ctx.datasetIndex === 0 ? (val - (other || 0)) : (val - (other || 0));
-                                    const prefix = diff > 0 ? '+' : '';
-                                    return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) + '%' : val} (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff})`;
+            const createConfig = (labelA1, data1, data2, isPct) => {
+                const deltaData = data1.map((v, i) => (v || 0) - (data2[i] || 0));
+                return {
+                    type: 'line',
+                    data: {
+                        labels: allLabels,
+                        datasets: [
+                            {
+                                label: `Evolução de ${labelA1}`,
+                                data: deltaData,
+                                borderColor: '#93c5fd',
+                                backgroundColor: 'rgba(147,197,253,0.1)',
+                                fill: true,
+                                borderWidth: 4,
+                                pointRadius: 4,
+                                pointBackgroundColor: '#3b82f6',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                callbacks: {
+                                    label: ctx => {
+                                        const gap = ctx.parsed.y;
+                                        const prefix = gap > 0 ? 'Superior em ' : (gap < 0 ? 'Inferior em ' : 'Igual: ');
+                                        const absGap = Math.abs(gap);
+                                        return `${prefix}${isPct ? absGap.toFixed(1) + 'pp' : absGap + ' pcs'}`;
+                                    }
                                 }
                             }
+                        },
+                        onClick: () => {
+                            const sel = document.getElementById('comp-granularidade');
+                            if (sel && sel.value !== 'dia') { sel.value = 'dia'; this.atualizarComparativoManual(true); }
+                        },
+                        scales: {
+                            x: { display: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } },
+                            y: {
+                                display: true,
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } },
+                                title: { display: true, text: 'Diferença (GAP)', color: 'rgba(255,255,255,0.3)', font: { size: 10 } }
+                            }
                         }
-                    },
-                    onClick: () => {
-                        const sel = document.getElementById('comp-granularidade');
-                        if (sel && sel.value !== 'dia') { sel.value = 'dia'; this.atualizarComparativoManual(true); }
-                    },
-                    scales: {
-                        x: { display: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } },
-                        y: { display: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } }
                     }
-                }
-            });
+                };
+            };
 
             const ctxP = document.getElementById('chart-gap-prod');
-            if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, nome2, pS2, false));
+            if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, pS2, false));
 
             const ctxA = document.getElementById('chart-gap-assert');
-            if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, nome2, aS2, true));
+            if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, aS2, true));
         }, 50);
 
         // ── Grids por período ───────────────────────────────────────
