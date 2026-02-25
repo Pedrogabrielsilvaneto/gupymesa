@@ -951,6 +951,15 @@ MinhaArea.Metas = {
             id3 = null;
         }
 
+        // Inicializa filtros locais do comparador
+        const elAno = document.getElementById('comp-filter-year');
+        if (elAno) {
+            const anoAtual = new Date().getFullYear();
+            elAno.innerHTML = `<option value="${anoAtual}">${anoAtual}</option><option value="${anoAtual - 1}">${anoAtual - 1}</option>`;
+            elAno.value = anoAtual;
+        }
+        this.popularValoresSubFiltro();
+
         const el1 = document.getElementById('comp-sel-1');
         const el2 = document.getElementById('comp-sel-2');
         const el3 = document.getElementById('comp-sel-3');
