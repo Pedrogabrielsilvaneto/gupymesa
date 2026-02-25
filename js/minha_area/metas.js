@@ -1005,6 +1005,14 @@ MinhaArea.Metas = {
         }
     },
 
+    fecharModalEvolucao: function () {
+        const modal = document.getElementById('modal-evolucao-metas');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden', 'pointer-events-none'), 300);
+        }
+    },
+
     // ═══════════════════════════════════════════════════════════════════
     // SISTEMA DE FILTROS DO COMPARATIVO (espelho do MinhaArea/main.js)
     // ═══════════════════════════════════════════════════════════════════
