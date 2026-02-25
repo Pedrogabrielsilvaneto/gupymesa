@@ -706,40 +706,71 @@
                     </div>
                     <div class="w-px h-8 bg-slate-200 mx-1"></div>
 
+                    <!-- Filtros Locais do Comparador (mesmo padrão da barra principal) -->
                     <div class="flex items-center gap-2">
-                        <!-- Ano Local -->
-                        <div class="flex flex-col">
-                            <label class="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Ano</label>
-                            <select id="comp-filter-year" onchange="MinhaArea.Metas.popularValoresSubFiltro()"
-                                class="text-xs border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-20 bg-white">
-                            </select>
+                        <!-- Botões de Tipo -->
+                        <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button onclick="MinhaArea.Metas.compMudarPeriodo('mes')" id="comp-btn-mes"
+                                class="px-2.5 py-1 text-[10px] font-bold rounded text-blue-600 bg-white shadow-sm transition">Mês</button>
+                            <button onclick="MinhaArea.Metas.compMudarPeriodo('semana')" id="comp-btn-semana"
+                                class="px-2.5 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">Semana</button>
+                            <button onclick="MinhaArea.Metas.compMudarPeriodo('ano')" id="comp-btn-ano"
+                                class="px-2.5 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">Ano</button>
                         </div>
 
-                        <!-- Tipo de Período -->
-                        <div class="flex flex-col">
-                            <label class="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Período</label>
-                            <select id="comp-filter-type" onchange="MinhaArea.Metas.popularValoresSubFiltro()"
-                                class="text-xs border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-28 bg-white">
-                                <option value="semana">Semana</option>
-                                <option value="mes" selected>Mensal</option>
-                                <option value="trimestre">Trimestral</option>
-                                <option value="semestre">Semestral</option>
-                                <option value="ano">Anual</option>
-                            </select>
-                        </div>
+                        <!-- Ano -->
+                        <select id="comp-filter-year" onchange="MinhaArea.Metas.compOnAnoMesChange()"
+                            class="text-[10px] border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-16 bg-white">
+                        </select>
 
-                        <!-- Valor do Período -->
-                        <div class="flex flex-col">
-                            <label class="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Seleção</label>
-                            <select id="comp-filter-value" onchange="MinhaArea.Metas.atualizarComparativoManual(true)"
-                                class="text-xs border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-44 bg-white">
-                                <option value="all">Escolha o Período...</option>
-                            </select>
-                        </div>
+                        <!-- Mês (visível em Mês e Semana) -->
+                        <select id="comp-filter-mes" onchange="MinhaArea.Metas.compOnAnoMesChange()"
+                            class="text-[10px] border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-24 bg-white hidden">
+                            <option value="0">Janeiro</option>
+                            <option value="1">Fevereiro</option>
+                            <option value="2">Março</option>
+                            <option value="3">Abril</option>
+                            <option value="4">Maio</option>
+                            <option value="5">Junho</option>
+                            <option value="6">Julho</option>
+                            <option value="7">Agosto</option>
+                            <option value="8">Setembro</option>
+                            <option value="9">Outubro</option>
+                            <option value="10">Novembro</option>
+                            <option value="11">Dezembro</option>
+                        </select>
+
+                        <!-- Semana (visível apenas em Semana) -->
+                        <select id="comp-filter-semana" onchange="MinhaArea.Metas.atualizarComparativoManual()"
+                            class="text-[10px] border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-44 bg-white hidden">
+                        </select>
+
+                        <!-- Sub-período do Ano (visível apenas em Ano) -->
+                        <select id="comp-filter-subano" onchange="MinhaArea.Metas.atualizarComparativoManual()"
+                            class="text-[10px] border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-700 outline-none w-36 bg-white hidden">
+                            <option value="full">Ano Completo</option>
+                            <optgroup label="Semestres">
+                                <option value="S1">1º Semestre</option>
+                                <option value="S2">2º Semestre</option>
+                            </optgroup>
+                            <optgroup label="Trimestres">
+                                <option value="T1">1º Trimestre</option>
+                                <option value="T2">2º Trimestre</option>
+                                <option value="T3">3º Trimestre</option>
+                                <option value="T4">4º Trimestre</option>
+                            </optgroup>
+                        </select>
                     </div>
 
-                    <!-- Hidden original for backwards compatibility in current helper calls -->
+                    <!-- Hidden para backwards compat -->
                     <select id="comp-granularidade" class="hidden"></select>
+                    <select id="comp-filter-type" class="hidden">
+                        <option value="mes" selected>mes</option>
+                    </select>
+                    <select id="comp-filter-value" class="hidden">
+                        <option value="all">all</option>
+                    </select>
+
                     <button onclick="MinhaArea.Metas.fecharModalComparativo()"
                         class="ml-2 w-8 h-8 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-500 flex items-center justify-center transition outline-none">
                         <i class="fas fa-times text-sm"></i>
@@ -1069,7 +1100,7 @@
     <script src="js/minha_area/main.js?v=20260224_2240"></script>
     <script src="js/minha_area/assertividade.js?v=20260224_2240"></script>
     <script src="js/minha_area/geral.js?v=20260224_2240"></script>
-    <script src="js/minha_area/metas.js?v=20260225_0016"></script>
+    <script src="js/minha_area/metas.js?v=20260225_0020"></script>
     <script src="js/minha_area/auditoria.js?v=20260224_2240"></script>
     <script src="js/minha_area/comparativo.js?v=20260224_2240"></script>
     <script src="js/minha_area/feedback.js?v=20260224_2240"></script>

@@ -951,14 +951,8 @@ MinhaArea.Metas = {
             id3 = null;
         }
 
-        // Inicializa filtros locais do comparador
-        const elAno = document.getElementById('comp-filter-year');
-        if (elAno) {
-            const anoAtual = new Date().getFullYear();
-            elAno.innerHTML = `<option value="${anoAtual}">${anoAtual}</option><option value="${anoAtual - 1}">${anoAtual - 1}</option>`;
-            elAno.value = anoAtual;
-        }
-        this.popularValoresSubFiltro();
+        // Inicializa os filtros do comparador (novo sistema)
+        this.compInicializarFiltros();
 
         const el1 = document.getElementById('comp-sel-1');
         const el2 = document.getElementById('comp-sel-2');
@@ -995,46 +989,177 @@ MinhaArea.Metas = {
         if (el1) el1.value = id1 || '';
         if (el2) el2.value = id2 || '';
 
-        // Inicializa filtros locais do comparador
-        const elAno = document.getElementById('comp-filter-year');
-        if (elAno) {
-            const anoAtual = new Date().getFullYear();
-            elAno.innerHTML = `<option value="${anoAtual}">${anoAtual}</option><option value="${anoAtual - 1}">${anoAtual - 1}</option>`;
-            elAno.value = anoAtual;
-        }
-        this.popularValoresSubFiltro();
+        // Inicializa os filtros do comparador (novo sistema)
+        this.compInicializarFiltros();
 
         this.atualizarComparativoManual();
         const modal = document.getElementById('modal-comparativo-metas');
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
     },
 
-    popularValoresSubFiltro: function () {
-        const type = document.getElementById('comp-filter-type')?.value;
-        const year = document.getElementById('comp-filter-year')?.value || new Date().getFullYear();
-        const elVal = document.getElementById('comp-filter-value');
-        if (!elVal) return;
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE FILTROS DO COMPARATIVO (espelho do MinhaArea/main.js)
+    // ═══════════════════════════════════════════════════════════════════
+
+    compFiltroPeriodo: 'mes', // Estado local do comparador: 'mes', 'semana', 'ano'
+
+    // Chamado pelos botões Mês/Semana/Ano do comparador
+    compMudarPeriodo: function (tipo) {
+        this.compFiltroPeriodo = tipo;
+        this.compAtualizarInterface();
+        if (tipo === 'semana') this.compPopularSemanas();
+        this.atualizarComparativoManual();
+    },
+
+    // Atualiza aparência dos botões e visibilidade dos seletores
+    compAtualizarInterface: function () {
+        const tipo = this.compFiltroPeriodo;
+        ['mes', 'semana', 'ano'].forEach(t => {
+            const btn = document.getElementById(`comp-btn-${t}`);
+            if (btn) {
+                btn.className = (t === tipo)
+                    ? 'px-2.5 py-1 text-[10px] font-bold rounded text-blue-600 bg-white shadow-sm transition'
+                    : 'px-2.5 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition';
+            }
+        });
+
+        const elMes = document.getElementById('comp-filter-mes');
+        const elSemana = document.getElementById('comp-filter-semana');
+        const elSubAno = document.getElementById('comp-filter-subano');
+
+        if (elMes) elMes.classList.add('hidden');
+        if (elSemana) elSemana.classList.add('hidden');
+        if (elSubAno) elSubAno.classList.add('hidden');
+
+        if (tipo === 'mes') {
+            if (elMes) elMes.classList.remove('hidden');
+        } else if (tipo === 'semana') {
+            if (elMes) elMes.classList.remove('hidden');
+            if (elSemana) elSemana.classList.remove('hidden');
+        } else if (tipo === 'ano') {
+            if (elSubAno) elSubAno.classList.remove('hidden');
+        }
+    },
+
+    // Chamado ao mudar ano ou mês (para repopular semanas se necessário)
+    compOnAnoMesChange: function () {
+        if (this.compFiltroPeriodo === 'semana') {
+            this.compPopularSemanas();
+        }
+        this.atualizarComparativoManual();
+    },
+
+    // Popula o seletor de semanas (igual ao popularSemanasDoMes do main.js)
+    compPopularSemanas: function () {
+        const elSemana = document.getElementById('comp-filter-semana');
+        const elAno = document.getElementById('comp-filter-year');
+        const elMes = document.getElementById('comp-filter-mes');
+        if (!elSemana || !elAno || !elMes) return;
+
+        const ano = parseInt(elAno.value);
+        const mes = parseInt(elMes.value);
+
+        const primeiroDiaMes = new Date(ano, mes, 1);
+        const ultimoDiaMes = new Date(ano, mes + 1, 0);
+
+        let diaSemana = primeiroDiaMes.getDay();
+        if (diaSemana === 0) diaSemana = 7;
+
+        let segundaFeiraAtual = new Date(primeiroDiaMes);
+        segundaFeiraAtual.setDate(primeiroDiaMes.getDate() - (diaSemana - 1));
 
         let html = '';
-        if (type === 'semana') {
-            html += '<option value="all">Todas as Semanas</option>';
-            for (let i = 1; i <= 5; i++) html += `<option value="S${i}">Semana ${i}</option>`;
-        } else if (type === 'mes') {
-            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            meses.forEach((m, i) => {
-                const sel = (i === new Date().getMonth()) ? 'selected' : '';
-                html += `<option value="${i}" ${sel}>${m}</option>`;
-            });
-        } else if (type === 'trimestre') {
-            for (let i = 1; i <= 4; i++) html += `<option value="T${i}">Trimestre ${i}</option>`;
-        } else if (type === 'semestre') {
-            html += '<option value="S1">1º Semestre</option><option value="S2">2º Semestre</option>';
-        } else if (type === 'ano') {
-            html += `<option value="full">Ano Inteiro (${year})</option>`;
+        let count = 1;
+        const fmt = d => d.toISOString().split('T')[0];
+        const fmtBr = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+        while (segundaFeiraAtual <= ultimoDiaMes) {
+            const domingoAtual = new Date(segundaFeiraAtual);
+            domingoAtual.setDate(segundaFeiraAtual.getDate() + 6);
+            if (segundaFeiraAtual > ultimoDiaMes) break;
+            const inicioReal = segundaFeiraAtual < primeiroDiaMes ? primeiroDiaMes : segundaFeiraAtual;
+            const fimReal = domingoAtual > ultimoDiaMes ? ultimoDiaMes : domingoAtual;
+            if (inicioReal <= fimReal) {
+                const valor = `${fmt(inicioReal)}|${fmt(fimReal)}`;
+                html += `<option value="${valor}">Semana ${count} (${fmtBr(inicioReal)} a ${fmtBr(fimReal)})</option>`;
+                count++;
+            }
+            segundaFeiraAtual.setDate(segundaFeiraAtual.getDate() + 7);
+        }
+        elSemana.innerHTML = html;
+        if (elSemana.options.length > 0 && !elSemana.value) elSemana.selectedIndex = 0;
+    },
+
+    // Retorna {inicio, fim} para o filtro local do comparador (igual ao getDatasFiltro do main.js)
+    compGetDatasFiltro: function () {
+        const fmt = d => d.toISOString().split('T')[0];
+        const ano = parseInt(document.getElementById('comp-filter-year')?.value || new Date().getFullYear());
+        const tipo = this.compFiltroPeriodo;
+
+        if (tipo === 'mes') {
+            const mes = parseInt(document.getElementById('comp-filter-mes')?.value ?? new Date().getMonth());
+            return { inicio: fmt(new Date(ano, mes, 1)), fim: fmt(new Date(ano, mes + 1, 0)) };
+        } else if (tipo === 'semana') {
+            const rawVal = document.getElementById('comp-filter-semana')?.value;
+            if (rawVal && rawVal.includes('|')) {
+                const [i, f] = rawVal.split('|');
+                return { inicio: i, fim: f };
+            }
+            // Fallback ao mês se semana não estiver populada
+            const mes = parseInt(document.getElementById('comp-filter-mes')?.value ?? new Date().getMonth());
+            return { inicio: fmt(new Date(ano, mes, 1)), fim: fmt(new Date(ano, mes + 1, 0)) };
+        } else if (tipo === 'ano') {
+            const sub = document.getElementById('comp-filter-subano')?.value || 'full';
+            let inicio, fim;
+            switch (sub) {
+                case 'S1': inicio = new Date(ano, 0, 1); fim = new Date(ano, 5, 30); break;
+                case 'S2': inicio = new Date(ano, 6, 1); fim = new Date(ano, 11, 31); break;
+                case 'T1': inicio = new Date(ano, 0, 1); fim = new Date(ano, 2, 31); break;
+                case 'T2': inicio = new Date(ano, 3, 1); fim = new Date(ano, 5, 30); break;
+                case 'T3': inicio = new Date(ano, 6, 1); fim = new Date(ano, 8, 30); break;
+                case 'T4': inicio = new Date(ano, 9, 1); fim = new Date(ano, 11, 31); break;
+                default: inicio = new Date(ano, 0, 1); fim = new Date(ano, 11, 31); break;
+            }
+            return { inicio: fmt(inicio), fim: fmt(fim) };
+        }
+        // Default fallback: mês atual
+        const mes = new Date().getMonth();
+        return { inicio: fmt(new Date(ano, mes, 1)), fim: fmt(new Date(ano, mes + 1, 0)) };
+    },
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Inicializa os filtros ao abrir o comparador
+    // ═══════════════════════════════════════════════════════════════════
+    compInicializarFiltros: function () {
+        const anoAtual = new Date().getFullYear();
+        const mesAtual = new Date().getMonth();
+        const subAtual = mesAtual <= 5 ? 'S1' : 'S2';
+
+        const elAno = document.getElementById('comp-filter-year');
+        if (elAno) {
+            elAno.innerHTML = `
+                <option value="${anoAtual}">${anoAtual}</option>
+                <option value="${anoAtual - 1}">${anoAtual - 1}</option>
+            `;
+            elAno.value = anoAtual;
         }
 
-        elVal.innerHTML = html;
-        this.atualizarComparativoManual(true);
+        const elMes = document.getElementById('comp-filter-mes');
+        if (elMes) elMes.value = mesAtual;
+
+        const elSubAno = document.getElementById('comp-filter-subano');
+        if (elSubAno) elSubAno.value = subAtual;
+
+        // Inicia no modo Mês (mais comum)
+        this.compFiltroPeriodo = 'mes';
+        this.compAtualizarInterface();
+    },
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Funções legadas mantidas para não quebrar código existente
+    // ═══════════════════════════════════════════════════════════════════
+    popularValoresSubFiltro: function () {
+        // Mantida por compatibilidade – agora é um no-op
     },
 
     popularSelectsManual: function () {
@@ -1046,67 +1171,29 @@ MinhaArea.Metas = {
         const id1 = document.getElementById('comp-sel-1')?.value;
         const id2 = document.getElementById('comp-sel-2')?.value;
 
-        // Captura o período local do comparador
-        const type = document.getElementById('comp-filter-type')?.value;
-        const val = document.getElementById('comp-filter-value')?.value;
-
+        // Granularidade baseada no tipo de filtro atual
+        const tipo = this.compFiltroPeriodo;
         let granularidade = 'dia';
-        if (type === 'semana') {
-            granularidade = (val === 'all') ? 'semana' : 'dia';
-        } else if (type === 'mes') {
-            granularidade = 'dia';
+        if (tipo === 'semana') {
+            granularidade = 'dia'; // Sempre dia para visões semanais
+        } else if (tipo === 'mes') {
+            granularidade = 'dia'; // Dia a dia no mês
         } else {
-            granularidade = 'mes'; // Tri/Sem/Ano mostram evolução mensal
+            granularidade = 'mes'; // Mês a mês em Ano/Trimestre/Semestre
         }
 
         const ids = [id1, id2].filter(id => id);
         this.renderizarGraficosComparativos(ids, granularidade);
     },
 
-    // Agrupa dados por granularidade baseada no Filtro Local do Comparador
+    // Agrupa dados por granularidade usando o NOVO sistema de filtros (compGetDatasFiltro)
     _agruparPorGranularidade: function (uid, granularidade) {
-        const type = document.getElementById('comp-filter-type')?.value;
-        const year = parseInt(document.getElementById('comp-filter-year')?.value);
-        const val = document.getElementById('comp-filter-value')?.value;
-
-        // Determina o range de datas do filtro local
-        let start, end;
-        if (type === 'mes') {
-            const m = parseInt(val);
-            start = new Date(year, m, 1);
-            end = new Date(year, m + 1, 0);
-        } else if (type === 'trimestre') {
-            const t = parseInt(val.replace('T', ''));
-            start = new Date(year, (t - 1) * 3, 1);
-            end = new Date(year, t * 3, 0);
-        } else if (type === 'semestre') {
-            const s = parseInt(val.replace('S', ''));
-            start = new Date(year, (s - 1) * 6, 1);
-            end = new Date(year, s * 6, 0);
-        } else if (type === 'ano') {
-            start = new Date(year, 0, 1);
-            end = new Date(year, 11, 31);
-        } else {
-            // Semana
-            const gDates = MinhaArea.getDatasFiltro();
-            start = new Date(gDates.inicio + 'T00:00:00');
-            end = new Date(gDates.fim + 'T23:59:59');
-
-            if (val !== 'all') {
-                const wIdx = parseInt(val.replace('S', '')) - 1;
-                const base = new Date(start);
-                start = new Date(base.setDate(base.getDate() + (wIdx * 7)));
-                end = new Date(new Date(start).setDate(start.getDate() + 6));
-            }
-        }
-
-        // Normalização para comparação segura (meio-dia para evitar problemas de fuso)
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
+        const datas = this.compGetDatasFiltro();
+        const start = new Date(datas.inicio + 'T00:00:00');
+        const end = new Date(datas.fim + 'T23:59:59');
 
         const grupos = {};
 
-        // Filtra colunas do cache que estão dentro do novo range local
         this.cacheColunas.forEach(col => {
             const dCol = new Date(col.key + 'T12:00:00');
             if (dCol < start || dCol > end) return;
@@ -1117,7 +1204,7 @@ MinhaArea.Metas = {
             if (granularidade === 'mes') {
                 const m = dCol.getMonth();
                 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                gKey = meses[m] + '/' + (dCol.getFullYear().toString().slice(-2));
+                gKey = meses[m] + '/' + dCol.getFullYear().toString().slice(-2);
             } else if (granularidade === 'semana') {
                 const diff = dCol - start;
                 const weekNum = Math.floor(diff / (7 * 86400000)) + 1;
@@ -1139,8 +1226,7 @@ MinhaArea.Metas = {
             }
         });
 
-        // Ordenação cronológica correta
-        const labels = Object.keys(grupos).sort((a, b) => (grupos[a].start > grupos[b].start ? 1 : -1));
+        const labels = Object.keys(grupos).sort((a, b) => grupos[a].start > grupos[b].start ? 1 : -1);
         const prodData = labels.map(k => grupos[k].countVel > 0 ? Math.round(grupos[k].somaVel / grupos[k].countVel) : null);
         const assertData = labels.map(k => grupos[k].countAssert > 0 ? parseFloat((grupos[k].somaAssert / grupos[k].countAssert).toFixed(2)) : null);
         const ranges = labels.map(k => ({ start: grupos[k].start, end: grupos[k].end }));
