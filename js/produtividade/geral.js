@@ -445,29 +445,19 @@ Produtividade.Geral = {
             });
     },
 
-    renderizarTabela: function () {
-        if (!this.els.tabela) return;
-
-        // Aplica filtros e agrega Gestora dinamicamente
+    // [FIX] Função centralizada para retornar a lista que o usuário realmente vê (respeitando filtros)
+    getListaFiltrada: function () {
         const listaOriginal = this.state.listaTabela || [];
-
-        // 1. Separa Gestora
-        let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
 
-        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
-
-        // 2. Filtra Staff Base (Contrato, Nome)
+        // 1. Filtra Staff Base (Contrato, Nome) via HUD de Filtros
         let listaBase = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
 
-        // 3. Filtro de Produção > 0 (Para listas de Soma)
-        let listaParaSomaProducao = listaBase.filter(item => item.producao > 0);
-
-        // 4. Filtro de Gestão (Para Grid e Soma de Assertividade)
+        // 2. Filtro de Gestão (Para Grid)
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
-        let listaParaGrid = listaParaSomaProducao.filter(item => {
+        let listaParaGrid = listaBase.filter(item => {
             const u = this.state.mapaUsuarios[item.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
@@ -480,7 +470,23 @@ Produtividade.Geral = {
             return true;
         });
 
-        // 5. Agrega Staff na Gestora
+        return listaParaGrid;
+    },
+
+    renderizarTabela: function () {
+        if (!this.els.tabela) return;
+
+        // Aplica filtros e agrega Gestora dinamicamente
+        const listaOriginal = this.state.listaTabela || [];
+        let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+
+        // [REF_FIX] Usa a nova função centralizada para respeitar os filtros HUD
+        const listaExibicao = this.getListaFiltrada();
+
+        // Filtro de Produção > 0 usado apenas para Somas (mecanismo interno legado)
+        let listaParaSomaProducao = listaExibicao.filter(item => item.producao > 0);
+
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
         if (gestoraItem) {
             // Preserva valores originais da gestora
             if (gestoraItem._ownProd === undefined) gestoraItem._ownProd = gestoraItem.producao || 0;
@@ -508,7 +514,7 @@ Produtividade.Geral = {
             soma.gp += gestoraItem._ownGp;
 
             // B) Assertividade: Soma APENAS Grid
-            listaParaGrid.forEach(i => {
+            listaExibicao.forEach(i => {
                 soma.qtd_assert += i.qtd_assert;
                 if (i.media_final > 0) {
                     soma.soma_media += (i.media_final * i.qtd_assert);
@@ -539,10 +545,8 @@ Produtividade.Geral = {
             const multDiasGestor = (filtroContrato === 'CLT') ? Math.max(0, diasFinal - 1) : diasFinal;
             gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * multDiasGestor);
             // gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
-            // listaParaGrid.unshift(gestoraItem);
+            // listaExibicao.unshift(gestoraItem);
         }
-
-        const listaExibicao = listaParaGrid;
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
@@ -899,7 +903,15 @@ Produtividade.Geral = {
         this.renderizarTabela();
     },
     toggleAll: function (checked) {
-        if (checked) this.state.listaTabela.forEach(r => this.state.selecionados.add(String(r.uid))); else this.state.selecionados.clear();
+        if (checked) {
+            // [FIX] Seleciona apenas o que está visível na tabela filtrada
+            const listaVisivel = this.getListaFiltrada();
+            listaVisivel.forEach(r => {
+                if (!r.isAggregatedManager) this.state.selecionados.add(String(r.uid));
+            });
+        } else {
+            this.state.selecionados.clear();
+        }
         this.renderizarTabela();
     },
     atualizarBarraFlutuante: function () {
