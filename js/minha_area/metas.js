@@ -1236,52 +1236,51 @@ MinhaArea.Metas = {
             const ctxA = document.getElementById('chart-gap-assert');
             if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, nome2, aS2, true));
         }, 50);
-    },
 
-    // ── Grids por período ───────────────────────────────────────
-    if(gridsContainer) {
-        gridsContainer.classList.remove('hidden');
+        // ── Grids por período ───────────────────────────────────────
+        if (gridsContainer) {
+            gridsContainer.classList.remove('hidden');
 
-        const elG1Title = document.getElementById('grid-a1-title');
-        const elG2Title = document.getElementById('grid-a2-title');
-        const elG1Body = document.getElementById('grid-a1-body');
-        const elG2Body = document.getElementById('grid-a2-body');
+            const elG1Title = document.getElementById('grid-a1-title');
+            const elG2Title = document.getElementById('grid-a2-title');
+            const elG1Body = document.getElementById('grid-a1-body');
+            const elG2Body = document.getElementById('grid-a2-body');
 
-        if (elG1Title) elG1Title.textContent = nome1;
-        if (elG2Title) elG2Title.textContent = nome2;
+            if (elG1Title) elG1Title.textContent = nome1;
+            if (elG2Title) elG2Title.textContent = nome2;
 
-        const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
-            const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
-            const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
-            const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
-            const bg = isHighlight ? 'bg-slate-50/50' : '';
-            return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-pointer" onclick="const sel = document.getElementById('comp-granularidade'); if(sel && sel.value!=='dia'){sel.value='dia'; MinhaArea.Metas.atualizarComparativoManual(true);}">
+            const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
+                const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
+                const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
+                const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
+                const bg = isHighlight ? 'bg-slate-50/50' : '';
+                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-pointer" onclick="const sel = document.getElementById('comp-granularidade'); if(sel && sel.value!=='dia'){sel.value='dia'; MinhaArea.Metas.atualizarComparativoManual(true);}">
                     <td class="px-3 py-2 text-slate-500 font-bold text-[10px]">${label}</td>
                     <td class="px-3 py-2 text-right font-black text-slate-700 text-[11px]">${prodStr}</td>
                     <td class="px-3 py-2 text-right text-[11px] ${assertColor}">${assertStr}</td>
                 </tr>`;
-        };
+            };
 
-        const htmlG1 = allLabels.map((label, idx) => {
-            const i = userData[0].grouped.labels.indexOf(label);
-            return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
-        }).join('');
+            const htmlG1 = allLabels.map((label, idx) => {
+                const i = userData[0].grouped.labels.indexOf(label);
+                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+            }).join('');
 
-        const htmlG2 = allLabels.map((label, idx) => {
-            const i = userData[1].grouped.labels.indexOf(label);
-            return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
-        }).join('');
+            const htmlG2 = allLabels.map((label, idx) => {
+                const i = userData[1].grouped.labels.indexOf(label);
+                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+            }).join('');
 
-        const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
+            const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
                 <td class="px-3 py-2 text-[9px] font-black text-slate-500 uppercase">Média</td>
                 <td class="px-3 py-2 text-right font-black text-slate-800 text-[11px]">${Math.round(medP)} pcs</td>
                 <td class="px-3 py-2 text-right font-black text-[11px] ${medA >= 97 ? 'text-emerald-600' : 'text-amber-600'}">${medA.toFixed(1)}%</td>
             </tr>`;
 
-        if (elG1Body) elG1Body.innerHTML = (htmlG1 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med1P, med1A);
-        if (elG2Body) elG2Body.innerHTML = (htmlG2 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med2P, med2A);
-    }
-},
+            if (elG1Body) elG1Body.innerHTML = (htmlG1 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med1P, med1A);
+            if (elG2Body) elG2Body.innerHTML = (htmlG2 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med2P, med2A);
+        }
+    },
 
     toggleLoading: function (show) {
         const el = document.getElementById('loading-metas');
