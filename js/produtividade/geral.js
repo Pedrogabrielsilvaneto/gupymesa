@@ -540,10 +540,9 @@ Produtividade.Geral = {
                 diasFinal = diasUteisMes;
             }
 
-            const metaBaseGestor = gestoraItem._rawBaseMeta || 650;
+            const metaBaseGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 650);
             gestoraItem.meta_base_diaria = metaBaseGestor;
-            const multDiasGestor = (filtroContrato === 'CLT') ? Math.max(0, diasFinal - 1) : diasFinal;
-            gestoraItem.meta_real_calculada = Math.round(metaBaseGestor * HC * multDiasGestor);
+            gestoraItem.meta_real_calculada = window.Produtividade.MetaGlobalCalculada || Math.round(metaBaseGestor * HC * ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, diasFinal - 1) : diasFinal));
             // gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
             // listaExibicao.unshift(gestoraItem);
         }
@@ -733,10 +732,7 @@ Produtividade.Geral = {
             const cargo = (u.funcao || '').toLowerCase();
             const ehGestaoLoop = termosExcluidos.some(t => cargo.includes(t));
 
-            // [FIX] Soma meta e headcount APENAS para quem não é gestão na lista filtrada
-            if (!ehGestaoLoop) {
-                totalMeta += (i.meta_real_calculada || 0);
-            }
+            // A soma da Meta de Produção individual foi removida. O valor global será calculado fixamente pelas regras macro abaixo (Meta Gestoria).
 
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
             if (i.producao > 0) assistentesComProducao.add(i.uid);
@@ -830,9 +826,35 @@ Produtividade.Geral = {
 
         const diasTotalKpi = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
 
+        // --- CÁLCULO DA META GLOBAL (Produção Esperada) conforme regras da Gestora ---
+        let totalMetaAjustada = 0;
+        const configMesParaMeta = this.state.configMes || {};
+        const diasMetaCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+        const ehPeriodoCompleto = this.state.range.inicio !== this.state.range.fim && diasMetaCal >= 15;
+
+        let dCltMeta = configMesParaMeta.dias_uteis_clt || configMesParaMeta.dias_uteis || diasMetaCal;
+        let dTercMeta = configMesParaMeta.dias_uteis_terceiros || configMesParaMeta.dias_uteis || diasMetaCal;
+        if (!ehPeriodoCompleto) { dCltMeta = diasMetaCal; dTercMeta = diasMetaCal; }
+
+        const hCltMeta = Number(configMesParaMeta.hc_clt || 17);
+        const hTercMeta = Number(configMesParaMeta.hc_terceiros || 0);
+
+        let mGestorMeta = metaDiariaGestor > 0 ? metaDiariaGestor : 650;
+        let mTercMeta = (filtroContrato === 'TERCEIROS' && metaDiariaGestor > 0) ? metaDiariaGestor : 100;
+
+        if (filtroContrato === 'CLT' || filtroContrato === 'TODOS') {
+            totalMetaAjustada += (mGestorMeta * hCltMeta * Math.max(0, dCltMeta - 1));
+        }
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'TODOS') {
+            totalMetaAjustada += (mTercMeta * hTercMeta * dTercMeta);
+        }
+
+        window.Produtividade.MetaGlobalCalculada = Math.round(totalMetaAjustada);
+        // --------------------------------------------------------------------------------
+
 
         const dadosKPI = {
-            prod: { real: totalProd, meta: totalMeta },
+            prod: { real: totalProd, meta: window.Produtividade.MetaGlobalCalculada },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
                 diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - 1) : datasComProducao.size,
