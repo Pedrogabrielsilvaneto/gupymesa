@@ -1485,44 +1485,50 @@ MinhaArea.Metas = {
                 if (this[k]) { this[k].destroy(); this[k] = null; }
             });
 
-            // GAP ponto a ponto: quanto cada um está À FRENTE do outro em cada período
-            // Se A1 > A2 → A1 tem vantagem → barra de cima cresce, barra de baixo = 0
-            // Se A2 > A1 → A2 tem vantagem → barra de baixo cresce, barra de cima = 0
-            const gapTop = (s1, s2) => s1.map((v, i) => Math.max(0, (v || 0) - (s2[i] || 0)));
-            const gapBot = (s1, s2) => s1.map((v, i) => Math.max(0, (s2[i] || 0) - (v || 0)));
+            // Lógica do "Beijinho": Proporção em relação ao líder do período
+            const calcProportions = (s1, s2) => {
+                const p1 = [], p2 = [];
+                for (let i = 0; i < s1.length; i++) {
+                    const v1 = s1[i] || 0;
+                    const v2 = s2[i] || 0;
+                    const maxLocal = Math.max(v1, v2);
+                    if (maxLocal === 0) {
+                        p1.push(1); p2.push(1);
+                    } else {
+                        p1.push(v1 / maxLocal);
+                        p2.push(v2 / maxLocal);
+                    }
+                }
+                return { p1, p2 };
+            };
 
-            const pGapTop = gapTop(pS1, pS2); // quanto A1 está à frente em produção
-            const pGapBot = gapBot(pS1, pS2); // quanto A2 está à frente em produção
-            const aGapTop = gapTop(aS1, aS2); // quanto A1 está à frente em assertividade
-            const aGapBot = gapBot(aS1, aS2); // quanto A2 está à frente em assertividade
-
-            // Escala máxima = maior gap registrado (garante que o zero fica no centro e a maior barra toca o topo)
-            const scaleMax = (gT, gB) => Math.ceil(Math.max(...gT, ...gB, 1) * 1.2);
+            const prodProps = calcProportions(pS1, pS2);
+            const assertProps = calcProportions(aS1, aS2);
 
             /**
-             * createHalfConfig: cria config para metade do espelho de GAP.
-             * @param gapData  - série de GAP (diferença ponto a ponto, sempre >= 0)
-             * @param color    - cor das barras
-             * @param reversed - FALSE = gráfico TOP (A1): zero na base (centro), barras sobem afastando do centro
-             *                   TRUE  = gráfico BOT (A2): zero no topo (centro), barras descem afastando do centro
-             * @param maxVal   - escala máxima do eixo
-             * @param isPct    - se true, formata como porcentagem
-             * @param winnerLabel - nome do assistente que lidera
+             * createHalfConfig: cria config para o gráfico de espelho proporcional.
+             * @param data      - série de proporção (0 a 1)
+             * @param color     - cor das barras
+             * @param reversed  - FALSE (TOP): zero no topo, 1 na base (centro)
+             *                    TRUE (BOT): zero na base, 1 no topo (centro)
+             * @param isPct     - formata labels
+             * @param label     - nome do assistente
+             * @param realData  - valores reais para o tooltip
              */
-            const createHalfConfig = (gapData, color, reversed, maxVal, isPct, winnerLabel) => ({
+            const createHalfConfig = (data, color, reversed, isPct, label, realData) => ({
                 type: 'bar',
                 data: {
                     labels: allLabels,
                     datasets: [{
-                        label: winnerLabel,
-                        data: gapData,
+                        label,
+                        data,
                         backgroundColor: color + 'cc',
                         borderColor: color,
                         borderWidth: 1,
                         borderRadius: reversed
-                            ? { bottomLeft: 5, bottomRight: 5 }  // BOT (A2, reversed): pico da barra está embaixo → arredonda embaixo
-                            : { topLeft: 5, topRight: 5 },       // TOP (A1, normal):   pico da barra está em cima → arredonda em cima
-                        barPercentage: 0.72
+                            ? { topLeft: 5, topRight: 5 }       // BOT: cresce descendo (pico na ponta de cima) -> arredonda topo
+                            : { bottomLeft: 5, bottomRight: 5 }, // TOP: cresce subindo (pico na ponta de baixo) -> arredonda base
+                        barPercentage: 0.75
                     }]
                 },
                 options: {
@@ -1535,9 +1541,9 @@ MinhaArea.Metas = {
                             backgroundColor: 'rgba(15,23,42,0.9)',
                             callbacks: {
                                 label: ctx => {
-                                    const gap = ctx.parsed.y;
-                                    if (gap === 0) return `${winnerLabel}: empatadas no período`;
-                                    return `${winnerLabel} está ${isPct ? gap.toFixed(1) + 'pp' : gap + ' pcs'} à frente`;
+                                    const val = realData[ctx.dataIndex] || 0;
+                                    const prop = ctx.parsed.y * 100;
+                                    return `${label}: ${isPct ? val.toFixed(1) + '%' : val + ' pcs'} (${prop.toFixed(0)}% do líder)`;
                                 }
                             }
                         }
@@ -1559,37 +1565,27 @@ MinhaArea.Metas = {
                         },
                         y: {
                             type: 'linear',
-                            display: true,
-                            reverse: reversed, // TOP chart (A1): reversed=false → zero na base (= linha central) | BOT chart (A2): reversed=true → zero no topo (= linha central)
+                            display: false, // Ocultar eixo Y para focar no visual de preenchimento
+                            reverse: !reversed, // Inverte o gráfico superior para o 1 ser na base, e o inferior para o 1 ser no topo
                             min: 0,
-                            max: maxVal,
-                            grid: { color: 'rgba(71,85,105,0.06)' },
-                            ticks: {
-                                color: 'rgba(71,85,105,0.5)', font: { size: 7 },
-                                maxTicksLimit: 4,
-                                callback: v => isPct ? v.toFixed(0) + '%' : v
-                            }
+                            max: 1,
+                            grid: { display: false }
                         }
                     }
                 }
             });
 
             // === Produção ===
-            const maxP = scaleMax(pGapTop, pGapBot);
             const ctxPTop = document.getElementById('chart-gap-prod-top');
             const ctxPBot = document.getElementById('chart-gap-prod-bot');
-            //  TOP (A1): reversed=false → eixo normal → 0 na BASE do canvas (= na linha central) → barras crescem pra CIMA (afastando do centro)
-            //  BOT (A2): reversed=true  → eixo invertido → 0 no TOPO do canvas (= na linha central) → barras crescem pra BAIXO (afastando do centro)
-            //  GAP=0 em todos os períodos → barras com altura 0 → todos 'beijando' a linha central
-            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(pGapTop, '#3b82f6', false, maxP, false, nome1));
-            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(pGapBot, '#10b981', true, maxP, false, nome2));
+            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(prodProps.p1, '#3b82f6', false, false, nome1, pS1));
+            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(prodProps.p2, '#10b981', true, false, nome2, pS2));
 
             // === Assertividade ===
-            const maxA = scaleMax(aGapTop, aGapBot);
             const ctxATop = document.getElementById('chart-gap-assert-top');
             const ctxABot = document.getElementById('chart-gap-assert-bot');
-            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(aGapTop, '#3b82f6', false, maxA, true, nome1));
-            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(aGapBot, '#10b981', true, maxA, true, nome2));
+            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(assertProps.p1, '#3b82f6', false, true, nome1, aS1));
+            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(assertProps.p2, '#10b981', true, true, nome2, aS2));
         }, 50);
 
         if (gridsContainer) {
