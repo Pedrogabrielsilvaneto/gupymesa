@@ -685,7 +685,7 @@
                             <i class="fas fa-balance-scale text-blue-600"></i> Comparador de Performance
                         </h3>
                         <p class="text-xs text-slate-500">Selecione 2 assistentes e o período para comparar
-                            produtividade, assertividade e ver o GAP.</p>
+                            produtividade, assertividade e visualizar o GAP em grade.</p>
                     </div>
                     <button onclick="MinhaArea.Metas.fecharModalComparativo()"
                         class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
@@ -718,48 +718,71 @@
                     </div>
                 </div>
             </div>
-            <div class="flex-1 p-5 overflow-y-auto bg-slate-50/50 flex flex-col gap-4">
-                <!-- Painel de GAP (Legenda Textual) -->
-                <div id="gap-legend-panel" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hidden">
-                    <h5
-                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <i class="fas fa-arrows-alt-h text-indigo-400"></i> GAP entre Assistentes
-                    </h5>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <div class="text-[9px] font-bold text-blue-400 uppercase mb-1">Produtividade</div>
-                            <div id="gap-prod-label" class="text-sm font-black text-slate-700">--</div>
-                            <div id="gap-prod-diff" class="text-[10px] text-slate-500 mt-1">--</div>
-                        </div>
-                        <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
-                            <div class="text-[9px] font-bold text-emerald-400 uppercase mb-1">Assertividade</div>
-                            <div id="gap-assert-label" class="text-sm font-black text-slate-700">--</div>
-                            <div id="gap-assert-diff" class="text-[10px] text-slate-500 mt-1">--</div>
-                        </div>
-                        <div class="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                            <div class="text-[9px] font-bold text-indigo-400 uppercase mb-1">Conclusão</div>
-                            <div id="gap-conclusao" class="text-xs font-bold text-slate-700 leading-snug">--</div>
-                        </div>
+            <div class="flex-1 p-5 overflow-y-auto bg-slate-50/50 flex flex-col gap-6">
+                <!-- Painel de GAP em Grid (Excel Style) -->
+                <div id="gap-grid-panel"
+                    class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hidden">
+                    <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                        <h5
+                            class="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fas fa-table text-indigo-400"></i> Detalhamento do GAP (Grid)
+                        </h5>
+                        <div id="gap-conclusao-badge"
+                            class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                            --</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[11px] text-left border-collapse">
+                            <thead class="bg-slate-50/50 text-slate-400 font-bold uppercase text-[9px]">
+                                <tr>
+                                    <th class="px-4 py-2 border-b border-slate-100 italic">Período</th>
+                                    <th id="gap-header-a1"
+                                        class="px-4 py-2 border-b border-l border-slate-100 text-blue-600 bg-blue-50/30">
+                                        Assistente 1</th>
+                                    <th id="gap-header-a2"
+                                        class="px-4 py-2 border-b border-l border-slate-100 text-emerald-600 bg-emerald-50/30">
+                                        Assistente 2</th>
+                                    <th
+                                        class="px-4 py-2 border-b border-l border-slate-100 text-indigo-600 bg-indigo-50/30">
+                                        GAP (Dif.)</th>
+                                    <th class="px-4 py-2 border-b border-l border-slate-100 text-slate-500">Performance
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="gap-grid-body" class="divide-y divide-slate-50 bg-white">
+                                <!-- Gerado via JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <!-- Gráficos comparativos -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 min-h-[300px]">
-                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+
+                <!-- Gráficos comparativos (Linhas) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-[350px]">
+                    <div
+                        class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col group hover:shadow-md transition-all duration-300">
                         <h4
-                            class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> Produtividade
-                            (Média/Dia)
+                            class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i class="fas fa-chart-line text-blue-500"></i> Produtividade (Média/Dia)
+                            </span>
+                            <span
+                                class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">Linha</span>
                         </h4>
-                        <div class="flex-1 relative min-h-[200px]">
+                        <div class="flex-1 relative min-h-[250px]">
                             <canvas id="chart-comp-prod"></canvas>
                         </div>
                     </div>
-                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                    <div
+                        class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col group hover:shadow-md transition-all duration-300">
                         <h4
-                            class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> Assertividade (%)
+                            class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i class="fas fa-check-double text-emerald-500"></i> Assertividade (%)
+                            </span>
+                            <span
+                                class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100">Linha</span>
                         </h4>
-                        <div class="flex-1 relative min-h-[200px]">
+                        <div class="flex-1 relative min-h-[250px]">
                             <canvas id="chart-comp-assert"></canvas>
                         </div>
                     </div>
@@ -917,13 +940,13 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260224_2100"></script>
-    <script src="js/minha_area/assertividade.js?v=20260224_2100"></script>
-    <script src="js/minha_area/geral.js?v=20260224_2100"></script>
-    <script src="js/minha_area/metas.js?v=20260224_2100"></script>
-    <script src="js/minha_area/auditoria.js?v=20260224_2100"></script>
-    <script src="js/minha_area/comparativo.js?v=20260224_2100"></script>
-    <script src="js/minha_area/feedback.js?v=20260224_2100"></script>
+    <script src="js/minha_area/main.js?v=20260224_2140"></script>
+    <script src="js/minha_area/assertividade.js?v=20260224_2140"></script>
+    <script src="js/minha_area/geral.js?v=20260224_2140"></script>
+    <script src="js/minha_area/metas.js?v=20260224_2140"></script>
+    <script src="js/minha_area/auditoria.js?v=20260224_2140"></script>
+    <script src="js/minha_area/comparativo.js?v=20260224_2140"></script>
+    <script src="js/minha_area/feedback.js?v=20260224_2140"></script>
 
 
 </body>
