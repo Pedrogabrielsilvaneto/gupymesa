@@ -1469,106 +1469,107 @@ MinhaArea.Metas = {
         if (elTrendP) elTrendP.innerHTML = buildTrendHtml(pS1, pS2, false);
         if (elTrendA) elTrendA.innerHTML = buildTrendHtml(aS1, aS2, true);
 
+        // Atualiza nomes nos labels dos gráficos espelhados
+        ['comp-label-prod-a1', 'comp-label-assert-a1'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = nome1; });
+        ['comp-label-prod-a2', 'comp-label-assert-a2'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = nome2; });
+
         setTimeout(() => {
-            if (this.chartGapProd) { this.chartGapProd.destroy(); this.chartGapProd = null; }
-            if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
+            // Destroi todos os 4 charts se existirem
+            ['chartGapProdTop', 'chartGapProdBot', 'chartGapAssertTop', 'chartGapAssertBot'].forEach(k => {
+                if (this[k]) { this[k].destroy(); this[k] = null; }
+            });
 
-            const createConfig = (label1, data1, label2, data2, isPct) => {
-                // Inverte os dados da Assistente 2 para crescerem para baixo
-                const invertedData2 = data2.map(v => (v !== null ? -v : null));
+            // Escala simétrica compartilhada entre topo e base para cada métrica
+            const scaleMax = (data1, data2) => Math.ceil(Math.max(...data1.map(v => v || 0), ...data2.map(v => v || 0), 1) * 1.15);
 
-                // Pega o valor máximo real (independente se de A1 ou A2) para centralizar perfeitamente o 0
-                const maxVal1 = Math.max(...data1.map(v => v || 0));
-                const maxVal2 = Math.max(...data2.map(v => v || 0));
-                const absMax = Math.max(maxVal1, maxVal2, 1);
-                // Adiciona uma margem de teto para o gráfico respirar
-                const limitScale = Math.ceil(absMax * 1.2);
-
-                return {
-                    type: 'bar',
-                    data: {
-                        labels: allLabels,
-                        datasets: [
-                            {
-                                label: label1,
-                                data: data1,
-                                backgroundColor: 'rgba(59,130,246,0.85)',
-                                borderColor: 'rgba(59,130,246,1)',
-                                borderWidth: 1,
-                                borderRadius: { topLeft: 4, topRight: 4 }, // Barras para cima arredondadas no topo
-                                barPercentage: 0.7
-                            },
-                            {
-                                label: label2,
-                                data: invertedData2,
-                                backgroundColor: 'rgba(16,185,129,0.85)',
-                                borderColor: 'rgba(16,185,129,1)',
-                                borderWidth: 1,
-                                borderRadius: { bottomLeft: 4, bottomRight: 4 }, // Barras para baixo arredondadas embaixo
-                                barPercentage: 0.7
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                                callbacks: {
-                                    label: ctx => {
-                                        // Recupera o valor real (positivo)
-                                        const val = Math.abs(ctx.parsed.y);
-                                        const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
-                                        const diff = val - (other || 0);
-                                        const prefix = diff > 0 ? '+' : '';
-                                        return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) + '%' : val} (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff})`;
-                                    }
-                                }
-                            }
-                        },
-                        onClick: (e, elements) => {
-                            if (elements.length > 0) {
-                                const idx = elements[0].index;
-                                const label = allLabels[idx];
-                                const range = userData[0].grouped.ranges[idx];
-                                if (range) this.drillDownComparativo(label, range.start, range.end);
-                            }
-                        },
-                        scales: {
-                            x: {
-                                display: true,
-                                grid: { color: 'rgba(71, 85, 105, 0.15)', lineWidth: 1 }, // Linha do ZER0 (Eixo X) mais visível
-                                ticks: { color: 'rgba(71, 85, 105, 0.8)', font: { size: 9, weight: 'bold' } }
-                            },
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                min: -limitScale, // Força a escala a descer até o limite simétrico
-                                max: limitScale,  // Força a escala a subir até o limite simétrico, garantindo o ZERO no centro absoluto
-                                grid: { color: 'rgba(71, 85, 105, 0.05)' },
-                                ticks: {
-                                    color: 'rgba(71, 85, 105, 0.6)',
-                                    font: { size: 8 },
-                                    stepSize: isPct ? limitScale / 4 : Math.ceil(limitScale / 4), // Controla a qtd de grids
-                                    callback: function (value) {
-                                        // Ocultar os labels negativos do eixo, mostrando sempre o absoluto
-                                        const absVal = Math.abs(value);
-                                        return isPct ? absVal + '%' : absVal;
-                                    }
+            /**
+             * createHalfConfig: cria a config para metade do gráfico espelhado.
+             * @param data - série do assistente
+             * @param color - cor das barras
+             * @param reversed - TRUE = barras descem do topo (gráfico superior, A1)
+             * @param maxVal - topo da escala
+             * @param isPct
+             * @param label - nome do assistente (tooltip)
+             * @param otherData - série do outro assistente (para diff no tooltip)
+             */
+            const createHalfConfig = (data, color, reversed, maxVal, isPct, label, otherData) => ({
+                type: 'bar',
+                data: {
+                    labels: allLabels,
+                    datasets: [{
+                        label,
+                        data,
+                        backgroundColor: color + 'cc', // ~80% alpha
+                        borderColor: color,
+                        borderWidth: 1,
+                        borderRadius: reversed
+                            ? { bottomLeft: 5, bottomRight: 5 }  // A1 topo: arredondado embaixo (próximo ao centro)
+                            : { topLeft: 5, topRight: 5 },       // A2 base: arredondado em cima (próximo ao centro)
+                        barPercentage: 0.72
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true, mode: 'index', intersect: false,
+                            backgroundColor: 'rgba(15,23,42,0.9)',
+                            callbacks: {
+                                label: ctx => {
+                                    const val = ctx.parsed.y;
+                                    const other = otherData[ctx.dataIndex] || 0;
+                                    const diff = val - other;
+                                    const prefix = diff > 0 ? '+' : '';
+                                    return `${label}: ${isPct ? val.toFixed(1) + '%' : val} pcs  (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff + ' pcs'})`;
                                 }
                             }
                         }
+                    },
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            const idx = elements[0].index;
+                            const rng = userData[0].grouped.ranges[idx];
+                            if (rng) this.drillDownComparativo(allLabels[idx], rng.start, rng.end);
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: !reversed, // só exibe os labels X no gráfico de baixo (A2)
+                            grid: { display: false },
+                            ticks: { color: 'rgba(71,85,105,0.7)', font: { size: 8, weight: 'bold' } }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            reverse: reversed, // CHAVE: inverte o eixo no gráfico superior
+                            min: 0,
+                            max: maxVal,
+                            grid: { color: 'rgba(71,85,105,0.06)' },
+                            ticks: {
+                                color: 'rgba(71,85,105,0.5)', font: { size: 7 },
+                                maxTicksLimit: 4,
+                                callback: v => isPct ? v.toFixed(0) + '%' : v
+                            }
+                        }
                     }
-                };
-            };
+                }
+            });
 
-            const ctxP = document.getElementById('chart-gap-prod');
-            if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, nome2, pS2, false));
+            // === Produção ===
+            const maxP = scaleMax(pS1, pS2);
+            const ctxPTop = document.getElementById('chart-gap-prod-top');
+            const ctxPBot = document.getElementById('chart-gap-prod-bot');
+            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(pS1, '#3b82f6', true, maxP, false, nome1, pS2));
+            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(pS2, '#10b981', false, maxP, false, nome2, pS1));
 
-            const ctxA = document.getElementById('chart-gap-assert');
-            if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, nome2, aS2, true));
+            // === Assertividade ===
+            const maxA = scaleMax(aS1, aS2);
+            const ctxATop = document.getElementById('chart-gap-assert-top');
+            const ctxABot = document.getElementById('chart-gap-assert-bot');
+            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(aS1, '#3b82f6', true, maxA, true, nome1, aS2));
+            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(aS2, '#10b981', false, maxA, true, nome2, aS1));
         }, 50);
 
         if (gridsContainer) {

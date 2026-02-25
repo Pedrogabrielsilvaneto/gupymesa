@@ -878,14 +878,13 @@
                             <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <!-- Chart Produção -->
                                 <div
-                                    class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col gap-4">
+                                    class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
                                     <div class="flex justify-between items-start">
                                         <div class="flex flex-col gap-1">
                                             <div class="text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                                                Diferença (GAP)</div>
-                                            <div id="gap-center-prod-lider" class="text-xs font-black text-slate-500">
-                                                --</div>
-                                            <!-- Pílula de Tendência -->
+                                                Produção · GAP</div>
+                                            <div id="gap-center-prod-lider" class="text-xs font-black text-slate-500">--
+                                            </div>
                                             <div id="trend-prod"
                                                 class="mt-1 text-[9px] font-bold px-2 py-0.5 rounded w-fit uppercase tracking-tighter">
                                             </div>
@@ -893,21 +892,57 @@
                                         <div id="gap-center-prod" class="text-3xl font-black italic text-slate-800">--
                                         </div>
                                     </div>
-                                    <div class="flex-1 w-full min-h-0">
-                                        <canvas id="chart-gap-prod"></canvas>
+
+                                    <!-- Gráfico espelhado Produção -->
+                                    <div class="flex flex-col w-full" style="height:220px">
+                                        <!-- Label A1 (topo) -->
+                                        <div class="flex items-center justify-between px-1 mb-0.5">
+                                            <span
+                                                class="text-[9px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1">
+                                                <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                                                <span id="comp-label-prod-a1">A1</span>
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 italic">↓ parte de cima, desce ao
+                                                centro</span>
+                                        </div>
+                                        <!-- Canvas A1: barras descem do topo para o centro (y invertido) -->
+                                        <div style="height:90px; position:relative">
+                                            <canvas id="chart-gap-prod-top"></canvas>
+                                        </div>
+                                        <!-- Linha central divisória -->
+                                        <div class="flex items-center gap-2 my-0.5">
+                                            <div class="flex-1 h-[2px] bg-slate-300/80 rounded"></div>
+                                            <span
+                                                class="text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">←
+                                                Centro →</span>
+                                            <div class="flex-1 h-[2px] bg-slate-300/80 rounded"></div>
+                                        </div>
+                                        <!-- Canvas A2: barras sobem da base para o centro (y normal) -->
+                                        <div style="height:90px; position:relative">
+                                            <canvas id="chart-gap-prod-bot"></canvas>
+                                        </div>
+                                        <!-- Label A2 (base) -->
+                                        <div class="flex items-center justify-between px-1 mt-0.5">
+                                            <span
+                                                class="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                                <span id="comp-label-prod-a2">A2</span>
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 italic">↑ parte de baixo, sobe ao
+                                                centro</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Chart Qualidade -->
+                                <!-- Chart Assertividade -->
                                 <div
-                                    class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col gap-4">
+                                    class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
                                     <div class="flex justify-between items-start">
                                         <div class="flex flex-col gap-1">
                                             <div class="text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                                                Diferença (GAP)</div>
+                                                Assertividade · GAP</div>
                                             <div id="gap-center-assert-lider" class="text-xs font-black text-slate-500">
                                                 --</div>
-                                            <!-- Pílula de Tendência -->
                                             <div id="trend-assert"
                                                 class="mt-1 text-[9px] font-bold px-2 py-0.5 rounded w-fit uppercase tracking-tighter">
                                             </div>
@@ -915,8 +950,40 @@
                                         <div id="gap-center-assert" class="text-3xl font-black italic text-slate-800">--
                                         </div>
                                     </div>
-                                    <div class="flex-1 w-full min-h-0">
-                                        <canvas id="chart-gap-assert"></canvas>
+
+                                    <!-- Gráfico espelhado Assertividade -->
+                                    <div class="flex flex-col w-full" style="height:220px">
+                                        <div class="flex items-center justify-between px-1 mb-0.5">
+                                            <span
+                                                class="text-[9px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1">
+                                                <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                                                <span id="comp-label-assert-a1">A1</span>
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 italic">↓ parte de cima, desce ao
+                                                centro</span>
+                                        </div>
+                                        <div style="height:90px; position:relative">
+                                            <canvas id="chart-gap-assert-top"></canvas>
+                                        </div>
+                                        <div class="flex items-center gap-2 my-0.5">
+                                            <div class="flex-1 h-[2px] bg-slate-300/80 rounded"></div>
+                                            <span
+                                                class="text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">←
+                                                Centro →</span>
+                                            <div class="flex-1 h-[2px] bg-slate-300/80 rounded"></div>
+                                        </div>
+                                        <div style="height:90px; position:relative">
+                                            <canvas id="chart-gap-assert-bot"></canvas>
+                                        </div>
+                                        <div class="flex items-center justify-between px-1 mt-0.5">
+                                            <span
+                                                class="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                                <span id="comp-label-assert-a2">A2</span>
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 italic">↑ parte de baixo, sobe ao
+                                                centro</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1100,7 +1167,7 @@
     <script src="js/minha_area/main.js?v=20260224_2240"></script>
     <script src="js/minha_area/assertividade.js?v=20260224_2240"></script>
     <script src="js/minha_area/geral.js?v=20260224_2240"></script>
-    <script src="js/minha_area/metas.js?v=20260225_0025"></script>
+    <script src="js/minha_area/metas.js?v=20260225_0030"></script>
     <script src="js/minha_area/auditoria.js?v=20260224_2240"></script>
     <script src="js/minha_area/comparativo.js?v=20260224_2240"></script>
     <script src="js/minha_area/feedback.js?v=20260224_2240"></script>
