@@ -1217,8 +1217,16 @@ MinhaArea.Metas = {
                             }
                         },
                         scales: {
-                            x: { display: true, grid: { display: false }, ticks: { display: false } },
-                            y: { display: false }
+                            x: {
+                                display: true,
+                                grid: { display: false },
+                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
+                            },
+                            y: {
+                                display: true,
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
+                            }
                         }
                     }
                 });
@@ -1255,8 +1263,16 @@ MinhaArea.Metas = {
                             }
                         },
                         scales: {
-                            x: { display: true, grid: { display: false }, ticks: { display: false } },
-                            y: { display: false }
+                            x: {
+                                display: true,
+                                grid: { display: false },
+                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
+                            },
+                            y: {
+                                display: true,
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
+                            }
                         }
                     }
                 });
