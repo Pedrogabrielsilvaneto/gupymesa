@@ -1056,11 +1056,16 @@ MinhaArea.Metas = {
                 } else if (granularidade === 'ano') {
                     gKey = `${ano}`;
                 } else if (granularidade === 'semana') {
-                    // Exemplo: Semana ISO
+                    // Tenta identificar a semana relativa ao período (Semana 01, 02...)
                     const d = new Date((col.key.length === 7 ? col.key + '-01' : col.key) + 'T12:00:00');
-                    const onejan = new Date(d.getFullYear(), 0, 1);
-                    const week = Math.ceil(((d - onejan) / 86400000 + onejan.getDay() + 1) / 7);
-                    gKey = `${ano} S${String(week).padStart(2, '0')}`;
+                    const datas = MinhaArea.getDatasFiltro();
+                    let weekNum = 1;
+                    if (datas) {
+                        const start = new Date(datas.inicio + 'T12:00:00');
+                        const diff = d - start;
+                        weekNum = Math.floor(diff / (7 * 86400000)) + 1;
+                    }
+                    gKey = `Sem. ${String(Math.max(1, weekNum)).padStart(2, '0')}`;
                 } else {
                     // dia: usa o label diretamente
                     gKey = col.label;
@@ -1173,173 +1178,110 @@ MinhaArea.Metas = {
             if (leg2) leg2.textContent = `${nome2} (-)`;
         }
 
-        // ── Mini Charts GAP (diferença A1 - A2 ao longo do tempo) ──────────────
+        // ── Gráficos Comparativos (Duas Linhas: A1 vs A2) ──────────────────────
         setTimeout(() => {
             if (this.chartGapProd) { this.chartGapProd.destroy(); this.chartGapProd = null; }
             if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
 
-            // Calcular série GAP (A1 - A2) para cada label
-            const gapProdSeries = allLabels.map(l => {
-                const i0 = userData[0].grouped.labels.indexOf(l);
-                const i1 = userData[1].grouped.labels.indexOf(l);
-                const v0 = i0 >= 0 ? (userData[0].grouped.prodData[i0] ?? 0) : 0;
-                const v1 = i1 >= 0 ? (userData[1].grouped.prodData[i1] ?? 0) : 0;
-                return v0 - v1; // positivo: A1 à frente; negativo: A2 à frente
+            const getSeries = (userIdx, dataKey) => allLabels.map(l => {
+                const i = userData[userIdx].grouped.labels.indexOf(l);
+                return i >= 0 ? userData[userIdx].grouped[dataKey][i] : 0;
             });
 
-            const gapAssertSeries = allLabels.map(l => {
-                const i0 = userData[0].grouped.labels.indexOf(l);
-                const i1 = userData[1].grouped.labels.indexOf(l);
-                const v0 = i0 >= 0 ? (userData[0].grouped.assertData[i0] ?? null) : null;
-                const v1 = i1 >= 0 ? (userData[1].grouped.assertData[i1] ?? null) : null;
-                if (v0 === null || v1 === null) return null;
-                return parseFloat((v0 - v1).toFixed(2));
+            const pS1 = getSeries(0, 'prodData');
+            const pS2 = getSeries(1, 'prodData');
+            const aS1 = getSeries(0, 'assertData');
+            const aS2 = getSeries(1, 'assertData');
+
+            const createConfig = (label1, data1, label2, data2, isPct) => ({
+                type: 'line',
+                data: {
+                    labels: allLabels,
+                    datasets: [
+                        { label: label1, data: data1, borderColor: '#93c5fd', backgroundColor: 'rgba(147,197,253,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 },
+                        { label: label2, data: data2, borderColor: '#6ee7b7', backgroundColor: 'rgba(110,231,183,0.1)', fill: true, borderWidth: 3, pointRadius: 3, tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            callbacks: {
+                                label: ctx => {
+                                    const val = ctx.parsed.y;
+                                    const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
+                                    const diff = ctx.datasetIndex === 0 ? (val - (other || 0)) : (val - (other || 0));
+                                    const prefix = diff > 0 ? '+' : '';
+                                    return `${ctx.dataset.label}: ${isPct ? val.toFixed(1) + '%' : val} (${prefix}${isPct ? diff.toFixed(1) + 'pp' : diff})`;
+                                }
+                            }
+                        }
+                    },
+                    onClick: () => {
+                        const sel = document.getElementById('comp-granularidade');
+                        if (sel && sel.value !== 'dia') { sel.value = 'dia'; this.atualizarComparativoManual(true); }
+                    },
+                    scales: {
+                        x: { display: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } },
+                        y: { display: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } } }
+                    }
+                }
             });
 
-            // Cores dinâmicas: positivo = azul (A1 ganha), negativo = verde (A2 ganha)
-            const barColors = gapProdSeries.map(v => v >= 0 ? 'rgba(99,179,237,0.85)' : 'rgba(110,231,183,0.85)');
-
-            // Mini: GAP Produção (linha - positivo/negativo)
             const ctxP = document.getElementById('chart-gap-prod');
-            if (ctxP) {
-                this.chartGapProd = new Chart(ctxP, {
-                    type: 'line',
-                    data: {
-                        labels: allLabels,
-                        datasets: [{
-                            label: 'GAP Prod',
-                            data: gapProdSeries,
-                            borderColor: 'rgba(255,255,255,0.7)',
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            fill: true,
-                            borderWidth: 2,
-                            pointRadius: 2,
-                            tension: 0.4,
-                            pointBackgroundColor: gapProdSeries.map(v => v >= 0 ? 'rgba(147,197,253,1)' : 'rgba(110,231,183,1)')
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                enabled: true,
-                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                                titleFont: { size: 10 },
-                                bodyFont: { size: 10, weight: 'bold' },
-                                padding: 8,
-                                callbacks: {
-                                    label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y} (${nome1})` : `${ctx.parsed.y} (${nome2})`
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                display: true,
-                                grid: { display: false },
-                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
-                            },
-                            y: {
-                                display: true,
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
-                            }
-                        }
-                    }
-                });
-            }
+            if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, nome2, pS2, false));
 
-            // Mini: GAP Assertividade (linha - positivo/negativo)
             const ctxA = document.getElementById('chart-gap-assert');
-            if (ctxA) {
-                const lineColors = gapAssertSeries.map(v => v === null ? 'transparent' : (v >= 0 ? 'rgba(147,197,253,1)' : 'rgba(110,231,183,1)'));
-                this.chartGapAssert = new Chart(ctxA, {
-                    type: 'line',
-                    data: {
-                        labels: allLabels,
-                        datasets: [{
-                            label: 'GAP Assert',
-                            data: gapAssertSeries,
-                            borderColor: 'rgba(255,255,255,0.7)',
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            fill: true,
-                            borderWidth: 2, pointRadius: 2, tension: 0.4,
-                            pointBackgroundColor: gapAssertSeries.map(v => v >= 0 ? 'rgba(147,197,253,1)' : 'rgba(110,231,183,1)')
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                enabled: true,
-                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                                callbacks: {
-                                    label: ctx => ctx.parsed.y >= 0 ? `+${ctx.parsed.y.toFixed(1)}% (${nome1})` : `${ctx.parsed.y.toFixed(1)}% (${nome2})`
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                display: true,
-                                grid: { display: false },
-                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
-                            },
-                            y: {
-                                display: true,
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 8 } }
-                            }
-                        }
-                    }
-                });
-            }
+            if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, nome2, aS2, true));
         }, 50);
+    },
 
-        // ── Grids por período ───────────────────────────────────────
-        if (gridsContainer) {
-            gridsContainer.classList.remove('hidden');
+    // ── Grids por período ───────────────────────────────────────
+    if(gridsContainer) {
+        gridsContainer.classList.remove('hidden');
 
-            const elG1Title = document.getElementById('grid-a1-title');
-            const elG2Title = document.getElementById('grid-a2-title');
-            const elG1Body = document.getElementById('grid-a1-body');
-            const elG2Body = document.getElementById('grid-a2-body');
+        const elG1Title = document.getElementById('grid-a1-title');
+        const elG2Title = document.getElementById('grid-a2-title');
+        const elG1Body = document.getElementById('grid-a1-body');
+        const elG2Body = document.getElementById('grid-a2-body');
 
-            if (elG1Title) elG1Title.textContent = nome1;
-            if (elG2Title) elG2Title.textContent = nome2;
+        if (elG1Title) elG1Title.textContent = nome1;
+        if (elG2Title) elG2Title.textContent = nome2;
 
-            const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
-                const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
-                const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
-                const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
-                const bg = isHighlight ? 'bg-slate-50/50' : '';
-                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors">
+        const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
+            const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
+            const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
+            const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
+            const bg = isHighlight ? 'bg-slate-50/50' : '';
+            return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-pointer" onclick="const sel = document.getElementById('comp-granularidade'); if(sel && sel.value!=='dia'){sel.value='dia'; MinhaArea.Metas.atualizarComparativoManual(true);}">
                     <td class="px-3 py-2 text-slate-500 font-bold text-[10px]">${label}</td>
                     <td class="px-3 py-2 text-right font-black text-slate-700 text-[11px]">${prodStr}</td>
                     <td class="px-3 py-2 text-right text-[11px] ${assertColor}">${assertStr}</td>
                 </tr>`;
-            };
+        };
 
-            const htmlG1 = allLabels.map((label, idx) => {
-                const i = userData[0].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
-            }).join('');
+        const htmlG1 = allLabels.map((label, idx) => {
+            const i = userData[0].grouped.labels.indexOf(label);
+            return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+        }).join('');
 
-            const htmlG2 = allLabels.map((label, idx) => {
-                const i = userData[1].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
-            }).join('');
+        const htmlG2 = allLabels.map((label, idx) => {
+            const i = userData[1].grouped.labels.indexOf(label);
+            return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+        }).join('');
 
-            const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
+        const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
                 <td class="px-3 py-2 text-[9px] font-black text-slate-500 uppercase">Média</td>
                 <td class="px-3 py-2 text-right font-black text-slate-800 text-[11px]">${Math.round(medP)} pcs</td>
                 <td class="px-3 py-2 text-right font-black text-[11px] ${medA >= 97 ? 'text-emerald-600' : 'text-amber-600'}">${medA.toFixed(1)}%</td>
             </tr>`;
 
-            if (elG1Body) elG1Body.innerHTML = (htmlG1 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med1P, med1A);
-            if (elG2Body) elG2Body.innerHTML = (htmlG2 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med2P, med2A);
-        }
-    },
+        if (elG1Body) elG1Body.innerHTML = (htmlG1 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med1P, med1A);
+        if (elG2Body) elG2Body.innerHTML = (htmlG2 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med2P, med2A);
+    }
+},
 
     toggleLoading: function (show) {
         const el = document.getElementById('loading-metas');
