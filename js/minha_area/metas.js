@@ -1297,10 +1297,10 @@ MinhaArea.Metas = {
             };
 
             const ctxP = document.getElementById('chart-gap-prod');
-            if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, pS2, false));
+            if (ctxP) this.chartGapProd = new Chart(ctxP, createConfig(nome1, pS1, nome2, pS2, false));
 
             const ctxA = document.getElementById('chart-gap-assert');
-            if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, aS2, true));
+            if (ctxA) this.chartGapAssert = new Chart(ctxA, createConfig(nome1, aS1, nome2, aS2, true));
         }, 50);
 
         // ── Grids por período ───────────────────────────────────────
