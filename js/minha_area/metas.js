@@ -1059,7 +1059,6 @@ MinhaArea.Metas = {
         granularidade = granularidade || 'mes';
         const colors = ['#3b82f6', '#10b981'];
         const colorsLight = ['rgba(59,130,246,0.18)', 'rgba(16,185,129,0.18)'];
-        const colorsGap = 'rgba(99,102,241,0.7)'; // indigo for GAP
 
         // Collect grouped data per user
         const userData = userIds.map((uid, idx) => {
@@ -1072,79 +1071,17 @@ MinhaArea.Metas = {
         let allLabels = [];
         userData.forEach(d => { d.grouped.labels.forEach(l => { if (!allLabels.includes(l)) allLabels.push(l); }); });
 
-        // Build datasets for PROD chart
-        const datasetsProd = userData.map((d, idx) => ({
-            label: d.user ? d.user.nome.split(' ')[0] : 'A',
-            data: allLabels.map(l => {
-                const idx2 = d.grouped.labels.indexOf(l);
-                return idx2 >= 0 ? d.grouped.prodData[idx2] : null;
-            }),
-            backgroundColor: d.color,
-            borderColor: d.color,
-            borderWidth: 3,
-            tension: 0.3,
-            pointRadius: 4,
-            fill: false
-        }));
-
-        // If exactly 2 users, add GAP dataset for PROD (Optional, maybe hidden if grid is enough, but user asked for "gap in grid")
-        // User said "gap in grid (excel)", so I'll keep the chart cleaner with just the two lines.
-        // Actually, I'll keep the GAP line but more subtle.
-        if (userIds.length === 2 && userData[0].user && userData[1].user) {
-            const gapProd = allLabels.map(l => {
-                const i0 = userData[0].grouped.labels.indexOf(l);
-                const i1 = userData[1].grouped.labels.indexOf(l);
-                const v0 = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
-                const v1 = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
-                return Math.abs(v0 - v1);
-            });
-            datasetsProd.push({
-                label: 'GAP',
-                data: gapProd,
-                borderColor: colorsGap,
-                backgroundColor: colorsGap,
-                borderWidth: 2,
-                borderDash: [5, 5],
-                pointRadius: 0,
-                fill: false,
-                tension: 0.3
-            });
-        }
-
-        // Build datasets for ASSERT chart
-        const datasetsAssert = userData.map((d, idx) => ({
-            label: d.user ? d.user.nome.split(' ')[0] : 'A',
-            data: allLabels.map(l => {
-                const idx2 = d.grouped.labels.indexOf(l);
-                return idx2 >= 0 ? d.grouped.assertData[idx2] : null;
-            }),
-            backgroundColor: d.color,
-            borderColor: d.color,
-            borderWidth: 3,
-            tension: 0.3,
-            pointRadius: 4,
-            fill: false
-        }));
-
-        // GAP dataset for ASSERT
-        if (userIds.length === 2 && userData[0].user && userData[1].user) {
-            // No GAP line on assert chart — keep it clean
-        }
-
-        this.createChartComp('chart-comp-prod', allLabels, datasetsProd, false);
-        this.createChartComp('chart-comp-assert', allLabels, datasetsAssert, true);
-
-        // Renderiza VS Cards + Breakdown por Período
+        // Renderiza VS Panel (novo design com mini charts no card central + grids por período)
         this._renderizarVSPanel(userData, allLabels);
     },
 
     _renderizarVSPanel: function (userData, allLabels) {
         const vsCards = document.getElementById('gap-vs-cards');
-        const breakdown = document.getElementById('gap-period-breakdown');
+        const gridsContainer = document.getElementById('gap-grids-container');
 
         if (userData.length < 2 || !userData[0].user || !userData[1].user) {
             if (vsCards) vsCards.classList.add('hidden');
-            if (breakdown) breakdown.innerHTML = '<div class="text-xs text-slate-400 text-center py-8">Selecione 2 assistentes para ver o detalhamento</div>';
+            if (gridsContainer) gridsContainer.classList.add('hidden');
             return;
         }
 
@@ -1168,16 +1105,16 @@ MinhaArea.Metas = {
         const liderA = med1A >= med2A ? nome1 : nome2;
         const winner = (med1P + med1A) >= (med2P + med2A) ? nome1 : nome2;
 
-        // VS Cards
+        // ── VS Cards KPIs ──────────────────────────────────────────
         if (vsCards) {
             vsCards.classList.remove('hidden');
             document.getElementById('gap-a1-nome').textContent = nome1;
-            document.getElementById('gap-a1-prod').textContent = `${Math.round(med1P)} pcs/dia`;
+            document.getElementById('gap-a1-prod').textContent = `${Math.round(med1P)} pcs`;
             document.getElementById('gap-a1-assert').textContent = `${med1A.toFixed(1)}%`;
             document.getElementById('gap-a1-periodos').textContent = `${prodVals1.length} período(s)`;
 
             document.getElementById('gap-a2-nome').textContent = nome2;
-            document.getElementById('gap-a2-prod').textContent = `${Math.round(med2P)} pcs/dia`;
+            document.getElementById('gap-a2-prod').textContent = `${Math.round(med2P)} pcs`;
             document.getElementById('gap-a2-assert').textContent = `${med2A.toFixed(1)}%`;
             document.getElementById('gap-a2-periodos').textContent = `${prodVals2.length} período(s)`;
 
@@ -1188,88 +1125,119 @@ MinhaArea.Metas = {
             document.getElementById('gap-winner-badge').textContent = `🏆 ${winner} é a mais performante`;
         }
 
-        // Breakdown por Período com barras horizontais
-        if (breakdown) {
-            const maxProd = Math.max(...allLabels.map(l => {
-                const i0 = userData[0].grouped.labels.indexOf(l);
-                const i1 = userData[1].grouped.labels.indexOf(l);
-                const v0 = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
-                const v1 = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
-                return Math.max(v0, v1);
-            }), 1);
+        // ── Mini Charts no card central ─────────────────────────────
+        setTimeout(() => {
+            if (this.chartGapProd) { this.chartGapProd.destroy(); this.chartGapProd = null; }
+            if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
 
-            let html = allLabels.map(label => {
-                const i0 = userData[0].grouped.labels.indexOf(label);
-                const i1 = userData[1].grouped.labels.indexOf(label);
-
-                const v0P = i0 >= 0 ? (userData[0].grouped.prodData[i0] || 0) : 0;
-                const v1P = i1 >= 0 ? (userData[1].grouped.prodData[i1] || 0) : 0;
-                const v0A = i0 >= 0 ? (userData[0].grouped.assertData[i0] || 0) : 0;
-                const v1A = i1 >= 0 ? (userData[1].grouped.assertData[i1] || 0) : 0;
-
-                const pct0 = maxProd > 0 ? Math.round((v0P / maxProd) * 100) : 0;
-                const pct1 = maxProd > 0 ? Math.round((v1P / maxProd) * 100) : 0;
-                const gapPLabel = Math.abs(v0P - v1P);
-                const winnerLabel = v0P > v1P ? `+${gapPLabel} ${nome1}` : (v1P > v0P ? `+${gapPLabel} ${nome2}` : 'Empate');
-
-                return `<div class="group rounded-lg hover:bg-slate-50/70 p-2 transition-all">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[10px] font-bold text-slate-500">${label}</span>
-                        <span class="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">${winnerLabel}</span>
-                    </div>
-                    <!-- Barras Produtividade -->
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[9px] text-blue-500 w-14 text-right shrink-0 font-bold">${v0P}</span>
-                            <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:${pct0}%"></div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[9px] text-emerald-500 w-14 text-right shrink-0 font-bold">${v1P}</span>
-                            <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width:${pct1}%"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Assert -->
-                    <div class="flex gap-3 mt-1 justify-end">
-                        <span class="text-[9px] text-blue-400 font-semibold">${v0A > 0 ? v0A.toFixed(1) + '%' : '--'}</span>
-                        <span class="text-[9px] text-slate-300">·</span>
-                        <span class="text-[9px] text-emerald-400 font-semibold">${v1A > 0 ? v1A.toFixed(1) + '%' : '--'}</span>
-                    </div>
-                </div>`;
-            }).join('');
-            breakdown.innerHTML = html || '<div class="text-xs text-slate-400 text-center py-8">Nenhum dado no período selecionado</div>';
-        }
-    },
-
-    createChartComp: function (canvasId, labels, datasets, isPct) {
-        const ctx = document.getElementById(canvasId); if (!ctx) return;
-        if (canvasId === 'chart-comp-prod') { if (this.chartCompProd) this.chartCompProd.destroy(); } else { if (this.chartCompAssert) this.chartCompAssert.destroy(); }
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: { labels, datasets },
-            options: {
-                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { position: 'top', labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 6, boxHeight: 6, padding: 14 } },
-                    tooltip: { cornerRadius: 8, padding: 10 }
-                },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#94a3b8' } },
-                    y: {
-                        beginAtZero: !isPct,
-                        min: isPct ? 85 : undefined,
-                        max: isPct ? 105 : undefined,
-                        grid: { color: '#f8fafc', lineWidth: 1 },
-                        ticks: { font: { size: 9 }, color: '#94a3b8' },
-                        border: { display: false }
+            // Mini: Produção (barras)
+            const ctxP = document.getElementById('chart-gap-prod');
+            if (ctxP) {
+                this.chartGapProd = new Chart(ctxP, {
+                    type: 'bar',
+                    data: {
+                        labels: allLabels,
+                        datasets: [
+                            {
+                                label: nome1,
+                                data: allLabels.map(l => { const i = userData[0].grouped.labels.indexOf(l); return i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0; }),
+                                backgroundColor: 'rgba(99,179,237,0.85)',
+                                borderRadius: 3,
+                                borderSkipped: false
+                            },
+                            {
+                                label: nome2,
+                                data: allLabels.map(l => { const i = userData[1].grouped.labels.indexOf(l); return i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0; }),
+                                backgroundColor: 'rgba(110,231,183,0.85)',
+                                borderRadius: 3,
+                                borderSkipped: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
                     }
-                }
+                });
             }
-        });
-        if (canvasId === 'chart-comp-prod') this.chartCompProd = chart; else this.chartCompAssert = chart;
+
+            // Mini: Assertividade (linha)
+            const ctxA = document.getElementById('chart-gap-assert');
+            if (ctxA) {
+                this.chartGapAssert = new Chart(ctxA, {
+                    type: 'line',
+                    data: {
+                        labels: allLabels,
+                        datasets: [
+                            {
+                                label: nome1,
+                                data: allLabels.map(l => { const i = userData[0].grouped.labels.indexOf(l); return i >= 0 ? (userData[0].grouped.assertData[i] || null) : null; }),
+                                borderColor: 'rgba(147,197,253,1)',
+                                backgroundColor: 'transparent',
+                                borderWidth: 2, pointRadius: 2, tension: 0.3
+                            },
+                            {
+                                label: nome2,
+                                data: allLabels.map(l => { const i = userData[1].grouped.labels.indexOf(l); return i >= 0 ? (userData[1].grouped.assertData[i] || null) : null; }),
+                                borderColor: 'rgba(110,231,183,1)',
+                                backgroundColor: 'transparent',
+                                borderWidth: 2, pointRadius: 2, tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { display: false }, y: { display: false, min: 80, max: 105 } }
+                    }
+                });
+            }
+        }, 50);
+
+        // ── Grids por período ───────────────────────────────────────
+        if (gridsContainer) {
+            gridsContainer.classList.remove('hidden');
+
+            const elG1Title = document.getElementById('grid-a1-title');
+            const elG2Title = document.getElementById('grid-a2-title');
+            const elG1Body = document.getElementById('grid-a1-body');
+            const elG2Body = document.getElementById('grid-a2-body');
+
+            if (elG1Title) elG1Title.textContent = nome1;
+            if (elG2Title) elG2Title.textContent = nome2;
+
+            const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
+                const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
+                const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
+                const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
+                const bg = isHighlight ? 'bg-slate-50/50' : '';
+                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors">
+                    <td class="px-3 py-2 text-slate-500 font-bold text-[10px]">${label}</td>
+                    <td class="px-3 py-2 text-right font-black text-slate-700 text-[11px]">${prodStr}</td>
+                    <td class="px-3 py-2 text-right text-[11px] ${assertColor}">${assertStr}</td>
+                </tr>`;
+            };
+
+            const htmlG1 = allLabels.map((label, idx) => {
+                const i = userData[0].grouped.labels.indexOf(label);
+                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+            }).join('');
+
+            const htmlG2 = allLabels.map((label, idx) => {
+                const i = userData[1].grouped.labels.indexOf(label);
+                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
+            }).join('');
+
+            const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
+                <td class="px-3 py-2 text-[9px] font-black text-slate-500 uppercase">Média</td>
+                <td class="px-3 py-2 text-right font-black text-slate-800 text-[11px]">${Math.round(medP)} pcs</td>
+                <td class="px-3 py-2 text-right font-black text-[11px] ${medA >= 97 ? 'text-emerald-600' : 'text-amber-600'}">${medA.toFixed(1)}%</td>
+            </tr>`;
+
+            if (elG1Body) elG1Body.innerHTML = (htmlG1 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med1P, med1A);
+            if (elG2Body) elG2Body.innerHTML = (htmlG2 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med2P, med2A);
+        }
     },
 
     toggleLoading: function (show) {
@@ -1277,3 +1245,4 @@ MinhaArea.Metas = {
         if (el) show ? el.classList.remove('hidden') : el.classList.add('hidden');
     }
 };
+

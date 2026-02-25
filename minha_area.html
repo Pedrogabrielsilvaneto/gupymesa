@@ -729,7 +729,7 @@
             <!-- Body -->
             <div class="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
 
-                <!-- VS Cards (KPI Summary) -->
+                <!-- VS Cards -->
                 <div id="gap-vs-cards" class="hidden">
                     <div class="grid grid-cols-3 gap-3 items-stretch">
                         <!-- Card A1 -->
@@ -740,47 +740,64 @@
                                 <div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1">
                                     Assistente 1</div>
                                 <div id="gap-a1-nome" class="text-base font-black text-slate-800 truncate">--</div>
-                                <div class="mt-3 space-y-2">
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-slate-500">Prod. Média</span>
-                                        <span id="gap-a1-prod" class="font-black text-blue-700">--</span>
+                                <div class="mt-3 space-y-2.5">
+                                    <div>
+                                        <div class="text-[9px] text-slate-400 mb-0.5">Prod. Média / Dia</div>
+                                        <div id="gap-a1-prod" class="text-xl font-black text-blue-700">--</div>
                                     </div>
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-slate-500">Assertividade</span>
-                                        <span id="gap-a1-assert" class="font-black text-blue-700">--</span>
+                                    <div class="h-px bg-slate-100"></div>
+                                    <div>
+                                        <div class="text-[9px] text-slate-400 mb-0.5">Assertividade Média</div>
+                                        <div id="gap-a1-assert" class="text-xl font-black text-blue-700">--</div>
                                     </div>
+                                    <div class="h-px bg-slate-100"></div>
                                     <div class="flex justify-between text-xs">
-                                        <span class="text-slate-500">Períodos</span>
+                                        <span class="text-slate-400">Períodos</span>
                                         <span id="gap-a1-periodos" class="font-bold text-slate-600">--</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- GAP Center Card -->
+                        <!-- GAP Center Card — mini charts -->
                         <div
-                            class="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl p-4 shadow-lg flex flex-col items-center justify-center text-white text-center relative overflow-hidden">
+                            class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-4 shadow-lg flex flex-col text-white relative overflow-hidden">
                             <div class="absolute inset-0 opacity-10"
-                                style="background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.1) 10px, rgba(255,255,255,.1) 20px)">
+                                style="background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(255,255,255,.1) 10px,rgba(255,255,255,.1) 20px)">
                             </div>
-                            <div class="relative z-10">
-                                <div class="text-[9px] font-bold uppercase tracking-widest opacity-70 mb-3">Análise do
-                                    GAP</div>
-                                <div class="space-y-2">
-                                    <div>
-                                        <div class="text-[9px] opacity-60 uppercase">Produtividade Δ</div>
-                                        <div id="gap-center-prod" class="text-2xl font-black">--</div>
-                                        <div id="gap-center-prod-lider" class="text-[9px] opacity-80 mt-0.5">--</div>
+                            <div class="relative z-10 flex flex-col h-full">
+                                <div class="text-[9px] font-bold uppercase tracking-widest opacity-70 text-center mb-2">
+                                    Análise do GAP</div>
+                                <!-- Mini chart: Produção (barras) -->
+                                <div class="mb-1">
+                                    <div
+                                        class="text-[8px] opacity-60 uppercase tracking-wide mb-1 flex justify-between">
+                                        <span><i class="fas fa-chart-bar mr-1"></i>Produção (Δ)</span>
+                                        <span id="gap-center-prod" class="font-black text-sm opacity-100">--</span>
                                     </div>
-                                    <div class="w-12 h-px bg-white/30 mx-auto"></div>
-                                    <div>
-                                        <div class="text-[9px] opacity-60 uppercase">Assertividade Δ</div>
-                                        <div id="gap-center-assert" class="text-xl font-black">--</div>
-                                        <div id="gap-center-assert-lider" class="text-[9px] opacity-80 mt-0.5">--</div>
+                                    <div class="relative h-[80px] w-full">
+                                        <canvas id="chart-gap-prod"></canvas>
+                                    </div>
+                                    <div id="gap-center-prod-lider" class="text-[9px] opacity-70 text-center mt-0.5">--
                                     </div>
                                 </div>
+                                <div class="w-full h-px bg-white/20 my-2"></div>
+                                <!-- Mini chart: Assertividade (linha) -->
+                                <div class="flex-1">
+                                    <div
+                                        class="text-[8px] opacity-60 uppercase tracking-wide mb-1 flex justify-between">
+                                        <span><i class="fas fa-chart-line mr-1"></i>Assertividade (Δ)</span>
+                                        <span id="gap-center-assert" class="font-black text-sm opacity-100">--</span>
+                                    </div>
+                                    <div class="relative h-[80px] w-full">
+                                        <canvas id="chart-gap-assert"></canvas>
+                                    </div>
+                                    <div id="gap-center-assert-lider" class="text-[9px] opacity-70 text-center mt-0.5">
+                                        --</div>
+                                </div>
                                 <div id="gap-winner-badge"
-                                    class="mt-3 bg-white/20 rounded-full px-3 py-1 text-[10px] font-bold">--</div>
+                                    class="mt-2 bg-white/20 rounded-full px-3 py-1 text-[10px] font-bold text-center">--
+                                </div>
                             </div>
                         </div>
 
@@ -792,16 +809,19 @@
                                 <div class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-1">
                                     Assistente 2</div>
                                 <div id="gap-a2-nome" class="text-base font-black text-slate-800 truncate">--</div>
-                                <div class="mt-3 space-y-2">
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-slate-500">Prod. Média</span>
-                                        <span id="gap-a2-prod" class="font-black text-emerald-700">--</span>
+                                <div class="mt-3 space-y-2.5">
+                                    <div>
+                                        <div class="text-[9px] text-slate-400 mb-0.5">Prod. Média / Dia</div>
+                                        <div id="gap-a2-prod" class="text-xl font-black text-emerald-700">--</div>
                                     </div>
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-slate-500">Assertividade</span>
-                                        <span id="gap-a2-assert" class="font-black text-emerald-700">--</span>
+                                    <div class="h-px bg-slate-100"></div>
+                                    <div>
+                                        <div class="text-[9px] text-slate-400 mb-0.5">Assertividade Média</div>
+                                        <div id="gap-a2-assert" class="text-xl font-black text-emerald-700">--</div>
                                     </div>
+                                    <div class="h-px bg-slate-100"></div>
                                     <div class="flex justify-between text-xs">
+                                        <span class="text-slate-400">Períodos</span>
                                         <span id="gap-a2-periodos" class="font-bold text-slate-600">--</span>
                                     </div>
                                 </div>
@@ -810,50 +830,61 @@
                     </div>
                 </div>
 
-                <!-- Charts + Period Breakdown (tabrow) -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 min-h-[260px]">
-                    <!-- Gráfico Produtividade -->
-                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col">
-                        <div class="flex items-center justify-between mb-4">
-                            <span
-                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                <i class="fas fa-chart-line text-blue-500"></i> Produtividade
-                            </span>
-                            <span class="text-[9px] text-slate-400">Média/dia por período</span>
+                <!-- Dois Grids: A1 | A2 -->
+                <div id="gap-grids-container" class="grid grid-cols-1 lg:grid-cols-2 gap-4 hidden">
+                    <!-- Grid A1 -->
+                    <div class="bg-white rounded-xl border-2 border-blue-100 shadow-sm overflow-hidden">
+                        <div class="bg-blue-50 px-4 py-2 border-b border-blue-100 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <span id="grid-a1-title"
+                                class="text-[10px] font-black text-blue-700 uppercase tracking-wider">Assistente
+                                1</span>
                         </div>
-                        <div class="flex-1 relative min-h-[200px]">
-                            <canvas id="chart-comp-prod"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Período Breakdown (Barras horizontais) -->
-                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col">
-                        <div class="flex items-center justify-between mb-4">
-                            <span
-                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                <i class="fas fa-layer-group text-indigo-500"></i> Detalhamento por Período
-                            </span>
-                            <span class="text-[9px] text-slate-400">Produção · Assertividade</span>
-                        </div>
-                        <div id="gap-period-breakdown" class="flex-1 overflow-y-auto space-y-2 pr-1">
-                            <!-- Gerado via JS -->
-                            <div class="text-xs text-slate-400 text-center py-8">Selecione 2 assistentes para ver o
-                                detalhamento</div>
+                        <div class="overflow-x-auto max-h-72">
+                            <table class="w-full text-xs border-collapse">
+                                <thead class="sticky top-0 bg-slate-50 z-10">
+                                    <tr>
+                                        <th
+                                            class="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100">
+                                            Período</th>
+                                        <th
+                                            class="px-3 py-2 text-right text-[9px] font-bold text-blue-500 uppercase border-b border-slate-100">
+                                            Prod./Dia</th>
+                                        <th
+                                            class="px-3 py-2 text-right text-[9px] font-bold text-emerald-600 uppercase border-b border-slate-100">
+                                            Assertividade</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grid-a1-body" class="divide-y divide-slate-50"></tbody>
+                            </table>
                         </div>
                     </div>
-                </div>
-
-                <!-- Gráfico Assertividade (faixa fina) -->
-                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col min-h-[180px]">
-                    <div class="flex items-center justify-between mb-3">
-                        <span
-                            class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                            <i class="fas fa-check-double text-emerald-500"></i> Evolução da Assertividade (%)
-                        </span>
-                        <span class="text-[9px] text-slate-400">Meta: 97%+</span>
-                    </div>
-                    <div class="flex-1 relative min-h-[120px]">
-                        <canvas id="chart-comp-assert"></canvas>
+                    <!-- Grid A2 -->
+                    <div class="bg-white rounded-xl border-2 border-emerald-100 shadow-sm overflow-hidden">
+                        <div class="bg-emerald-50 px-4 py-2 border-b border-emerald-100 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            <span id="grid-a2-title"
+                                class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Assistente
+                                2</span>
+                        </div>
+                        <div class="overflow-x-auto max-h-72">
+                            <table class="w-full text-xs border-collapse">
+                                <thead class="sticky top-0 bg-slate-50 z-10">
+                                    <tr>
+                                        <th
+                                            class="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100">
+                                            Período</th>
+                                        <th
+                                            class="px-3 py-2 text-right text-[9px] font-bold text-blue-500 uppercase border-b border-slate-100">
+                                            Prod./Dia</th>
+                                        <th
+                                            class="px-3 py-2 text-right text-[9px] font-bold text-emerald-600 uppercase border-b border-slate-100">
+                                            Assertividade</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grid-a2-body" class="divide-y divide-slate-50"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1011,13 +1042,13 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260224_2200"></script>
-    <script src="js/minha_area/assertividade.js?v=20260224_2200"></script>
-    <script src="js/minha_area/geral.js?v=20260224_2200"></script>
-    <script src="js/minha_area/metas.js?v=20260224_2200"></script>
-    <script src="js/minha_area/auditoria.js?v=20260224_2200"></script>
-    <script src="js/minha_area/comparativo.js?v=20260224_2200"></script>
-    <script src="js/minha_area/feedback.js?v=20260224_2200"></script>
+    <script src="js/minha_area/main.js?v=20260224_2230"></script>
+    <script src="js/minha_area/assertividade.js?v=20260224_2230"></script>
+    <script src="js/minha_area/geral.js?v=20260224_2230"></script>
+    <script src="js/minha_area/metas.js?v=20260224_2230"></script>
+    <script src="js/minha_area/auditoria.js?v=20260224_2230"></script>
+    <script src="js/minha_area/comparativo.js?v=20260224_2230"></script>
+    <script src="js/minha_area/feedback.js?v=20260224_2230"></script>
 
 
 </body>
