@@ -1287,19 +1287,39 @@ MinhaArea.Metas = {
             if (this.chartGapAssert) { this.chartGapAssert.destroy(); this.chartGapAssert = null; }
 
             const createConfig = (label1, data1, label2, data2, isPct) => {
-                const deltaData = data1.map((v, i) => Math.abs((v || 0) - (data2[i] || 0)));
-                const deltaMax = Math.max(...deltaData, 1);
-                // A cor da barra de GAP é a cor do assistente que está liderando naquele momento
-                const deltaColors = data1.map((v, i) => (v || 0) >= (data2[i] || 0) ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)');
+                // Inverte os dados da Assistente 2 para crescerem para baixo
+                const invertedData2 = data2.map(v => (v !== null ? -v : null));
+
+                // Pega o valor máximo real (independente se de A1 ou A2) para centralizar perfeitamente o 0
+                const maxVal1 = Math.max(...data1.map(v => v || 0));
+                const maxVal2 = Math.max(...data2.map(v => v || 0));
+                const absMax = Math.max(maxVal1, maxVal2, 1);
+                // Adiciona uma margem de teto para o gráfico respirar
+                const limitScale = Math.ceil(absMax * 1.2);
 
                 return {
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: allLabels,
                         datasets: [
-                            { label: label1, type: 'line', data: data1, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 3, tension: 0.3, yAxisID: 'y' },
-                            { label: label2, type: 'line', data: data2, borderColor: '#10b981', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 3, tension: 0.3, yAxisID: 'y' },
-                            { label: 'Largura do GAP', type: 'bar', data: deltaData, backgroundColor: deltaColors, borderRadius: 4, barPercentage: 0.6, yAxisID: 'yGap' }
+                            {
+                                label: label1,
+                                data: data1,
+                                backgroundColor: 'rgba(59,130,246,0.85)',
+                                borderColor: 'rgba(59,130,246,1)',
+                                borderWidth: 1,
+                                borderRadius: { topLeft: 4, topRight: 4 }, // Barras para cima arredondadas no topo
+                                barPercentage: 0.7
+                            },
+                            {
+                                label: label2,
+                                data: invertedData2,
+                                backgroundColor: 'rgba(16,185,129,0.85)',
+                                borderColor: 'rgba(16,185,129,1)',
+                                borderWidth: 1,
+                                borderRadius: { bottomLeft: 4, bottomRight: 4 }, // Barras para baixo arredondadas embaixo
+                                barPercentage: 0.7
+                            }
                         ]
                     },
                     options: {
@@ -1310,8 +1330,8 @@ MinhaArea.Metas = {
                                 enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)',
                                 callbacks: {
                                     label: ctx => {
-                                        if (ctx.dataset.type === 'bar') return null; // Não exibe tooltip duplo para as barras, fica sujo
-                                        const val = ctx.parsed.y;
+                                        // Recupera o valor real (positivo)
+                                        const val = Math.abs(ctx.parsed.y);
                                         const other = ctx.datasetIndex === 0 ? data2[ctx.dataIndex] : data1[ctx.dataIndex];
                                         const diff = val - (other || 0);
                                         const prefix = diff > 0 ? '+' : '';
@@ -1329,9 +1349,29 @@ MinhaArea.Metas = {
                             }
                         },
                         scales: {
-                            x: { display: true, grid: { display: false }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
-                            y: { type: 'linear', display: true, position: 'left', grid: { color: 'rgba(71, 85, 105, 0.08)' }, ticks: { color: 'rgba(71, 85, 105, 0.6)', font: { size: 8 } } },
-                            yGap: { type: 'linear', display: false, position: 'right', min: 0, max: deltaMax * 3.5 } // Multiplicador para as barras ficarem no fundo do gráfico (terço inferior)
+                            x: {
+                                display: true,
+                                grid: { color: 'rgba(71, 85, 105, 0.15)', lineWidth: 1 }, // Linha do ZER0 (Eixo X) mais visível
+                                ticks: { color: 'rgba(71, 85, 105, 0.8)', font: { size: 9, weight: 'bold' } }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                min: -limitScale, // Força a escala a descer até o limite simétrico
+                                max: limitScale,  // Força a escala a subir até o limite simétrico, garantindo o ZERO no centro absoluto
+                                grid: { color: 'rgba(71, 85, 105, 0.05)' },
+                                ticks: {
+                                    color: 'rgba(71, 85, 105, 0.6)',
+                                    font: { size: 8 },
+                                    stepSize: isPct ? limitScale / 4 : Math.ceil(limitScale / 4), // Controla a qtd de grids
+                                    callback: function (value) {
+                                        // Ocultar os labels negativos do eixo, mostrando sempre o absoluto
+                                        const absVal = Math.abs(value);
+                                        return isPct ? absVal + '%' : absVal;
+                                    }
+                                }
+                            }
                         }
                     }
                 };
