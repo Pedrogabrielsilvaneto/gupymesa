@@ -997,6 +997,14 @@ MinhaArea.Metas = {
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
     },
 
+    fecharModalComparativo: function () {
+        const modal = document.getElementById('modal-comparativo-metas');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden', 'pointer-events-none'), 300);
+        }
+    },
+
     // ═══════════════════════════════════════════════════════════════════
     // SISTEMA DE FILTROS DO COMPARATIVO (espelho do MinhaArea/main.js)
     // ═══════════════════════════════════════════════════════════════════
