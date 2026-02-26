@@ -420,27 +420,22 @@ Produtividade.Consolidado = {
         }, true);
 
         rows += mkRow('% Atingimento da Meta', 'fas fa-percentage', 'text-indigo-600', (s, HC, idx, dMap) => {
-            const meta = (idx === 99)
-                ? (HC * this.diasUteisConfig * targetMeta)
-                : (dMap ? HC * contarSimples(dMap.ini, dMap.fim) * targetMeta : 0);
+            const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
+            const meta = (HC * duCalculado * targetMeta);
             return meta > 0 ? (s.qty / meta) * 100 : 0;
         }, true, true);
 
-        // 8. Média de produção por dia útil trabalhado: total / dias únicos
-        rows += mkRow('Média diária (pelo realizado)', 'fas fa-calendar-day', 'text-amber-500',
-            (s, HC) => (s.dias.size > 0) ? s.qty / s.dias.size : 0, true);
-
-        // [MOD] Média diária (pelo configurado): total / dias úteis do mês
-        rows += mkRow('Média diária (pelo configurado)', 'fas fa-calendar-check', 'text-emerald-600',
-            (s, HC) => (this.diasUteisConfig > 0) ? s.qty / this.diasUteisConfig : 0, true, true);
+        // 8. Média de produção por dia útil: total / (HC * dias)
+        // [FIX] Seguindo a lógica do card produtividade: (Quantidade / (Headcount * Dias Úteis))
+        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700', (s, HC, idx, dMap) => {
+            const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
+            const divisor = (HC * duCalculado);
+            return divisor > 0 ? s.qty / divisor : 0;
+        }, true, true, 'bg-emerald-50 border-emerald-200');
 
         // 9. Média de produção por assistente (período inteiro): total / HC
         rows += mkRow('Média por assistente (período)', 'fas fa-users', 'text-orange-600',
             (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
-
-        // 10. Média diária por assistente
-        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700',
-            (s, HC) => (this.diasUteisConfig > 0 && HC > 0) ? s.qty / this.diasUteisConfig / HC : 0, true, true, 'bg-emerald-50 border-emerald-200');
 
         tbody.innerHTML = rows;
         const footerEl = document.getElementById('total-consolidado-footer');
