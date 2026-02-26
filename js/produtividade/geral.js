@@ -829,30 +829,39 @@ Produtividade.Geral = {
         // --- CÁLCULO DA META GLOBAL (Produção Esperada) conforme regras fornecidas ---
         let totalMetaAjustada = 0;
         const configMesParaMeta = this.state.configMes || {};
-        const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-        const diasMetaCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+        const rangeSel = this.state.range || {};
+        const isPeriodo = rangeSel.inicio !== rangeSel.fim;
+        const diasMetaCal = this.contarDiasUteis(rangeSel.inicio, rangeSel.fim);
 
         // Pega dias da configuração ou do calendário
-        let dBase = configMesParaMeta.dias_uteis || diasMetaCal;
-        let dCltMeta = configMesParaMeta.dias_uteis_clt || dBase;
-        let dTercMeta = configMesParaMeta.dias_uteis_terceiros || dBase;
+        let dBase = Number(configMesParaMeta.dias_uteis || diasMetaCal);
+        let dCltMeta = Number(configMesParaMeta.dias_uteis_clt || (dBase > 1 ? dBase : dBase));
+        let dTercMeta = Number(configMesParaMeta.dias_uteis_terceiros || dBase);
 
-        // Se não for período completo do mês, usa o calendário selecionado
+        // Se for um filtro de período curto (não o mês todo), usamos o calendário
         if (diasMetaCal < (dBase * 0.8)) {
             dCltMeta = diasMetaCal;
             dTercMeta = diasMetaCal;
         }
 
-        // Lógica de Metas e HC
-        // CLT: Meta 650, HC 8 (se não houver config), Dias -1
+        // --- LÓGICA GERAL (17 Assistentes, Meta 650, Dias -1) ---
+        // 650 * 17 * 20 = 221.000
+        let hGeral = 17;
+        let mGeral = 650;
+        const multGeral = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
+        let valorMetaGeral = mGeral * hGeral * multGeral;
+
+        // --- LÓGICA CLT (8 Assistentes, Meta 650, Dias -1) ---
+        // 650 * 8 * 20 = 104.000
+        let hClt = 8;
         let mClt = 650;
-        let hClt = Number(configMesParaMeta.hc_clt || 8);
         const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
         let valorMetaCLT = mClt * hClt * multCltMeta;
 
-        // Terceiros: Meta 750, HC 9 (se não houver config), Dias Normais
+        // --- LÓGICA TERCEIROS (9 Assistentes, Meta 750, Dias Cheios) ---
+        // 750 * 9 * 21 = 141.750
+        let hTerc = 9;
         let mTerc = 750;
-        let hTerc = Number(configMesParaMeta.hc_terceiros || 9);
         let valorMetaTerc = mTerc * hTerc * dTercMeta;
 
         if (filtroContrato === 'CLT') {
@@ -861,17 +870,10 @@ Produtividade.Geral = {
             totalMetaAjustada = valorMetaTerc;
         } else {
             // GERAL (TODOS)
-            totalMetaAjustada = valorMetaCLT + valorMetaTerc;
+            totalMetaAjustada = valorMetaGeral;
         }
 
-        // --- APLICA REDUÇÃO DE ABONO (Opcional, mas mantido para precisão de quem está na lista) ---
-        if (totalAbonoEquipe > 0) {
-            let metaRefAbono = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? mTerc : mClt;
-            let diasRefAbono = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? dTercMeta : multCltMeta;
-            // totalAbonoEquipe é a soma de (1.0 - fator) da equipe visível
-            totalMetaAjustada -= (totalAbonoEquipe * metaRefAbono * (isPeriodo ? diasRefAbono : 1));
-        }
-
+        // Nota: Abonos de equipe não reduzem o Card Principal de Meta Esperada para manter os valores cravados do target macro.
         window.Produtividade.MetaGlobalCalculada = Math.max(0, Math.round(totalMetaAjustada));
         // --------------------------------------------------------------------------------
 
