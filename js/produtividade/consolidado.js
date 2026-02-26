@@ -107,9 +107,11 @@ Produtividade.Consolidado = {
                 }
             }
 
-            // Fallback Headcount
+            // Fallback Headcount se não houver config_mes
             if (!this.headcountConfig || this.headcountConfig <= 0) {
-                this.headcountConfig = 17;
+                if (filtroContrato === 'CLT') this.headcountConfig = 8;
+                else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') this.headcountConfig = 9;
+                else this.headcountConfig = 17;
             }
 
             // Resolve Dias Úteis Configurados
@@ -136,11 +138,13 @@ Produtividade.Consolidado = {
         };
 
         const diasCalendario = contarSimples(datas.inicio, datas.fim);
-        if (!config) return (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? diasCalendario : Math.max(0, diasCalendario - 1);
+        if (!config) {
+            if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return diasCalendario;
+            return Math.max(0, diasCalendario - 1);
+        }
 
         const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
-        // [FIX] Se não houver config de CLT, subtrai 1 do geral conforme regra de negócio
-        const vClt = config.dias_uteis_clt || (config.dias_uteis ? Math.max(0, config.dias_uteis - 1) : Math.max(0, diasCalendario - 1));
+        const vClt = config.dias_uteis_clt || (vTerc > 0 ? Math.max(0, vTerc - 1) : 0);
 
         if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
         if (filtroContrato === 'CLT') return vClt;
@@ -398,8 +402,8 @@ Produtividade.Consolidado = {
         // 7. Total geral de documentos
         rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
 
-        // [FIX] Meta Total de Produção (Regra 650/100) baseada no Configurado
-        const targetMeta = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
+        // [FIX] Meta Total de Produção (Regra 650 fixo para todos)
+        const targetMeta = 650;
 
         rows += mkRow('Meta de produção (Configurada)', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
             if (idx === 99) return HC * this.diasUteisConfig * targetMeta;

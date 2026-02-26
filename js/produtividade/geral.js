@@ -264,6 +264,11 @@ Produtividade.Geral = {
                 const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
                 if (total > 0) hc = total;
             }
+        } else {
+            // Fallbacks baseados na regra de negócio se não houver configuração
+            if (filtroContrato === 'CLT') hc = 8;
+            else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') hc = 9;
+            else hc = 17;
         }
         return hc;
     },
@@ -278,18 +283,15 @@ Produtividade.Geral = {
         const range = this.state.range;
         const diasCalendario = this.contarDiasUteis(range.inicio, range.fim);
 
-        if (!config) return diasCalendario;
+        // [FIX] Terceiros = Calendário Cheio, CLT = Calendário - 1
+        const vTerc = (config && config.dias_uteis_terceiros) || (config && config.dias_uteis ? config.dias_uteis : diasCalendario);
+        const vClt = (config && config.dias_uteis_clt) || (config && config.dias_uteis ? Math.max(0, config.dias_uteis - 1) : Math.max(0, diasCalendario - 1));
 
-        const vTerc = config.dias_uteis_terceiros || config.dias_uteis || diasCalendario;
         if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
-
-        const vClt = config.dias_uteis_clt || vTerc;
         if (filtroContrato === 'CLT') return vClt;
 
-        // Se "Tudo", exibe Terceiros no KPI de topo por padrão
-        return vTerc;
-
-        return vTerc;
+        // Se "Tudo", exibe Calendário - 1 no KPI de topo por padrão (20 dias em Jan)
+        return vClt;
     },
 
     // ... (processarDadosUnificados, renderizarTabela, calcularKpisGlobal e auxiliares mantidos, foco na lógica de Abono abaixo) ...
@@ -405,9 +407,9 @@ Produtividade.Geral = {
                 item._meta_gestor_base = Number(metaObj ? (metaObj.meta_producao || 0) : 0); // Guarda meta do gestor (ex 650)
                 item.meta_assert = 0;
             } else {
-                // [FIX] Fallback para 650 em CLT/Geral, 100 em Terceiros
-                const defaultMetaByContrato = (contratoUpper === 'CLT' || filtroContrato === 'TODOS') ? 650 : 100;
-                item.meta_base_diaria = Number(metaObj ? (metaObj.meta_producao || defaultMetaByContrato) : defaultMetaByContrato);
+                // [FIX] Meta: Sempre usar a meta maior (mínimo 650), ignorando se houver assistentes com metas menores
+                const metaIndiv = Number(metaObj ? (metaObj.meta_producao || 0) : 0);
+                item.meta_base_diaria = Math.max(650, metaIndiv);
                 item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
             }
 
@@ -427,9 +429,14 @@ Produtividade.Geral = {
             }
 
             const contrato = (u.contrato || '').toUpperCase();
-            // [FIX] Se filtro for Geral (TODOS), aplica regra de -1 dia para TODOS, pois a gestora é CLT
-            const usaRegraClt = (contrato === 'CLT' || filtroContrato === 'TODOS');
-            const multiplicador = isPeriodo ? (usaRegraClt ? Math.max(0, diasUsuario - 1) : diasUsuario) : 1;
+            const funcaoB = (u.funcao || '').toLowerCase();
+            const perfilB = (u.perfil || '').toLowerCase();
+            const ehGestaoB = (funcaoB.includes('gestor') || perfilB.includes('gestor') || funcaoB.includes('lider') || funcaoB.includes('líder') || funcaoB.includes('coordenador'));
+
+            // [FIX] CLT e Gestora têm um dia a menos que Terceiros. 
+            // Terceiros = diasUsuario. CLT/Gestora = diasUsuario - 1.
+            const diasMenos = (contrato === 'CLT' || ehGestaoB) ? 1 : 0;
+            const multiplicador = isPeriodo ? Math.max(0, diasUsuario - diasMenos) : 1;
             item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
         }
 
@@ -784,12 +791,12 @@ Produtividade.Geral = {
                 }
 
                 const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
-                const metaVal = metaObj ? Number(metaObj.meta_producao) : 100;
+                const metaVal = metaObj ? Number(metaObj.meta_producao) : 650;
                 if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
             }
         });
 
-        if (maxMetaProducao === 0) maxMetaProducao = 100;
+        if (maxMetaProducao === 0) maxMetaProducao = 650;
 
         // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
@@ -821,7 +828,7 @@ Produtividade.Geral = {
         // Target da Velocidade (Usa meta da gestora ou fallback conforme contrato)
         let targetVelocidade = metaDiariaGestor;
         if (targetVelocidade <= 0) {
-            targetVelocidade = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
+            targetVelocidade = 650;
         }
 
         const diasTotalKpi = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
@@ -847,10 +854,6 @@ Produtividade.Geral = {
         // --- LÓGICA GERAL (17 Assistentes, Meta 650, Dias -1) ---
         // 650 * 17 * 20 = 221.000
         let hGeral = 17;
-        let mGeral = 650;
-        const multGeral = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
-        let valorMetaGeral = mGeral * hGeral * multGeral;
-
         // --- LÓGICA CLT (8 Assistentes, Meta 650, Dias -1) ---
         // 650 * 8 * 20 = 104.000
         let hClt = 8;
@@ -858,19 +861,22 @@ Produtividade.Geral = {
         const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
         let valorMetaCLT = mClt * hClt * multCltMeta;
 
-        // --- LÓGICA TERCEIROS (9 Assistentes, Meta 750, Dias Cheios) ---
-        // 750 * 9 * 21 = 141.750
+        // --- LÓGICA TERCEIROS (9 Assistentes, Meta 650, Dias Cheios) ---
+        // 650 * 9 * 21 = 122.850
         let hTerc = 9;
-        let mTerc = 750;
-        let valorMetaTerc = mTerc * hTerc * dTercMeta;
+        let mTerc = 650;
+        const multTercMeta = isPeriodo ? Math.max(0, dTercMeta) : dTercMeta;
+        let valorMetaTerc = mTerc * hTerc * multTercMeta;
 
         if (filtroContrato === 'CLT') {
             totalMetaAjustada = valorMetaCLT;
         } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
             totalMetaAjustada = valorMetaTerc;
         } else {
-            // GERAL (TODOS)
-            totalMetaAjustada = valorMetaGeral;
+            // GERAL (TODOS) = 17 Assistentes * 650 Meta * (Calendário - 1)
+            // 650 * 17 * 20 = 221.000
+            const multGeral = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
+            totalMetaAjustada = 17 * 650 * multGeral;
         }
 
         // Nota: Abonos de equipe não reduzem o Card Principal de Meta Esperada para manter os valores cravados do target macro.
@@ -905,7 +911,7 @@ Produtividade.Geral = {
             fator: 1.0, soma_fator: 0, count_fator: 0,
             fifo: 0, gt: 0, gp: 0, producao: 0, justificativa: '', observacao_assistente: '',
             soma_notas_bruta: 0, qtd_assert: 0, media_final: null,
-            meta_base_diaria: 100, meta_real_calculada: 100, meta_assert: 97, id_prod: null
+            meta_base_diaria: 650, meta_real_calculada: 650, meta_assert: 97, id_prod: null
         });
     },
     contarDiasUteis: function (inicio, fim) {
@@ -1236,7 +1242,7 @@ Produtividade.Geral = {
             const dateObj = new Date(this.normalizarData(d.data_referencia) + 'T12:00:00');
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(uid));
             const fator = d.fator !== null ? Number(d.fator) : 1.0;
-            const metaDia = Math.round((metaObj ? (metaObj.meta_producao || 100) : 100) * fator);
+            const metaDia = Math.round(Math.max(650, Number(metaObj ? (metaObj.meta_producao || 650) : 650)) * fator);
             const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
             const obsHtml = `
     <div class="flex flex-col gap-1">
