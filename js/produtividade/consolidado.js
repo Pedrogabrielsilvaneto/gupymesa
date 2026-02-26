@@ -402,21 +402,12 @@ Produtividade.Consolidado = {
         // 7. Total geral de documentos
         rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
 
-        // [FIX] Meta Total de Produção (Regra 650 fixo para todos)
+        // [FIX] Meta de Produção
         const targetMeta = 650;
 
-        rows += mkRow('Meta de produção (Configurada)', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
-            if (idx === 99) return HC * this.diasUteisConfig * targetMeta;
-            if (dMap) {
-                const duColuna = contarSimples(dMap.ini, dMap.fim);
-                // Se for a visão mensal e a coluna for uma das semanas, aplicamos o proporcional
-                // Mas para CLT em modo Geral/CLT, a meta total do mês tira 1 dia.
-                // Como as colunas de semanas são fragmentos, a soma delas daria o 'diasCalendario'.
-                // Simplificamos: Se for a coluna Total (99), usa o diasUteisConfig (que já tira 1 se for CLT).
-                // Para as colunas individuais, usamos a proporção de dias úteis da agenda.
-                return HC * duColuna * targetMeta;
-            }
-            return 0;
+        rows += mkRow('Meta de produção', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
+            const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
+            return HC * duCalculado * targetMeta;
         }, true);
 
         rows += mkRow('% Atingimento da Meta', 'fas fa-percentage', 'text-indigo-600', (s, HC, idx, dMap) => {
@@ -425,17 +416,17 @@ Produtividade.Consolidado = {
             return meta > 0 ? (s.qty / meta) * 100 : 0;
         }, true, true);
 
-        // 8. Média de produção por dia útil: total / (HC * dias)
+        // 8. Média de produção por assistente (período inteiro): total / HC
+        rows += mkRow('Média por assistente (período)', 'fas fa-users', 'text-orange-600',
+            (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
+
+        // 9. Média diária por assistente (LAST)
         // [FIX] Seguindo a lógica do card produtividade: (Quantidade / (Headcount * Dias Úteis))
         rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700', (s, HC, idx, dMap) => {
             const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
             const divisor = (HC * duCalculado);
             return divisor > 0 ? s.qty / divisor : 0;
         }, true, true, 'bg-emerald-50 border-emerald-200');
-
-        // 9. Média de produção por assistente (período inteiro): total / HC
-        rows += mkRow('Média por assistente (período)', 'fas fa-users', 'text-orange-600',
-            (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
 
         tbody.innerHTML = rows;
         const footerEl = document.getElementById('total-consolidado-footer');
