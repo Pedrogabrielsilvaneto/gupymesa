@@ -207,10 +207,10 @@ MinhaArea.Geral = {
             if (!configMes) return diasCal;
 
             const vTerc = configMes.dias_uteis_terceiros || configMes.dias_uteis || diasCal;
-            if (contrato === 'TERCEIROS' || contrato === 'PJ') return vTerc;
+            // Se for Gestão ou CLT, deve usar a configuração de CLT (que geralmente é -1)
+            if (contrato === 'CLT' || contrato === 'GESTOR' || contrato === 'ADMIN') return configMes.dias_uteis_clt || (vTerc > 0 ? vTerc - 1 : 0);
 
-            const vClt = configMes.dias_uteis_clt || vTerc;
-            if (contrato === 'CLT') return vClt;
+            if (contrato === 'TERCEIROS' || contrato === 'PJ') return vTerc;
 
             return vTerc; // Default
         };
@@ -301,9 +301,9 @@ MinhaArea.Geral = {
                 const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mesRef && mt.ano == anoRef);
 
                 // [LOGIC] Meta Diária (Velocidade Esperada)
-                // Se não houver meta definida, usa 100 como fallback padrão
-                const rawMeta = metaObj ? (metaObj.meta_producao || metaObj.meta_prod) : null;
-                item.meta_velocidade_media = rawMeta ? Number(rawMeta) : 100;
+                // [FIX] Regra Produtividade: Mínimo 650 para todos
+                const rawMeta = metaObj ? (metaObj.meta_producao || metaObj.meta_prod) : 0;
+                item.meta_velocidade_media = Math.max(650, Number(rawMeta));
 
                 if (metaObj && (metaObj.meta_assertividade || metaObj.meta_assert)) {
                     item.meta_assert = Number(metaObj.meta_assertividade || metaObj.meta_assert);
@@ -323,8 +323,9 @@ MinhaArea.Geral = {
 
 
 
-            // [LOGIC] Meta Total do Período = Meta Diária * (Dias Trabalhados - 1 se for CLT)
-            const multMeta = (contratoUser === 'CLT' && diasUteisLiquidos > 0) ? (diasUteisLiquidos - 1) : diasUteisLiquidos;
+            // [LOGIC] Meta Total do Período = Meta Diária * (Dias Trabalhados - 1 se for CLT ou Gestão)
+            const ehGestor = this.ehGestao(item.uid);
+            const multMeta = ((contratoUser === 'CLT' || ehGestor) && diasUteisLiquidos > 0) ? (diasUteisLiquidos - 1) : diasUteisLiquidos;
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * multMeta);
             item.dias_uteis_liquidos = diasUteisLiquidos;
             item.dias_uteis_brutos = diastUteisUser; // [FIX] Salva o dia útil cheio (sem desconto) para KPI Global
@@ -536,9 +537,9 @@ MinhaArea.Geral = {
         const contratacaoManager = (managerItemForDays?.contrato || 'CLT').toUpperCase();
         const diasUteisAjustadosMeta = (contratacaoManager === 'CLT' && diasUteisMeta > 0) ? (diasUteisMeta - 1) : diasUteisMeta;
 
-        // [LOGIC] Meta Total = Meta Diária Gestora * HC * Dias Ajustados
-        // Se a meta da gestora for 0 ou 100 (fallback), usamos 650 conforme instrução do usuário
-        const metaBaseCalculo = (managerDailyMeta > 100) ? managerDailyMeta : 650;
+        // [LOGIC] Meta Total (Sincronizado com Produtividade)
+        // Regra: 650 (Meta) * HC * (Dias Úteis - 1)
+        const metaBaseCalculo = 650;
         totalMeta = metaBaseCalculo * hcFinal * diasUteisAjustadosMeta;
 
         // [FIX] Define divisor de dias: Se hoje estiver no range, usa dias decorridos. Senão dias totais.
@@ -982,7 +983,7 @@ MinhaArea.Geral = {
         const dataRef = dataAlvo.toISOString().split('T')[0];
         const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
 
-        if (!uid) {
+        if (!uid || this.ehGestao(uid)) {
             return;
         }
 
