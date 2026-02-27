@@ -293,8 +293,16 @@ MinhaArea.Geral = {
                 Object.keys(item.meses).forEach(mKey => {
                     const m = item.meses[mKey];
                     const [ano, mes] = mKey.split('-');
+                    const contractUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
                     const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mes && mt.ano == ano);
-                    const metaBase = metaObj ? (metaObj.meta_producao || 100) : 100;
+
+                    let metaBase = 100; // Fallback default
+                    if (metaObj) {
+                        metaBase = Number(metaObj.meta_producao || 0);
+                    } else {
+                        metaBase = (contractUser === 'PJ' || contractUser === 'TERCEIROS') ? 100 : 650;
+                    }
+                    if (metaBase <= 0) metaBase = (contractUser === 'PJ' || contractUser === 'TERCEIROS') ? 100 : 650;
 
                     if (metaObj && metaObj.meta_assertividade) item.meta_assert = metaObj.meta_assertividade;
 
@@ -316,12 +324,25 @@ MinhaArea.Geral = {
                 const anoRef = d1.getFullYear();
 
                 // Busca Meta na tabela `metas`
+                const uInfo = this.state.mapaUsuarios[item.uid];
+                const contratoUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
                 const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mesRef && mt.ano == anoRef);
 
+                // [DEBUG] Log para verificar busca de meta
+                console.log(`[MA-META] User ${item.nome} (uid=${item.uid}): metaObj=`, metaObj, `| mesRef=${mesRef} anoRef=${anoRef} | dadosMetas.length=${this.state.dadosMetas.length}`);
+
                 // [LOGIC] Meta Diária (Velocidade Esperada)
-                // [FIX] Regra Produtividade: Mínimo 650 para todos
-                const rawMeta = metaObj ? (metaObj.meta_producao || metaObj.meta_prod) : 0;
-                item.meta_velocidade_media = Math.max(650, Number(rawMeta));
+                // [FIX] Priorizar meta EXATA do BD, sem pisos artificiais
+                const rawMeta = metaObj ? Number(metaObj.meta_producao || metaObj.meta_prod || 0) : 0;
+
+                // Guarda o valor EXATO do banco para exibição na grade
+                item.meta_real_db = rawMeta > 0 ? rawMeta : null;
+
+                if (rawMeta > 0) {
+                    item.meta_velocidade_media = rawMeta;
+                } else {
+                    item.meta_velocidade_media = (contratoUser === 'TERCEIROS' || contratoUser === 'PJ') ? 100 : 650;
+                }
 
                 if (metaObj && (metaObj.meta_assertividade || metaObj.meta_assert)) {
                     item.meta_assert = Number(metaObj.meta_assertividade || metaObj.meta_assert);
@@ -331,26 +352,23 @@ MinhaArea.Geral = {
             }
 
             // Pega contrato do usuário
-            const uInfo = this.state.mapaUsuarios[item.uid];
-            const contratoUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
-            const diastUteisUser = getDU(contratoUser, item.nome);
+            const uInfo2 = this.state.mapaUsuarios[item.uid];
+            const contratoUser2 = uInfo2 ? (uInfo2.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
+            const diastUteisUser = getDU(contratoUser2, item.nome);
 
             // [LOGIC] Dias Trabalhados (Disponíveis para Meta)
             // Fórmula: Dias Úteis do Período - Dias Abonados (Fator < 1)
             const diasUteisLiquidos = Math.max(0, diastUteisUser - item.soma_abono);
 
-
-
             // [LOGIC] Meta Total do Período = Meta Diária * (Dias Trabalhados - 1 se for CLT ou Gestão)
             const ehGestor = this.ehGestao(item.uid);
-            const multMeta = ((contratoUser === 'CLT' || ehGestor) && diasUteisLiquidos > 0) ? (diasUteisLiquidos - 1) : diasUteisLiquidos;
+            const multMeta = ((contratoUser2 === 'CLT' || ehGestor) && diasUteisLiquidos > 0) ? (diasUteisLiquidos - 1) : diasUteisLiquidos;
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * multMeta);
             item.dias_uteis_liquidos = diasUteisLiquidos;
-            item.dias_uteis_brutos = diastUteisUser; // [FIX] Salva o dia útil cheio (sem desconto) para KPI Global
-            item.dias_calendario_pure = diasCalendarioPure; // [NEW] Salva calendário original (21 dias)
+            item.dias_uteis_brutos = diastUteisUser;
+            item.dias_calendario_pure = diasCalendarioPure;
 
-            // Debug (remove in prod if needed)
-            // console.log(`[MA] User ${item.nome}: Prod=${item.producao}, MetaDia=${item.meta_velocidade_media}, DiasUteis=${diastUteisUser}, Abono=${item.soma_abono}, MetaTotal=${item.meta_total_periodo}`);
+            console.log(`[MA] User ${item.nome}: meta_real_db=${item.meta_real_db}, meta_velocidade_media=${item.meta_velocidade_media}, MetaTotal=${item.meta_total_periodo}`);
         }
 
         this.state.listaTabela = Array.from(mapa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
@@ -383,7 +401,7 @@ MinhaArea.Geral = {
 
             const statusContrato = (uInfo?.contrato || '').toUpperCase();
             const isGestao = this.ehGestao(item.uid);
-            const workedDays = item.soma_fator || 0;
+            const workedDays = (item.soma_fator + item.soma_abono) || 0;
             const workedDaysAjustado = ((statusContrato === 'CLT' || isGestao) && workedDays > 0) ? Math.max(0, workedDays - 1) : workedDays;
 
             const totalDaysBase = item.dias_uteis_brutos || item.dias_uteis_liquidos || 21;
@@ -425,6 +443,7 @@ MinhaArea.Geral = {
         this.els.tabela.innerHTML = dadosFiltrados.map(d => {
             const fator = d.fator !== null ? Number(d.fator) : 1.0;
             const metaBase = item ? item.meta_velocidade_media : 100;
+            const metaRealDB = item ? (item.meta_real_db || metaBase) : metaBase;
             const metaDia = Math.round(metaBase * fator);
             const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
             const assertDia = assertMap[d.data_referencia];
@@ -443,8 +462,8 @@ MinhaArea.Geral = {
             return `
                 <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs">
                     <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data_referencia)}</td>
-                    <td class="px-2 py-2 text-center text-slate-500">${metaBase}</td>
-                    <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
+                    <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaRealDB}</td>
+                    <td class="px-2 py-2 text-center text-slate-500">${metaDia}</td>
                     <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${d.quantidade || 0}</td>
                     <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
@@ -459,7 +478,7 @@ MinhaArea.Geral = {
     },
 
     renderizarGradeEquipe: function () {
-        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Dias Trab.</th><th class="px-2 py-3 text-center bg-slate-50 text-[10px] text-amber-600">Abonos</th><th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
+        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Dias Trab.</th><th class="px-2 py-3 text-center bg-slate-50 text-[10px] text-amber-600">Abonos</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta do Período</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
         if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = headerGrade;
 
         const listaAssistentes = this.state.listaTabela.filter(row => !this.ehGestao(row.uid));
@@ -487,7 +506,7 @@ MinhaArea.Geral = {
                         <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
                         <td class="px-2 py-3 text-center text-slate-700 font-medium bg-slate-50">${workedDays}</td>
                         <td class="px-2 py-3 text-center text-amber-600 font-bold bg-amber-50/10">${abonos > 0 ? abonos : '-'}</td>
-                        <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
+                        <td class="px-2 py-3 text-center ${row.meta_real_db ? 'text-slate-700 font-bold' : 'text-slate-400 italic'}">${row.meta_real_db || '—'}</td>
                         <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
                         <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
                         <td class="px-2 py-3 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
@@ -528,7 +547,7 @@ MinhaArea.Geral = {
             // totalMeta += i.meta_total_periodo; // Soma das metas individuais (fallback)
             // totalFator += i.soma_fator; // Removido soma; // Soma das metas individuais (fallback)
             // totalFator += i.soma_fator; // Removido soma
-            maxFator = Math.max(maxFator, i.soma_fator); // [FIX] Pega o maior valor de dias trab. da equipe
+            maxFator = Math.max(maxFator, i.soma_fator + i.soma_abono); // [FIX] Pega o maior valor de dias trab. da equipe (inc. abonos)
             if (i.dias_uteis_brutos > diasUteisCalendario) diasUteisCalendario = i.dias_uteis_brutos; // Pega o maior calendário encontrado
 
             if (i.producao > 0) {

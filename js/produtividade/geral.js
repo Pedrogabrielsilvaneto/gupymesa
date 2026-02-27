@@ -396,9 +396,13 @@ Produtividade.Geral = {
                 item._meta_gestor_base = Number(metaObj ? (metaObj.meta_producao || 0) : 0); // Guarda meta do gestor (ex 650)
                 item.meta_assert = 0;
             } else {
-                // [FIX] Meta: Sempre usar a meta maior (mínimo 650), ignorando se houver assistentes com metas menores
+                // [FIX] Meta: Priorizar valor do banco, fallback conforme contrato
                 const metaIndiv = Number(metaObj ? (metaObj.meta_producao || 0) : 0);
-                item.meta_base_diaria = Math.max(650, metaIndiv);
+                if (metaIndiv > 0) {
+                    item.meta_base_diaria = metaIndiv;
+                } else {
+                    item.meta_base_diaria = (contrato === 'TERCEIROS' || contrato === 'PJ') ? 100 : 650;
+                }
                 item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
             }
 
