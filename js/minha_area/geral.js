@@ -201,9 +201,11 @@ MinhaArea.Geral = {
             configMes = await Gestao.ConfigMes.obter(d1.getMonth() + 1, d1.getFullYear());
         }
 
+        const diasCalendarioPure = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+
         // Helper para Dias Uteis
         const getDU = (contrato, nomeUser) => {
-            const diasCal = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            const diasCal = diasCalendarioPure;
             if (!configMes) return diasCal;
 
             const vTerc = configMes.dias_uteis_terceiros || configMes.dias_uteis || diasCal;
@@ -329,6 +331,7 @@ MinhaArea.Geral = {
             item.meta_total_periodo = Math.round(item.meta_velocidade_media * multMeta);
             item.dias_uteis_liquidos = diasUteisLiquidos;
             item.dias_uteis_brutos = diastUteisUser; // [FIX] Salva o dia útil cheio (sem desconto) para KPI Global
+            item.dias_calendario_pure = diasCalendarioPure; // [NEW] Salva calendário original (21 dias)
 
             // Debug (remove in prod if needed)
             // console.log(`[MA] User ${item.nome}: Prod=${item.producao}, MetaDia=${item.meta_velocidade_media}, DiasUteis=${diastUteisUser}, Abono=${item.soma_abono}, MetaTotal=${item.meta_total_periodo}`);
@@ -375,7 +378,7 @@ MinhaArea.Geral = {
                 assert: { real: item.media_final || 0, meta: item.meta_assert },
                 capacidade: {
                     diasReal: workedDaysAjustado,
-                    diasTotal: totalDaysBase
+                    diasTotal: item.dias_calendario_pure || 21
                 },
 
                 velocidade: {
@@ -484,7 +487,7 @@ MinhaArea.Geral = {
         let totalProd = 0, totalMeta = 0, somaMediasEquipe = 0, somaMetasEquipe = 0, countUsers = 0;
         let totalDocs = 0, somaAssertGlobal = 0;
         let maxFator = 0; // [FIX] Agora pegamos o MÁXIMO de dias trabalhados por alguém da equipe
-        let diasUteisCalendario = 0; // [FIX] Pegamos dias úteis do calendário (do primeiro user válido)
+        let diasUteisCalendario = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim); // [FIX] Denominador Pure (Ex 21)
         let managerDailyMeta = 0; // [FIX] Meta Diária da Gestora (Ex: 650) e não o total
         const loggedInUid = window.MinhaArea?.usuario?.id;
 
@@ -564,7 +567,7 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: {
                 diasReal: Math.max(0, maxFator > 0 && contratacaoManager === 'CLT' ? maxFator - 1 : maxFator),
-                diasTotal: diasUteisMeta
+                diasTotal: diasUteisCalendario
             },
             velocidade: {
                 real: diasParaVelocidade > 0 ? Math.round(totalProd / diasParaVelocidade) : 0,
