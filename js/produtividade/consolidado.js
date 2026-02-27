@@ -80,8 +80,8 @@ Produtividade.Consolidado = {
 
             // Resolve Headcount
             const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
-                ? Produtividade.Filtros.estado.contrato || 'todos'
-                : 'todos';
+                ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase()
+                : 'TODOS';
 
             this.hasManualDU = false; // Reset
 
@@ -101,7 +101,7 @@ Produtividade.Consolidado = {
                     this.headcountConfig = Number(config.hc_clt);
                 } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
                     this.headcountConfig = Number(config.hc_terceiros);
-                } else if (filtroContrato === 'todos') {
+                } else if (filtroContrato === 'TODOS') {
                     const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
                     this.headcountConfig = total > 0 ? total : 0;
                 }
@@ -125,7 +125,7 @@ Produtividade.Consolidado = {
     },
 
     getDiasUteisConfig: function () {
-        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase() : 'TODOS';
         const config = this.configMes;
         const datas = Produtividade.getDatasFiltro();
 
@@ -319,14 +319,19 @@ Produtividade.Consolidado = {
         const hRow = document.getElementById('cons-table-header');
         if (!tbody || !hRow) return;
 
-        const filtrosEstado = window.Produtividade.Filtros?.estado;
-        const temFiltroHabilitado = filtrosEstado && (filtrosEstado.nome !== '' || filtrosEstado.funcao !== 'todos' || filtrosEstado.contrato !== 'todos');
+        const filtrosEstado = window.Produtividade.Filtros?.estado || {};
+        const filtroContratoRaw = (filtrosEstado.contrato || 'todos').toUpperCase();
+
+        // [FIX] CLT/TODOS vs todos case mixed checks
+        const temFiltroContrato = (filtroContratoRaw !== 'TODOS');
+        const temFiltroIndividual = (filtrosEstado.nome !== '' || (filtrosEstado.funcao && filtrosEstado.funcao.toLowerCase() !== 'todos'));
 
         const HC_Real = this.contarAssistentesAtivos();
         const HC_Base = this.headcountConfig;
 
-        // Se houver filtro ativo, o HC base de cálculo vira o HC real filtrado (para bater com Dashboard)
-        const HC = temFiltroHabilitado ? HC_Real : HC_Base;
+        // [FIX] Se for um filtro individual (Nome/Função), usa o HC Real.
+        // Se for filtro macro (Contrato ou Geral), usa o HC Base (Configurado/Fallback) para orçar a meta.
+        const HC = temFiltroIndividual ? HC_Real : HC_Base;
 
         let headerHTML = `<tr class="bg-slate-50 border-b border-slate-200"><th class="px-6 py-4 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 text-left min-w-[250px]"><span class="text-xs font-black text-slate-400 uppercase tracking-widest">Indicador</span></th>`;
 
