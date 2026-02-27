@@ -326,9 +326,10 @@ window.MinhaArea = {
                     const f = (u.funcao || '').toUpperCase();
                     const n = (u.nome || '').toUpperCase();
 
-                    const isAuditor = p.includes('AUDITOR') || f.includes('AUDITOR') || n.includes('AUDITOR');
+                    const isExcluido = p.includes('AUDITOR') || f.includes('AUDITOR') || n.includes('AUDITOR') ||
+                        n.includes('SUPER ADMIN') || n.includes('GUPY');
 
-                    if (!isAuditor) {
+                    if (!isExcluido) {
                         options += `<option value="${u.id}">${u.nome}</option>`;
                     }
                 });
