@@ -297,10 +297,12 @@ window.MinhaArea = {
         }
     },
 
+    filtroEquipe: 'GERAL',
+
     atualizarListaAssistentes: async function () {
         if (!this.isAdmin()) return;
         const select = document.getElementById('admin-user-selector');
-        if (!select || select.options.length > 1) return;
+        if (!select || (select.options.length > 3)) return; // Já populado (3 = GERAL, CLT, TERC)
 
         try {
             const { data, error } = await Sistema.supabase
@@ -310,28 +312,40 @@ window.MinhaArea = {
                 .order('nome');
 
             if (!error) {
-                let options = `<option value="">👥 Visão Geral (Equipe)</option>`;
-                // options += `<option value="${this.usuario.id}">👤 Visão Diária (Consolidada)</option>`; // Removido a pedido
-                options += `<option disabled>──────────────</option>`;
+                let options = `
+                    <optgroup label="Visão Macro">
+                        <option value="GERAL">👥 Geral (Todos)</option>
+                        <option value="CLT">🏢 Equipe CLT</option>
+                        <option value="TERCEIROS">🤝 Terceiros</option>
+                    </optgroup>
+                `;
 
+                options += `<optgroup label="Individual">`;
                 data.forEach(u => {
-                    if (u.id != this.usuario.id) {
-                        options += `<option value="${u.id}">${u.nome}</option>`;
-                    }
+                    options += `<option value="${u.id}">${u.nome}</option>`;
                 });
+                options += `</optgroup>`;
+
                 select.innerHTML = options;
 
-                // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
-                select.value = this.usuarioAlvoId || "";
+                // Sync UI
+                if (this.usuarioAlvoId) {
+                    select.value = this.usuarioAlvoId;
+                } else {
+                    select.value = this.filtroEquipe;
+                }
             }
         } catch (e) { }
     },
 
-    mudarUsuarioAlvo: function (novoId) {
-        if (novoId === 'EQUIPE' || novoId === "") {
+    mudarUsuarioAlvo: function (id) {
+        if (['GERAL', 'CLT', 'TERCEIROS'].includes(id)) {
+            this.filtroEquipe = id;
             this.usuarioAlvoId = null;
         } else {
-            this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
+            this.usuarioAlvoId = id ? parseInt(id) : null;
+            // Se mudou para individual, o filtro de equipe padrão é GERAL (não importa muito aqui)
+            if (this.usuarioAlvoId) this.filtroEquipe = 'GERAL';
         }
         this.atualizarTudo();
     },

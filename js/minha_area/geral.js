@@ -96,6 +96,22 @@ MinhaArea.Geral = {
             if (alvoReal) {
                 this.renderizarDiario(alvoReal);
             } else {
+                // [NEW] Filtro de Equipe (CLT / Terceiros)
+                const filtroEq = window.MinhaArea?.filtroEquipe || 'GERAL';
+                if (filtroEq === 'CLT') {
+                    this.state.listaTabela = this.state.listaTabela.filter(i => {
+                        const u = this.state.mapaUsuarios[i.uid];
+                        const c = (u?.contrato || '').toUpperCase();
+                        return c === 'CLT' || this.ehGestao(i.uid); // CLT + Gestão
+                    });
+                } else if (filtroEq === 'TERCEIROS') {
+                    this.state.listaTabela = this.state.listaTabela.filter(i => {
+                        const u = this.state.mapaUsuarios[i.uid];
+                        const c = (u?.contrato || '').toUpperCase();
+                        return c === 'TERCEIROS' || c === 'PJ';
+                    });
+                }
+
                 this.calcularKpisGlobal();
                 this.renderizarGradeEquipe();
             }
@@ -527,8 +543,25 @@ MinhaArea.Geral = {
         // [FIX] Identifica a Gestora/Liderança no início para definir os parâmetros globais
         const managerItemForDays = this.state.listaTabela.find(i => String(i.uid) === String(loggedInUid) && this.ehLiderancaReal(i.uid)) || this.state.listaTabela.find(i => this.ehLiderancaReal(i.uid));
 
-        // Headcount Configurado ou Padrão 17 (Conforme regra de negócio)
-        let hcFinal = (this.state.headcountConfig && this.state.headcountConfig > 0) ? this.state.headcountConfig : 17;
+        // [FIX] Filtro de Equipe - Headcount e Regras (Sincronizado com Produtividade)
+        const filtroEq = window.MinhaArea?.filtroEquipe || 'GERAL';
+        let hcFinal = 17;
+        let contratacaoManager = 'CLT'; // Default para Geral/CLT
+
+        const c = this.state.configMes; // Atalho
+        if (filtroEq === 'CLT') {
+            hcFinal = (c && c.hc_clt > 0) ? Number(c.hc_clt) : 8;
+            contratacaoManager = 'CLT';
+        } else if (filtroEq === 'TERCEIROS') {
+            hcFinal = (c && c.hc_terceiros > 0) ? Number(c.hc_terceiros) : 9;
+            contratacaoManager = 'TERCEIROS';
+        } else {
+            // GERAL (Todos)
+            const hcClt = (c && c.hc_clt > 0) ? Number(c.hc_clt) : 8;
+            const hcTerc = (c && c.hc_terceiros > 0) ? Number(c.hc_terceiros) : 9;
+            hcFinal = hcClt + hcTerc;
+            contratacaoManager = 'CLT'; // No geral, prevalece regra CLT (-1 dia)
+        }
 
         // Recupera Dias Úteis da Configuração ou usa o maior calendário encontrado
         let diasUteisMeta = diasUteisCalendario > 0 ? diasUteisCalendario : this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
@@ -537,7 +570,7 @@ MinhaArea.Geral = {
         managerDailyMeta = managerItemForDays ? managerItemForDays.meta_velocidade_media : 0;
 
         // Aplica regra de -1 dia para CLT na meta global se o gestor for CLT
-        const contratacaoManager = (managerItemForDays?.contrato || 'CLT').toUpperCase();
+        // const contratacaoManager = (managerItemForDays?.contrato || 'CLT').toUpperCase(); // REPLACED ABOVE
         const diasUteisAjustadosMeta = (contratacaoManager === 'CLT' && diasUteisMeta > 0) ? (diasUteisMeta - 1) : diasUteisMeta;
 
         // [LOGIC] Meta Total (Sincronizado com Produtividade)

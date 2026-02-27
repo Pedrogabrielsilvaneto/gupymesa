@@ -336,7 +336,13 @@ MinhaArea.Metas = {
 
             const isAdmin = isManagerEffective;
             const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
-            const filtroContrato = this.currentFilterContract;
+
+            // [SYNC] Use global filter from MinhaArea if set, mapping GERAL->TODOS and TERCEIROS->PJ
+            let mainFiltro = window.MinhaArea?.filtroEquipe || 'GERAL';
+            if (mainFiltro === 'GERAL') mainFiltro = 'TODOS';
+            if (mainFiltro === 'TERCEIROS') mainFiltro = 'PJ';
+            const filtroContrato = (MinhaArea.usuarioAlvoId) ? 'TODOS' : mainFiltro;
+            this.currentFilterContract = filtroContrato;
 
             // 1. Buscar Usuários via SQL
             let sqlUsers = `SELECT id, nome, perfil, funcao, contrato FROM usuarios WHERE ativo = TRUE`;
