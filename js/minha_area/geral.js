@@ -367,6 +367,7 @@ MinhaArea.Geral = {
 
             const statusContrato = (uInfo?.contrato || '').toUpperCase();
             const isGestao = this.ehGestao(item.uid);
+            const workedDays = item.soma_fator || 0;
             const workedDaysAjustado = ((statusContrato === 'CLT' || isGestao) && workedDays > 0) ? Math.max(0, workedDays - 1) : workedDays;
 
             const totalDaysBase = item.dias_uteis_brutos || item.dias_uteis_liquidos || 21;
