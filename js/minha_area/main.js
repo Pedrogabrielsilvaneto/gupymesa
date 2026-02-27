@@ -322,7 +322,10 @@ window.MinhaArea = {
 
                 options += `<optgroup label="Individual">`;
                 data.forEach(u => {
-                    options += `<option value="${u.id}">${u.nome}</option>`;
+                    const n = (u.nome || '').toUpperCase();
+                    if (!n.includes('AUDITOR')) {
+                        options += `<option value="${u.id}">${u.nome}</option>`;
+                    }
                 });
                 options += `</optgroup>`;
 

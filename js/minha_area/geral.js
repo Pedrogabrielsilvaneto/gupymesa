@@ -459,7 +459,7 @@ MinhaArea.Geral = {
     },
 
     renderizarGradeEquipe: function () {
-        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Dias Trab.</th><th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
+        const headerGrade = `<tr class="divide-x divide-slate-200"><th class="px-3 py-3 text-left bg-slate-50">Assistente</th><th class="px-2 py-3 text-center bg-slate-50">Dias Trab.</th><th class="px-2 py-3 text-center bg-slate-50 text-[10px] text-amber-600">Abonos</th><th class="px-2 py-3 text-center bg-slate-50">Meta (Gestão)</th><th class="px-2 py-3 text-center bg-blue-50 text-blue-700">Produção Total</th><th class="px-2 py-3 text-center bg-slate-50">Meta Real</th><th class="px-2 py-3 text-center bg-slate-50">%</th><th class="px-2 py-3 text-center bg-slate-50">Assertividade</th><th class="px-3 py-3 text-left bg-slate-50">Observação</th></tr>`;
         if (this.els.tabelaHeader) this.els.tabelaHeader.innerHTML = headerGrade;
 
         const listaAssistentes = this.state.listaTabela.filter(row => !this.ehGestao(row.uid));
@@ -480,11 +480,13 @@ MinhaArea.Geral = {
 
                 const uInfoRow = this.state.mapaUsuarios[row.uid];
                 const workedDays = (uInfoRow?.contrato === 'CLT' && row.soma_fator > 0) ? row.soma_fator - 1 : row.soma_fator;
+                const abonos = row.soma_abono || 0;
 
                 return `
                     <tr class="hover:bg-blue-50/30 border-b border-slate-200 cursor-pointer" onclick="MinhaArea.mudarUsuarioAlvo('${row.uid}')">
                         <td class="px-3 py-3 font-bold text-slate-700">${row.nome}</td>
                         <td class="px-2 py-3 text-center text-slate-700 font-medium bg-slate-50">${workedDays}</td>
+                        <td class="px-2 py-3 text-center text-amber-600 font-bold bg-amber-50/10">${abonos > 0 ? abonos : '-'}</td>
                         <td class="px-2 py-3 text-center text-slate-500">${row.meta_velocidade_media}</td>
                         <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20">${row.producao}</td>
                         <td class="px-2 py-3 text-center text-slate-700">${row.meta_total_periodo}</td>
