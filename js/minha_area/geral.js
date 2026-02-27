@@ -366,9 +366,8 @@ MinhaArea.Geral = {
             const contratoUser = uInfo ? (uInfo.contrato || '').toUpperCase() : '';
 
             const statusContrato = (uInfo?.contrato || '').toUpperCase();
-            const workedDays = item.soma_fator || 0;
-            // Regra CLT: Desconta 1 dia da capacidade e da média
-            const workedDaysAjustado = (statusContrato === 'CLT' && workedDays > 0) ? Math.max(0, workedDays - 1) : workedDays;
+            const isGestao = this.ehGestao(item.uid);
+            const workedDaysAjustado = ((statusContrato === 'CLT' || isGestao) && workedDays > 0) ? Math.max(0, workedDays - 1) : workedDays;
 
             const totalDaysBase = item.dias_uteis_brutos || item.dias_uteis_liquidos || 21;
             const totalDaysAjustado = (statusContrato === 'CLT' && totalDaysBase > 0) ? Math.max(0, totalDaysBase - 1) : totalDaysBase;
