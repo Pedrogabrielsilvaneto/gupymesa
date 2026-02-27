@@ -307,7 +307,7 @@ window.MinhaArea = {
         try {
             const { data, error } = await Sistema.supabase
                 .from('usuarios')
-                .select('id, nome')
+                .select('id, nome, perfil, funcao')
                 .eq('ativo', true)
                 .order('nome');
 
@@ -322,8 +322,13 @@ window.MinhaArea = {
 
                 options += `<optgroup label="Individual">`;
                 data.forEach(u => {
+                    const p = (u.perfil || '').toUpperCase();
+                    const f = (u.funcao || '').toUpperCase();
                     const n = (u.nome || '').toUpperCase();
-                    if (!n.includes('AUDITOR')) {
+
+                    const isAuditor = p.includes('AUDITOR') || f.includes('AUDITOR') || n.includes('AUDITOR');
+
+                    if (!isAuditor) {
                         options += `<option value="${u.id}">${u.nome}</option>`;
                     }
                 });
