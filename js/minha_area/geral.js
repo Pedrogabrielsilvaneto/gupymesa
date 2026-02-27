@@ -296,13 +296,8 @@ MinhaArea.Geral = {
                     const contractUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
                     const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mes && mt.ano == ano);
 
-                    let metaBase = 100; // Fallback default
-                    if (metaObj) {
-                        metaBase = Number(metaObj.meta_producao || 0);
-                    } else {
-                        metaBase = (contractUser === 'PJ' || contractUser === 'TERCEIROS') ? 100 : 650;
-                    }
-                    if (metaBase <= 0) metaBase = (contractUser === 'PJ' || contractUser === 'TERCEIROS') ? 100 : 650;
+                    // [REGRA] Sempre usar a meta MAIOR (mínimo 650)
+                    const metaBase = Math.max(650, Number(metaObj ? (metaObj.meta_producao || 0) : 0));
 
                     if (metaObj && metaObj.meta_assertividade) item.meta_assert = metaObj.meta_assertividade;
 
@@ -329,20 +324,16 @@ MinhaArea.Geral = {
                 const metaObj = this.state.dadosMetas.find(mt => String(mt.usuario_id) === String(item.uid) && mt.mes == mesRef && mt.ano == anoRef);
 
                 // [DEBUG] Log para verificar busca de meta
-                console.log(`[MA-META] User ${item.nome} (uid=${item.uid}): metaObj=`, metaObj, `| mesRef=${mesRef} anoRef=${anoRef} | dadosMetas.length=${this.state.dadosMetas.length}`);
+                console.log(`[MA-META] User ${item.nome} (uid=${item.uid}): metaObj=`, metaObj, `| mesRef=${mesRef} anoRef=${anoRef}`);
 
-                // [LOGIC] Meta Diária (Velocidade Esperada)
-                // [FIX] Priorizar meta EXATA do BD, sem pisos artificiais
+                // [REGRA] Meta Diária: Sempre usar a meta MAIOR (mínimo 650)
                 const rawMeta = metaObj ? Number(metaObj.meta_producao || metaObj.meta_prod || 0) : 0;
 
                 // Guarda o valor EXATO do banco para exibição na grade
                 item.meta_real_db = rawMeta > 0 ? rawMeta : null;
 
-                if (rawMeta > 0) {
-                    item.meta_velocidade_media = rawMeta;
-                } else {
-                    item.meta_velocidade_media = (contratoUser === 'TERCEIROS' || contratoUser === 'PJ') ? 100 : 650;
-                }
+                // Meta para cálculo: sempre >= 650
+                item.meta_velocidade_media = Math.max(650, rawMeta);
 
                 if (metaObj && (metaObj.meta_assertividade || metaObj.meta_assert)) {
                     item.meta_assert = Number(metaObj.meta_assertividade || metaObj.meta_assert);

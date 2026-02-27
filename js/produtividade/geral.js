@@ -396,13 +396,9 @@ Produtividade.Geral = {
                 item._meta_gestor_base = Number(metaObj ? (metaObj.meta_producao || 0) : 0); // Guarda meta do gestor (ex 650)
                 item.meta_assert = 0;
             } else {
-                // [FIX] Meta: Priorizar valor do banco, fallback conforme contrato
+                // [REGRA] Meta: Sempre usar a meta MAIOR (mínimo 650), ignorar assistentes com metas menores
                 const metaIndiv = Number(metaObj ? (metaObj.meta_producao || 0) : 0);
-                if (metaIndiv > 0) {
-                    item.meta_base_diaria = metaIndiv;
-                } else {
-                    item.meta_base_diaria = (contrato === 'TERCEIROS' || contrato === 'PJ') ? 100 : 650;
-                }
+                item.meta_base_diaria = Math.max(650, metaIndiv);
                 item.meta_assert = Number(metaObj ? (metaObj.meta_assertividade || 97) : 97);
             }
 
@@ -784,7 +780,7 @@ Produtividade.Geral = {
                 }
 
                 const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
-                const metaVal = metaObj ? Number(metaObj.meta_producao) : 650;
+                const metaVal = Math.max(650, Number(metaObj ? (metaObj.meta_producao || 0) : 0));
                 if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
             }
         });
@@ -844,32 +840,29 @@ Produtividade.Geral = {
             dTercMeta = diasMetaCal;
         }
 
-        // --- LÓGICA GERAL (17 Assistentes, Meta 650, Dias -1) ---
-        // 650 * 17 * 20 = 221.000
-        let hGeral = 17;
-        // --- LÓGICA CLT (8 Assistentes, Meta 650, Dias -1) ---
-        // 650 * 8 * 20 = 104.000
-        let hClt = 8;
-        let mClt = 650;
+        // --- LÓGICA CLT (Assistentes CLT, Meta 650, Dias -1) ---
+        const hClt = (configMesParaMeta && Number(configMesParaMeta.hc_clt) > 0) ? Number(configMesParaMeta.hc_clt) : 8;
+        const mClt = 650;
         const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
-        let valorMetaCLT = mClt * hClt * multCltMeta;
+        const valorMetaCLT = mClt * hClt * multCltMeta;
 
-        // --- LÓGICA TERCEIROS (9 Assistentes, Meta 650, Dias Cheios) ---
-        // 650 * 9 * 21 = 122.850
-        let hTerc = 9;
-        let mTerc = 650;
+        // --- LÓGICA TERCEIROS (Assistentes Terceiros, Meta 650, Dias Cheios) ---
+        const hTerc = (configMesParaMeta && Number(configMesParaMeta.hc_terceiros) > 0) ? Number(configMesParaMeta.hc_terceiros) : 9;
+        const mTerc = 650;
         const multTercMeta = isPeriodo ? Math.max(0, dTercMeta) : dTercMeta;
-        let valorMetaTerc = mTerc * hTerc * multTercMeta;
+        const valorMetaTerc = mTerc * hTerc * multTercMeta;
+
+        // --- LÓGICA GERAL (CLT + Terceiros, Meta 650, Dias -1 da Gestora) ---
+        const hGeral = hClt + hTerc;
 
         if (filtroContrato === 'CLT') {
             totalMetaAjustada = valorMetaCLT;
         } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
             totalMetaAjustada = valorMetaTerc;
         } else {
-            // GERAL (TODOS) = 17 Assistentes * 650 Meta * (Calendário - 1)
-            // 650 * 17 * 20 = 221.000
+            // GERAL (TODOS) = (hClt+hTerc) * 650 * (Calendário - 1)
             const multGeral = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
-            totalMetaAjustada = 17 * 650 * multGeral;
+            totalMetaAjustada = hGeral * 650 * multGeral;
         }
 
         // Nota: Abonos de equipe não reduzem o Card Principal de Meta Esperada para manter os valores cravados do target macro.
@@ -1235,7 +1228,8 @@ Produtividade.Geral = {
             const dateObj = new Date(this.normalizarData(d.data_referencia) + 'T12:00:00');
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(uid));
             const fator = d.fator !== null ? Number(d.fator) : 1.0;
-            const metaDia = Math.round(Math.max(650, Number(metaObj ? (metaObj.meta_producao || 650) : 650)) * fator);
+            const metaBaseDetalhe = Math.max(650, Number(metaObj ? (metaObj.meta_producao || 0) : 0));
+            const metaDia = Math.round(metaBaseDetalhe * fator);
             const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
             const obsHtml = `
     <div class="flex flex-col gap-1">
