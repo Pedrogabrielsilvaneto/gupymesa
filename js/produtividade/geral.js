@@ -253,23 +253,12 @@ Produtividade.Geral = {
         const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         const config = this.state.configMes;
-        let hc = 17; // Padrão fixo
+        const hcClt = (config && Number(config.hc_clt) > 0) ? Number(config.hc_clt) : 8;
+        const hcTerc = (config && Number(config.hc_terceiros) > 0) ? Number(config.hc_terceiros) : 9;
 
-        if (config) {
-            if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
-                hc = Number(config.hc_clt);
-            } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
-                hc = Number(config.hc_terceiros);
-            } else if (filtroContrato === 'TODOS') {
-                const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
-                if (total > 0) hc = total;
-            }
-        } else {
-            // Fallbacks baseados na regra de negócio se não houver configuração
-            if (filtroContrato === 'CLT') hc = 8;
-            else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') hc = 9;
-            else hc = 17;
-        }
+        if (filtroContrato === 'CLT') return hcClt;
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return hcTerc;
+        return (hcClt + hcTerc); // Retorna 17 se configs forem 0 ou ausentes
         return hc;
     },
 

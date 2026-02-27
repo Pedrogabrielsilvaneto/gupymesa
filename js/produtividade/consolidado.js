@@ -85,26 +85,15 @@ Produtividade.Consolidado = {
 
             this.hasManualDU = false; // Reset
 
-            if (config) {
-                // Checa se há alteração manual baseada no filtro para exibir a linha depois
-                if (filtroContrato === 'CLT') {
-                    if (config.dias_uteis_clt !== null) this.hasManualDU = true;
-                    this.headcountConfig = Number(config.hc_clt) > 0 ? Number(config.hc_clt) : 8;
-                } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
-                    if (config.dias_uteis_terceiros !== null) this.hasManualDU = true;
-                    this.headcountConfig = Number(config.hc_terceiros) > 0 ? Number(config.hc_terceiros) : 9;
-                } else {
-                    if (config.dias_uteis_clt !== null || config.dias_uteis_terceiros !== null || config.dias_uteis !== null) {
-                        this.hasManualDU = true;
-                    }
-                    const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
-                    this.headcountConfig = total > 0 ? total : 17;
-                }
+            const hcClt = (config && Number(config.hc_clt) > 0) ? Number(config.hc_clt) : 8;
+            const hcTerc = (config && Number(config.hc_terceiros) > 0) ? Number(config.hc_terceiros) : 9;
+
+            if (filtroContrato === 'CLT') {
+                this.headcountConfig = hcClt;
+            } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+                this.headcountConfig = hcTerc;
             } else {
-                // Fallback Headcount se não houver config_mes em absoluto
-                if (filtroContrato === 'CLT') this.headcountConfig = 8;
-                else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') this.headcountConfig = 9;
-                else this.headcountConfig = 17;
+                this.headcountConfig = hcClt + hcTerc;
             }
 
             // Resolve Dias Úteis Configurados
