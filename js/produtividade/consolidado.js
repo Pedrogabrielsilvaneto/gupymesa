@@ -89,26 +89,19 @@ Produtividade.Consolidado = {
                 // Checa se há alteração manual baseada no filtro para exibir a linha depois
                 if (filtroContrato === 'CLT') {
                     if (config.dias_uteis_clt !== null) this.hasManualDU = true;
+                    this.headcountConfig = Number(config.hc_clt) > 0 ? Number(config.hc_clt) : 8;
                 } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
                     if (config.dias_uteis_terceiros !== null) this.hasManualDU = true;
+                    this.headcountConfig = Number(config.hc_terceiros) > 0 ? Number(config.hc_terceiros) : 9;
                 } else {
                     if (config.dias_uteis_clt !== null || config.dias_uteis_terceiros !== null || config.dias_uteis !== null) {
                         this.hasManualDU = true;
                     }
-                }
-
-                if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
-                    this.headcountConfig = Number(config.hc_clt);
-                } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
-                    this.headcountConfig = Number(config.hc_terceiros);
-                } else if (filtroContrato === 'TODOS') {
                     const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
-                    this.headcountConfig = total > 0 ? total : 0;
+                    this.headcountConfig = total > 0 ? total : 17;
                 }
-            }
-
-            // Fallback Headcount se não houver config_mes
-            if (!this.headcountConfig || this.headcountConfig <= 0) {
+            } else {
+                // Fallback Headcount se não houver config_mes em absoluto
                 if (filtroContrato === 'CLT') this.headcountConfig = 8;
                 else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') this.headcountConfig = 9;
                 else this.headcountConfig = 17;
