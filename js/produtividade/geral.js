@@ -794,10 +794,12 @@ Produtividade.Geral = {
         const hoje = new Date().toISOString().split('T')[0];
         const rangeInicio = this.state.range.inicio;
         const rangeFim = this.state.range.fim;
+        let isDecorred = false;
         let diasDivisorReal = totalDiasUteis;
 
         if (hoje >= rangeInicio && hoje <= rangeFim) {
             diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
+            isDecorred = true;
         }
 
         // [MOD V4.5] Velocidade Média Diária Global (Refletindo Filtros)
@@ -808,7 +810,11 @@ Produtividade.Geral = {
 
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
         const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
-        const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, diasDivisorReal - 1) : diasDivisorReal;
+
+        // Regra: Se for decorrido (mês atual), subtrai 1. Se for total (mestre de config já ajustado), não subtrai de novo.
+        const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
+            ? Math.max(0, (isDecorred ? diasDivisorReal - 1 : diasDivisorReal))
+            : diasDivisorReal;
 
         const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
@@ -820,7 +826,7 @@ Produtividade.Geral = {
             targetVelocidade = 650;
         }
 
-        const diasTotalKpi = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, totalDiasUteis - 1) : totalDiasUteis;
+        const diasTotalKpi = totalDiasUteis;
 
         // --- CÁLCULO DA META GLOBAL (Produção Esperada) conforme regras fornecidas ---
         let totalMetaAjustada = 0;

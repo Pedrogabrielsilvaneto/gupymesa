@@ -612,7 +612,7 @@ MinhaArea.Geral = {
             assert: { real: totalDocs > 0 ? (somaAssertGlobal / totalDocs) : 0, meta: 97 },
             capacidade: {
                 diasReal: Math.max(0, maxFator > 0 && contratacaoManager === 'CLT' ? maxFator - 1 : maxFator),
-                diasTotal: diasUteisCalendario
+                diasTotal: diasUteisAjustadosMeta
             },
             velocidade: {
                 real: diasParaVelocidade > 0 ? Math.round(totalProd / diasParaVelocidade) : 0,
