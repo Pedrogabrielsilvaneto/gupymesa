@@ -270,8 +270,8 @@ Produtividade.Consolidado = {
                     const rFc = Number(r.perfil_fc) || 0;
 
                     [b, 99].forEach(k => {
-                        // [FIX] Produção Total deve ser a soma de todas as vertentes para bater com o Dashboard Geral (257k)
-                        st[k].qty += (rQty + rFifo + rGt + rGp + rFc);
+                        // [FIX] rQty já contém (GT + GP + FC). Somamos apenas o FIFO para chegar no total real (257k)
+                        st[k].qty += (rQty + rFifo);
                         
                         st[k].fifo += rFifo;
                         st[k].gt += rGt;
