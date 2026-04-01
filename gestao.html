@@ -250,7 +250,7 @@
 
                         <div class="flex items-center gap-1 bg-slate-50 rounded-full px-2 py-0.5"
                             title="Padrão: Produção / Assertividade">
-                            <input type="number" id="padrao-prod-input" value="650"
+                            <input type="number" id="padrao-prod-input" value="700"
                                 class="w-10 text-center text-[10px] font-bold text-slate-600 bg-transparent outline-none">
                             <span class="text-slate-300 text-[10px]">/</span>
                             <input type="number" id="padrao-assert-input" value="97"
@@ -493,6 +493,36 @@
                     </div>
                 </div>
 
+                <!-- GRUPO 4: Metas dos Times -->
+                <div class="flex items-center gap-4 px-6 border-l border-indigo-100">
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[9px] font-bold text-indigo-400 uppercase tracking-wider text-center">Meta
+                            Times (Bulk)</span>
+                        <div
+                            class="flex items-center gap-2 bg-white border border-indigo-100 rounded-xl p-1 shadow-sm px-3 h-[31px]">
+                            <div class="flex items-center gap-2 border-r border-slate-100 pr-3" title="Meta para todas as Gestoras">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Geral</span>
+                                <input type="number" id="bulk-meta-geral" placeholder="700"
+                                    class="w-9 text-xs font-bold text-purple-600 outline-none text-center bg-transparent placeholder-slate-200">
+                            </div>
+                            <div class="flex items-center gap-2 border-r border-slate-100 pr-3 pl-1" title="Meta para CLT">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">CLT</span>
+                                <input type="number" id="bulk-meta-clt" placeholder="700"
+                                    class="w-9 text-xs font-bold text-blue-600 outline-none text-center bg-transparent placeholder-slate-200">
+                            </div>
+                            <div class="flex items-center gap-2 pl-1" title="Meta para Terceiros">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase">Terc.</span>
+                                <input type="number" id="bulk-meta-terc" placeholder="750"
+                                    class="w-9 text-xs font-bold text-emerald-600 outline-none text-center bg-transparent placeholder-slate-200">
+                            </div>
+                            <button onclick="Gestao.Metas.aplicarMetasTimes()"
+                                class="ml-2 bg-indigo-600 hover:bg-indigo-700 text-white w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm active:scale-95">
+                                <i class="fas fa-magic text-[9px]"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex-1"></div>
             </div>
 
@@ -530,7 +560,7 @@
     <script src="js/gestao/empresas.js"></script>
     <script src="js/gestao/assertividade.js"></script>
     <script src="js/gestao/config_mes.js?v=20260224_2025"></script>
-    <script src="js/gestao/metas.js?v=20260224_2025"></script>
+    <script src="js/gestao/metas.js?v=20260401_1028"></script>
 
 
     <script src="js/gestao/importacao/usuarios.js?v=20260216_rev8"></script>

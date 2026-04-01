@@ -314,6 +314,48 @@ Gestao.Metas = {
         });
     },
 
+    aplicarMetasTimes: function () {
+        const valGeral = document.getElementById('bulk-meta-geral')?.value;
+        const valClt = document.getElementById('bulk-meta-clt')?.value;
+        const valTerc = document.getElementById('bulk-meta-terc')?.value;
+
+        if (!valGeral && !valClt && !valTerc) {
+            alert("Insira pelo menos um valor de meta para aplicar.");
+            return;
+        }
+
+        let totalAfetados = 0;
+
+        // Atua sobre a lista visível (DOM renderizado)
+        this.state.listaVisivel.forEach(u => {
+            let metaParaAplicar = null;
+
+            // Regras: GESTAO recebe "Geral", Contrato CLT recebe "CLT", Contrato TERCEIROS recebe "Terc"
+            if (valGeral && u.categFuncao === 'GESTAO') {
+                metaParaAplicar = valGeral;
+            } else if (valClt && u.contrato === 'CLT') {
+                metaParaAplicar = valClt;
+            } else if (valTerc && (u.contrato === 'TERCEIROS' || u.contrato === 'PJ')) {
+                metaParaAplicar = valTerc;
+            }
+
+            if (metaParaAplicar !== null) {
+                const elProd = document.getElementById(`prod-${u.id}`);
+                if (elProd) {
+                    elProd.value = metaParaAplicar;
+                    this.marcarAlterado(u.id);
+                    totalAfetados++;
+                }
+            }
+        });
+
+        if (totalAfetados > 0) {
+            alert(`✅ Sucesso!\nMetas preenchidas para ${totalAfetados} usuários.\n\nClique no botão Salvar (ícone de disquete) no topo para gravar permanentemente.`);
+        } else {
+            alert("Nenhum usuário correspondente encontrado na listagem atual.");
+        }
+    },
+
     salvarTodas: async function () {
         if (this.state.alteracoesPendentes.size === 0) { alert("Nenhuma alteração para salvar."); return; }
 
