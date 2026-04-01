@@ -451,13 +451,17 @@ Produtividade.Geral = {
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
 
-        // 2. Filtro de Gestão (Para Grid)
+        // 2. Filtro de Gestão (Para Grid) e Visitantes (Sempre removidos)
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
         let listaParaGrid = listaBase.filter(item => {
             const u = this.state.mapaUsuarios[item.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+            const nome = (u.nome || '').toLowerCase();
+            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'visitante'];
+
+            const ehVisitante = nome.includes('visitante') || funcao.includes('visitante') || perfil.includes('visitante');
+            if (ehVisitante) return false;
 
             if (filtroFuncao === 'todos') {
                 const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
@@ -811,7 +815,10 @@ Produtividade.Geral = {
         // Se estiver filtrando por Nome ou Função específica, usamos o count real da lista filtrada.
         const totalHeadcountFiltrado = listaExibicao.filter(i => {
             const u = this.state.mapaUsuarios[i.uid] || {};
-            return !i.isAggregatedManager && !termosExcluidos.some(t => (u.funcao || '').toLowerCase().includes(t));
+            const cargo = (u.funcao || '').toLowerCase();
+            const perfil = (u.perfil || '').toLowerCase();
+            const nome = (u.nome || '').toLowerCase();
+            return !i.isAggregatedManager && !termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t) || nome.includes(t));
         }).length;
 
         const hcParaVelocidade = temFiltroEspecifico 
