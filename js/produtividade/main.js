@@ -200,16 +200,48 @@ Object.assign(window.Produtividade, {
             const val = document.getElementById('sel-data-dia')?.value || fmt(new Date());
             inicio = fim = val;
         } else {
-            const ano = parseInt(document.getElementById('sel-ano')?.value || new Date().getFullYear());
-            const mes = parseInt(document.getElementById('sel-mes')?.value || 0);
+            const ano = parseInt(document.getElementById('sel-ano')?.value) || new Date().getFullYear();
+            // O select de mês normalmente retorna 1‑12; convertemos para 0‑based.
+            let mesRaw = document.getElementById('sel-mes')?.value;
+            let mes = mesRaw ? (parseInt(mesRaw) - 1) : new Date().getMonth();
 
             if (this.filtroPeriodo === 'mes') {
+                // Primeiro dia do mês selecionado
                 inicio = new Date(ano, mes, 1);
                 inicio.setHours(12, 0, 0, 0);
+                // Último dia do mês
                 fim = new Date(ano, mes + 1, 0);
                 fim.setHours(12, 0, 0, 0);
-
             } else if (this.filtroPeriodo === 'semana') {
+                // Lógica de semana permanece igual (já usa mes variável acima)
+                const sem = parseInt(document.getElementById('sel-semana')?.value || 1);
+                const primeiroDiaMes = new Date(ano, mes, 1);
+                primeiroDiaMes.setHours(12, 0, 0, 0);
+                const ultimoDiaMes = new Date(ano, mes + 1, 0);
+                ultimoDiaMes.setHours(12, 0, 0, 0);
+                const diaSemana1 = primeiroDiaMes.getDay();
+                const diasAteDomingo = diaSemana1 === 0 ? 0 : (7 - diaSemana1);
+                let fimSemana1 = new Date(primeiroDiaMes);
+                fimSemana1.setDate(primeiroDiaMes.getDate() + diasAteDomingo);
+                fimSemana1.setHours(12, 0, 0, 0);
+                if (sem === 1) {
+                    inicio = primeiroDiaMes;
+                    fim = fimSemana1;
+                } else {
+                    let inicioSemanaN = new Date(fimSemana1);
+                    inicioSemanaN.setDate(fimSemana1.getDate() + 1 + (sem - 2) * 7);
+                    inicioSemanaN.setHours(12, 0, 0, 0);
+                    let fimSemanaN = new Date(inicioSemanaN);
+                    fimSemanaN.setDate(inicioSemanaN.getDate() + 6);
+                    fimSemanaN.setHours(12, 0, 0, 0);
+                    inicio = inicioSemanaN;
+                    fim = fimSemanaN;
+                }
+                if (inicio > ultimoDiaMes) inicio = ultimoDiaMes;
+                if (fim > ultimoDiaMes) fim = ultimoDiaMes;
+            }
+            // Log interval para depuração
+            console.log('%c[DEBUG] Intervalo calculado →', 'color:#0066cc; font-weight:bold;', { inicio: this.formatDateLocal(inicio), fim: this.formatDateLocal(fim) });
                 // --- LÓGICA CORRIGIDA: SEGUNDA A DOMINGO ---
                 const sem = parseInt(document.getElementById('sel-semana')?.value || 1);
                 const primeiroDiaMes = new Date(ano, mes, 1);
