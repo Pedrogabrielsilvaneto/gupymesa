@@ -60,10 +60,8 @@ Object.assign(window.Produtividade, {
                 .select('id, nome, perfil, funcao, contrato, ativo');
             
             if (data) {
-                // Alimenta o mapa global
                 data.forEach(u => this.mapaUsuarios[u.id] = u);
                 
-                // [LEGACY SYNC] Garante que as abas que usam Geral.state.mapaUsuarios também vejam os dados
                 if (window.Produtividade.Geral && window.Produtividade.Geral.state) {
                     window.Produtividade.Geral.state.mapaUsuarios = this.mapaUsuarios;
                 }
@@ -163,7 +161,6 @@ Object.assign(window.Produtividade, {
 
         if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
-        // Feedback visual
         const statusEl = document.getElementById('tabela-corpo');
         if (statusEl) statusEl.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-blue-400"><i class="fas fa-hourglass-half fa-spin"></i> Atualizando...</td></tr>';
 
@@ -201,19 +198,17 @@ Object.assign(window.Produtividade, {
             inicio = fim = val;
         } else {
             const ano = parseInt(document.getElementById('sel-ano')?.value) || new Date().getFullYear();
-            // O select de mês normalmente retorna 1‑12; convertemos para 0‑based.
-            let mesRaw = document.getElementById('sel-mes')?.value;
-            let mes = mesRaw ? (parseInt(mesRaw) - 1) : new Date().getMonth();
+            // O select de mês retorna 1-12; convertemos para 0-based.
+            const mesRaw = document.getElementById('sel-mes')?.value;
+            const mes = mesRaw ? (parseInt(mesRaw) - 1) : new Date().getMonth();
 
             if (this.filtroPeriodo === 'mes') {
-                // Primeiro dia do mês selecionado
                 inicio = new Date(ano, mes, 1);
                 inicio.setHours(12, 0, 0, 0);
-                // Último dia do mês
                 fim = new Date(ano, mes + 1, 0);
                 fim.setHours(12, 0, 0, 0);
+
             } else if (this.filtroPeriodo === 'semana') {
-                // Lógica de semana permanece igual (já usa mes variável acima)
                 const sem = parseInt(document.getElementById('sel-semana')?.value || 1);
                 const primeiroDiaMes = new Date(ano, mes, 1);
                 primeiroDiaMes.setHours(12, 0, 0, 0);
@@ -239,86 +234,36 @@ Object.assign(window.Produtividade, {
                 }
                 if (inicio > ultimoDiaMes) inicio = ultimoDiaMes;
                 if (fim > ultimoDiaMes) fim = ultimoDiaMes;
-            }
-            // Log interval para depuração
-            console.log('%c[DEBUG] Intervalo calculado →', 'color:#0066cc; font-weight:bold;', { inicio: this.formatDateLocal(inicio), fim: this.formatDateLocal(fim) });
-                // --- LÓGICA CORRIGIDA: SEGUNDA A DOMINGO ---
-                const sem = parseInt(document.getElementById('sel-semana')?.value || 1);
-                const primeiroDiaMes = new Date(ano, mes, 1);
-                primeiroDiaMes.setHours(12, 0, 0, 0);
-                const ultimoDiaMes = new Date(ano, mes + 1, 0);
-                ultimoDiaMes.setHours(12, 0, 0, 0);
-
-                // Encontrar o fim da primeira semana (Primeiro Domingo ou fim do mês)
-                // getDay(): 0 = Domingo, 1 = Segunda ... 6 = Sábado
-                const diaSemana1 = primeiroDiaMes.getDay();
-
-                // Dias restantes até o próximo domingo (Se for Dom(0), já é o fim. Se for Seg(1), faltam 6 dias)
-                const diasAteDomingo = diaSemana1 === 0 ? 0 : (7 - diaSemana1);
-
-                let fimSemana1 = new Date(primeiroDiaMes);
-                fimSemana1.setDate(primeiroDiaMes.getDate() + diasAteDomingo);
-                fimSemana1.setHours(12, 0, 0, 0);
-
-                if (sem === 1) {
-                    // Semana 1: Dia 1 até o primeiro Domingo
-                    inicio = primeiroDiaMes;
-                    fim = fimSemana1;
-                } else {
-                    // Semanas seguintes: Segunda-feira até Domingo
-                    // Calcula o início da semana N: (Fim da Semana 1 + 1 dia) + (N-2 semanas * 7 dias)
-                    let inicioSemanaN = new Date(fimSemana1);
-                    inicioSemanaN.setDate(fimSemana1.getDate() + 1 + (sem - 2) * 7);
-                    inicioSemanaN.setHours(12, 0, 0, 0);
-
-                    let fimSemanaN = new Date(inicioSemanaN);
-                    fimSemanaN.setDate(inicioSemanaN.getDate() + 6); // +6 dias para fechar no Domingo
-                    fimSemanaN.setHours(12, 0, 0, 0);
-
-                    inicio = inicioSemanaN;
-                    fim = fimSemanaN;
-                }
-
-                // Trava de segurança: não sair do mês
-                if (inicio > ultimoDiaMes) inicio = ultimoDiaMes;
-                if (fim > ultimoDiaMes) fim = ultimoDiaMes;
 
             } else if (this.filtroPeriodo === 'ano') {
                 const sub = document.getElementById('sel-subperiodo-ano')?.value;
-                if (sub === 'S1') { 
-                    inicio = new Date(ano, 0, 1); 
-                    fim = new Date(ano, 5, 30); 
+                if (sub === 'S1') {
+                    inicio = new Date(ano, 0, 1); fim = new Date(ano, 5, 30);
+                } else if (sub === 'S2') {
+                    inicio = new Date(ano, 6, 1); fim = new Date(ano, 11, 31);
+                } else if (sub === 'T1') {
+                    inicio = new Date(ano, 0, 1); fim = new Date(ano, 2, 31);
+                } else if (sub === 'T2') {
+                    inicio = new Date(ano, 3, 1); fim = new Date(ano, 5, 30);
+                } else if (sub === 'T3') {
+                    inicio = new Date(ano, 6, 1); fim = new Date(ano, 8, 30);
+                } else if (sub === 'T4') {
+                    inicio = new Date(ano, 9, 1); fim = new Date(ano, 11, 31);
+                } else {
+                    inicio = new Date(ano, 0, 1); fim = new Date(ano, 11, 31);
                 }
-                else if (sub === 'S2') { 
-                    inicio = new Date(ano, 6, 1); 
-                    fim = new Date(ano, 11, 31); 
-                }
-                else if (sub === 'T1') { 
-                    inicio = new Date(ano, 0, 1); 
-                    fim = new Date(ano, 2, 31); 
-                }
-                else if (sub === 'T2') { 
-                    inicio = new Date(ano, 3, 1); 
-                    fim = new Date(ano, 5, 30); 
-                }
-                else if (sub === 'T3') { 
-                    inicio = new Date(ano, 6, 1); 
-                    fim = new Date(ano, 8, 30); 
-                }
-                else if (sub === 'T4') { 
-                    inicio = new Date(ano, 9, 1); 
-                    fim = new Date(ano, 11, 31); 
-                }
-                else { 
-                    inicio = new Date(ano, 0, 1); 
-                    fim = new Date(ano, 11, 31); 
-                }
-                // Ajustar para meio-dia para evitar problemas de fuso horário
                 if (inicio) inicio.setHours(12, 0, 0, 0);
                 if (fim) fim.setHours(12, 0, 0, 0);
             }
+
+            console.log('%c[DEBUG] Intervalo calculado →', 'color:#0066cc; font-weight:bold;',
+                { inicio: fmt(inicio), fim: fmt(fim) });
         }
-        return { inicio: typeof inicio === 'string' ? inicio : fmt(inicio), fim: typeof fim === 'string' ? fim : fmt(fim) };
+
+        return {
+            inicio: typeof inicio === 'string' ? inicio : fmt(inicio),
+            fim: typeof fim === 'string' ? fim : fmt(fim)
+        };
     },
 
     mudarAba: function (abaId) {
@@ -331,7 +276,6 @@ Object.assign(window.Produtividade, {
         if (targetTab) targetTab.classList.remove('hidden');
         if (targetBtn) targetBtn.classList.add('active');
 
-        // Carrega o módulo específico
         const moduloNome = abaId.charAt(0).toUpperCase() + abaId.slice(1);
         const modulo = Produtividade[moduloNome];
 
