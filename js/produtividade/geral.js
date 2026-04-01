@@ -780,12 +780,12 @@ Produtividade.Geral = {
                 }
 
                 const metaObj = this.state.dadosMetas.find(m => m.usuario_id == i.uid);
-                const metaVal = Math.max(650, Number(metaObj ? (metaObj.meta_producao || 0) : 0));
+                const metaVal = Math.max(700, Number(metaObj ? (metaObj.meta_producao || 0) : 0));
                 if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
             }
         });
 
-        if (maxMetaProducao === 0) maxMetaProducao = 650;
+        if (maxMetaProducao === 0) maxMetaProducao = 700;
 
         // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
@@ -838,9 +838,12 @@ Produtividade.Geral = {
 
 
         // Target da Velocidade (Usa meta da gestora ou fallback conforme contrato)
-        let targetVelocidade = metaDiariaGestor;
-        if (targetVelocidade <= 0) {
-            targetVelocidade = 650;
+        // [FIX MARÇO] CLT/Geral = 700, Terceiros = 750
+        let targetVelocidade = (metaDiariaGestor > 0) ? metaDiariaGestor : 700;
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+            targetVelocidade = 750;
+        } else if (filtroContrato === 'CLT') {
+            targetVelocidade = 700;
         }
 
         const diasTotalKpi = totalDiasUteis;
@@ -862,19 +865,19 @@ Produtividade.Geral = {
             dTercMeta = diasMetaCal;
         }
 
-        // --- LÓGICA CLT (Assistentes CLT, Meta 650, Dias -1) ---
+        // --- LÓGICA CLT (Assistentes CLT, Meta 700, Dias -1) ---
         const hClt = (configMesParaMeta && Number(configMesParaMeta.hc_clt) > 0) ? Number(configMesParaMeta.hc_clt) : 8;
-        const mClt = 650;
+        const mClt = 700;
         const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
         const valorMetaCLT = mClt * hClt * multCltMeta;
 
-        // --- LÓGICA TERCEIROS (Assistentes Terceiros, Meta 650, Dias Cheios) ---
+        // --- LÓGICA TERCEIROS (Assistentes Terceiros, Meta 750, Dias Cheios) ---
         const hTerc = (configMesParaMeta && Number(configMesParaMeta.hc_terceiros) > 0) ? Number(configMesParaMeta.hc_terceiros) : 9;
-        const mTerc = 650;
+        const mTerc = 750;
         const multTercMeta = isPeriodo ? Math.max(0, dTercMeta) : dTercMeta;
         const valorMetaTerc = mTerc * hTerc * multTercMeta;
 
-        // --- LÓGICA GERAL (CLT + Terceiros, Meta 650, Dias -1 da Gestora) ---
+        // --- LÓGICA GERAL (CLT + Terceiros, Meta 700, Dias -1 da Gestora) ---
         const hGeral = hClt + hTerc;
 
         if (filtroContrato === 'CLT') {
@@ -882,9 +885,9 @@ Produtividade.Geral = {
         } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
             totalMetaAjustada = valorMetaTerc;
         } else {
-            // GERAL (TODOS) = (hClt+hTerc) * 650 * (Calendário - 1)
+            // GERAL (TODOS) = (hClt+hTerc) * 700 * (Calendário - 1)
             const multGeral = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
-            totalMetaAjustada = hGeral * 650 * multGeral;
+            totalMetaAjustada = hGeral * 700 * multGeral;
         }
 
         // Nota: Abonos de equipe não reduzem o Card Principal de Meta Esperada para manter os valores cravados do target macro.
