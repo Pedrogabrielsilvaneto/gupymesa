@@ -389,8 +389,10 @@ Produtividade.Consolidado = {
         // 7. Total geral de documentos
         rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-blue-600', s => s.qty, false, true);
 
-        // [FIX] Meta de Produção
-        const targetMeta = 650;
+        // [FIX] Meta de Produção (Sincronizada com Dashboard Geral)
+        let targetMeta = 700;
+        const fContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase() : 'TODOS';
+        if (fContrato === 'TERCEIROS' || fContrato === 'PJ') targetMeta = 750;
 
         rows += mkRow('Meta de produção', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
             const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
