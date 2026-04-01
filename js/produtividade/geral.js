@@ -500,19 +500,13 @@ Produtividade.Geral = {
 
         let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
 
-        // A) Produção: Soma TODOS
+        // A) Produção: Soma TODOS (gestoraItem.producao já inclui _ownProd, não somar de novo)
         listaParaSomaProducao.forEach(i => {
             soma.prod += i.producao;
             soma.fifo += i.fifo;
             soma.gt += i.gt;
             soma.gp += i.gp;
         });
-
-        // Adiciona produção própria da gestora (se houver)
-        soma.prod += gestoraItem._ownProd;
-        soma.fifo += gestoraItem._ownFifo;
-        soma.gt += gestoraItem._ownGt;
-        soma.gp += gestoraItem._ownGp;
 
         // B) Assertividade: Soma APENAS Grid
         listaExibicao.forEach(i => {
@@ -695,14 +689,16 @@ Produtividade.Geral = {
 
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
-        // [FIX] Usa lista filtrada consistente com agregarDadosEquipe para soma da produção
-        const listaParaSoma = this.getListaFiltrada(true).filter(i => i.producao > 0);
-        let totalProd = listaParaSoma.reduce((sum, i) => sum + (Number(i.producao) || 0), 0);
-
-        // Adiciona produção própria da gestão (se houver)
-        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
-        if (gestoraItem) {
-            totalProd += Number(gestoraItem._ownProd || 0);
+        // [FIX] Usa gestoraitem.producao que já foi calculado por agregarDadosEquipe
+        // (evita somar _ownProd duas vezes)
+        let totalProd = 0;
+        const gestoresItem = listaOriginal.find(i => i.isAggregatedManager);
+        if (gestoresItem && gestoresItem.producao > 0) {
+            totalProd = gestoresItem.producao;
+        } else {
+            // Fallback: soma direta se não houver linha agregada
+            const listaParaSoma = this.getListaFiltrada(true).filter(i => i.producao > 0);
+            totalProd = listaParaSoma.reduce((sum, i) => sum + (Number(i.producao) || 0), 0);
         }
 
         let totalMeta = 0;
