@@ -691,15 +691,15 @@ Produtividade.Geral = {
         const termosGestaoLocal = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
         let totalProd = 0;
 
-        listaExibicao.forEach(i => {
-            const u = this.state.mapaUsuarios[i.uid] || {};
-            const cargo = (u.funcao || '').toLowerCase();
-            const ehGestao = termosGestaoLocal.some(t => cargo.includes(t) || (u.nome || '').toLowerCase().includes(t));
-            const filtroFuncao = (window.Produtividade.Filtros?.estado?.funcao || 'todos').toLowerCase();
-
-            // [FIX v4.6] Sempre somar produção de todos os perfis para atingir o total esperado (257k)
-            totalProd += Number(i.producao) || 0;
-        });
+        // [FIX v4.7] Evita duplicidade se a linha agregada (Total) estiver presente
+        const gItemLink = listaExibicao.find(x => x.isAggregatedManager);
+        if (gItemLink) {
+            totalProd = gItemLink.producao;
+        } else {
+            listaExibicao.forEach(i => {
+                totalProd += Number(i.producao) || 0;
+            });
+        }
 
         let totalMeta = 0;
         let somaPontosAssert = 0, totalDocsAssert = 0;
