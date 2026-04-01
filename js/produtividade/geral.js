@@ -689,12 +689,12 @@ Produtividade.Geral = {
 
         const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
-        // [FIX] Usa gestoraitem.producao que já foi calculado por agregarDadosEquipe
+        // [FIX] Usa gestoraItem.producao que já foi calculado por agregarDadosEquipe
         // (evita somar _ownProd duas vezes)
         let totalProd = 0;
-        const gestoresItem = listaOriginal.find(i => i.isAggregatedManager);
-        if (gestoresItem && gestoresItem.producao > 0) {
-            totalProd = gestoresItem.producao;
+        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        if (gestoraItem && gestoraItem.producao > 0) {
+            totalProd = gestoraItem.producao;
         } else {
             // Fallback: soma direta se não houver linha agregada
             const listaParaSoma = this.getListaFiltrada(true).filter(i => i.producao > 0);
