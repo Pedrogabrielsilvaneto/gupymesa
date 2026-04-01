@@ -697,8 +697,7 @@ Produtividade.Geral = {
             const ehGestao = termosGestaoLocal.some(t => cargo.includes(t) || (u.nome || '').toLowerCase().includes(t));
             const filtroFuncao = (window.Produtividade.Filtros?.estado?.funcao || 'todos').toLowerCase();
 
-            // Se filtro for global ou por contrato (CLT/PJ), ignora produção de gestores no card topo
-            if (filtroFuncao === 'todos' && ehGestao) return;
+            // [FIX v4.6] Sempre somar produção de todos os perfis para atingir o total esperado (257k)
             totalProd += Number(i.producao) || 0;
         });
 

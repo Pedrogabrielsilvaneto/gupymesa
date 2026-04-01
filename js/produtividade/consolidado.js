@@ -135,7 +135,7 @@ Produtividade.Consolidado = {
     },
 
     contarAssistentesAtivos: function () {
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
         const filtros = window.Produtividade.Filtros;
 
         // Criamos uma lista de "usuários candidatos" para o preFiltrar
@@ -243,7 +243,7 @@ Produtividade.Consolidado = {
         st[99] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
 
         if (rawData) {
-            const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+            const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
             rawData.forEach(r => {
                 // [NOTE] Filtro de contrato, nome e função já aplicados no preFiltrar (processarEExibir)
@@ -264,14 +264,12 @@ Produtividade.Consolidado = {
 
                 if (b >= 1 && b <= numCols) {
                     [b, 99].forEach(k => {
-                        // [FIX] Produção: ignora produção de gestores para bater com Dashboard
-                        if (!isManager) {
-                            st[k].qty += Number(r.quantidade) || 0;
-                            st[k].fifo += Number(r.fifo) || 0;
-                            st[k].gt += Number(r.gradual_total) || 0;
-                            st[k].gp += Number(r.gradual_parcial) || 0;
-                            st[k].fc += Number(r.perfil_fc) || 0;
-                        }
+                        // [FIX] Produção: somar de todos para atingir o total do departamento (257k)
+                        st[k].qty += Number(r.quantidade) || 0;
+                        st[k].fifo += Number(r.fifo) || 0;
+                        st[k].gt += Number(r.gradual_total) || 0;
+                        st[k].gp += Number(r.gradual_parcial) || 0;
+                        st[k].fc += Number(r.perfil_fc) || 0;
 
                         // Headcount e dias: só assistentes ativos
                         if (!isManager && !isInativo) {
