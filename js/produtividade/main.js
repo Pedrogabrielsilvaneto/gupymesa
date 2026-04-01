@@ -103,7 +103,8 @@ Object.assign(window.Produtividade, {
         }
 
         const mesSelect = document.getElementById('sel-mes');
-        if (mesSelect) mesSelect.value = new Date().getMonth();
+        // O select usa valores 1-12, então usamos getMonth()+1
+        if (mesSelect) mesSelect.value = new Date().getMonth() + 1;
 
         const diaInput = document.getElementById('sel-data-dia');
         if (diaInput && !diaInput.value) {
