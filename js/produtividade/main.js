@@ -205,13 +205,17 @@ Object.assign(window.Produtividade, {
 
             if (this.filtroPeriodo === 'mes') {
                 inicio = new Date(ano, mes, 1);
+                inicio.setHours(12, 0, 0, 0);
                 fim = new Date(ano, mes + 1, 0);
+                fim.setHours(12, 0, 0, 0);
 
             } else if (this.filtroPeriodo === 'semana') {
                 // --- LÓGICA CORRIGIDA: SEGUNDA A DOMINGO ---
                 const sem = parseInt(document.getElementById('sel-semana')?.value || 1);
                 const primeiroDiaMes = new Date(ano, mes, 1);
+                primeiroDiaMes.setHours(12, 0, 0, 0);
                 const ultimoDiaMes = new Date(ano, mes + 1, 0);
+                ultimoDiaMes.setHours(12, 0, 0, 0);
 
                 // Encontrar o fim da primeira semana (Primeiro Domingo ou fim do mês)
                 // getDay(): 0 = Domingo, 1 = Segunda ... 6 = Sábado
@@ -222,6 +226,7 @@ Object.assign(window.Produtividade, {
 
                 let fimSemana1 = new Date(primeiroDiaMes);
                 fimSemana1.setDate(primeiroDiaMes.getDate() + diasAteDomingo);
+                fimSemana1.setHours(12, 0, 0, 0);
 
                 if (sem === 1) {
                     // Semana 1: Dia 1 até o primeiro Domingo
@@ -232,9 +237,11 @@ Object.assign(window.Produtividade, {
                     // Calcula o início da semana N: (Fim da Semana 1 + 1 dia) + (N-2 semanas * 7 dias)
                     let inicioSemanaN = new Date(fimSemana1);
                     inicioSemanaN.setDate(fimSemana1.getDate() + 1 + (sem - 2) * 7);
+                    inicioSemanaN.setHours(12, 0, 0, 0);
 
                     let fimSemanaN = new Date(inicioSemanaN);
                     fimSemanaN.setDate(inicioSemanaN.getDate() + 6); // +6 dias para fechar no Domingo
+                    fimSemanaN.setHours(12, 0, 0, 0);
 
                     inicio = inicioSemanaN;
                     fim = fimSemanaN;
@@ -246,13 +253,37 @@ Object.assign(window.Produtividade, {
 
             } else if (this.filtroPeriodo === 'ano') {
                 const sub = document.getElementById('sel-subperiodo-ano')?.value;
-                if (sub === 'S1') { inicio = new Date(ano, 0, 1); fim = new Date(ano, 5, 30); }
-                else if (sub === 'S2') { inicio = new Date(ano, 6, 1); fim = new Date(ano, 11, 31); }
-                else if (sub === 'T1') { inicio = new Date(ano, 0, 1); fim = new Date(ano, 2, 31); }
-                else if (sub === 'T2') { inicio = new Date(ano, 3, 1); fim = new Date(ano, 5, 30); }
-                else if (sub === 'T3') { inicio = new Date(ano, 6, 1); fim = new Date(ano, 8, 30); }
-                else if (sub === 'T4') { inicio = new Date(ano, 9, 1); fim = new Date(ano, 11, 31); }
-                else { inicio = new Date(ano, 0, 1); fim = new Date(ano, 11, 31); }
+                if (sub === 'S1') { 
+                    inicio = new Date(ano, 0, 1); 
+                    fim = new Date(ano, 5, 30); 
+                }
+                else if (sub === 'S2') { 
+                    inicio = new Date(ano, 6, 1); 
+                    fim = new Date(ano, 11, 31); 
+                }
+                else if (sub === 'T1') { 
+                    inicio = new Date(ano, 0, 1); 
+                    fim = new Date(ano, 2, 31); 
+                }
+                else if (sub === 'T2') { 
+                    inicio = new Date(ano, 3, 1); 
+                    fim = new Date(ano, 5, 30); 
+                }
+                else if (sub === 'T3') { 
+                    inicio = new Date(ano, 6, 1); 
+                    fim = new Date(ano, 8, 30); 
+                }
+                else if (sub === 'T4') { 
+                    inicio = new Date(ano, 9, 1); 
+                    fim = new Date(ano, 11, 31); 
+                }
+                else { 
+                    inicio = new Date(ano, 0, 1); 
+                    fim = new Date(ano, 11, 31); 
+                }
+                // Ajustar para meio-dia para evitar problemas de fuso horário
+                if (inicio) inicio.setHours(12, 0, 0, 0);
+                if (fim) fim.setHours(12, 0, 0, 0);
             }
         }
         return { inicio: typeof inicio === 'string' ? inicio : fmt(inicio), fim: typeof fim === 'string' ? fim : fmt(fim) };
