@@ -551,14 +551,15 @@ Produtividade.Geral = {
     renderizarTabela: function () {
         if (!this.els.tabela) return;
 
-        // [REF_FIX] Usa a nova função centralizada para respeitar os filtros HUD
-        const listaExibicao = this.getListaFiltrada(false); // Falsa: para a GRID (esconde auditores/gestão)
+        // [FIX] Filtra para exibir APENAS quem teve produtividade > 0 (conforme pedido pelo usuário)
+        const listaExibicao = this.getListaFiltrada(false).filter(r => r.producao > 0); 
         const listaOriginal = this.state.listaTabela || [];
-        let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        // let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         
+        /* [REMOVIDO] Não precisamos dessa informação (Total Equipe) na grade
         if (gestoraItem) {
-            listaExibicao.unshift(gestoraItem); // Adiciona a gestora no topo para exibição
-        }
+            listaExibicao.unshift(gestoraItem); 
+        } */
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
             this.els.tabelaHeader.innerHTML = this.state.headerOriginal;
