@@ -367,8 +367,8 @@ Produtividade.Geral = {
 
             if (isGestor) {
                 gestoraItem = item;
-                item.isAggregatedManager = true; // Marca para renderização
-                // REMOVIDO CONTINUE para permitir cálculo de Meta Zero abaixo
+                item.isAggregatedManager = true; 
+                item.nome = "TOTAL EQUIPE"; // [FIX] Não exibe nome de pessoa na linha de total
             } else {
                 // Somatória da Equipe apenas se não for gestor (para legacy, mas aggregation real é no renderizarTabela)
                 somaEquipe.producao += item.producao;
