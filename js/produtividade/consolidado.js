@@ -367,17 +367,71 @@ Produtividade.Consolidado = {
 
         const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? Produtividade.Filtros.estado.contrato || 'todos' : 'todos';
 
+        // --- Cálculo de Dias Ponderados para Fechar com o Total ---
+        let totalCalendarDays = 0;
+        const colDuCalculado = {};
+        const colDiasTrabalhados = {};
+        
+        [...Array(numCols).keys()].map(i => i + 1).forEach(idx => {
+            const dMap = datesMap[idx] || null;
+            const diasCalendar = dMap ? contarSimples(dMap.ini, dMap.fim) : 0;
+            totalCalendarDays += diasCalendar;
+            colDuCalculado[idx] = diasCalendar;
+            colDiasTrabalhados[idx] = st[idx].dias.size;
+        });
+
+        // Distribui a diferença de Configurados (Total Configurado - Total Calendário)
+        const totalConfigDays = this.diasUteisConfig;
+        const diffConfig = totalConfigDays - totalCalendarDays;
+        
+        if (diffConfig !== 0) {
+            let alloc = 0;
+            for(let idx = numCols; idx >= 1; idx--) {
+                if (diffConfig > 0) {
+                    const toAdd = diffConfig - alloc;
+                    colDuCalculado[idx] += toAdd;
+                    alloc += toAdd;
+                } else if (diffConfig < 0) {
+                    const neededToSub = Math.abs(diffConfig) - alloc;
+                    const canSub = Math.min(neededToSub, colDuCalculado[idx]);
+                    colDuCalculado[idx] -= canSub;
+                    alloc += canSub;
+                }
+                if (alloc === Math.abs(diffConfig)) break;
+            }
+        }
+        colDuCalculado[99] = totalConfigDays;
+
+        // Distribui a diferença de Trabalhados
+        const totalTrabalhadosBruto = st[99].dias.size;
+        const ctrUpper = filtroContrato.toUpperCase();
+        const totalTrabalhadosFinal = ((ctrUpper === 'CLT' || ctrUpper === 'TODOS') && totalTrabalhadosBruto > 0)
+            ? Math.max(0, totalTrabalhadosBruto - 1) 
+            : totalTrabalhadosBruto;
+        const diffTrab = totalTrabalhadosFinal - totalTrabalhadosBruto;
+        
+        if (diffTrab !== 0) {
+            let allocTrab = 0;
+            for(let idx = numCols; idx >= 1; idx--) {
+                if (diffTrab < 0) {
+                    const neededToSub = Math.abs(diffTrab) - allocTrab;
+                    const canSub = Math.min(neededToSub, colDiasTrabalhados[idx]);
+                    colDiasTrabalhados[idx] -= canSub;
+                    allocTrab += canSub;
+                }
+                if (allocTrab === Math.abs(diffTrab)) break;
+            }
+        }
+        colDiasTrabalhados[99] = totalTrabalhadosFinal;
+
         // === LINHAS DA TABELA ===
         // 1. HC Group
         let rows = mkRow('Total de assistentes (Configurado)', 'fas fa-users-cog', 'text-indigo-400', (s) => HC, false, true, '', 'group-hc', false);
         rows += mkRow('Total de assistentes (Ativos)', 'fas fa-users', 'text-blue-400', (s) => HC_Real, false, false, '', 'group-hc', true);
 
         // 2. Dias Group (V39 - Agora colapsável)
-        rows += mkRow('Dias úteis (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC, idx, dMap) => {
-            if (idx === 99) return this.diasUteisConfig;
-            return dMap ? contarSimples(dMap.ini, dMap.fim) : 0;
-        }, true, true, '', 'group-dias', false);
-        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => (filtroContrato === 'CLT' && s.dias.size > 0) ? s.dias.size - 1 : s.dias.size, false, false, '', 'group-dias', true);
+        rows += mkRow('Dias úteis (Configurado)', 'fas fa-calendar-check', 'text-emerald-500', (s, HC, idx) => colDuCalculado[idx], true, true, '', 'group-dias', false);
+        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', (s, HC, idx) => colDiasTrabalhados[idx], true, false, '', 'group-dias', true);
 
         // 3-6. Produção por tipo
         rows += mkRow('Total documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
@@ -390,17 +444,14 @@ Produtividade.Consolidado = {
 
         // [FIX] Meta de Produção (Sincronizada com Dashboard Geral)
         let targetMeta = 700;
-        const fContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase() : 'TODOS';
-        if (fContrato === 'TERCEIROS' || fContrato === 'PJ') targetMeta = 750;
+        if (ctrUpper === 'TERCEIROS' || ctrUpper === 'PJ') targetMeta = 750;
 
-        rows += mkRow('Meta de produção', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx, dMap) => {
-            const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
-            return HC * duCalculado * targetMeta;
+        rows += mkRow('Meta de produção', 'fas fa-bullseye', 'text-rose-500', (s, HC, idx) => {
+            return HC * colDuCalculado[idx] * targetMeta;
         }, true);
 
-        rows += mkRow('% Atingimento da Meta', 'fas fa-percentage', 'text-indigo-600', (s, HC, idx, dMap) => {
-            const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
-            const meta = (HC * duCalculado * targetMeta);
+        rows += mkRow('% Atingimento da Meta', 'fas fa-percentage', 'text-indigo-600', (s, HC, idx) => {
+            const meta = (HC * colDuCalculado[idx] * targetMeta);
             return meta > 0 ? (s.qty / meta) * 100 : 0;
         }, true, true);
 
@@ -410,9 +461,8 @@ Produtividade.Consolidado = {
 
         // 9. Média diária por assistente (LAST)
         // [FIX] Seguindo a lógica do card produtividade: (Quantidade / (Headcount * Dias Úteis))
-        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700', (s, HC, idx, dMap) => {
-            const duCalculado = (idx === 99) ? this.diasUteisConfig : (dMap ? contarSimples(dMap.ini, dMap.fim) : 0);
-            const divisor = (HC * duCalculado);
+        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700', (s, HC, idx) => {
+            const divisor = (HC * colDuCalculado[idx]);
             return divisor > 0 ? s.qty / divisor : 0;
         }, true, true, 'bg-emerald-50 border-emerald-200');
 

@@ -278,8 +278,12 @@ Object.assign(window.Produtividade, {
 
             if (elTab && !elTab.classList.contains('hidden')) {
                 const modulo = Produtividade[aba];
-                if (modulo && typeof modulo.carregarTela === 'function') {
-                    modulo.carregarTela();
+                if (modulo) {
+                    if (typeof modulo.carregarTela === 'function') {
+                        modulo.carregarTela();
+                    } else if (typeof modulo.carregar === 'function') {
+                        modulo.carregar(true);
+                    }
                 }
             }
         });
