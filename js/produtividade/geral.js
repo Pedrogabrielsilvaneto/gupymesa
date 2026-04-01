@@ -1,6 +1,6 @@
 /* ARQUIVO: js/produtividade/geral.js
-   VERSÃO: V4.1 (Fix Abono)
-   DESCRIÇÃO: Correção na lógica de salvar abono para garantir persistência no Supabase.
+   VERSÃO: V4.2 (Fix Somas KPI)
+   DESCRIÇÃO: Correção na lógica de soma dos cards de produtividade para garantir consistência.
 */
 window.Produtividade = window.Produtividade || {};
 
@@ -250,7 +250,6 @@ Produtividade.Geral = {
 
     // Helper centralizado para Headcount
     getHeadcountConfig: function () {
-        // [FIX v4.31] Use centralized HUD filter state
         const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
 
         const config = this.state.configMes;
@@ -259,8 +258,7 @@ Produtividade.Geral = {
 
         if (filtroContrato === 'CLT') return hcClt;
         if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return hcTerc;
-        return (hcClt + hcTerc); // Retorna 17 se configs forem 0 ou ausentes
-        return hc;
+        return (hcClt + hcTerc);
     },
 
     // Helper centralizado para Dias Úteis
@@ -690,24 +688,21 @@ Produtividade.Geral = {
     },
 
     calcularKpisGlobal: function () {
-        // Aplica filtros se a engine estiver carregada
         const listaOriginal = this.state.listaTabela || [];
         const listaExibicao = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
             ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
             : listaOriginal;
 
-        // [FIX v4.5] Sum production from filtered list, excluding management in "Geral" view to match user expectations
-        const termosGestaoLocal = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
-        let totalProd = 0;
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
-        // [FIX v4.7] Evita duplicidade se a linha agregada (Total) estiver presente
-        const gItemLink = listaExibicao.find(x => x.isAggregatedManager);
-        if (gItemLink) {
-            totalProd = gItemLink.producao;
-        } else {
-            listaExibicao.forEach(i => {
-                totalProd += Number(i.producao) || 0;
-            });
+        // [FIX] Usa lista filtrada consistente com agregarDadosEquipe para soma da produção
+        const listaParaSoma = this.getListaFiltrada(true).filter(i => i.producao > 0);
+        let totalProd = listaParaSoma.reduce((sum, i) => sum + (Number(i.producao) || 0), 0);
+
+        // Adiciona produção própria da gestão (se houver)
+        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        if (gestoraItem) {
+            totalProd += Number(gestoraItem._ownProd || 0);
         }
 
         let totalMeta = 0;
@@ -719,34 +714,16 @@ Produtividade.Geral = {
         let totalDiasUteis = this.getDiasUteisConfig();
         let totalAbonoEquipe = 0;
 
-        // Adiciona Meta da Gestora Explicitamente
-        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        // Meta da Gestora
         let metaDiariaGestor = 0;
-
         if (gestoraItem) {
-            // Usa Meta Individual (_ownMeta) se existir (geralmente 0 para gestores), senão fallback seguro
-            // [FIX] Usar `_meta_gestor_base` que foi definido em `processarDadosUnificados`
             metaDiariaGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 0);
             if (metaDiariaGestor === 0) metaDiariaGestor = gestoraItem.meta_base_diaria || 0;
-            console.log(`[DEBUG PROD] Gestora Encontrada: ${gestoraItem.nome} | MetaDiaria: ${metaDiariaGestor} | BaseStored: ${gestoraItem._meta_gestor_base} `);
-        } else {
-            console.log(`[DEBUG PROD] NENHUMA GESTORA ENCONTRADA NA LISTA DE 0 A ${listaOriginal.length} `);
-            listaOriginal.forEach(i => { if (i.isAggregatedManager) console.log(">> Achei flag isAggregatedManager em:", i.nome); });
         }
 
-        // [MOD] Agora calculamos totalMeta e totalHC dinamicamente a partir da lista filtrada no loop abaixo.
-
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
-
-        listaExibicao.forEach(i => {
-            if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
-
-            const u = this.state.mapaUsuarios[i.uid] || {};
-            const cargo = (u.funcao || '').toLowerCase();
-            const ehGestaoLoop = termosExcluidos.some(t => cargo.includes(t));
-
-            // A soma da Meta de Produção individual foi removida. O valor global será calculado fixamente pelas regras macro abaixo (Meta Gestoria).
-
+        // [FIX] Usa lista filtrada consistente para os loops de assertividade e abono
+        const listaParaCalculos = this.getListaFiltrada(false);
+        listaParaCalculos.forEach(i => {
             if (i.meta_assert > 0) { somaMetaAssert += i.meta_assert; countUsersMeta++; }
             if (i.producao > 0) assistentesComProducao.add(i.uid);
             if (i.qtd_assert > 0 && i.media_final !== null) {
@@ -754,10 +731,10 @@ Produtividade.Geral = {
                 totalDocsAssert += i.qtd_assert;
             }
 
-            // Cálculo para redução de HC por Abono (Apenas Equipe)
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const cargo = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
             const ehGestao = termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t) || (u.nome || '').toLowerCase().includes(t));
-
 
             if (!ehGestao && !this.ehAdmin(i.uid)) {
                 if (i.fator < 1.0) {
@@ -780,10 +757,9 @@ Produtividade.Geral = {
 
         let maxMetaProducao = 0;
         let assistentesReaisComProducao = 0;
-        let totalAbonoParticipante = 0; // Abono apenas de quem teve produção > 0
+        let totalAbonoParticipante = 0;
 
-        // Reprocessa para contar assistentes e achar a MAIOR META (Velocity Target)
-        listaExibicao.forEach(i => {
+        listaParaCalculos.forEach(i => {
             const u = this.state.mapaUsuarios[i.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
@@ -792,7 +768,6 @@ Produtividade.Geral = {
             if (!ehGestao && !this.ehAdmin(i.uid)) {
                 if (i.producao > 0) {
                     assistentesReaisComProducao++;
-                    // Se teve produção mas teve abono (ex: meio dia), soma para abater do count real
                     if (i.fator < 1.0) totalAbonoParticipante += (1.0 - i.fator);
                 }
 
@@ -826,12 +801,12 @@ Produtividade.Geral = {
 
         // Se estiver no "Geral" ou filtrando apenas por contrato, usamos o HC da Meta (Configurado)
         // Se estiver filtrando por Nome ou Função específica, usamos o count real da lista filtrada.
-        const totalHeadcountFiltrado = listaExibicao.filter(i => {
+        const totalHeadcountFiltrado = listaParaCalculos.filter(i => {
             const u = this.state.mapaUsuarios[i.uid] || {};
             const cargo = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
             const nome = (u.nome || '').toLowerCase();
-            return !i.isAggregatedManager && !termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t) || nome.includes(t));
+            return !termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t) || nome.includes(t));
         }).length;
 
         const hcParaVelocidade = temFiltroEspecifico 
