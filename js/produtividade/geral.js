@@ -794,6 +794,7 @@ Produtividade.Geral = {
         const hoje = new Date().toISOString().split('T')[0];
         const rangeInicio = this.state.range.inicio;
         const rangeFim = this.state.range.fim;
+        const isPeriodo = rangeInicio !== rangeFim;
         let isDecorred = false;
         let diasDivisorReal = totalDiasUteis;
 
@@ -848,7 +849,6 @@ Produtividade.Geral = {
         let totalMetaAjustada = 0;
         const configMesParaMeta = this.state.configMes || {};
         const rangeSel = this.state.range || {};
-        const isPeriodo = rangeSel.inicio !== rangeSel.fim;
         const diasMetaCal = this.contarDiasUteis(rangeSel.inicio, rangeSel.fim);
 
         // Pega dias da configuração ou do calendário
