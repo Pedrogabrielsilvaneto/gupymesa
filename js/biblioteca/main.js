@@ -170,9 +170,16 @@ window.GupyBiblioteca = {
 
     aplicarFiltros: function () {
         const termo = this.normalizar(document.getElementById('lib-search')?.value || '');
+        const termo2 = this.normalizar(document.getElementById('lib-search-2')?.value || '');
         const valEmpresa = document.getElementById('lib-filtro-empresa')?.value || '';
         const valMotivo = document.getElementById('lib-filtro-motivo')?.value || '';
         const valDoc = document.getElementById('lib-filtro-doc')?.value || '';
+
+        // Mostrar/esconder botão limpar
+        const btnLimpar = document.getElementById('btn-limpar-busca');
+        if (btnLimpar) {
+            btnLimpar.classList.toggle('hidden', !(termo || termo2));
+        }
 
         let filtrados = this.cacheFrases;
 
@@ -181,6 +188,7 @@ window.GupyBiblioteca = {
         }
 
         if (termo) filtrados = filtrados.filter(f => f._busca.includes(termo));
+        if (termo2) filtrados = filtrados.filter(f => f._busca.includes(termo2));
         if (valEmpresa) filtrados = filtrados.filter(f => f.empresa === valEmpresa);
         if (valMotivo) filtrados = filtrados.filter(f => f.motivo === valMotivo);
         if (valDoc) filtrados = filtrados.filter(f => f.documento === valDoc);
@@ -313,6 +321,35 @@ window.GupyBiblioteca = {
         }
     },
 
+    limparBusca: function() {
+        const search1 = document.getElementById('lib-search');
+        const search2 = document.getElementById('lib-search-2');
+        if (search1) search1.value = '';
+        if (search2) search2.value = '';
+        this.aplicarFiltros();
+    },
+
+    setAba: function(tipo) {
+        if (tipo === 'favoritas') {
+            this.verFavoritos = true;
+        } else {
+            this.verFavoritos = false;
+        }
+        // Atualiza botões ativos
+        const btnTodas = document.getElementById('aba-todas');
+        const btnFavoritas = document.getElementById('aba-favoritas');
+        if (btnTodas && btnFavoritas) {
+            if (this.verFavoritos) {
+                btnFavoritas.classList.add('active');
+                btnTodas.classList.remove('active');
+            } else {
+                btnTodas.classList.add('active');
+                btnFavoritas.classList.remove('active');
+            }
+        }
+        this.aplicarFiltros();
+    },
+
     copiarTexto: async function (id) {
         const f = this.cacheFrases.find(i => i.id == id);
         if (!f) return;
@@ -344,7 +381,7 @@ window.GupyBiblioteca = {
             // Atualização visual otimista
             f.usos = (f.usos || 0) + 1;
             f.meus_usos = (f.meus_usos || 0) + 1;
-            this.renderizar(this.cacheFrases);
+            this.aplicarFiltros();
         });
     },
 
