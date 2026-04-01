@@ -227,11 +227,18 @@ Produtividade.Consolidado = {
         const currentYear = dIni.getFullYear();
         const currentMonth = dIni.getMonth() + 1;
 
+        const formatDateLocal = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
         if (t === 'dia') {
             let curr = new Date(dataInicio + 'T12:00:00'); const end = new Date(dataFim + 'T12:00:00'); let idx = 1;
             while (curr <= end) {
                 cols.push(String(curr.getDate()).padStart(2, '0'));
-                datesMap[idx] = { ini: curr.toISOString().split('T')[0], fim: curr.toISOString().split('T')[0] };
+                datesMap[idx] = { ini: formatDateLocal(curr), fim: formatDateLocal(curr) };
                 curr.setDate(curr.getDate() + 1); idx++;
             }
         } else if (t === 'mes') {
@@ -240,7 +247,7 @@ Produtividade.Consolidado = {
             const dFimObj = new Date(dataFim + 'T12:00:00');
             for (let i = dIni.getMonth(); i <= dFimObj.getMonth(); i++) {
                 cols.push(mesesNomes[i]); this.monthToColMap[i + 1] = cols.length;
-                datesMap[cols.length] = { ini: `${currentYear}-${String(i + 1).padStart(2, '0')}-01`, fim: `${currentYear}-${String(i + 1).padStart(2, '0')}-${new Date(currentYear, i + 1, 0).getDate()}` };
+                datesMap[cols.length] = { ini: `${currentYear}-${String(i + 1).padStart(2, '0')}-01`, fim: formatDateLocal(new Date(currentYear, i + 1, 0)) };
             }
         }
 
