@@ -286,8 +286,9 @@ Produtividade.Consolidado = {
     },
 
     processarEExibir: function (rawData, t, s, e) {
+        // [FIX] Para a soma de QTY total (257k), precisamos incluir todos os cargos (ignorando filtro de função do HUD)
         const dadosFiltrados = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
-            ? window.Produtividade.Filtros.preFiltrar(rawData)
+            ? window.Produtividade.Filtros.preFiltrar(rawData, true) 
             : rawData;
 
         this.dadosCalculados = this.processarDados(dadosFiltrados, t, s, e);

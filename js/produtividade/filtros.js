@@ -140,21 +140,21 @@ Produtividade.Filtros = {
     },
 
     // Esta função será chamada de dentro dos métodos de renderização dos módulos
-    preFiltrar: function (lista) {
+    preFiltrar: function (lista, ignorarFiltroFuncao = false) {
         if (!lista || lista.length === 0) return [];
-
+ 
         return lista.filter(item => {
             const u = item.usuario_id ? (window.Produtividade.Geral?.state?.mapaUsuarios[item.usuario_id] || {}) : (item.uid ? (window.Produtividade.Geral?.state?.mapaUsuarios[item.uid] || {}) : item);
-
+ 
             const nome = (item.nome || u.nome || '').toLowerCase();
             const funcao = (u.funcao || '').toUpperCase();
             const contrato = (u.contrato || '').toUpperCase();
-
+ 
             // Match Nome/ID
-            const matchNome = this.estado.nome === '' || nome.includes(this.estado.nome) || String(item.usuario_id || item.uid || '').includes(this.estado.nome);
-
-            // Match Função
-            const matchFuncao = this.estado.funcao === 'todos' || funcao === this.estado.funcao;
+            const matchNome = (this.estado.nome === '') || nome.includes(this.estado.nome) || String(item.usuario_id || item.uid || '').includes(this.estado.nome);
+ 
+            // Match Função (Pode ser ignorado para somas globais de produtividade)
+            const matchFuncao = ignorarFiltroFuncao || this.estado.funcao === 'todos' || funcao === this.estado.funcao;
 
             // Match Contrato
             let matchContrato = this.estado.contrato === 'todos';

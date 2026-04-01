@@ -447,15 +447,15 @@ Produtividade.Geral = {
     },
 
     // [FIX] Função centralizada para retornar a lista que o usuário realmente vê (respeitando filtros)
-    getListaFiltrada: function () {
+    getListaFiltrada: function (incluirGestao = false) {
         const listaOriginal = this.state.listaTabela || [];
         let listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
-
+ 
         // 1. Filtra Staff Base (Contrato, Nome) via HUD de Filtros
         let listaBase = (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.preFiltrar === 'function')
-            ? window.Produtividade.Filtros.preFiltrar(listaStaff)
+            ? window.Produtividade.Filtros.preFiltrar(listaStaff, incluirGestao)
             : listaStaff;
-
+ 
         // 2. Filtro de Gestão (Para Grid) e Visitantes (Sempre removidos)
         const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
         let listaParaGrid = listaBase.filter(item => {
@@ -464,17 +464,17 @@ Produtividade.Geral = {
             const perfil = (u.perfil || '').toLowerCase();
             const nome = (u.nome || '').toLowerCase();
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'visitante'];
-
+ 
             const ehVisitante = nome.includes('visitante') || funcao.includes('visitante') || perfil.includes('visitante');
             if (ehVisitante) return false;
-
-            if (filtroFuncao === 'todos') {
+ 
+            if (filtroFuncao === 'todos' && !incluirGestao) {
                 const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
                 if (ehGestao) return false;
             }
             return true;
         });
-
+ 
         return listaParaGrid;
     },
 
@@ -486,10 +486,11 @@ Produtividade.Geral = {
         let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
 
         // [REF_FIX] Usa a nova função centralizada para respeitar os filtros HUD
-        const listaExibicao = this.getListaFiltrada();
-
+        const listaExibicao = this.getListaFiltrada(false); // Falsa: para a GRID (esconde auditores/gestão)
+        const listaParaSoma = this.getListaFiltrada(true);  // Verdadeira: para SOMAR documentos (inclui todos)
+ 
         // Filtro de Produção > 0 usado apenas para Somas (mecanismo interno legado)
-        let listaParaSomaProducao = listaExibicao.filter(item => item.producao > 0);
+        let listaParaSomaProducao = listaParaSoma.filter(item => item.producao > 0);
 
         const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
         if (gestoraItem) {
