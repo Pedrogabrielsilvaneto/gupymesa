@@ -386,8 +386,8 @@ Produtividade.Geral = {
             const metaObj = this.state.dadosMetas.find(m => String(m.usuario_id) === String(item.uid));
 
             // Meta Padrão: 650 para Assistentes CLT/Geral, 100 para Terceiros/PJ
-            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
-            const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
+            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'visitante'];
+            const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t) || (u.nome || '').toLowerCase().includes(t));
             const contratoUpper = (u.contrato || '').toUpperCase();
 
             // Se for Gestão, define meta zero PARA O INDIVIDUO (na lista), mas guarda a meta base
@@ -679,13 +679,13 @@ Produtividade.Geral = {
             : listaOriginal;
 
         // [FIX v4.5] Sum production from filtered list, excluding management in "Geral" view to match user expectations
-        const termosGestaoLocal = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        const termosGestaoLocal = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
         let totalProd = 0;
 
         listaExibicao.forEach(i => {
             const u = this.state.mapaUsuarios[i.uid] || {};
             const cargo = (u.funcao || '').toLowerCase();
-            const ehGestao = termosGestaoLocal.some(t => cargo.includes(t));
+            const ehGestao = termosGestaoLocal.some(t => cargo.includes(t) || (u.nome || '').toLowerCase().includes(t));
             const filtroFuncao = (window.Produtividade.Filtros?.estado?.funcao || 'todos').toLowerCase();
 
             // Se filtro for global ou por contrato (CLT/PJ), ignora produção de gestores no card topo
@@ -719,7 +719,7 @@ Produtividade.Geral = {
 
         // [MOD] Agora calculamos totalMeta e totalHC dinamicamente a partir da lista filtrada no loop abaixo.
 
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return; // Gestora já foi somada acima (explicitamente)
@@ -739,7 +739,7 @@ Produtividade.Geral = {
 
             // Cálculo para redução de HC por Abono (Apenas Equipe)
             const perfil = (u.perfil || '').toLowerCase();
-            const ehGestao = termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t));
+            const ehGestao = termosExcluidos.some(t => cargo.includes(t) || perfil.includes(t) || (u.nome || '').toLowerCase().includes(t));
 
 
             if (!ehGestao && !this.ehAdmin(i.uid)) {
@@ -932,7 +932,7 @@ Produtividade.Geral = {
     },
     contarAssistentesElegiveis: function (filtroContrato = 'todos', filtroFuncao = 'todos') {
         let count = 0;
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
             if (this.ehAdmin(uid)) continue;
@@ -955,7 +955,7 @@ Produtividade.Geral = {
 
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            if (!termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t))) count++;
+            if (!termosExcluidos.some(t => funcao.includes(t) || perfil.includes(t) || (u.nome || '').toLowerCase().includes(t))) count++;
         }
         return count || 0;
     },
