@@ -182,9 +182,18 @@ Produtividade.Consolidado = {
                 [s, eNext]
             );
 
-            console.log('🔎 Consolidado rawData rows →', rawData?.length);
-            if (rawData && rawData.length) console.log('🔎 Último registro data_referencia →', rawData[rawData.length - 1].data_referencia);
-
+            console.log('%c[DEBUG CONS] Período consultado:', 'color:purple;font-weight:bold', s, '→', eNext);
+            console.log('%c[DEBUG CONS] rawData rows →', 'color:purple;font-weight:bold', rawData?.length);
+            if (rawData && rawData.length) {
+                console.log('%c[DEBUG CONS] Primeiro registro →', 'color:purple;font-weight:bold', rawData[0].data_referencia);
+                console.log('%c[DEBUG CONS] Último registro →', 'color:purple;font-weight:bold', rawData[rawData.length - 1].data_referencia);
+                // Soma bruta de tudo no rawData (sem nenhum filtro)
+                const somaQty  = rawData.reduce((a, r) => a + (Number(r.quantidade) || 0), 0);
+                const somaFifo = rawData.reduce((a, r) => a + (Number(r.fifo)       || 0), 0);
+                console.log('%c[DEBUG CONS] Soma bruta qty (quantidade):', 'color:purple;font-weight:bold', somaQty.toLocaleString('pt-BR'));
+                console.log('%c[DEBUG CONS] Soma bruta fifo:', 'color:purple;font-weight:bold', somaFifo.toLocaleString('pt-BR'));
+                console.log('%c[DEBUG CONS] TOTAL BRUTO (qty+fifo):', 'color:red;font-weight:bold', (somaQty + somaFifo).toLocaleString('pt-BR'));
+            }
 
             if (!rawData) throw new Error('Falha ao buscar dados de produção.');
 
