@@ -135,8 +135,9 @@ Produtividade.Filtros = {
     filtrarGeral: function () {
         if (!Produtividade.Geral || !Produtividade.Geral.state) return;
 
-        Produtividade.Geral.renderizarTabela();
+        Produtividade.Geral.agregarDadosEquipe();
         Produtividade.Geral.calcularKpisGlobal();
+        Produtividade.Geral.renderizarTabela();
     },
 
     // Esta função será chamada de dentro dos métodos de renderização dos módulos

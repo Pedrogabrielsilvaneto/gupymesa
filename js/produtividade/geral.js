@@ -92,6 +92,7 @@ Produtividade.Geral = {
             ]);
 
             this.processarDadosUnificados();
+            this.agregarDadosEquipe(); // [FIX] Agregar antes de calcular KPIs
 
             if (this.state.modoDetalhe && this.state.usuarioDetalhe) {
                 this.renderizarDetalhes(this.state.usuarioDetalhe);
@@ -478,79 +479,85 @@ Produtividade.Geral = {
         return listaParaGrid;
     },
 
+    // [FIX] Nova função para agregar dados da equipe na Gestora ANTES de calcular KPIs
+    agregarDadosEquipe: function () {
+        const listaOriginal = this.state.listaTabela || [];
+        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        if (!gestoraItem) return;
+
+        const listaParaSoma = this.getListaFiltrada(true); // Inclui todos para soma
+        const listaParaSomaProducao = listaParaSoma.filter(item => item.producao > 0);
+        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
+        const listaExibicao = this.getListaFiltrada(false); // Apenas o que vai pra Grid
+
+        // Preserva valores originais da gestora se ainda não foram salvos
+        if (gestoraItem._ownProd === undefined) gestoraItem._ownProd = gestoraItem.producao || 0;
+        if (gestoraItem._ownFifo === undefined) gestoraItem._ownFifo = gestoraItem.fifo || 0;
+        if (gestoraItem._ownGt === undefined) gestoraItem._ownGt = gestoraItem.gt || 0;
+        if (gestoraItem._ownGp === undefined) gestoraItem._ownGp = gestoraItem.gp || 0;
+        if (gestoraItem._ownQtdAssert === undefined) gestoraItem._ownQtdAssert = gestoraItem.qtd_assert || 0;
+        if (gestoraItem._ownMedia === undefined) gestoraItem._ownMedia = gestoraItem.media_final || 0;
+        if (gestoraItem._ownMeta === undefined) gestoraItem._ownMeta = gestoraItem.meta_base_diaria || 0;
+        if (gestoraItem._rawBaseMeta === undefined) gestoraItem._rawBaseMeta = gestoraItem._meta_gestor_base || 0;
+
+        let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
+
+        // A) Produção: Soma TODOS
+        listaParaSomaProducao.forEach(i => {
+            soma.prod += i.producao;
+            soma.fifo += i.fifo;
+            soma.gt += i.gt;
+            soma.gp += i.gp;
+        });
+
+        // Adiciona produção própria da gestora (se houver)
+        soma.prod += gestoraItem._ownProd;
+        soma.fifo += gestoraItem._ownFifo;
+        soma.gt += gestoraItem._ownGt;
+        soma.gp += gestoraItem._ownGp;
+
+        // B) Assertividade: Soma APENAS Grid
+        listaExibicao.forEach(i => {
+            soma.qtd_assert += i.qtd_assert;
+            if (i.media_final > 0) {
+                soma.soma_media += (i.media_final * i.qtd_assert);
+                soma.count_assert += i.qtd_assert;
+            }
+        });
+
+        gestoraItem.producao = soma.prod;
+        gestoraItem.fifo = soma.fifo;
+        gestoraItem.gt = soma.gt;
+        gestoraItem.gp = soma.gp;
+        gestoraItem.qtd_assert = soma.qtd_assert;
+        gestoraItem.media_final = soma.count_assert > 0 ? (soma.soma_media / soma.count_assert) : 0;
+        gestoraItem.fator = 1.0;
+
+        // Recalculo Dinâmico da Meta da Gestora
+        const HC = this.getHeadcountConfig();
+        const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+        const diasUteisMes = this.getDiasUteisConfig();
+
+        let diasFinal = diasUteisPeriodo;
+        if (diasUteisPeriodo >= (diasUteisMes * 0.8)) {
+            diasFinal = diasUteisMes;
+        }
+
+        const metaBaseGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 650);
+        gestoraItem.meta_base_diaria = metaBaseGestor;
+        gestoraItem.meta_real_calculada = window.Produtividade.MetaGlobalCalculada || Math.round(metaBaseGestor * HC * ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, diasFinal - 1) : diasFinal));
+    },
+
     renderizarTabela: function () {
         if (!this.els.tabela) return;
 
-        // Aplica filtros e agrega Gestora dinamicamente
-        const listaOriginal = this.state.listaTabela || [];
-        let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
-
         // [REF_FIX] Usa a nova função centralizada para respeitar os filtros HUD
         const listaExibicao = this.getListaFiltrada(false); // Falsa: para a GRID (esconde auditores/gestão)
-        const listaParaSoma = this.getListaFiltrada(true);  // Verdadeira: para SOMAR documentos (inclui todos)
- 
-        // Filtro de Produção > 0 usado apenas para Somas (mecanismo interno legado)
-        let listaParaSomaProducao = listaParaSoma.filter(item => item.producao > 0);
-
-        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
+        const listaOriginal = this.state.listaTabela || [];
+        let gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
+        
         if (gestoraItem) {
-            // Preserva valores originais da gestora
-            if (gestoraItem._ownProd === undefined) gestoraItem._ownProd = gestoraItem.producao || 0;
-            if (gestoraItem._ownFifo === undefined) gestoraItem._ownFifo = gestoraItem.fifo || 0;
-            if (gestoraItem._ownGt === undefined) gestoraItem._ownGt = gestoraItem.gt || 0;
-            if (gestoraItem._ownGp === undefined) gestoraItem._ownGp = gestoraItem.gp || 0;
-            if (gestoraItem._ownQtdAssert === undefined) gestoraItem._ownQtdAssert = gestoraItem.qtd_assert || 0;
-            if (gestoraItem._ownMedia === undefined) gestoraItem._ownMedia = gestoraItem.media_final || 0;
-            if (gestoraItem._ownMeta === undefined) gestoraItem._ownMeta = gestoraItem.meta_base_diaria || 0;
-            if (gestoraItem._rawBaseMeta === undefined) gestoraItem._rawBaseMeta = gestoraItem._meta_gestor_base || 0;
-
-            let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
-
-            // A) Produção: Soma TODOS
-            listaParaSomaProducao.forEach(i => {
-                soma.prod += i.producao;
-                soma.fifo += i.fifo;
-                soma.gt += i.gt;
-                soma.gp += i.gp;
-            });
-            // Adiciona produção própria da gestora
-            soma.prod += gestoraItem._ownProd;
-            soma.fifo += gestoraItem._ownFifo;
-            soma.gt += gestoraItem._ownGt;
-            soma.gp += gestoraItem._ownGp;
-
-            // B) Assertividade: Soma APENAS Grid
-            listaExibicao.forEach(i => {
-                soma.qtd_assert += i.qtd_assert;
-                if (i.media_final > 0) {
-                    soma.soma_media += (i.media_final * i.qtd_assert);
-                    soma.count_assert += i.qtd_assert;
-                }
-            });
-
-            gestoraItem.producao = soma.prod;
-            gestoraItem.fifo = soma.fifo;
-            gestoraItem.gt = soma.gt;
-            gestoraItem.gp = soma.gp;
-            gestoraItem.qtd_assert = soma.qtd_assert;
-            gestoraItem.media_final = soma.count_assert > 0 ? (soma.soma_media / soma.count_assert) : 0;
-            gestoraItem.fator = 1.0;
-
-            // Recalculo Dinâmico da Meta da Gestora
-            const HC = this.getHeadcountConfig();
-            const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-            const diasUteisMes = this.getDiasUteisConfig();
-
-            let diasFinal = diasUteisPeriodo;
-            if (diasUteisPeriodo >= (diasUteisMes * 0.8)) {
-                diasFinal = diasUteisMes;
-            }
-
-            const metaBaseGestor = (gestoraItem._ownMeta !== undefined) ? gestoraItem._ownMeta : (gestoraItem._meta_gestor_base || 650);
-            gestoraItem.meta_base_diaria = metaBaseGestor;
-            gestoraItem.meta_real_calculada = window.Produtividade.MetaGlobalCalculada || Math.round(metaBaseGestor * HC * ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? Math.max(0, diasFinal - 1) : diasFinal));
-            // gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
-            // listaExibicao.unshift(gestoraItem);
+            listaExibicao.unshift(gestoraItem); // Adiciona a gestora no topo para exibição
         }
 
         if (this.els.tabelaHeader && this.state.headerOriginal) {
