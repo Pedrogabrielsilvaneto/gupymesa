@@ -862,39 +862,32 @@ Produtividade.Geral = {
         const diasMetaCal = this.contarDiasUteis(rangeSel.inicio, rangeSel.fim);
 
         // Pega dias da configuração ou do calendário
-        let dBase = Number(configMesParaMeta.dias_uteis || diasMetaCal);
-        let dCltMeta = Number(configMesParaMeta.dias_uteis_clt || (dBase > 1 ? dBase : dBase));
-        let dTercMeta = Number(configMesParaMeta.dias_uteis_terceiros || dBase);
+        const dBase = Number(configMesParaMeta.dias_uteis || diasMetaCal);
+        const dClt = (configMesParaMeta && Number(configMesParaMeta.dias_uteis_clt) > 0) ? Number(configMesParaMeta.dias_uteis_clt) : (dBase > 1 ? dBase - 1 : dBase);
+        const dTerc = (configMesParaMeta && Number(configMesParaMeta.dias_uteis_terceiros) > 0) ? Number(configMesParaMeta.dias_uteis_terceiros) : dBase;
 
-        // Se for um filtro de período curto (não o mês todo), usamos o calendário
-        if (diasMetaCal < (dBase * 0.8)) {
-            dCltMeta = diasMetaCal;
-            dTercMeta = diasMetaCal;
-        }
+        const multClt = isPeriodo ? (diasMetaCal < dClt ? diasMetaCal : dClt) : 1;
+        const multTerc = isPeriodo ? (diasMetaCal < dTerc ? diasMetaCal : dTerc) : 1;
 
-        // --- LÓGICA CLT (Assistentes CLT, Meta 700, Dias -1) ---
         const hClt = (configMesParaMeta && Number(configMesParaMeta.hc_clt) > 0) ? Number(configMesParaMeta.hc_clt) : 8;
         const mClt = 700;
-        const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
-        const valorMetaCLT = mClt * hClt * multCltMeta;
+        const valorMetaCLT = mClt * hClt * multClt;
 
-        // --- LÓGICA TERCEIROS (Assistentes Terceiros, Meta 750, Dias Cheios) ---
         const hTerc = (configMesParaMeta && Number(configMesParaMeta.hc_terceiros) > 0) ? Number(configMesParaMeta.hc_terceiros) : 9;
         const mTerc = 750;
-        const multTercMeta = isPeriodo ? Math.max(0, dTercMeta) : dTercMeta;
-        const valorMetaTerc = mTerc * hTerc * multTercMeta;
+        const valorMetaTerc = mTerc * hTerc * multTerc;
 
-        // --- LÓGICA GERAL (CLT + Terceiros, Meta 700, Dias -1 da Gestora) ---
         const hGeral = hClt + hTerc;
+        const dGeral = dClt; 
+        const multGeral = isPeriodo ? (diasMetaCal < dGeral ? diasMetaCal : dGeral) : 1;
+        const valorMetaGeral = hGeral * 700 * multGeral;
 
         if (filtroContrato === 'CLT') {
             totalMetaAjustada = valorMetaCLT;
         } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
             totalMetaAjustada = valorMetaTerc;
         } else {
-            // GERAL (TODOS) = (hClt+hTerc) * 700 * (Calendário - 1)
-            const multGeral = isPeriodo ? Math.max(0, dCltMeta - 1) : dCltMeta;
-            totalMetaAjustada = hGeral * 700 * multGeral;
+            totalMetaAjustada = valorMetaGeral;
         }
 
         // Nota: Abonos de equipe não reduzem o Card Principal de Meta Esperada para manter os valores cravados do target macro.
