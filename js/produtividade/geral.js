@@ -483,10 +483,13 @@ Produtividade.Geral = {
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
         if (!gestoraItem) return;
 
-        const listaParaSoma = this.getListaFiltrada(true); // Inclui todos para soma
-        const listaParaSomaProducao = listaParaSoma.filter(item => item.producao > 0);
-        const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
-        const listaExibicao = this.getListaFiltrada(false); // Apenas o que vai pra Grid
+        // [FIX] Usa lista SEM filtros de contrato/função para garantir que TODOS sejam somados
+        // Inclui auditores e gestoras na soma de produtividade
+        const listaStaff = listaOriginal.filter(i => !i.isAggregatedManager);
+        const listaParaSoma = listaStaff.filter(item => item.producao > 0);
+        
+        // Lista sem filtros para assertividade (apenas grid - exclui gestão)
+        const listaExibicao = this.getListaFiltrada(false);
 
         // Preserva valores originais da gestora se ainda não foram salvos
         if (gestoraItem._ownProd === undefined) gestoraItem._ownProd = gestoraItem.producao || 0;
@@ -500,8 +503,8 @@ Produtividade.Geral = {
 
         let soma = { prod: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media: 0, count_assert: 0 };
 
-        // A) Produção: Soma TODOS (gestoraItem.producao já inclui _ownProd, não somar de novo)
-        listaParaSomaProducao.forEach(i => {
+        // A) Produção: Soma TODOS (staff com produção > 0)
+        listaParaSoma.forEach(i => {
             soma.prod += i.producao;
             soma.fifo += i.fifo;
             soma.gt += i.gt;
@@ -692,14 +695,17 @@ Produtividade.Geral = {
         // [FIX] Usa gestoraItem.producao que já foi calculado por agregarDadosEquipe
         // (evita somar _ownProd duas vezes)
         let totalProd = 0;
-        const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
-        if (gestoraItem && gestoraItem.producao > 0) {
-            totalProd = gestoraItem.producao;
+        const gerenteTmp = listaOriginal.find(i => i.isAggregatedManager);
+        if (gerenteTmp && gerenteTmp.producao > 0) {
+            totalProd = gerenteTmp.producao;
         } else {
-            // Fallback: soma direta se não houver linha agregada
-            const listaParaSoma = this.getListaFiltrada(true).filter(i => i.producao > 0);
-            totalProd = listaParaSoma.reduce((sum, i) => sum + (Number(i.producao) || 0), 0);
+            // Fallback: soma direta SEM filtros (inclui auditores/gestoras)
+            const listaSemFiltro = listaOriginal.filter(i => !i.isAggregatedManager && i.producao > 0);
+            totalProd = listaSemFiltro.reduce((sum, i) => sum + (Number(i.producao) || 0), 0);
         }
+        
+        // Define gestoraItem para uso posterior
+        const gestoraItem = gerenteTmp;
 
         let totalMeta = 0;
         let somaPontosAssert = 0, totalDocsAssert = 0;
