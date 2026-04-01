@@ -144,7 +144,8 @@ Produtividade.Filtros = {
         if (!lista || lista.length === 0) return [];
  
         return lista.filter(item => {
-            const u = item.usuario_id ? (window.Produtividade.Geral?.state?.mapaUsuarios[item.usuario_id] || {}) : (item.uid ? (window.Produtividade.Geral?.state?.mapaUsuarios[item.uid] || {}) : item);
+            const uid = item.usuario_id || item.uid || item.id;
+            const u = window.Produtividade.mapaUsuarios[uid] || (window.Produtividade.Geral?.state?.mapaUsuarios[uid] || {});
  
             const nome = (item.nome || u.nome || '').toLowerCase();
             const funcao = (u.funcao || '').toUpperCase();

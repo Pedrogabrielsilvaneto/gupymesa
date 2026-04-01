@@ -6,12 +6,13 @@ window.Produtividade = window.Produtividade || {};
 Object.assign(window.Produtividade, {
     supabase: null,
     usuario: null,
+    mapaUsuarios: {},
     filtroPeriodo: 'mes',
     debounceTimer: null,
-
+ 
     init: async function () {
         console.log("🚀 Produtividade Main (Root Mode) Iniciado");
-
+ 
         try {
             const storedUser = localStorage.getItem('usuario_logado');
             if (!storedUser) {
@@ -19,6 +20,9 @@ Object.assign(window.Produtividade, {
                 return;
             }
             this.usuario = JSON.parse(storedUser);
+ 
+            // [FIX] Carregamento Global de Usuários para garantir que os filtros funcionem em qualquer aba
+            await this.carregarUsuariosGlobal();
         } catch (e) {
             window.location.href = 'index.html';
             return;
@@ -40,6 +44,27 @@ Object.assign(window.Produtividade, {
         this.mudarAba('geral');
     },
 
+    carregarUsuariosGlobal: async function () {
+        if (!window.Sistema || !window.Sistema.supabase) return;
+        try {
+            const { data } = await window.Sistema.supabase
+                .from('usuarios')
+                .select('id, nome, perfil, funcao, contrato, ativo');
+            
+            if (data) {
+                // Alimenta o mapa global
+                data.forEach(u => this.mapaUsuarios[u.id] = u);
+                
+                // [LEGACY SYNC] Garante que as abas que usam Geral.state.mapaUsuarios também vejam os dados
+                if (window.Produtividade.Geral && window.Produtividade.Geral.state) {
+                    window.Produtividade.Geral.state.mapaUsuarios = this.mapaUsuarios;
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao carregar usuários globais:", e);
+        }
+    },
+ 
     verificarStatusPresenca: async function () {
         if (!Sistema || !Sistema.supabase) return;
         const hoje = new Date().toISOString().split('T')[0];
