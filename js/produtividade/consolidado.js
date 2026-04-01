@@ -263,13 +263,20 @@ Produtividade.Consolidado = {
                 else if (t === 'ano') { const mesData = parseInt(r.data_referencia.split('-')[1]); if (this.monthToColMap[mesData]) b = this.monthToColMap[mesData]; }
 
                 if (b >= 1 && b <= numCols) {
+                    const rQty = Number(r.quantidade) || 0;
+                    const rFifo = Number(r.fifo) || 0;
+                    const rGt = Number(r.gradual_total) || 0;
+                    const rGp = Number(r.gradual_parcial) || 0;
+                    const rFc = Number(r.perfil_fc) || 0;
+
                     [b, 99].forEach(k => {
-                        // [FIX] Produção: somar de todos para atingir o total do departamento (257k)
-                        st[k].qty += Number(r.quantidade) || 0;
-                        st[k].fifo += Number(r.fifo) || 0;
-                        st[k].gt += Number(r.gradual_total) || 0;
-                        st[k].gp += Number(r.gradual_parcial) || 0;
-                        st[k].fc += Number(r.perfil_fc) || 0;
+                        // [FIX] Produção Total deve ser a soma de todas as vertentes para bater com o Dashboard Geral (257k)
+                        st[k].qty += (rQty + rFifo + rGt + rGp + rFc);
+                        
+                        st[k].fifo += rFifo;
+                        st[k].gt += rGt;
+                        st[k].gp += rGp;
+                        st[k].fc += rFc;
 
                         // Headcount e dias: só assistentes ativos
                         if (!isManager && !isInativo) {
