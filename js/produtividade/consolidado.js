@@ -23,6 +23,10 @@ Produtividade.Consolidado = {
         const day   = String(d.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     },
+    // Alias usado em alguns trechos antigos
+    formatDateLocal: function (d) {
+        return this.fmtData(d);
+    },
 
     init: async function () {
         if (!this.initialized) { this.initialized = true; }
