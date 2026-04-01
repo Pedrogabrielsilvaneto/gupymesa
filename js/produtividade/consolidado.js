@@ -169,12 +169,18 @@ Produtividade.Consolidado = {
             await Promise.all([this.carregarHeadcountConfig(), this.carregarMapas()]);
 
             // Busca produção do período completo (inclusive dia 31)
+            // Ajuste: usar < próximo dia para garantir inclusão completa do último dia
+            const eNext = this.formatDateLocal(new Date(new Date(e).getTime() + 24 * 60 * 60 * 1000));
             const rawData = await Sistema.query(
                 `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
                  FROM producao
-                 WHERE data_referencia >= ? AND data_referencia <= ?`,
-                [s, e]
+                 WHERE data_referencia >= ? AND data_referencia < ?`,
+                [s, eNext]
             );
+
+            console.log('🔎 Consolidado rawData rows →', rawData?.length);
+            if (rawData && rawData.length) console.log('🔎 Último registro data_referencia →', rawData[rawData.length - 1].data_referencia);
+
 
             if (!rawData) throw new Error('Falha ao buscar dados de produção.');
 
