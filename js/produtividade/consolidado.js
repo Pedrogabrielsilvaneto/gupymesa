@@ -198,6 +198,13 @@ Produtividade.Consolidado = {
         const firstDay = new Date(year, month - 1, 1);
         const lastDay = new Date(year, month, 0);
         let currentDay = firstDay;
+        const formatDateLocal = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
         while (currentDay <= lastDay) {
             const startOfWeek = new Date(currentDay);
             const dayOfWeek = currentDay.getDay();
@@ -205,7 +212,7 @@ Produtividade.Consolidado = {
             let endOfWeek = new Date(currentDay);
             endOfWeek.setDate(currentDay.getDate() + daysToSaturday);
             if (endOfWeek > lastDay) endOfWeek = lastDay;
-            weeks.push({ inicio: startOfWeek.toISOString().split('T')[0], fim: endOfWeek.toISOString().split('T')[0] });
+            weeks.push({ inicio: formatDateLocal(startOfWeek), fim: formatDateLocal(endOfWeek) });
             currentDay = new Date(endOfWeek);
             currentDay.setDate(currentDay.getDate() + 1);
         }

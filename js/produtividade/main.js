@@ -10,6 +10,14 @@ Object.assign(window.Produtividade, {
     filtroPeriodo: 'mes',
     debounceTimer: null,
  
+    formatDateLocal: function (d) {
+        if (!d) return null;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+ 
     init: async function () {
         console.log("🚀 Produtividade Main (Root Mode) Iniciado");
  
@@ -67,7 +75,7 @@ Object.assign(window.Produtividade, {
  
     verificarStatusPresenca: async function () {
         if (!Sistema || !Sistema.supabase) return;
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = this.formatDateLocal(new Date());
         try {
             const { data } = await Sistema.supabase
                 .from('acessos_diarios')
@@ -101,7 +109,7 @@ Object.assign(window.Produtividade, {
 
         const diaInput = document.getElementById('sel-data-dia');
         if (diaInput && !diaInput.value) {
-            diaInput.value = new Date().toISOString().split('T')[0];
+            diaInput.value = this.formatDateLocal(new Date());
         }
     },
 
@@ -171,7 +179,7 @@ Object.assign(window.Produtividade, {
                 const s = JSON.parse(salvo);
                 const setVal = (id, val) => { if (document.getElementById(id)) document.getElementById(id).value = val; };
 
-                setVal('sel-data-dia', s.dia || new Date().toISOString().split('T')[0]);
+                setVal('sel-data-dia', s.dia || this.formatDateLocal(new Date()));
                 setVal('sel-ano', s.ano);
                 setVal('sel-mes', s.mes);
                 setVal('sel-semana', s.semana);
@@ -186,10 +194,10 @@ Object.assign(window.Produtividade, {
 
     getDatasFiltro: function () {
         let inicio, fim;
-        const fmt = (d) => d.toISOString().split('T')[0];
+        const fmt = (d) => this.formatDateLocal(d);
 
         if (this.filtroPeriodo === 'dia') {
-            const val = document.getElementById('sel-data-dia')?.value || new Date().toISOString().split('T')[0];
+            const val = document.getElementById('sel-data-dia')?.value || fmt(new Date());
             inicio = fim = val;
         } else {
             const ano = parseInt(document.getElementById('sel-ano')?.value || new Date().getFullYear());
