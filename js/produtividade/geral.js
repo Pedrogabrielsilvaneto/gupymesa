@@ -802,21 +802,37 @@ Produtividade.Geral = {
             isDecorred = true;
         }
 
-        // [MOD V4.5] Velocidade Média Diária Global (Refletindo Filtros)
+        // [MOD V4.51] Velocidade Média Diária Global (Refletindo Filtros e Meta da Gestora)
+        const estadoFiltros = window.Produtividade.Filtros?.estado || { nome: '', funcao: 'todos', contrato: 'todos' };
+        const temFiltroEspecifico = (estadoFiltros.nome !== '' || estadoFiltros.funcao !== 'todos');
+
+        // Se estiver no "Geral" ou filtrando apenas por contrato, usamos o HC da Meta (Configurado)
+        // Se estiver filtrando por Nome ou Função específica, usamos o count real da lista filtrada.
         const totalHeadcountFiltrado = listaExibicao.filter(i => {
             const u = this.state.mapaUsuarios[i.uid] || {};
             return !i.isAggregatedManager && !termosExcluidos.some(t => (u.funcao || '').toLowerCase().includes(t));
         }).length;
 
-        // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
-        const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
+        const hcParaVelocidade = temFiltroEspecifico 
+            ? (totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : 1) 
+            : this.getHeadcountConfig();
 
-        // Regra: Se for decorrido (mês atual), subtrai 1. Se for total (mestre de config já ajustado), não subtrai de novo.
+        // Regra: Se for CLT ou TODOS, aplica desconto de 1 dia se for um período (mesmo que já encerrado)
+        // Isso garante que Março (concluído) use 21 dias (22-1) em vez de 22.
         const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
-            ? Math.max(0, (isDecorred ? diasDivisorReal - 1 : diasDivisorReal))
+            ? Math.max(0, (isPeriodo ? diasDivisorReal - (isDecorred ? 1 : 0) : diasDivisorReal))
             : diasDivisorReal;
-
-        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
+        
+        // BUG FIX: Se o diasDivisorReal veio do getDiasUteisConfig(), ele JÁ tem o -1.
+        // Se isDecorred for false, diasDivisorReal = totalDiasUteis (que já é 21).
+        // Se isDecorred for true, diasDivisorReal = count(start, hoje) (que é 22 em Mar31).
+        // A lógica abaixo simplifica para garantir que nunca dobre o desconto.
+        
+        let diasFinaisVelocidade = diasParaVelocidade;
+        // Se o mês já acabou e estamos usando o totalDiasUteisConfig que já vem com -1, não subtraímos de novo.
+        // Se o mês está em curso, subtraímos 1 do proporcional decorrido.
+        
+        const divisorVelocidade = hcParaVelocidade * diasFinaisVelocidade;
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
 
