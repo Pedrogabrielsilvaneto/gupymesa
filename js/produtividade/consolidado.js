@@ -176,12 +176,20 @@ Produtividade.Consolidado = {
         try {
             await Promise.all([this.carregarHeadcountConfig(), this.carregarMapas()]);
 
-            const rawData = await Sistema.query(
-                `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
+            let query;
+            let params;
+            if (t === 'dia') {
+                query = `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
                  FROM producao
-                 WHERE data_referencia >= ? AND data_referencia <= ?`,
-                [s, e]
-            );
+                 WHERE DATE(data_referencia) = ?`;
+                params = [s];
+            } else {
+                query = `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
+                 FROM producao
+                 WHERE data_referencia >= ? AND data_referencia <= ?`;
+                params = [s, e];
+            }
+            const rawData = await Sistema.query(query, params);
 
             if (!rawData) throw new Error("Falha ao buscar dados de produção.");
 
