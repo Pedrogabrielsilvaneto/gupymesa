@@ -182,12 +182,20 @@ Produtividade.Consolidado = {
         try {
             await Promise.all([this.carregarHeadcountConfig(), this.carregarMapas()]);
 
+            // Buscar dados do período completo (inclui dia 31)
             const rawData = await Sistema.query(
                 `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
                  FROM producao
-                 WHERE data_referencia >= ? AND data_referencia <= ?`,
+                 WHERE data_referencia >= ? AND data_referencia <= ?
+                 ORDER BY data_referencia ASC`,
                 [s, e]
             );
+
+            // Debug: mostrar soma bruta
+            if (rawData && rawData.length > 0) {
+                const somaTotal = rawData.reduce((acc, r) => acc + (Number(r.quantidade) || 0) + (Number(r.fifo) || 0), 0);
+                console.log(`[CONSOLIDADO] Período: ${s} a ${e} | Registros: ${rawData.length} | Soma bruta: ${somaTotal.toLocaleString('pt-BR')}`);
+            }
 
             if (!rawData) throw new Error("Falha ao buscar dados de produção.");
 
@@ -202,18 +210,32 @@ Produtividade.Consolidado = {
     getSemanasDoMes: function (year, month) {
         const weeks = [];
         const firstDay = new Date(year, month - 1, 1);
+        firstDay.setHours(12, 0, 0, 0);
         const lastDay = new Date(year, month, 0);
-        let currentDay = firstDay;
+        lastDay.setHours(12, 0, 0, 0);
+        
+        // Ajustar para iniciar na segunda-feira
+        let currentDay = new Date(firstDay);
+        const dayOfWeek = currentDay.getDay();
+        if (dayOfWeek !== 1) {
+            const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+            currentDay.setDate(currentDay.getDate() + daysToMonday);
+        }
+        
         while (currentDay <= lastDay) {
             const startOfWeek = new Date(currentDay);
-            const dayOfWeek = currentDay.getDay();
-            const daysToSaturday = 6 - dayOfWeek;
-            let endOfWeek = new Date(currentDay);
-            endOfWeek.setDate(currentDay.getDate() + daysToSaturday);
-            if (endOfWeek > lastDay) endOfWeek = lastDay;
-            weeks.push({ inicio: startOfWeek.toISOString().split('T')[0], fim: endOfWeek.toISOString().split('T')[0] });
+            const endOfWeek = new Date(currentDay);
+            endOfWeek.setDate(currentDay.getDate() + 6); // Domingo
+            endOfWeek.setHours(12, 0, 0, 0);
+            if (endOfWeek > lastDay) endOfWeek = new Date(lastDay);
+            
+            // Formatar datas em YYYY-MM-DD
+            const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            weeks.push({ inicio: fmtDate(startOfWeek), fim: fmtDate(endOfWeek) });
+            
             currentDay = new Date(endOfWeek);
             currentDay.setDate(currentDay.getDate() + 1);
+            currentDay.setHours(12, 0, 0, 0);
         }
         return weeks;
     },
@@ -267,6 +289,9 @@ Produtividade.Consolidado = {
                 const contrato = this.mapaContrato[uid] || '';
                 const funcao = this.mapaFuncoes[uid] || '';
 
+                // Normalizar data para YYYY-MM-DD (sem timezone)
+                const dataRef = r.data_referencia ? r.data_referencia.split('T')[0] : null;
+
                 // Filtra por contrato
                 if (filtroContrato !== 'TODOS') {
                     if (filtroContrato === 'CLT' && contrato !== 'CLT') return;
@@ -275,7 +300,7 @@ Produtividade.Consolidado = {
 
                 // Filtra por Função HUD
                 if (filtroFuncao !== 'TODOS' && funcao !== filtroFuncao) {
-                    return; // Skip if it doesn't match the selected HUD combo
+                    return;
                 }
 
                 // Exclui gestão estrita (AUDITORA, GESTORA)
@@ -286,27 +311,37 @@ Produtividade.Consolidado = {
                 const isInativo = (ativo === false || ativo === 0 || ativo === '0');
 
                 let b = -1;
-                if (t === 'dia') { for (let k = 1; k <= numCols; k++) if (datesMap[k].ini === r.data_referencia) b = k; }
-                else if (t === 'mes') { for (let k = 1; k <= numCols; k++) if (r.data_referencia >= datesMap[k].ini && r.data_referencia <= datesMap[k].fim) b = k; }
-                else if (t === 'ano') { const mesData = parseInt(r.data_referencia.split('-')[1]); if (this.monthToColMap[mesData]) b = this.monthToColMap[mesData]; }
+                if (t === 'dia') { for (let k = 1; k <= numCols; k++) if (datesMap[k].ini === dataRef) b = k; }
+                else if (t === 'mes') { for (let k = 1; k <= numCols; k++) if (dataRef >= datesMap[k].ini && dataRef <= datesMap[k].fim) b = k; }
+                else if (t === 'ano') { const mesData = parseInt(dataRef.split('-')[1]); if (this.monthToColMap[mesData]) b = this.monthToColMap[mesData]; }
 
                 if (b >= 1 && b <= numCols) {
-                    [b, 99].forEach(k => {
-                        // Produção: soma SEMPRE (inclusive gestão, porque elas produziram)
-                        st[k].qty += Number(r.quantidade) || 0;
-                        st[k].fifo += Number(r.fifo) || 0;
-                        st[k].gt += Number(r.gradual_total) || 0;
-                        st[k].gp += Number(r.gradual_parcial) || 0;
-                        st[k].fc += Number(r.perfil_fc) || 0;
+                    // Soma na coluna da semana (com filtro)
+                    st[b].qty += Number(r.quantidade) || 0;
+                    st[b].fifo += Number(r.fifo) || 0;
+                    st[b].gt += Number(r.gradual_total) || 0;
+                    st[b].gp += Number(r.gradual_parcial) || 0;
+                    st[b].fc += Number(r.perfil_fc) || 0;
 
-                        // Headcount e dias: só assistentes ativos
-                        if (!isManager && !isInativo) {
-                            st[k].users.add(r.usuario_id);
-                            st[k].dias.add(r.data_referencia);
-                            const fatorDb = (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
-                            st[k].diasFator += fatorDb;
-                        }
-                    });
+                    if (!isManager && !isInativo) {
+                        st[b].users.add(r.usuario_id);
+                        st[b].dias.add(dataRef);
+                        const fatorDb = (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
+                        st[b].diasFator += fatorDb;
+                    }
+
+                    // TOTAL (99): soma SEM filtro (igual aba Geral)
+                    st[99].qty += Number(r.quantidade) || 0;
+                    st[99].fifo += Number(r.fifo) || 0;
+                    st[99].gt += Number(r.gradual_total) || 0;
+                    st[99].gp += Number(r.gradual_parcial) || 0;
+                    st[99].fc += Number(r.perfil_fc) || 0;
+
+                    if (!isManager && !isInativo) {
+                        st[99].users.add(r.usuario_id);
+                        st[99].dias.add(dataRef);
+                        st[99].diasFator += (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
+                    }
                 }
             });
         }
