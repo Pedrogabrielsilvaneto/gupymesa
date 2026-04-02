@@ -142,8 +142,8 @@ MinhaArea.Relatorios = {
             const metaObj = (metas || []).find(m => m.mes === mesNum);
             const prodObj = (producao || []).find(p => p.mes === mesNum);
 
-            const metaVal = metaObj ? (metaObj.meta_producao || 0) : 0;
-            const realizado = prodObj ? (prodObj.total_prod || 0) : 0;
+            const metaVal = metaObj ? (Number(metaObj.meta_producao) || 0) : 0;
+            const realizado = prodObj ? (Number(prodObj.total_prod) || 0) : 0;
             const porcentagem = metaVal > 0 ? (realizado / metaVal) * 100 : (realizado > 0 ? 100 : 0);
             
             const colorClass = porcentagem >= 100 ? 'text-emerald-600 bg-emerald-50' : (porcentagem >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
@@ -191,8 +191,8 @@ MinhaArea.Relatorios = {
             const metaObj = (metas || []).find(m => m.mes === mesNum);
             const assertObj = (assertividade || []).find(a => a.mes === mesNum);
 
-            const metaVal = metaObj ? (metaObj.meta_assertividade || 97) : 97; // Padrão 97%
-            const realizado = assertObj ? (assertObj.media_assert || 0) : 0;
+            const metaVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97; // Padrão 97%
+            const realizado = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
             const atingimento = realizado >= metaVal ? 100 : (realizado > 0 ? (realizado / metaVal) * 100 : 0);
             
             const colorClass = realizado >= metaVal ? 'text-emerald-600 bg-emerald-50' : (realizado >= 90 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
