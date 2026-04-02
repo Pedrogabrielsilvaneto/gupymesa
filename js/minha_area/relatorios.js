@@ -1,5 +1,5 @@
 /* ARQUIVO: js/minha_area/relatorios.js
-   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V6.1.0 (Advanced GAP Analysis)
+   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V6.2.0 (Relative GAP Benchmark)
 */
 
 MinhaArea.Relatorios = {
@@ -8,6 +8,7 @@ MinhaArea.Relatorios = {
     VISITANTE_IDS: ['2026', '200601'],
     _gapData: null,
     _selectedGapUsers: new Set(),
+    _gapBenchmarkId: null,
 
     init: function() {
         console.log("📊 Relatórios da Minha Área Inicializado.");
@@ -44,22 +45,20 @@ MinhaArea.Relatorios = {
             else if (!isAdmin) utForMeta = MinhaArea.usuario?.id;
             const metas = await Sistema.query(`SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, utForMeta]);
             let pP = [inicio, fim];
-            let sqlP = `SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod FROM producao p `;
+            let sqlP = `SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) `;
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlP += ` WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id = ? `; pP.push(alvoId);
+                sqlP += ` AND p.usuario_id = ? `; pP.push(alvoId);
             } else {
-                sqlP += ` JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) `;
                 if (alvoId === 'GRUPO_CLT') sqlP += ` AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE '%pj%' AND LOWER(u.contrato) NOT LIKE '%terceiro%')) `;
                 else if (alvoId === 'GRUPO_TERCEIROS') sqlP += ` AND (LOWER(u.contrato) LIKE '%pj%' OR LOWER(u.contrato) LIKE '%terceiro%') `;
             }
             sqlP += ` GROUP BY mes`;
             const prodR = await Sistema.query(sqlP, pP);
             let pA = [inicio, fim];
-            let sqlA = `SELECT MONTH(a.data_referencia) as mes, AVG(a.assertividade_val) as media_assert FROM assertividade a `;
+            let sqlA = `SELECT MONTH(a.data_referencia) as mes, AVG(a.assertividade_val) as media_assert FROM assertividade a JOIN usuarios u ON a.usuario_id = u.id WHERE a.data_referencia >= ? AND a.data_referencia <= ? `;
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlA += ` WHERE a.data_referencia >= ? AND a.data_referencia <= ? AND a.usuario_id = ? `; pA.push(alvoId);
+                sqlA += ` AND a.usuario_id = ? `; pA.push(alvoId);
             } else {
-                sqlA += ` JOIN usuarios u ON a.usuario_id = u.id WHERE a.data_referencia >= ? AND a.data_referencia <= ? `;
                 if (alvoId === 'GRUPO_CLT') sqlA += ` AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE '%pj%' AND LOWER(u.contrato) NOT LIKE '%terceiro%')) `;
                 else if (alvoId === 'GRUPO_TERCEIROS') sqlA += ` AND (LOWER(u.contrato) LIKE '%pj%' OR LOWER(u.contrato) LIKE '%terceiro%') `;
             }
@@ -69,12 +68,9 @@ MinhaArea.Relatorios = {
             for (let m = mesIni; m <= mesFim; m++) {
                 const c = (configMes || []).find(x => Number(x.mes) === m); const p = (prodR || []).find(x => Number(x.mes) === m); const a = (asR || []).find(x => Number(x.mes) === m);
                 let hc = 17;
-                if (alvoId === 'GRUPO_CLT') hc = (c && c.hc_clt) ? Number(c.hc_clt) : 8;
-                else if (alvoId === 'GRUPO_TERCEIROS') hc = (c && c.hc_terceiros) ? Number(c.hc_terceiros) : 9;
-                else if (c && (Number(c.hc_clt) || 0) + (Number(c.hc_terceiros) || 0) > 0) hc = Number(c.hc_clt) + Number(c.hc_terceiros);
+                if (alvoId === 'GRUPO_CLT') hc = (c && c.hc_clt) ? Number(c.hc_clt) : 8; else if (alvoId === 'GRUPO_TERCEIROS') hc = (c && c.hc_terceiros) ? Number(c.hc_terceiros) : 9; else if (c && (Number(c.hc_clt) || 0) + (Number(c.hc_terceiros) || 0) > 0) hc = Number(c.hc_clt) + Number(c.hc_terceiros);
                 if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') hc = 1;
-                let dUteisBase = (c && c.dias_uteis) ? Number(c.dias_uteis) : 0;
-                if (dUteisBase === 0) dUteisBase = this.calcularDiasUteisCalendario(m, ano);
+                let dUteisBase = (c && c.dias_uteis) ? Number(c.dias_uteis) : 0; if (dUteisBase === 0) dUteisBase = this.calcularDiasUteisCalendario(m, ano);
                 if (m === 1 && ano === 2026) dUteisBase = 21; if (m === 2 && ano === 2026 && dUteisBase > 18) dUteisBase = 18; 
                 let dRef = dUteisBase; if (m === mesAtual && ano === anoAtual) dRef = this.contarDiasUteis(`${ano}-${String(m).padStart(2,'0')}-01`, diaHojeStr);
                 let dFinal = Math.max(1, dRef - 1); let denV = hc * dFinal;
@@ -87,7 +83,7 @@ MinhaArea.Relatorios = {
     renderizarMetasOKR: function(metas, producao, assertividade, ano, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        let hIdx = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-enter"><div class="space-y-4">
+        let hIdx = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
             <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
         let sM = 0, cM = 0, sR = 0, cR = 0;
@@ -135,18 +131,16 @@ MinhaArea.Relatorios = {
             if (!MinhaArea.isAdmin()) return;
             const datas = MinhaArea.getDatasFiltro();
             const { inicio, fim } = datas;
-            // [FILTRO] Tira Auditores e outros cargos de gestão do GAP
             const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND u.ativo = 1 AND p.usuario_id NOT IN (2026, 200601) AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, mes ORDER BY u.nome, mes`;
             const data = await Sistema.query(sql, [inicio, fim]);
-            const roadmap = {}; const topM = {};
+            const roadmap = {};
             data.forEach(row => {
                 const uid = String(row.usuario_id);
                 if (!roadmap[uid]) roadmap[uid] = { id: uid, nome: row.nome, meses: {} };
-                const v = row.dias_trab > 0 ? (row.total_prod / row.dias_trab) : 0;
-                roadmap[uid].meses[row.mes] = v;
-                if (!topM[row.mes] || v > topM[row.mes]) topM[row.mes] = v;
+                roadmap[uid].meses[row.mes] = row.dias_trab > 0 ? (row.total_prod / row.dias_trab) : 0;
             });
-            this._gapData = { roadmap, topM, mesIni: new Date(inicio+'T12:00:00').getMonth() + 1, mesFim: new Date(fim+'T12:00:00').getMonth() + 1 };
+            this._gapData = { roadmap, mesIni: new Date(inicio+'T12:00:00').getMonth() + 1, mesFim: new Date(fim+'T12:00:00').getMonth() + 1 };
+            if (!this._gapBenchmarkId && Object.keys(roadmap).length > 0) this._gapBenchmarkId = Object.keys(roadmap)[0];
             this.renderizarGAP();
         } catch (e) { console.error(e); }
     },
@@ -154,21 +148,27 @@ MinhaArea.Relatorios = {
     renderizarGAP: function() {
         const container = document.getElementById('relatorio-ativo-content');
         if (!container || !this._gapData) return;
-        const { roadmap, topM, mesIni, mesFim } = this._gapData;
+        const { roadmap, mesIni, mesFim } = this._gapData;
         const lista = Object.values(roadmap).sort((a,b) => a.nome.localeCompare(b.nome));
+        const benchmarkRow = roadmap[this._gapBenchmarkId] || lista[0];
         
         let html = `<div class="space-y-6 animate-enter">
             <div class="bg-rose-50 p-4 rounded-2xl flex items-center justify-between border border-rose-100">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg"><i class="fas fa-chart-line"></i></div>
-                    <div><h4 class="text-rose-900 font-black text-xs uppercase tracking-widest">Análise de GAP de Performance</h4><p class="text-[10px] text-rose-600 font-bold">Compare o crescimento entre assistentes</p></div>
+                    <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg"><i class="fas fa-balance-scale"></i></div>
+                    <div><h4 class="text-rose-900 font-black text-xs uppercase tracking-widest">Comparativo de Performance</h4><p class="text-[10px] text-rose-600 font-bold">Defina uma assistente de referência para comparar as demais</p></div>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[8px] font-bold text-rose-400 uppercase mb-1">Referência (Benchmark):</span>
+                    <select onchange="MinhaArea.Relatorios.setGapBenchmark(this.value)" class="bg-white border-2 border-rose-200 rounded-lg text-xs font-bold px-3 py-1.5 outline-none focus:border-rose-500 transition shadow-sm">
+                        ${lista.map(as => `<option value="${as.id}" ${as.id === this._gapBenchmarkId ? 'selected' : ''}>${as.nome}</option>`).join('')}
+                    </select>
                 </div>
             </div>
             
-            <!-- BARRA DE FILTROS GAP -->
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-[10px] font-black text-slate-400 uppercase mr-2">Comparar:</span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase mr-2">Exibir:</span>
                     <button onclick="MinhaArea.Relatorios.toggleAllGap(true)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition">Todos</button>
                     <button onclick="MinhaArea.Relatorios.toggleAllGap(false)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition">Nenhum</button>
                     <div class="h-4 w-px bg-slate-200 mx-2"></div>
@@ -182,26 +182,30 @@ MinhaArea.Relatorios = {
         html += `</div></div></div>
 
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div class="overflow-x-auto">
-                <table class="w-full text-left"><thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-500 border-b"><tr><th class="px-6 py-4 sticky left-0 bg-slate-50 z-10 w-48 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-900 border-r">Assistente</th>`;
+                <table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-500 border-b"><tr><th class="px-6 py-4 sticky left-0 bg-slate-50 z-10 w-48 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-900 border-r">Assistente</th>`;
         for (let m = mesIni; m <= mesFim; m++) html += `<th class="px-4 py-4 text-center border-r">Mês ${m}</th>`;
-        html += `<th class="px-4 py-4 text-center bg-rose-50/50 text-rose-900">EVOLUÇÃO %</th><th class="px-4 py-4 text-right bg-slate-100/50 text-slate-900 pr-6">GAP PERFORMANCE</th></tr></thead><tbody class="divide-y">`;
+        html += `<th class="px-4 py-4 text-right bg-rose-50/50 text-rose-900 pr-8">DIFERENÇA VS REF.</th></tr></thead><tbody class="divide-y">`;
         
         lista.forEach(as => {
             if (this._selectedGapUsers.size > 0 && !this._selectedGapUsers.has(as.id)) return;
-            let pV = null, uV = null;
-            html += `<tr class="hover:bg-slate-50 transition group"><td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">${as.nome}</td>`;
+            const isRef = as.id === this._gapBenchmarkId;
+            html += `<tr class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/30' : ''}"><td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">${as.nome} ${isRef ? '⭐' : ''}</td>`;
             for (let m = mesIni; m <= mesFim; m++) {
-                const v = as.meses[m] || 0; if (v > 0) { if (pV === null) pV = v; uV = v; }
-                html += `<td class="px-4 py-4 text-center border-r font-mono font-bold ${v >= (topM[m]||0) && v>0 ? 'text-emerald-600 bg-emerald-50/20' : 'text-slate-400'}">${v > 0 ? Math.round(v) : '--'}</td>`;
+                const val = as.meses[m] || 0;
+                html += `<td class="px-4 py-4 text-center border-r font-mono font-bold text-slate-500">${val > 0 ? Math.round(val) : '--'}</td>`;
             }
-            let ev = (pV > 0 && uV > 0) ? ((uV / pV) - 1) * 100 : 0;
-            const targetGap = topM[mesFim] || 0; const gapVal = targetGap - (uV || 0);
-            html += `<td class="px-4 py-4 text-center bg-rose-50/20 font-black ${ev > 0 ? 'text-emerald-600' : 'text-rose-600'} text-[11px]">${ev > 0 ? '+' : ''}${ev.toFixed(1)}%</td><td class="px-4 py-4 text-right font-black pr-6 bg-slate-100/10 ${gapVal <= 0 ? 'text-emerald-600' : 'text-amber-600'}" style="font-size: 11px;">${gapVal <= 0 ? '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">TOP 🏆</span>' : `-${Math.round(gapVal)} metas/dia`}</td></tr>`;
+            const curVal = as.meses[mesFim] || 0; const refVal = benchmarkRow.meses[mesFim] || 0;
+            const diff = curVal - refVal;
+            html += `<td class="px-4 py-4 text-right font-black pr-8 ${isRef ? 'text-slate-400' : (diff >= 0 ? 'text-emerald-600' : 'text-rose-600')}" style="font-size: 11px;">${isRef ? 'REFERÊNCIA' : (diff >= 0 ? `+${Math.round(diff)} metas/dia` : `-${Math.abs(Math.round(diff))} metas/dia`)}</td></tr>`;
         });
         
-        html += `</tbody></table></div></div></div>`;
+        html += `</tbody></table></div></div>`;
         container.innerHTML = html;
+    },
+
+    setGapBenchmark: function(id) {
+        this._gapBenchmarkId = id;
+        this.renderizarGAP();
     },
 
     toggleUserGap: function(id) {
@@ -210,10 +214,7 @@ MinhaArea.Relatorios = {
     },
     
     toggleAllGap: function(sel) {
-        if (!sel) this._selectedGapUsers = new Set(['FORCED_EMPTY']); // Hack to keep list empty
-        else this._selectedGapUsers.clear();
+        if (!sel) this._selectedGapUsers = new Set(['FORCED_EMPTY']); else this._selectedGapUsers.clear();
         this.renderizarGAP();
-    },
-
-    copiarRelatorio: function() { navigator.clipboard.writeText("Relatório Copiado."); }
+    }
 };
