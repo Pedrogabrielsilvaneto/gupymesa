@@ -41,10 +41,15 @@ MinhaArea.Relatorios = {
             const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
             
             const { inicio, fim } = datas;
-            const ano = new Date(inicio + 'T12:00:00').getFullYear();
+            const dInicio = new Date(inicio + 'T12:00:00');
+            const dFim = new Date(fim + 'T12:00:00');
+            const ano = dInicio.getFullYear();
+            const mesIni = dInicio.getMonth() + 1;
+            const mesFim = dFim.getMonth() + 1;
 
-            let sqlMetas = `SELECT * FROM metas WHERE ano = ?`;
-            let paramsMetas = [ano];
+            // SQL para buscar as metas no período selecionado
+            let sqlMetas = `SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ?`;
+            let paramsMetas = [ano, mesIni, mesFim];
             
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
                 sqlMetas += ` AND usuario_id = ?`;
@@ -56,15 +61,16 @@ MinhaArea.Relatorios = {
 
             const metas = await Sistema.query(sqlMetas, paramsMetas);
             
+            // SQL para buscar produção sumarizada por mês (Filtrado por data real)
             let sqlProd = `
                 SELECT 
                     mes_referencia as mes, 
                     SUM(quantidade) as total_prod,
                     COUNT(DISTINCT CONCAT(usuario_id, '_', data_referencia)) as dias_trab
                 FROM producao 
-                WHERE ano_referencia = ?
+                WHERE data_referencia >= ? AND data_referencia <= ?
             `;
-            let paramsProd = [ano];
+            let paramsProd = [inicio, fim];
 
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
                 sqlProd += ` AND usuario_id = ?`;
@@ -77,14 +83,15 @@ MinhaArea.Relatorios = {
 
             const producao = await Sistema.query(sqlProd, paramsProd);
 
+            // SQL para buscar assertividade sumarizada por mês (Filtrado por data real)
             let sqlAssert = `
                 SELECT 
                     MONTH(data_referencia) as mes,
                     AVG(assertividade_val) as media_assert
                 FROM assertividade
-                WHERE YEAR(data_referencia) = ?
+                WHERE data_referencia >= ? AND data_referencia <= ?
             `;
-            let paramsAssert = [ano];
+            let paramsAssert = [inicio, fim];
             
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
                 sqlAssert += ` AND usuario_id = ?`;
@@ -97,7 +104,7 @@ MinhaArea.Relatorios = {
             
             const assertividade = await Sistema.query(sqlAssert, paramsAssert);
 
-            this.renderizarMetasOKR(metas, producao, assertividade, ano);
+            this.renderizarMetasOKR(metas, producao, assertividade, ano, mesIni, mesFim);
 
         } catch (e) {
             console.error("Erro ao carregar Metas OKR:", e);
@@ -109,12 +116,19 @@ MinhaArea.Relatorios = {
         }
     },
 
-    renderizarMetasOKR: function(metas, producao, assertividade, ano) {
+    renderizarMetasOKR: function(metas, producao, assertividade, ano, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         if (!container) return;
 
         const mesesStr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
+        // Determina título do período
+        let periodoStr = `${ano}`;
+        if (mesIni === mesFim) periodoStr = `${mesesStr[mesIni-1]} / ${ano}`;
+        else if (mesIni === 1 && mesFim === 6) periodoStr = `1º Semestre / ${ano}`;
+        else if (mesIni === 7 && mesFim === 12) periodoStr = `2º Semestre / ${ano}`;
+        else if (mesIni !== 1 || mesFim !== 12) periodoStr = `${mesesStr[mesIni-1]} a ${mesesStr[mesFim-1]} / ${ano}`;
+
         let html = `
             <div class="space-y-6 animate-enter">
                 
@@ -124,9 +138,9 @@ MinhaArea.Relatorios = {
                     <div class="space-y-4">
                         <div class="flex justify-between items-end px-1">
                             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                <i class="fas fa-layer-group text-blue-500"></i> Produção (Velocidade) - ${ano}
+                                <i class="fas fa-layer-group text-blue-500"></i> Produção (Velocidade) - ${periodoStr}
                             </h3>
-                            <button onclick="MinhaArea.Relatorios.copiarRelatorio('PROD', ${ano})" 
+                            <button onclick="MinhaArea.Relatorios.copiarRelatorio('PROD', '${periodoStr}')" 
                                     class="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition">
                                 <i class="fas fa-copy"></i> Copiar Tabela
                             </button>
@@ -150,7 +164,9 @@ MinhaArea.Relatorios = {
         let totalProdP = 0;
         let totalDiasP = 0;
 
-        mesesStr.forEach((nomeMes, i) => {
+        // Só iteramos os meses dentro do filtro
+        for (let i = mesIni - 1; i < mesFim; i++) {
+            const nomeMes = mesesStr[i];
             const mesNum = i + 1;
             const metaObj = (metas || []).find(m => m.mes === mesNum);
             const prodObj = (producao || []).find(p => p.mes === mesNum);
@@ -169,7 +185,7 @@ MinhaArea.Relatorios = {
             const colorClass = porcentagem >= 100 ? 'text-emerald-600 bg-emerald-50' : (porcentagem >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
 
             html += `
-                <tr class="hover:bg-slate-50/50 transition group ${realizado === 0 ? 'opacity-40' : ''}">
+                <tr class="hover:bg-slate-50/50 transition group ${realizado === 0 && metaVal === 0 ? 'opacity-40' : ''}">
                     <td class="px-4 py-2.5 font-bold text-slate-700">${nomeMes}</td>
                     <td class="px-4 py-2.5 font-medium text-slate-600 text-right">${metaVal > 0 ? metaVal.toLocaleString() : '--'}</td>
                     <td class="px-4 py-2.5 font-black text-blue-600 text-right">${realizado > 0 ? Math.round(realizado).toLocaleString() : '--'}</td>
@@ -188,7 +204,7 @@ MinhaArea.Relatorios = {
                     </td>
                 </tr>
             `;
-        });
+        }
 
         const avgMetaP = countMesesMetaP > 0 ? (totalMetaP / countMesesMetaP) : 0;
         const avgRealP = totalDiasP > 0 ? (totalProdP / totalDiasP) : 0;
@@ -207,7 +223,7 @@ MinhaArea.Relatorios = {
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">
-                                            <button onclick="MinhaArea.Relatorios.copiarLinha('PROD', 'Acumulado Anual', '${Math.round(avgMetaP)}', '${Math.round(avgRealP)}', '${avgPctP.toFixed(1)}')" 
+                                            <button onclick="MinhaArea.Relatorios.copiarLinha('PROD', 'Acumulado', '${Math.round(avgMetaP)}', '${Math.round(avgRealP)}', '${avgPctP.toFixed(1)}')" 
                                                     class="w-6 h-6 rounded bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition opacity-0 group-hover/acc:opacity-100">
                                                 <i class="fas fa-copy text-[9px]"></i>
                                             </button>
@@ -222,9 +238,9 @@ MinhaArea.Relatorios = {
                     <div class="space-y-4">
                         <div class="flex justify-between items-end px-1">
                             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                <i class="fas fa-check-double text-emerald-500"></i> Assertividade (Qualidade) - ${ano}
+                                <i class="fas fa-check-double text-emerald-500"></i> Assertividade (Qualidade) - ${periodoStr}
                             </h3>
-                            <button onclick="MinhaArea.Relatorios.copiarRelatorio('ASSERT', ${ano})" 
+                            <button onclick="MinhaArea.Relatorios.copiarRelatorio('ASSERT', '${periodoStr}')" 
                                     class="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1.5 transition">
                                 <i class="fas fa-copy"></i> Copiar Tabela
                             </button>
@@ -248,7 +264,8 @@ MinhaArea.Relatorios = {
         let sumMediaAssert = 0;
         let countMesesAssert = 0;
 
-        mesesStr.forEach((nomeMes, i) => {
+        for (let i = mesIni - 1; i < mesFim; i++) {
+            const nomeMes = mesesStr[i];
             const mesNum = i + 1;
             const metaObj = (metas || []).find(m => m.mes === mesNum);
             const assertObj = (assertividade || []).find(a => a.mes === mesNum);
@@ -272,7 +289,7 @@ MinhaArea.Relatorios = {
             const colorClass = realizado >= metaVal ? 'text-emerald-600 bg-emerald-50' : (realizado >= 90 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
 
             html += `
-                <tr class="hover:bg-slate-50/50 transition group ${realizado === 0 ? 'opacity-40' : ''}">
+                <tr class="hover:bg-slate-50/50 transition group ${realizado === 0 && metaVal === 0 ? 'opacity-40' : ''}">
                     <td class="px-4 py-2.5 font-bold text-slate-700">${nomeMes}</td>
                     <td class="px-4 py-2.5 font-medium text-slate-600 text-right">${metaVal}%</td>
                     <td class="px-4 py-2.5 font-black text-emerald-600 text-right">${realizado > 0 ? realizado.toFixed(2) + '%' : '--'}</td>
@@ -291,7 +308,7 @@ MinhaArea.Relatorios = {
                     </td>
                 </tr>
             `;
-        });
+        }
 
         const avgMetaA = countMesesMetaA > 0 ? (totalMetaA / countMesesMetaA) : 97;
         const avgRealA = countMesesAssert > 0 ? (sumMediaAssert / countMesesAssert) : 0;
@@ -319,7 +336,7 @@ MinhaArea.Relatorios = {
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">
-                                            <button onclick="MinhaArea.Relatorios.copiarLinha('ASSERT', 'Acumulado Anual', '${Math.round(avgMetaA)}%', '${avgRealA.toFixed(2)}%', '${avgAtingA}')" 
+                                            <button onclick="MinhaArea.Relatorios.copiarLinha('ASSERT', 'Acumulado', '${Math.round(avgMetaA)}%', '${avgRealA.toFixed(2)}%', '${avgAtingA}')" 
                                                     class="w-6 h-6 rounded bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition opacity-0 group-hover/acc:opacity-100">
                                                 <i class="fas fa-copy text-[9px]"></i>
                                             </button>
@@ -338,6 +355,7 @@ MinhaArea.Relatorios = {
         this._lastMetas = metas;
         this._lastProd = producao;
         this._lastAssert = assertividade;
+        this._lastMesRange = { mesIni, mesFim };
     },
 
     copiarLinha: function(tipo, mes, meta, realizado, ating) {
@@ -346,14 +364,17 @@ MinhaArea.Relatorios = {
         this.executarCopia(texto);
     },
 
-    copiarRelatorio: function(tipo, ano) {
+    copiarRelatorio: function(tipo, periodoStr) {
         const mesesStr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const titulo = tipo === 'PROD' ? '📈 RELATÓRIO DE PRODUÇÃO' : '✅ RELATÓRIO DE ASSERTIVIDADE';
-        let texto = `${titulo} - ${ano}\n\n`;
+        let texto = `${titulo} - ${periodoStr}\n\n`;
         
+        const { mesIni, mesFim } = this._lastMesRange || { mesIni: 1, mesFim: 12 };
+
         if (tipo === 'PROD') {
             let tMeta = 0, cMeta = 0, tProd = 0, tDias = 0;
-            mesesStr.forEach((m, i) => {
+            for (let i = mesIni - 1; i < mesFim; i++) {
+                const m = mesesStr[i];
                 const mesNum = i + 1;
                 const metaObj = (this._lastMetas || []).find(x => x.mes === mesNum);
                 const prodObj = (this._lastProd || []).find(x => x.mes === mesNum);
@@ -362,39 +383,46 @@ MinhaArea.Relatorios = {
                 const dias = prodObj ? (Number(prodObj.dias_trab) || 0) : 0;
                 const rVal = dias > 0 ? (rTotal / dias) : 0;
                 
-                if (rVal > 0) {
+                if (rVal > 0 || mVal > 0) {
                     const pct = mVal > 0 ? (rVal / mVal) * 100 : 0;
                     texto += `${m}: Meta ${mVal.toLocaleString()} | Realizado ${Math.round(rVal).toLocaleString()} | Ating. ${pct.toFixed(1)}%\n`;
-                    tMeta += mVal; cMeta++; tProd += rTotal; tDias += dias;
+                    if (mVal > 0) { tMeta += mVal; cMeta++; }
+                    tProd += rTotal; tDias += dias;
                 }
-            });
-            if (tDias > 0) {
-                const avgM = tMeta / cMeta;
-                const avgR = tProd / tDias;
+            }
+            if (tDias > 0 || tMeta > 0) {
+                const avgM = cMeta > 0 ? (tMeta / cMeta) : 0;
+                const avgR = tDias > 0 ? (tProd / tDias) : 0;
                 const avgP = avgM > 0 ? (avgR / avgM * 100) : 0;
                 texto += `\nACUMULADO: Meta ${Math.round(avgM).toLocaleString()} | Realizado ${Math.round(avgR).toLocaleString()} | Ating. ${avgP.toFixed(1)}%`;
             }
         } else {
             let tMeta = 0, cMeta = 0, sAssert = 0, cAssert = 0;
-            mesesStr.forEach((m, i) => {
+            for (let i = mesIni - 1; i < mesFim; i++) {
+                const m = mesesStr[i];
                 const mesNum = i + 1;
                 const metaObj = (this._lastMetas || []).find(x => x.mes === mesNum);
                 const assertObj = (this._lastAssert || []).find(x => x.mes === mesNum);
                 const mVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
                 const rVal = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
                 
-                if (rVal > 0) {
+                if (rVal > 0 || mVal > 0) {
                     let ating = 0;
-                    if (rVal < 90) ating = 0; else if (rVal < 94) ating = 50; else if (rVal < 95) ating = 70; else if (rVal < 96) ating = 80; else if (rVal <= 97) ating = 90; else ating = 100;
-                    texto += `${m}: Meta ${mVal}% | Realizado ${rVal.toFixed(2)}% | Ating. ${ating}%\n`;
-                    tMeta += mVal; cMeta++; sAssert += rVal; cAssert++;
+                    if (rVal > 0) {
+                        if (rVal < 90) ating = 0; else if (rVal < 94) ating = 50; else if (rVal < 95) ating = 70; else if (rVal < 96) ating = 80; else if (rVal <= 97) ating = 90; else ating = 100;
+                    }
+                    texto += `${m}: Meta ${mVal}% | Realizado ${rVal > 0 ? rVal.toFixed(2) + '%' : '--'} | Ating. ${ating}%\n`;
+                    if (mVal > 0) { tMeta += mVal; cMeta++; }
+                    if (rVal > 0) { sAssert += rVal; cAssert++; }
                 }
-            });
-            if (cAssert > 0) {
-                const avgM = tMeta / cMeta;
-                const avgR = sAssert / cAssert;
+            }
+            if (cAssert > 0 || cMeta > 0) {
+                const avgM = cMeta > 0 ? (tMeta / cMeta) : 97;
+                const avgR = cAssert > 0 ? (sAssert / cAssert) : 0;
                 let ating = 0;
-                if (avgR < 90) ating = 0; else if (avgR < 94) ating = 50; else if (avgR < 95) ating = 70; else if (avgR < 96) ating = 80; else if (avgR <= 97) ating = 90; else ating = 100;
+                if (avgR > 0) {
+                    if (avgR < 90) ating = 0; else if (avgR < 94) ating = 50; else if (avgR < 95) ating = 70; else if (avgR < 96) ating = 80; else if (avgR <= 97) ating = 90; else ating = 100;
+                }
                 texto += `\nACUMULADO: Meta ${Math.round(avgM)}% | Realizado ${avgR.toFixed(2)}% | Ating. ${ating}%`;
             }
         }
