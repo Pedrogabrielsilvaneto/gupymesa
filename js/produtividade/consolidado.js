@@ -310,6 +310,11 @@ Produtividade.Consolidado = {
                 // Normalizar data para YYYY-MM-DD (sem timezone)
                 const dataRef = r.data_referencia ? r.data_referencia.split('T')[0] : null;
 
+                const funcao    = (self.mapaFuncoes[r.usuario_id] || '').toLowerCase();
+                const isGestor  = GESTAO.some(g => funcao.includes(g));
+                const ativo     = self.mapaAtivo[r.usuario_id];
+                const isInativo = (ativo === false || ativo === 0 || ativo === '0');
+
                 // Encontrar coluna correta para este registro
                 let b = -1;
                 if (t === 'dia') {
