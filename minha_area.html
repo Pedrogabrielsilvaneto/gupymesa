@@ -185,6 +185,10 @@
                 <button onclick="MinhaArea.mudarAba('feedback')" id="btn-ma-feedback"
                     class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
                         class="fas fa-comments text-xs"></i> Feedback</button>
+
+                <button onclick="MinhaArea.mudarAba('relatorios')" id="btn-ma-relatorios"
+                    class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
+                        class="fas fa-file-contract text-xs"></i> Relatórios</button>
             </div>
 
             <div class="flex items-center gap-4">
@@ -743,6 +747,39 @@
                 </div>
             </div>
         </div>
+        <!-- ABA: RELATÓRIOS -->
+        <div id="ma-tab-relatorios" class="ma-view hidden flex-1 flex flex-col p-4 animate-enter overflow-y-auto">
+            <div id="relatorios-container" class="mx-auto w-full space-y-6 pb-20">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div id="relatorio-menu-header" class="mb-8">
+                        <h2 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                            <i class="fas fa-file-invoice text-blue-600"></i> Relatórios Dinâmicos
+                        </h2>
+                        <p class="text-xs text-slate-500">Selecione uma opção para visualizar o detalhamento mensal.</p>
+                    </div>
+                    
+                    <!-- Menu de Relatórios -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div onclick="MinhaArea.Relatorios.mudarRelatorio('metas_okr')" 
+                             class="p-4 rounded-xl border border-blue-100 bg-blue-50/50 hover:bg-blue-50 cursor-pointer transition-all border-l-4 border-l-blue-500 group">
+                            <h3 class="font-bold text-blue-800 text-sm flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                                <i class="fas fa-bullseye"></i> Metas / OKR
+                            </h3>
+                            <p class="text-[10px] text-blue-600 mt-1">Acompanhamento de atingimento mensal.</p>
+                        </div>
+                    </div>
+
+                    <!-- Área do Relatório Ativo -->
+                    <div id="relatorio-ativo-content" class="min-h-[400px]">
+                        <div class="text-center py-20 text-slate-300 italic">
+                            <i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>
+                            Selecione um relatório acima para visualizar os dados.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- [NEW] Modal de Evolução Individual (Bar Chart) -->
@@ -894,6 +931,7 @@
     <script src="js/minha_area/auditoria.js?v=20260311_0920"></script>
     <script src="js/minha_area/comparativo.js?v=20260311_0920"></script>
     <script src="js/minha_area/feedback.js?v=20260311_0920"></script>
+    <script src="js/minha_area/relatorios.js?v=20260402_1625"></script>
 </body>
 
 </html>

@@ -298,6 +298,10 @@ window.MinhaArea = {
         } else if (aba === 'feedback') {
             if (btnFeedback) btnFeedback.classList.add('active');
             if (MinhaArea.Feedback) MinhaArea.Feedback.init();
+        } else if (aba === 'relatorios') {
+            const btnRel = document.getElementById('btn-ma-relatorios');
+            if (btnRel) btnRel.classList.add('active');
+            if (MinhaArea.Relatorios) MinhaArea.Relatorios.init();
         }
     },
 
@@ -310,8 +314,10 @@ window.MinhaArea = {
                 MinhaArea.Geral.carregar();
             } else if (!document.getElementById('ma-tab-metas').classList.contains('hidden')) {
                 MinhaArea.Metas.carregar();
-            } else if (!document.getElementById('ma-tab-auditoria').classList.contains('hidden')) {
-                MinhaArea.Auditoria.carregar();
+            } else if (!document.getElementById('ma-tab-relatorios').classList.contains('hidden')) {
+                if (MinhaArea.Relatorios && MinhaArea.Relatorios.relatorioAtivo === 'metas_okr') {
+                    MinhaArea.Relatorios.carregarMetasOKR();
+                }
             }
         }
     },
