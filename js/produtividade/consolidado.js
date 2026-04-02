@@ -192,7 +192,18 @@ Produtividade.Consolidado = {
                 const somaFifo = rawData.reduce((a, r) => a + (Number(r.fifo)       || 0), 0);
                 console.log('%c[DEBUG CONS] Soma bruta qty (quantidade):', 'color:purple;font-weight:bold', somaQty.toLocaleString('pt-BR'));
                 console.log('%c[DEBUG CONS] Soma bruta fifo:', 'color:purple;font-weight:bold', somaFifo.toLocaleString('pt-BR'));
+                console.log('%c[DEBUG CONS] TOTAL BRUTO (qty):', 'color:red;font-weight:bold', somaQty.toLocaleString('pt-BR'));
                 console.log('%c[DEBUG CONS] TOTAL BRUTO (qty+fifo):', 'color:red;font-weight:bold', (somaQty + somaFifo).toLocaleString('pt-BR'));
+                
+                // Debug: filtrar por contrato
+                let countContratoPass = 0;
+                let countNomePass = 0;
+                rawData.forEach(r => {
+                    if (self.passaFiltroContrato(r.usuario_id)) countContratoPass++;
+                    if (self.passaFiltroNome(r.usuario_id)) countNomePass++;
+                });
+                console.log('%c[DEBUG CONS] Passam filtro contrato →', 'color:orange;font-weight:bold', countContratoPass);
+                console.log('%c[DEBUG CONS] Passam filtro nome →', 'color:orange;font-weight:bold', countNomePass);
             }
 
             if (!rawData) throw new Error('Falha ao buscar dados de produção.');
