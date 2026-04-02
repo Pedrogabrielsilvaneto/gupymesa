@@ -7,6 +7,11 @@ MinhaArea.Relatorios = {
 
     init: function() {
         console.log("📊 Relatórios da Minha Área Inicializado.");
+        // Controle de visibilidade exclusivo para Admins
+        if (MinhaArea.isAdmin()) {
+            const btnGap = document.getElementById('btn-rel-gap');
+            if (btnGap) btnGap.classList.remove('hidden');
+        }
     },
 
     mudarRelatorio: function(id) {
@@ -16,7 +21,12 @@ MinhaArea.Relatorios = {
         // Se clicar no mesmo que já está aberto, recolhe
         if (this.relatorioAtivo === id) {
             this.relatorioAtivo = null;
-            container.innerHTML = '';
+            container.innerHTML = `
+                <div class="text-center py-20 text-slate-300 italic">
+                    <i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>
+                    Selecione um relatório acima para visualizar os dados.
+                </div>
+            `;
             return;
         }
 
@@ -29,9 +39,12 @@ MinhaArea.Relatorios = {
 
         if (id === 'metas_okr') {
             this.carregarMetasOKR();
+        } else if (id === 'gap') {
+            this.carregarGAP();
         }
     },
 
+    // --- RELATÓRIO METAS/OKR ---
     carregarMetasOKR: async function() {
         try {
             const datas = MinhaArea.getDatasFiltro();
@@ -47,7 +60,6 @@ MinhaArea.Relatorios = {
             const mesIni = dInicio.getMonth() + 1;
             const mesFim = dFim.getMonth() + 1;
 
-            // SQL para buscar as metas no período selecionado
             let sqlMetas = `SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ?`;
             let paramsMetas = [ano, mesIni, mesFim];
             
@@ -61,7 +73,6 @@ MinhaArea.Relatorios = {
 
             const metas = await Sistema.query(sqlMetas, paramsMetas);
             
-            // SQL para buscar produção sumarizada por mês (Filtrado por data real)
             let sqlProd = `
                 SELECT 
                     mes_referencia as mes, 
@@ -83,7 +94,6 @@ MinhaArea.Relatorios = {
 
             const producao = await Sistema.query(sqlProd, paramsProd);
 
-            // SQL para buscar assertividade sumarizada por mês (Filtrado por data real)
             let sqlAssert = `
                 SELECT 
                     MONTH(data_referencia) as mes,
@@ -122,7 +132,6 @@ MinhaArea.Relatorios = {
 
         const mesesStr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
-        // Determina título do período
         let periodoStr = `${ano}`;
         if (mesIni === mesFim) periodoStr = `${mesesStr[mesIni-1]} / ${ano}`;
         else if (mesIni === 1 && mesFim === 6) periodoStr = `1º Semestre / ${ano}`;
@@ -164,7 +173,6 @@ MinhaArea.Relatorios = {
         let totalProdP = 0;
         let totalDiasP = 0;
 
-        // Só iteramos os meses dentro do filtro
         for (let i = mesIni - 1; i < mesFim; i++) {
             const nomeMes = mesesStr[i];
             const mesNum = i + 1;
@@ -356,6 +364,187 @@ MinhaArea.Relatorios = {
         this._lastProd = producao;
         this._lastAssert = assertividade;
         this._lastMesRange = { mesIni, mesFim };
+    },
+
+    // --- RELATÓRIO DE GAP (ANALISE DE EVOLUÇÃO) ---
+    carregarGAP: async function() {
+        try {
+            if (!MinhaArea.isAdmin()) return;
+            const datas = MinhaArea.getDatasFiltro();
+            if (!datas) return;
+
+            const { inicio, fim } = datas;
+            const dInicio = new Date(inicio + 'T12:00:00');
+            const dFim = new Date(fim + 'T12:00:00');
+            const mesIni = dInicio.getMonth() + 1;
+            const mesFim = dFim.getMonth() + 1;
+
+            // Busca produção de TODOS no período para calcular a Velocidade (Média Diária)
+            // Filtra por 'ASSISTENTE' para evitar inflar o Max
+            let sql = `
+                SELECT 
+                    p.usuario_id, 
+                    u.nome,
+                    p.mes_referencia as mes, 
+                    SUM(p.quantidade) as total_prod,
+                    COUNT(DISTINCT CONCAT(p.usuario_id, '_', p.data_referencia)) as dias_trab
+                FROM producao p
+                JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.data_referencia >= ? AND p.data_referencia <= ?
+                  AND u.ativo = 1
+                GROUP BY p.usuario_id, u.nome, p.mes_referencia
+                ORDER BY u.nome, p.mes_referencia
+            `;
+            const data = await Sistema.query(sql, [inicio, fim]);
+
+            // Organiza por usuário e mês
+            const roadmap = {}; // { userId: { nome: '', meses: { mes: vel } } }
+            const topMensal = {}; // { mes: maxVel }
+
+            data.forEach(row => {
+                if (!roadmap[row.usuario_id]) roadmap[row.usuario_id] = { nome: row.nome, meses: {} };
+                const vel = row.dias_trab > 0 ? (row.total_prod / row.dias_trab) : 0;
+                roadmap[row.usuario_id].meses[row.mes] = vel;
+
+                if (!topMensal[row.mes] || vel > topMensal[row.mes]) {
+                    topMensal[row.mes] = vel;
+                }
+            });
+
+            this.renderizarGAP(roadmap, topMensal, mesIni, mesFim, inicio, fim);
+
+        } catch (e) {
+            console.error("Erro ao carregar GAP:", e);
+        }
+    },
+
+    renderizarGAP: function(roadmap, topMensal, mesIni, mesFim, dIni, dFim) {
+        const container = document.getElementById('relatorio-ativo-content');
+        if (!container) return;
+
+        const mesesStr = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+        const listaAssist = Object.values(roadmap).sort((a,b) => a.nome.localeCompare(b.nome));
+
+        let html = `
+            <div class="space-y-6 animate-enter">
+                <div class="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-rose-900 font-black text-sm">Análise de GAP e Evolução</h4>
+                        <p class="text-rose-600 text-[10px] uppercase font-bold tracking-wider">Comparativo de Velocidade (Média Diária) entre Assistentes</p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white custom-scrollbar">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[9px]">
+                            <tr>
+                                <th class="px-4 py-4 sticky left-0 bg-slate-50 z-10 w-28">Assistente</th>
+        `;
+
+        // Cabeçalhos de Meses
+        for (let m = mesIni; m <= mesFim; m++) {
+            html += `<th class="px-3 py-4 text-center whitespace-nowrap min-w-[70px]">${mesesStr[m-1]}</th>`;
+        }
+
+        html += `
+                                <th class="px-4 py-4 text-center bg-slate-100/50">Evolução (%)</th>
+                                <th class="px-4 py-4 text-right bg-slate-100/50">Gap (vs TOP)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+        `;
+
+        listaAssist.forEach(assist => {
+            let primeiroValor = null;
+            let ultimoValor = null;
+            let currentVel = 0;
+
+            html += `
+                <tr class="hover:bg-slate-50/50 transition">
+                    <td class="px-4 py-3 font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100 truncate max-w-[120px]" title="${assist.nome}">
+                        ${assist.nome}
+                    </td>
+            `;
+
+            for (let m = mesIni; m <= mesFim; m++) {
+                const vel = assist.meses[m] || 0;
+                if (vel > 0) {
+                    if (primeiroValor === null) primeiroValor = vel;
+                    ultimoValor = vel;
+                    currentVel = vel;
+                }
+                
+                const isTop = vel > 0 && vel >= (topMensal[m] || 0);
+                html += `
+                    <td class="px-3 py-3 text-center">
+                        <div class="flex flex-col items-center">
+                            <span class="font-black ${isTop ? 'text-emerald-600' : 'text-slate-600'}">
+                                ${vel > 0 ? Math.round(vel) : '--'}
+                            </span>
+                        </div>
+                    </td>
+                `;
+            }
+
+            // Evolução
+            let evolPct = 0;
+            if (primeiroValor > 0 && ultimoValor > 0) {
+                evolPct = ((ultimoValor / primeiroValor) - 1) * 100;
+            }
+            const evolClass = evolPct > 0 ? 'text-emerald-600' : (evolPct < 0 ? 'text-rose-600' : 'text-slate-400');
+            const evolIcon = evolPct > 0 ? 'fa-arrow-up' : (evolPct < 0 ? 'fa-arrow-down' : 'fa-minus');
+
+            // Gap vs Top do último mês ativo
+            const topUltimoMes = topMensal[mesFim] || 0;
+            const gap = topUltimoMes - currentVel;
+            const gapPct = topUltimoMes > 0 ? (gap / topUltimoMes) * 100 : 0;
+
+            html += `
+                    <td class="px-4 py-3 text-center bg-slate-50/30">
+                        <span class="font-black ${evolClass} flex items-center justify-center gap-1">
+                            <i class="fas ${evolIcon} text-[8px]"></i>
+                            ${evolPct.toFixed(1)}%
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right bg-slate-50/30">
+                        <div class="flex flex-col items-end">
+                            <span class="font-black ${gap <= 0 ? 'text-emerald-600' : 'text-amber-600'}">
+                                ${gap <= 0 ? 'TOP' : `-${Math.round(gap)}`}
+                            </span>
+                            ${gap > 0 ? `<span class="text-[8px] text-slate-400">GAP: ${gapPct.toFixed(0)}%</span>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <h5 class="text-xs font-black text-emerald-800 uppercase mb-2">🌱 Evolução Positiva</h5>
+                        <p class="text-[10px] text-emerald-700 leading-relaxed">
+                            Assistentes com seta verde estão crescendo mês a mês. O objetivo é manter a consistência e reduzir o <b>GAP</b> em relação ao topo do ranking.
+                        </p>
+                    </div>
+                    <div class="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                        <h5 class="text-xs font-black text-amber-800 uppercase mb-2">⚖️ Comparativo de GAP</h5>
+                        <p class="text-[10px] text-amber-700 leading-relaxed">
+                            O GAP indica o quanto falta para atingir a performance das melhores da equipe no último mês selecionado. Ideal para identificar quem precisa de treinamento.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+        this._lastGAPData = roadmap; // Store for copy if needed
     },
 
     copiarLinha: function(tipo, mes, meta, realizado, ating) {
