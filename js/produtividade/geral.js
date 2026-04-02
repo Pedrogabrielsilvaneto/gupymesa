@@ -414,10 +414,12 @@ Produtividade.Geral = {
             if (this.ehAdmin(uid) && u.perfil === 'admin') continue; // Filtra apenas se for perfil admin
             if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
 
-            const funcao = (u.funcao || '').toLowerCase();
-            const perfil = (u.perfil || '').toLowerCase();
+            const funcao = (u.funcao || '').toUpperCase();
+            const perfil = (u.perfil || '').toUpperCase();
             // Mantém filtragem básica de termos se necessário, mas permite auditores/lideres
-            if (perfil === 'admin' || perfil === 'administrador') continue;
+            if (perfil === 'ADMIN' || perfil === 'ADMINISTRADOR') continue;
+            // [FIX v5.6] Exclui Visitante/Visitante Assistente rigidamente da lista
+            if (funcao.includes('VISITANTE') || perfil.includes('VISITANTE')) continue;
 
             // Chave padrão
             const chave = isPeriodo ? String(uid) : `${uid}_${range.inicio}`;
@@ -429,9 +431,11 @@ Produtividade.Geral = {
         // 2. Processar Produção (Individual)
         this.state.dadosProducao.forEach(p => {
             const uidStr = String(p.usuario_id);
-            // Permite produção de gestores/auditores/lidere, ignora apenas Admin Sistema
+            // Permite produção de gestores/auditores/lidere, ignora apenas Admin Sistema e Visitantes
             const uProd = this.state.mapaUsuarios[uidStr];
             if (uProd && (uProd.perfil === 'admin' || uidStr === '1' || uidStr === '1000')) return;
+            // [FIX v5.6] Exclui produção de visitantes
+            if (uProd && ((uProd.funcao || '').toUpperCase().includes('VISITANTE') || (uProd.perfil || '').toUpperCase().includes('VISITANTE'))) return;
 
             const chave = getChave(uidStr, p.data_referencia);
             if (!isPeriodo && this.normalizarData(p.data_referencia) !== range.inicio) return;
