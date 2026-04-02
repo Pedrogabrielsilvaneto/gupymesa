@@ -306,33 +306,27 @@ Produtividade.Consolidado = {
         const GESTAO = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
         if (rawData) {
-            let countSemColuna = 0;
             rawData.forEach(r => {
-                // NÃO aplica filtros aqui - soma TODOS os dados (igual aba Geral/Validação)
-
-                const funcao    = (self.mapaFuncoes[r.usuario_id] || '').toLowerCase();
-                const isGestor  = GESTAO.some(g => funcao.includes(g));
-                const ativo     = self.mapaAtivo[r.usuario_id];
-                const isInativo = (ativo === false || ativo === 0 || ativo === '0');
+                // Normalizar data para YYYY-MM-DD (sem timezone)
+                const dataRef = r.data_referencia ? r.data_referencia.split('T')[0] : null;
 
                 // Encontrar coluna correta para este registro
                 let b = -1;
                 if (t === 'dia') {
                     for (let k = 1; k <= numCols; k++) {
-                        if (datesMap[k].ini === r.data_referencia) { b = k; break; }
+                        if (datesMap[k].ini === dataRef) { b = k; break; }
                     }
                 } else if (t === 'mes') {
                     for (let k = 1; k <= numCols; k++) {
-                        if (r.data_referencia >= datesMap[k].ini && r.data_referencia <= datesMap[k].fim) { b = k; break; }
+                        if (dataRef >= datesMap[k].ini && dataRef <= datesMap[k].fim) { b = k; break; }
                     }
                 } else if (t === 'ano') {
-                    const mesData = parseInt(r.data_referencia.split('-')[1]);
+                    const mesData = parseInt(dataRef.split('-')[1]);
                     if (self.monthToColMap[mesData]) b = self.monthToColMap[mesData];
                 }
 
                 if (b < 1 || b > numCols) {
-                    countSemColuna++;
-                    console.log('%c[DEBUG] Registro sem coluna:', 'color:red', r.data_referencia, 'qty:', r.quantidade);
+                    console.log('%c[DEBUG] Registro sem coluna:', 'color:red', dataRef, 'qty:', r.quantidade);
                     return;
                 }
 
@@ -353,13 +347,11 @@ Produtividade.Consolidado = {
 
                     if (!isGestor && !isInativo) {
                         st[k].users.add(r.usuario_id);
-                        st[k].dias.add(r.data_referencia);
+                        st[k].dias.add(dataRef);
                         st[k].diasFator += (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
                     }
                 });
             });
-            console.log('%c[DEBUG CONS] Registros sem coluna:', 'color:red;font-weight:bold', countSemColuna);
-            console.log('%c[DEBUG CONS] DatesMap:', 'color:blue', JSON.stringify(datesMap, null, 2));
         }
 
         return { cols, st, numCols, datesMap };
