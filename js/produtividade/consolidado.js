@@ -348,7 +348,8 @@ Produtividade.Consolidado = {
                     st[k].gp   += rGp;
                     st[k].fc   += rFc;
 
-                    // Headcount e dias: somente para assistentes ativos (não gestores)
+                    // Headcount e dias: APENAS para assistentes ativos (não gestores) E não inativos
+                    // Mas a PRODUÇÃO (qty, fifo, gt, gp, fc) já foi somada acima para TODOS
                     if (!isGestor && !isInativo) {
                         st[k].users.add(r.usuario_id);
                         st[k].dias.add(r.data_referencia);
