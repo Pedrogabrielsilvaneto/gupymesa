@@ -159,7 +159,7 @@ Produtividade.Consolidado = {
     },
 
     contarAssistentesAtivos: function () {
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'visitante'];
         let count = 0;
         for (const uid in this.mapaFuncoes) {
             const funcao = (this.mapaFuncoes[uid] || '').toLowerCase();

@@ -602,7 +602,7 @@ Produtividade.Geral = {
             const u = this.state.mapaUsuarios[item.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
 
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
             if (ehGestao) return false; // Nunca aparece na grade
