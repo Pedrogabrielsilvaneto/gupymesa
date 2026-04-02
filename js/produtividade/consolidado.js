@@ -182,15 +182,7 @@ Produtividade.Consolidado = {
                 [s, e]
             );
 
-            console.log('%c[DEBUG CONS] Período consultado:', 'color:purple;font-weight:bold', s, '→', e);
-            console.log('%c[DEBUG CONS] rawData rows →', 'color:purple;font-weight:bold', rawData?.length);
-            if (rawData && rawData.length) {
-                console.log('%c[DEBUG CONS] Primeiro registro →', 'color:purple;font-weight:bold', rawData[0].data_referencia);
-                console.log('%c[DEBUG CONS] Último registro →', 'color:purple;font-weight:bold', rawData[rawData.length - 1].data_referencia);
-                const somaQty  = rawData.reduce((a, r) => a + (Number(r.quantidade) || 0), 0);
-                const somaFifo = rawData.reduce((a, r) => a + (Number(r.fifo)       || 0), 0);
-                console.log('%c[DEBUG CONS] TOTAL (qty+fifo):', 'color:red;font-weight:bold', (somaQty + somaFifo).toLocaleString('pt-BR'));
-            }
+
 
             if (!rawData) throw new Error('Falha ao buscar dados de produção.');
 
