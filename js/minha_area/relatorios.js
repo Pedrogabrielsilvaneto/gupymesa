@@ -8,7 +8,6 @@ MinhaArea.Relatorios = {
 
     init: function() {
         console.log("📊 Relatórios da Minha Área Inicializado.");
-        // Controle de visibilidade exclusivo para Admins
         if (MinhaArea.isAdmin()) {
             const btnGap = document.getElementById('btn-rel-gap');
             if (btnGap) btnGap.classList.remove('hidden');
@@ -44,7 +43,6 @@ MinhaArea.Relatorios = {
         }
     },
 
-    // --- RELATÓRIO METAS/OKR ---
     carregarMetasOKR: async function() {
         try {
             const datas = MinhaArea.getDatasFiltro();
@@ -60,7 +58,7 @@ MinhaArea.Relatorios = {
             const mesIni = dInicio.getMonth() + 1;
             const mesFim = dFim.getMonth() + 1;
 
-            // [FIX] Determina para quem buscar a Meta (ID_GESTORA se for Geral)
+            // 1. DETERMINA ALVO DA META
             let userTargetForMeta = alvoId;
             if (MinhaArea.isAdmin()) {
                 if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') {
@@ -70,12 +68,12 @@ MinhaArea.Relatorios = {
                 userTargetForMeta = myId;
             }
 
-            // SQL para buscar as metas no período selecionado para o alvo específico
+            // SQL Metas
             let sqlMetas = `SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`;
             let paramsMetas = [ano, mesIni, mesFim, userTargetForMeta];
             const metas = await Sistema.query(sqlMetas, paramsMetas);
             
-            // [FIX] SQL para buscar produção filtrada por tipo de usuário (Somente Assistentes se for Geral)
+            // 2. SQL PRODUÇÃO (Com filtros robustos de grupo e gestão)
             let sqlProd = `
                 SELECT 
                     p.mes_referencia as mes, 
@@ -88,22 +86,25 @@ MinhaArea.Relatorios = {
             let paramsProd = [inicio, fim];
 
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlProd += ` AND p.usuario_id = ?`;
+                sqlProd += ` AND p.usuario_id = ? `;
                 paramsProd.push(alvoId);
-            } else if (alvoId === 'GRUPO_CLT') {
-                sqlProd += ` AND (u.contrato IS NULL OR u.contrato NOT LIKE '%PJ%' AND u.contrato NOT LIKE '%TERCEIRO%')`;
-            } else if (alvoId === 'GRUPO_TERCEIROS') {
-                sqlProd += ` AND u.contrato LIKE '%PJ%' OR u.contrato LIKE '%TERCEIRO%'`;
-            } else if (!alvoId || alvoId === 'EQUIPE') {
-                // Se visao geral, restringe a assistentes conforme regra de HEADCOUNT (MinhaArea.Geral logic)
-                const forbidden = ['GESTOR', 'AUDITOR', 'COORDENADOR', 'COORDENA', 'LIDER', 'LÍDER', 'HEAD', 'DIRETOR'];
-                sqlProd += ` AND NOT (${forbidden.map(f => `LOWER(u.funcao) LIKE '%${f.toLowerCase()}%' OR LOWER(u.perfil) LIKE '%${f.toLowerCase()}%'`).join(' OR ')})`;
+            } else {
+                // Filtros de Grupo
+                if (alvoId === 'GRUPO_CLT') {
+                    sqlProd += ` AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE '%pj%' AND LOWER(u.contrato) NOT LIKE '%terceiro%')) `;
+                } else if (alvoId === 'GRUPO_TERCEIROS') {
+                    sqlProd += ` AND (LOWER(u.contrato) LIKE '%pj%' OR LOWER(u.contrato) LIKE '%terceiro%') `;
+                }
+
+                // Filtro Exclusão Gestão (HEADCOUNT logic)
+                const forbidden = ['GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
+                sqlProd += ` AND NOT (${forbidden.map(f => `COALESCE(LOWER(u.funcao),'') LIKE '%${f.toLowerCase()}%' OR COALESCE(LOWER(u.perfil),'') LIKE '%${f.toLowerCase()}%'`).join(' OR ')})`;
             }
 
             sqlProd += ` GROUP BY p.mes_referencia ORDER BY p.mes_referencia`;
             const producao = await Sistema.query(sqlProd, paramsProd);
 
-            // [FIX] SQL para Assertividade
+            // 3. SQL ASSERTIVIDADE
             let sqlAssert = `
                 SELECT 
                     MONTH(a.data_referencia) as mes,
@@ -115,11 +116,16 @@ MinhaArea.Relatorios = {
             let paramsAssert = [inicio, fim];
             
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlAssert += ` AND a.usuario_id = ?`;
+                sqlAssert += ` AND a.usuario_id = ? `;
                 paramsAssert.push(alvoId);
-            } else if (!alvoId || alvoId === 'EQUIPE') {
-                const forbidden = ['GESTOR', 'AUDITOR', 'COORDENADOR', 'COORDENA', 'LIDER', 'LÍDER', 'HEAD', 'DIRETOR'];
-                sqlAssert += ` AND NOT (${forbidden.map(f => `LOWER(u.funcao) LIKE '%${f.toLowerCase()}%' OR LOWER(u.perfil) LIKE '%${f.toLowerCase()}%'`).join(' OR ')})`;
+            } else {
+                if (alvoId === 'GRUPO_CLT') {
+                    sqlAssert += ` AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE '%pj%' AND LOWER(u.contrato) NOT LIKE '%terceiro%')) `;
+                } else if (alvoId === 'GRUPO_TERCEIROS') {
+                    sqlAssert += ` AND (LOWER(u.contrato) LIKE '%pj%' OR LOWER(u.contrato) LIKE '%terceiro%') `;
+                }
+                const forbidden = ['GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
+                sqlAssert += ` AND NOT (${forbidden.map(f => `COALESCE(LOWER(u.funcao),'') LIKE '%${f.toLowerCase()}%' OR COALESCE(LOWER(u.perfil),'') LIKE '%${f.toLowerCase()}%'`).join(' OR ')})`;
             }
             sqlAssert += ` GROUP BY MONTH(a.data_referencia) ORDER BY mes`;
             const assertividade = await Sistema.query(sqlAssert, paramsAssert);
@@ -150,7 +156,6 @@ MinhaArea.Relatorios = {
 
         let html = `
             <div class="space-y-6 animate-enter">
-                
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
                     
                     <!-- RELATÓRIO DE PRODUÇÃO -->
@@ -178,16 +183,14 @@ MinhaArea.Relatorios = {
                                 <tbody class="divide-y divide-slate-100">
         `;
 
-        let totalMetaP = 0;
-        let countMesesMetaP = 0;
-        let totalProdP = 0;
-        let totalDiasP = 0;
+        let totalMetaP = 0, countMesesMetaP = 0, totalProdP = 0, totalDiasP = 0;
 
         for (let i = mesIni - 1; i < mesFim; i++) {
             const nomeMes = mesesStr[i];
             const mesNum = i + 1;
-            const metaObj = (metas || []).find(m => m.mes === mesNum);
-            const prodObj = (producao || []).find(p => p.mes === mesNum);
+            
+            const metaObj = (metas || []).find(m => Number(m.mes) === mesNum);
+            const prodObj = (producao || []).find(p => Number(p.mes) === mesNum);
 
             const metaVal = metaObj ? (Number(metaObj.meta_producao) || 0) : 0;
             const realizTotal = prodObj ? (Number(prodObj.total_prod) || 0) : 0;
@@ -277,19 +280,16 @@ MinhaArea.Relatorios = {
                                 <tbody class="divide-y divide-slate-100">
         `;
 
-        let totalMetaA = 0;
-        let countMesesMetaA = 0;
-        let sumMediaAssert = 0;
-        let countMesesAssert = 0;
+        let totalMetaA = 0, countMesesMetaA = 0, sumMediaAssert = 0, countMesesAssert = 0;
 
         for (let i = mesIni - 1; i < mesFim; i++) {
             const nomeMes = mesesStr[i];
             const mesNum = i + 1;
-            const metaObj = (metas || []).find(m => m.mes === mesNum);
-            const assertObj = (assertividade || []).find(a => a.mes === mesNum);
+            const metaObj = (metas || []).find(m => Number(m.mes) === mesNum);
+            const assertObj = (assertividade || []).find(a => Number(a.mes) === mesNum);
 
             const metaVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
-            const realizado = assertObj ? (Number(assertividade[i]?.media_assert) || Number(assertObj?.media_assert) || 0) : 0;
+            const realizado = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
             
             let atingimento = 0;
             if (realizado > 0) {
@@ -364,7 +364,6 @@ MinhaArea.Relatorios = {
                             </table>
                         </div>
                     </div>
-
                 </div>
             </div>
         `;
@@ -376,7 +375,6 @@ MinhaArea.Relatorios = {
         this._lastMesRange = { mesIni, mesFim };
     },
 
-    // --- RELATÓRIO DE GAP (ANALISE DE EVOLUÇÃO) ---
     carregarGAP: async function() {
         try {
             if (!MinhaArea.isAdmin()) return;
@@ -409,9 +407,10 @@ MinhaArea.Relatorios = {
             const topMensal = {};
 
             data.forEach(row => {
-                if (!roadmap[row.usuario_id]) roadmap[row.usuario_id] = { nome: row.nome, meses: {} };
+                const uid = String(row.usuario_id);
+                if (!roadmap[uid]) roadmap[uid] = { nome: row.nome, meses: {} };
                 const vel = row.dias_trab > 0 ? (row.total_prod / row.dias_trab) : 0;
-                roadmap[row.usuario_id].meses[row.mes] = vel;
+                roadmap[uid].meses[row.mes] = vel;
 
                 if (!topMensal[row.mes] || vel > topMensal[row.mes]) {
                     topMensal[row.mes] = vel;
@@ -435,118 +434,39 @@ MinhaArea.Relatorios = {
         let html = `
             <div class="space-y-6 animate-enter">
                 <div class="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
+                    <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm"><i class="fas fa-chart-line"></i></div>
                     <div>
                         <h4 class="text-rose-900 font-black text-sm">Análise de GAP e Evolução</h4>
                         <p class="text-rose-600 text-[10px] uppercase font-bold tracking-wider">Comparativo de Velocidade (Média Diária) entre Assistentes</p>
                     </div>
                 </div>
-
                 <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white custom-scrollbar">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[9px]">
-                            <tr>
-                                <th class="px-4 py-4 sticky left-0 bg-slate-50 z-10 w-28">Assistente</th>
+                            <tr><th class="px-4 py-4 sticky left-0 bg-slate-50 z-10 w-28">Assistente</th>
         `;
 
-        for (let m = mesIni; m <= mesFim; m++) {
-            html += `<th class="px-3 py-4 text-center whitespace-nowrap min-w-[70px]">${mesesStr[m-1]}</th>`;
-        }
-
-        html += `
-                                <th class="px-4 py-4 text-center bg-slate-100/50">Evolução (%)</th>
-                                <th class="px-4 py-4 text-right bg-slate-100/50">Gap (vs TOP)</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-        `;
+        for (let m = mesIni; m <= mesFim; m++) { html += `<th class="px-3 py-4 text-center whitespace-nowrap min-w-[70px]">${mesesStr[m-1]}</th>`; }
+        html += `<th class="px-4 py-4 text-center bg-slate-100/50">Evolução (%)</th><th class="px-4 py-4 text-right bg-slate-100/50">Gap (vs TOP)</th></tr></thead><tbody class="divide-y divide-slate-100">`;
 
         listaAssist.forEach(assist => {
-            let primeiroValor = null;
-            let ultimoValor = null;
-            let currentVel = 0;
-
-            html += `
-                <tr class="hover:bg-slate-50/50 transition">
-                    <td class="px-4 py-3 font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100 truncate max-w-[120px]" title="${assist.nome}">
-                        ${assist.nome}
-                    </td>
-            `;
-
+            let primeiroValor = null, ultimoValor = null, currentVel = 0;
+            html += `<tr class="hover:bg-slate-50/50 transition"><td class="px-4 py-3 font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100 truncate max-w-[120px]" title="${assist.nome}">${assist.nome}</td>`;
             for (let m = mesIni; m <= mesFim; m++) {
                 const vel = assist.meses[m] || 0;
-                if (vel > 0) {
-                    if (primeiroValor === null) primeiroValor = vel;
-                    ultimoValor = vel;
-                    currentVel = vel;
-                }
-                
+                if (vel > 0) { if (primeiroValor === null) primeiroValor = vel; ultimoValor = vel; currentVel = vel; }
                 const isTop = vel > 0 && vel >= (topMensal[m] || 0);
-                html += `
-                    <td class="px-3 py-3 text-center">
-                        <div class="flex flex-col items-center">
-                            <span class="font-black ${isTop ? 'text-emerald-600' : 'text-slate-600'}">
-                                ${vel > 0 ? Math.round(vel) : '--'}
-                            </span>
-                        </div>
-                    </td>
-                `;
+                html += `<td class="px-3 py-3 text-center"><span class="font-black ${isTop ? 'text-emerald-600' : 'text-slate-600'}">${vel > 0 ? Math.round(vel) : '--'}</span></td>`;
             }
-
-            let evolPct = 0;
-            if (primeiroValor > 0 && ultimoValor > 0) {
-                evolPct = ((ultimoValor / primeiroValor) - 1) * 100;
-            }
+            let evolPct = (primeiroValor > 0 && ultimoValor > 0) ? ((ultimoValor / primeiroValor) - 1) * 100 : 0;
             const evolClass = evolPct > 0 ? 'text-emerald-600' : (evolPct < 0 ? 'text-rose-600' : 'text-slate-400');
             const evolIcon = evolPct > 0 ? 'fa-arrow-up' : (evolPct < 0 ? 'fa-arrow-down' : 'fa-minus');
-
             const topUltimoMes = topMensal[mesFim] || 0;
             const gap = topUltimoMes - currentVel;
             const gapPct = topUltimoMes > 0 ? (gap / topUltimoMes) * 100 : 0;
-
-            html += `
-                    <td class="px-4 py-3 text-center bg-slate-50/30">
-                        <span class="font-black ${evolClass} flex items-center justify-center gap-1">
-                            <i class="fas ${evolIcon} text-[8px]"></i>
-                            ${evolPct.toFixed(1)}%
-                        </span>
-                    </td>
-                    <td class="px-4 py-3 text-right bg-slate-50/30">
-                        <div class="flex flex-col items-end">
-                            <span class="font-black ${gap <= 0 ? 'text-emerald-600' : 'text-amber-600'}">
-                                ${gap <= 0 ? 'TOP' : `-${Math.round(gap)}`}
-                            </span>
-                            ${gap > 0 ? `<span class="text-[8px] text-slate-400">GAP: ${gapPct.toFixed(0)}%</span>` : ''}
-                        </div>
-                    </td>
-                </tr>
-            `;
+            html += `<td class="px-4 py-3 text-center bg-slate-50/30"><span class="font-black ${evolClass} flex items-center justify-center gap-1"><i class="fas ${evolIcon} text-[8px]"></i>${evolPct.toFixed(1)}%</span></td><td class="px-4 py-3 text-right bg-slate-50/30 font-black ${gap <= 0 ? 'text-emerald-600' : 'text-amber-600'}">${gap <= 0 ? 'TOP' : `-${Math.round(gap)}`}</td></tr>`;
         });
-
-        html += `
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                        <h5 class="text-xs font-black text-emerald-800 uppercase mb-2">🌱 Evolução Positiva</h5>
-                        <p class="text-[10px] text-emerald-700 leading-relaxed">
-                            Assistentes com seta verde estão crescendo mês a mês. O objetivo é manter a consistência e reduzir o <b>GAP</b> em relação ao topo do ranking.
-                        </p>
-                    </div>
-                    <div class="p-4 bg-amber-50 rounded-xl border border-amber-100">
-                        <h5 class="text-xs font-black text-amber-800 uppercase mb-2">⚖️ Comparativo de GAP</h5>
-                        <p class="text-[10px] text-amber-700 leading-relaxed">
-                            O GAP indica o quanto falta para atingir a performance das melhores da equipe no último mês selecionado. Ideal para identificar quem precisa de treinamento.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        `;
-
+        html += `</tbody></table></div></div>`;
         container.innerHTML = html;
         this._lastGAPData = roadmap;
     },
@@ -561,24 +481,20 @@ MinhaArea.Relatorios = {
         const mesesStr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const titulo = tipo === 'PROD' ? '📈 RELATÓRIO DE PRODUÇÃO' : '✅ RELATÓRIO DE ASSERTIVIDADE';
         let texto = `${titulo} - ${periodoStr}\n\n`;
-        
         const { mesIni, mesFim } = this._lastMesRange || { mesIni: 1, mesFim: 12 };
-
         if (tipo === 'PROD') {
             let tMeta = 0, cMeta = 0, tProd = 0, tDias = 0;
             for (let i = mesIni - 1; i < mesFim; i++) {
-                const m = mesesStr[i];
                 const mesNum = i + 1;
-                const metaObj = (this._lastMetas || []).find(x => x.mes === mesNum);
-                const prodObj = (this._lastProd || []).find(x => x.mes === mesNum);
+                const metaObj = (this._lastMetas || []).find(x => Number(x.mes) === mesNum);
+                const prodObj = (this._lastProd || []).find(x => Number(x.mes) === mesNum);
                 const mVal = metaObj ? (Number(metaObj.meta_producao) || 0) : 0;
                 const rTotal = prodObj ? (Number(prodObj.total_prod) || 0) : 0;
                 const dias = prodObj ? (Number(prodObj.dias_trab) || 0) : 0;
                 const rVal = dias > 0 ? (rTotal / dias) : 0;
-                
                 if (rVal > 0 || mVal > 0) {
                     const pct = mVal > 0 ? (rVal / mVal) * 100 : 0;
-                    texto += `${m}: Meta ${mVal.toLocaleString()} | Realizado ${Math.round(rVal).toLocaleString()} | Ating. ${pct.toFixed(1)}%\n`;
+                    texto += `${mesesStr[i]}: Meta ${mVal.toLocaleString()} | Realizado ${Math.round(rVal).toLocaleString()} | Ating. ${pct.toFixed(1)}%\n`;
                     if (mVal > 0) { tMeta += mVal; cMeta++; }
                     tProd += rTotal; tDias += dias;
                 }
@@ -592,19 +508,15 @@ MinhaArea.Relatorios = {
         } else {
             let tMeta = 0, cMeta = 0, sAssert = 0, cAssert = 0;
             for (let i = mesIni - 1; i < mesFim; i++) {
-                const m = mesesStr[i];
                 const mesNum = i + 1;
-                const metaObj = (this._lastMetas || []).find(x => x.mes === mesNum);
-                const assertObj = (this._lastAssert || []).find(x => x.mes === mesNum);
+                const metaObj = (this._lastMetas || []).find(x => Number(x.mes) === mesNum);
+                const assertObj = (this._lastAssert || []).find(x => Number(x.mes) === mesNum);
                 const mVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
                 const rVal = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
-                
                 if (rVal > 0 || mVal > 0) {
                     let ating = 0;
-                    if (rVal > 0) {
-                        if (rVal < 90) ating = 0; else if (rVal < 94) ating = 50; else if (rVal < 95) ating = 70; else if (rVal < 96) ating = 80; else if (rVal <= 97) ating = 90; else ating = 100;
-                    }
-                    texto += `${m}: Meta ${mVal}% | Realizado ${rVal > 0 ? rVal.toFixed(2) + '%' : '--'} | Ating. ${ating}%\n`;
+                    if (rVal > 0) { if (rVal < 90) ating = 0; else if (rVal < 94) ating = 50; else if (rVal < 95) ating = 70; else if (rVal < 96) ating = 80; else if (rVal <= 97) ating = 90; else ating = 100; }
+                    texto += `${mesesStr[i]}: Meta ${mVal}% | Realizado ${rVal > 0 ? rVal.toFixed(2) + '%' : '--'} | Ating. ${ating}%\n`;
                     if (mVal > 0) { tMeta += mVal; cMeta++; }
                     if (rVal > 0) { sAssert += rVal; cAssert++; }
                 }
@@ -612,14 +524,10 @@ MinhaArea.Relatorios = {
             if (cAssert > 0 || cMeta > 0) {
                 const avgM = cMeta > 0 ? (tMeta / cMeta) : 97;
                 const avgR = cAssert > 0 ? (sAssert / cAssert) : 0;
-                let ating = 0;
-                if (avgR > 0) {
-                    if (avgR < 90) ating = 0; else if (avgR < 94) ating = 50; else if (avgR < 95) ating = 70; else if (avgR < 96) ating = 80; else if (avgR <= 97) ating = 90; else ating = 100;
-                }
+                let ating = (avgR > 0) ? (avgR < 90 ? 0 : (avgR < 94 ? 50 : (avgR < 95 ? 70 : (avgR < 96 ? 80 : (avgR <= 97 ? 90 : 100))))) : 0;
                 texto += `\nACUMULADO: Meta ${Math.round(avgM)}% | Realizado ${avgR.toFixed(2)}% | Ating. ${ating}%`;
             }
         }
-
         this.executarCopia(texto);
     },
 
