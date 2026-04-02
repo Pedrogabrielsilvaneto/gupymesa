@@ -113,7 +113,13 @@ Produtividade.Geral = {
         if (Object.keys(this.state.mapaUsuarios).length > 0) return;
         try {
             const data = await Sistema.query('SELECT id, nome, perfil, funcao, contrato, ativo FROM usuarios');
-            if (data) data.forEach(u => this.state.mapaUsuarios[u.id] = u);
+            if (data) {
+                data.forEach(u => {
+                    this.state.mapaUsuarios[u.id] = u;
+                    // [DEBUG v5.6] Log all users to check actual field values
+                    console.log(`[DEBUG USERS] id=${u.id} nome="${u.nome}" perfil="${u.perfil}" funcao="${u.funcao}" ativo=${u.ativo}`);
+                });
+            }
         } catch (e) {
             console.error("Erro ao buscar usuários:", e);
         }
@@ -419,7 +425,11 @@ Produtividade.Geral = {
             // Mantém filtragem básica de termos se necessário, mas permite auditores/lideres
             if (perfil === 'ADMIN' || perfil === 'ADMINISTRADOR') continue;
             // [FIX v5.6] Exclui Visitante/Visitante Assistente rigidamente da lista
-            if (funcao.includes('VISITANTE') || perfil.includes('VISITANTE')) continue;
+            if (funcao.includes('VISITANTE') || perfil.includes('VISITANTE')) {
+                console.log(`[DEBUG VISITANTE SKIP] uid=${uid} nome="${u.nome}" funcao="${funcao}" perfil="${perfil}"`);
+                continue;
+            }
+            console.log(`[DEBUG USER PASS] uid=${uid} nome="${u.nome}" funcao="${funcao}" perfil="${perfil}"`);
 
             // Chave padrão
             const chave = isPeriodo ? String(uid) : `${uid}_${range.inicio}`;
