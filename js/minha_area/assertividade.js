@@ -98,7 +98,7 @@ MinhaArea.Assertividade = {
         }
 
         // Renderiza o template se estiver vazio, com o placeholder ou com versão antiga (sem novos IDs)
-        if (container.innerHTML.includes('Carregando Painel') || container.innerHTML.trim() === '' || 
+        if (container.innerHTML.includes('Carregando Painel') || container.innerHTML.trim() === '' ||
             !container.querySelector('#card-docs-aceitos-indevidos')) {
             container.innerHTML = this.HTML_DASHBOARD;
         }
@@ -139,11 +139,11 @@ MinhaArea.Assertividade = {
 
             let countTotalAuditados = 0;
             let countTotalAcertos = 0;
-            let countTotalNok = 0;        
-            let countTotalDocsNok = 0;    
-            let countErrosGupy = 0;       
-            let countErrosNdf = 0;        
-            let countNdfEmpresa = 0;      
+            let countTotalNok = 0;
+            let countTotalDocsNok = 0;
+            let countErrosGupy = 0;
+            let countErrosNdf = 0;
+            let countNdfEmpresa = 0;
             let countDocsAceitosIndevidos = 0;
             const listaErros = [];
 
@@ -224,15 +224,15 @@ MinhaArea.Assertividade = {
         console.log("Assertividade: Buscando registros no TiDB...", { uid, inicio, fim });
 
         const colunas = 'id, id_ppc, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok, qtd_campos, qtd_ok, assertividade_val, usuario_id';
-        
+
         // [FIX v4.50] Busca auditados + qualquer registro que tenha marcação de falha (mesmo sem auditor)
         let sql = `SELECT ${colunas} FROM assertividade WHERE data_referencia >= ? AND data_referencia <= ? 
                    AND (auditora_nome IS NOT NULL OR assertividade_val IS NOT NULL OR status = 'NOK' OR doc_name = 'nok' OR qtd_nok > 0 OR tipo_documento = 'DOC_NDF_EMPRESA')`;
-        
+
         // [FIX v4.51] O Total de Produção (Auditados) deve seguir o mesmo filtro dos registros mostrados
         let sqlTotal = `SELECT COUNT(*) as total FROM assertividade WHERE data_referencia >= ? AND data_referencia <= ?
                         AND (auditora_nome IS NOT NULL OR assertividade_val IS NOT NULL OR status = 'NOK' OR doc_name = 'nok' OR qtd_nok > 0 OR tipo_documento = 'DOC_NDF_EMPRESA')`;
-        
+
         let params = [inicio, fim];
         let paramsTotal = [inicio, fim];
 

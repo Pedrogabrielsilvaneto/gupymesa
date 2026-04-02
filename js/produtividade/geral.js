@@ -4,6 +4,9 @@
 */
 window.Produtividade = window.Produtividade || {};
 
+/* IDs de usuários de TESTE que devem ser completamente ignorados */
+const VISITANTE_IDS = new Set(['2026', '200601', 2026, 200601]);
+
 Produtividade.Geral = {
     state: {
         loading: false,
@@ -116,8 +119,6 @@ Produtividade.Geral = {
             if (data) {
                 data.forEach(u => {
                     this.state.mapaUsuarios[u.id] = u;
-                    // [DEBUG v5.6] Log all users to check actual field values
-                    console.log(`[DEBUG USERS] id=${u.id} nome="${u.nome}" perfil="${u.perfil}" funcao="${u.funcao}" ativo=${u.ativo}`);
                 });
             }
         } catch (e) {
@@ -414,22 +415,16 @@ Produtividade.Geral = {
         };
 
         // 1. Inicializar mapa com TODOS os assistentes elegíveis E GESTÃO (Auditores/Líderes para soma)
-        const termosExcluidos = ['admin']; // Apenas admin é excluído rigidamente
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];
-            if (this.ehAdmin(uid) && u.perfil === 'admin') continue; // Filtra apenas se for perfil admin
+            // [FIX v5.7] Exclui IDs de usuários de TESTE (Visitante/Visitante Assistente)
+            if (VISITANTE_IDS.has(uid) || VISITANTE_IDS.has(Number(uid))) continue;
+            if (this.ehAdmin(uid) && u.perfil === 'admin') continue;
             if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;
 
             const funcao = (u.funcao || '').toUpperCase();
             const perfil = (u.perfil || '').toUpperCase();
-            // Mantém filtragem básica de termos se necessário, mas permite auditores/lideres
             if (perfil === 'ADMIN' || perfil === 'ADMINISTRADOR') continue;
-            // [FIX v5.6] Exclui Visitante/Visitante Assistente rigidamente da lista
-            if (funcao.includes('VISITANTE') || perfil.includes('VISITANTE')) {
-                console.log(`[DEBUG VISITANTE SKIP] uid=${uid} nome="${u.nome}" funcao="${funcao}" perfil="${perfil}"`);
-                continue;
-            }
-            console.log(`[DEBUG USER PASS] uid=${uid} nome="${u.nome}" funcao="${funcao}" perfil="${perfil}"`);
 
             // Chave padrão
             const chave = isPeriodo ? String(uid) : `${uid}_${range.inicio}`;
@@ -441,11 +436,10 @@ Produtividade.Geral = {
         // 2. Processar Produção (Individual)
         this.state.dadosProducao.forEach(p => {
             const uidStr = String(p.usuario_id);
-            // Permite produção de gestores/auditores/lidere, ignora apenas Admin Sistema e Visitantes
+            // [FIX v5.7] Ignora produção de usuários de teste
+            if (VISITANTE_IDS.has(uidStr) || VISITANTE_IDS.has(Number(uidStr))) return;
             const uProd = this.state.mapaUsuarios[uidStr];
             if (uProd && (uProd.perfil === 'admin' || uidStr === '1' || uidStr === '1000')) return;
-            // [FIX v5.6] Exclui produção de visitantes
-            if (uProd && ((uProd.funcao || '').toUpperCase().includes('VISITANTE') || (uProd.perfil || '').toUpperCase().includes('VISITANTE'))) return;
 
             const chave = getChave(uidStr, p.data_referencia);
             if (!isPeriodo && this.normalizarData(p.data_referencia) !== range.inicio) return;
@@ -610,16 +604,18 @@ Produtividade.Geral = {
             ? window.Produtividade.Filtros.preFiltrar(listaStaff)
             : listaStaff;
 
-        // 2. Filtro de Gestão (Para Grid)
-        const filtroFuncao = window.Produtividade.Filtros?.estado?.funcao || 'todos';
+        // 2. Filtro de Gestão e Visitantes (Para Grid)
         let listaParaGrid = listaBase.filter(item => {
+            // [FIX v5.7] Exclui IDs de teste
+            if (VISITANTE_IDS.has(String(item.uid)) || VISITANTE_IDS.has(Number(item.uid))) return false;
+
             const u = this.state.mapaUsuarios[item.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
             const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante', 'head', 'diretor'];
 
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
-            if (ehGestao) return false; // Nunca aparece na grade
+            if (ehGestao) return false;
 
             return true;
         });
@@ -1138,9 +1134,11 @@ Produtividade.Geral = {
     },
     contarAssistentesElegiveis: function (filtroContrato = 'todos', filtroFuncao = 'todos') {
         let count = 0;
-        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR', 'VISITANTE'];
+        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
 
         for (const uid in this.state.mapaUsuarios) {
+            // [FIX v5.7] Exclui IDs de teste
+            if (VISITANTE_IDS.has(uid) || VISITANTE_IDS.has(Number(uid))) continue;
             const u = this.state.mapaUsuarios[uid];
             if (this.ehAdmin(uid)) continue;
             if (u.ativo === false || u.ativo === 0 || u.ativo === '0') continue;

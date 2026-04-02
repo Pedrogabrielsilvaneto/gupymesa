@@ -159,9 +159,12 @@ Produtividade.Consolidado = {
     },
 
     contarAssistentesAtivos: function () {
-        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'visitante'];
+        const VISITANTE_IDS = new Set(['2026', '200601']);
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
         let count = 0;
         for (const uid in this.mapaFuncoes) {
+            // [FIX v5.7] Exclui IDs de teste por ID
+            if (VISITANTE_IDS.has(uid)) continue;
             const funcao = (this.mapaFuncoes[uid] || '').toLowerCase();
             const ativo = this.mapaAtivo[uid];
             if (ativo === false || ativo === 0 || ativo === '0') continue;
@@ -303,8 +306,12 @@ Produtividade.Consolidado = {
                     return;
                 }
 
-                // Exclui gestão estrita e visitantes (teste)
-                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao) || funcao.includes('VISITANTE');
+                // [FIX v5.7] Exclui IDs de usuários de teste por ID
+                const VISITANTE_IDS_CONS = new Set(['2026', '200601']);
+                if (VISITANTE_IDS_CONS.has(uid)) return;
+
+                // Exclui gestão estrita (AUDITORA, GESTORA)
+                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
 
                 // Exclui inativos
                 const ativo = this.mapaAtivo[uid];
