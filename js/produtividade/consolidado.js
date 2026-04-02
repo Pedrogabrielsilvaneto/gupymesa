@@ -224,7 +224,7 @@ Produtividade.Consolidado = {
         
         while (currentDay <= lastDay) {
             const startOfWeek = new Date(currentDay);
-            const endOfWeek = new Date(currentDay);
+            let endOfWeek = new Date(currentDay);
             endOfWeek.setDate(currentDay.getDate() + 6); // Domingo
             endOfWeek.setHours(12, 0, 0, 0);
             if (endOfWeek > lastDay) endOfWeek = new Date(lastDay);
