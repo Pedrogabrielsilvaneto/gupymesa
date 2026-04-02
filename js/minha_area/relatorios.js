@@ -114,31 +114,43 @@ MinhaArea.Relatorios = {
         const mesesStr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
         let html = `
-            <div class="space-y-10 animate-enter">
+            <div class="space-y-6 animate-enter">
                 
-                <!-- RELATÓRIO DE PRODUÇÃO -->
-                <div>
-                    <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <i class="fas fa-layer-group text-blue-500"></i> Relatório de Produção (Validação) - ${ano}
-                    </h3>
-                    <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-white">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px]">
-                                <tr>
-                                    <th class="px-6 py-4">Mês</th>
-                                    <th class="px-6 py-4">Meta do Mês</th>
-                                    <th class="px-6 py-4">Realizado</th>
-                                    <th class="px-6 py-4 text-center">% Atingimento</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
+                <!-- Header com Ações -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                        <h3 class="font-bold text-slate-700">Relatórios de Metas e OKR</h3>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Visualização Anual - ${ano}</p>
+                    </div>
+                    <button onclick="MinhaArea.Relatorios.copiarRelatorioCompleto(${ano})" 
+                            class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 shadow-sm transition flex items-center gap-2">
+                        <i class="fas fa-copy"></i> Copiar Relatório Completo
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    
+                    <!-- RELATÓRIO DE PRODUÇÃO -->
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
+                            <i class="fas fa-layer-group text-blue-500"></i> Produção (Validação)
+                        </h3>
+                        <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-white">
+                            <table class="w-full text-left text-sm" id="table-rel-prod">
+                                <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px]">
+                                    <tr>
+                                        <th class="px-4 py-3">Mês</th>
+                                        <th class="px-4 py-3 text-right">Meta</th>
+                                        <th class="px-4 py-3 text-right">Realizado</th>
+                                        <th class="px-4 py-3 text-center">Ating.</th>
+                                        <th class="px-4 py-3 text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
         `;
 
         mesesStr.forEach((nomeMes, i) => {
             const mesNum = i + 1;
-            
-            // Se for Geral, precisamos somar as metas de todos os usuários ou usar a meta da equipe (ConfigMes)
-            // Para simplicidade inicial, vamos considerar a meta média se for individual
             const metaObj = (metas || []).find(m => m.mes === mesNum);
             const prodObj = (producao || []).find(p => p.mes === mesNum);
 
@@ -149,41 +161,48 @@ MinhaArea.Relatorios = {
             const colorClass = porcentagem >= 100 ? 'text-emerald-600 bg-emerald-50' : (porcentagem >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
 
             html += `
-                <tr class="hover:bg-slate-50/50 transition">
-                    <td class="px-6 py-4 font-bold text-slate-700">${nomeMes}</td>
-                    <td class="px-6 py-4 font-medium text-slate-600">${metaVal.toLocaleString()}</td>
-                    <td class="px-6 py-4 font-black text-blue-600">${realizado.toLocaleString()}</td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-3 py-1 rounded-full font-black text-[11px] ${colorClass}">
-                            ${porcentagem.toFixed(2)}%
+                <tr class="hover:bg-slate-50/50 transition group">
+                    <td class="px-4 py-3 font-bold text-slate-700">${nomeMes}</td>
+                    <td class="px-4 py-3 font-medium text-slate-600 text-right">${metaVal.toLocaleString()}</td>
+                    <td class="px-4 py-3 font-black text-blue-600 text-right">${realizado.toLocaleString()}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full font-black text-[10px] ${colorClass}">
+                            ${porcentagem.toFixed(1)}%
                         </span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="MinhaArea.Relatorios.copiarLinha('PROD', '${nomeMes}', ${metaVal}, ${realizado}, ${porcentagem.toFixed(1)})" 
+                                class="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition opacity-0 group-hover:opacity-100">
+                            <i class="fas fa-copy text-[10px]"></i>
+                        </button>
                     </td>
                 </tr>
             `;
         });
 
         html += `
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
 
-                <!-- RELATÓRIO DE ASSERTIVIDADE -->
-                <div>
-                    <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <i class="fas fa-check-double text-emerald-500"></i> Relatório de Assertividade (Qualidade) - ${ano}
-                    </h3>
-                    <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-white">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px]">
-                                <tr>
-                                    <th class="px-6 py-4">Mês</th>
-                                    <th class="px-6 py-4">Meta do Mês</th>
-                                    <th class="px-6 py-4">Realizado</th>
-                                    <th class="px-6 py-4 text-center">% Atingimento</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
+                    <!-- RELATÓRIO DE ASSERTIVIDADE -->
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
+                            <i class="fas fa-check-double text-emerald-500"></i> Assertividade (Qualidade)
+                        </h3>
+                        <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-white">
+                            <table class="w-full text-left text-sm" id="table-rel-assert">
+                                <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px]">
+                                    <tr>
+                                        <th class="px-4 py-3">Mês</th>
+                                        <th class="px-4 py-3 text-right">Meta</th>
+                                        <th class="px-4 py-3 text-right">Realizado</th>
+                                        <th class="px-4 py-3 text-center">Ating.</th>
+                                        <th class="px-4 py-3 text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
         `;
 
         mesesStr.forEach((nomeMes, i) => {
@@ -191,35 +210,94 @@ MinhaArea.Relatorios = {
             const metaObj = (metas || []).find(m => m.mes === mesNum);
             const assertObj = (assertividade || []).find(a => a.mes === mesNum);
 
-            const metaVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97; // Padrão 97%
+            const metaVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
             const realizado = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
             const atingimento = realizado >= metaVal ? 100 : (realizado > 0 ? (realizado / metaVal) * 100 : 0);
             
             const colorClass = realizado >= metaVal ? 'text-emerald-600 bg-emerald-50' : (realizado >= 90 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
 
             html += `
-                <tr class="hover:bg-slate-50/50 transition">
-                    <td class="px-6 py-4 font-bold text-slate-700">${nomeMes}</td>
-                    <td class="px-6 py-4 font-medium text-slate-600">${metaVal}%</td>
-                    <td class="px-6 py-4 font-black text-emerald-600">${realizado > 0 ? realizado.toFixed(2) + '%' : '--'}</td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-3 py-1 rounded-full font-black text-[11px] ${colorClass}">
-                            ${atingimento.toFixed(2)}%
+                <tr class="hover:bg-slate-50/50 transition group">
+                    <td class="px-4 py-3 font-bold text-slate-700">${nomeMes}</td>
+                    <td class="px-4 py-3 font-medium text-slate-600 text-right">${metaVal}%</td>
+                    <td class="px-4 py-3 font-black text-emerald-600 text-right">${realizado > 0 ? realizado.toFixed(2) + '%' : '--'}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full font-black text-[10px] ${colorClass}">
+                            ${atingimento.toFixed(1)}%
                         </span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="MinhaArea.Relatorios.copiarLinha('ASSERT', '${nomeMes}', '${metaVal}%', '${realizado.toFixed(2)}%', ${atingimento.toFixed(1)})" 
+                                class="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600 transition opacity-0 group-hover:opacity-100">
+                            <i class="fas fa-copy text-[10px]"></i>
+                        </button>
                     </td>
                 </tr>
             `;
         });
 
         html += `
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
 
+                </div>
             </div>
         `;
 
         container.innerHTML = html;
+        this._lastMetas = metas;
+        this._lastProd = producao;
+        this._lastAssert = assertividade;
+    },
+
+    copiarLinha: function(tipo, mes, meta, realizado, ating) {
+        const titulo = tipo === 'PROD' ? 'Produção' : 'Assertividade';
+        const texto = `${titulo} - ${mes}:\nMeta: ${meta} | Realizado: ${realizado} | Atingimento: ${ating}%`;
+        this.executarCopia(texto);
+    },
+
+    copiarRelatorioCompleto: function(ano) {
+        const mesesStr = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        let texto = `📊 RELATÓRIO ANUAL GUPYMESA - ${ano}\n\n`;
+        
+        texto += `--- PRODUÇÃO (VALIDAÇÃO) ---\n`;
+        mesesStr.forEach((m, i) => {
+            const mesNum = i + 1;
+            const metaObj = (this._lastMetas || []).find(x => x.mes === mesNum);
+            const prodObj = (this._lastProd || []).find(x => x.mes === mesNum);
+            const mVal = metaObj ? (Number(metaObj.meta_producao) || 0) : 0;
+            const rVal = prodObj ? (Number(prodObj.total_prod) || 0) : 0;
+            if (rVal > 0 || mVal > 0) {
+                const pct = mVal > 0 ? (rVal / mVal) * 100 : (rVal > 0 ? 100 : 0);
+                texto += `${m}: Meta ${mVal.toLocaleString()} | Realizado ${rVal.toLocaleString()} | Ating. ${pct.toFixed(1)}%\n`;
+            }
+        });
+
+        texto += `\n--- ASSERTIVIDADE (QUALIDADE) ---\n`;
+        mesesStr.forEach((m, i) => {
+            const mesNum = i + 1;
+            const metaObj = (this._lastMetas || []).find(x => x.mes === mesNum);
+            const assertObj = (this._lastAssert || []).find(x => x.mes === mesNum);
+            const mVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
+            const rVal = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
+            if (rVal > 0) {
+                const pct = rVal >= mVal ? 100 : (rVal / mVal) * 100;
+                texto += `${m}: Meta ${mVal}% | Realizado ${rVal.toFixed(2)}% | Ating. ${pct.toFixed(1)}%\n`;
+            }
+        });
+
+        this.executarCopia(texto);
+    },
+
+    executarCopia: function(texto) {
+        navigator.clipboard.writeText(texto).then(() => {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl text-xs font-bold animate-bounce z-[100] border border-slate-700';
+            toast.innerHTML = '<i class="fas fa-check-circle text-emerald-400 mr-2"></i> Copiado para a área de transferência!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        });
     }
 };
