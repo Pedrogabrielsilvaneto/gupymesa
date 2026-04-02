@@ -307,9 +307,8 @@ Produtividade.Consolidado = {
 
         if (rawData) {
             rawData.forEach(r => {
-                // ── Aplicar filtro de contrato e nome (usando mapas locais) ──
-                if (!self.passaFiltroContrato(r.usuario_id)) return;
-                if (!self.passaFiltroNome(r.usuario_id)) return;
+                // NÃO aplica filtros aqui - soma TODOS os dados (igual aba Geral/Validação)
+                // Os filtros de contrato/nome afetam apenas a renderização individual se necessário
 
                 const funcao    = (self.mapaFuncoes[r.usuario_id] || '').toLowerCase();
                 const isGestor  = GESTAO.some(g => funcao.includes(g));
@@ -339,11 +338,9 @@ Produtividade.Consolidado = {
                 const rGp   = Number(r.gradual_parcial)  || 0;
                 const rFc   = Number(r.perfil_fc)        || 0;
 
-                // quantidade já contém GT+GP+FC consolidados. FIFO é separado.
-                // Fórmula idêntica à aba Validação: item.producao += p.quantidade
-                // Total = quantidade + fifo
                 const totalProd = rQty + rFifo;
 
+                // Soma em todas as colunas incluindo TOTAL (99)
                 [b, 99].forEach(k => {
                     st[k].qty  += totalProd;
                     st[k].fifo += rFifo;
@@ -351,8 +348,7 @@ Produtividade.Consolidado = {
                     st[k].gp   += rGp;
                     st[k].fc   += rFc;
 
-                    // Headcount e dias: APENAS para assistentes ativos (não gestores) E não inativos
-                    // Mas a PRODUÇÃO (qty, fifo, gt, gp, fc) já foi somada acima para TODOS
+                    // Headcount e dias: APENAS para assistentes ativos (não gestores)
                     if (!isGestor && !isInativo) {
                         st[k].users.add(r.usuario_id);
                         st[k].dias.add(r.data_referencia);
