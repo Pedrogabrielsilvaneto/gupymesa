@@ -10,10 +10,17 @@ MinhaArea.Relatorios = {
     },
 
     mudarRelatorio: function(id) {
-        this.relatorioAtivo = id;
         const container = document.getElementById('relatorio-ativo-content');
         if (!container) return;
 
+        // Se clicar no mesmo que já está aberto, recolhe
+        if (this.relatorioAtivo === id) {
+            this.relatorioAtivo = null;
+            container.innerHTML = '';
+            return;
+        }
+
+        this.relatorioAtivo = id;
         container.innerHTML = `
             <div class="flex items-center justify-center py-20 text-blue-600">
                 <i class="fas fa-spinner fa-spin text-3xl"></i>
@@ -36,7 +43,6 @@ MinhaArea.Relatorios = {
             const { inicio, fim } = datas;
             const ano = new Date(inicio + 'T12:00:00').getFullYear();
 
-            // SQL para buscar as metas do usuário (ou equipe se for admin e geral)
             let sqlMetas = `SELECT * FROM metas WHERE ano = ?`;
             let paramsMetas = [ano];
             
@@ -50,7 +56,6 @@ MinhaArea.Relatorios = {
 
             const metas = await Sistema.query(sqlMetas, paramsMetas);
             
-            // SQL para buscar produção sumarizada por mês (Média Diária / Velocidade)
             let sqlProd = `
                 SELECT 
                     mes_referencia as mes, 
@@ -72,7 +77,6 @@ MinhaArea.Relatorios = {
 
             const producao = await Sistema.query(sqlProd, paramsProd);
 
-            // SQL para buscar assertividade sumarizada por mês
             let sqlAssert = `
                 SELECT 
                     MONTH(data_referencia) as mes,
@@ -155,7 +159,6 @@ MinhaArea.Relatorios = {
             const realizTotal = prodObj ? (Number(prodObj.total_prod) || 0) : 0;
             const diasTrab = prodObj ? (Number(prodObj.dias_trab) || 0) : 0;
             
-            // Realizado é a VELOCIDADE (Média Diária)
             const realizado = diasTrab > 0 ? (realizTotal / diasTrab) : 0;
             const porcentagem = metaVal > 0 ? (realizado / metaVal) * 100 : 0;
             
@@ -187,7 +190,6 @@ MinhaArea.Relatorios = {
             `;
         });
 
-        // Acumulado Produção
         const avgMetaP = countMesesMetaP > 0 ? (totalMetaP / countMesesMetaP) : 0;
         const avgRealP = totalDiasP > 0 ? (totalProdP / totalDiasP) : 0;
         const avgPctP = avgMetaP > 0 ? (avgRealP / avgMetaP) * 100 : 0;
@@ -195,7 +197,7 @@ MinhaArea.Relatorios = {
         html += `
                                 </tbody>
                                 <tfoot class="bg-slate-50 border-t-2 border-slate-200 font-black">
-                                    <tr>
+                                    <tr class="group/acc">
                                         <td class="px-4 py-3 text-slate-800">Acumulado</td>
                                         <td class="px-4 py-3 text-right text-slate-600">${Math.round(avgMetaP).toLocaleString()}</td>
                                         <td class="px-4 py-3 text-right text-blue-700 bg-emerald-50/30">${Math.round(avgRealP).toLocaleString()}</td>
@@ -204,7 +206,12 @@ MinhaArea.Relatorios = {
                                                 ${avgPctP.toFixed(1)}%
                                             </span>
                                         </td>
-                                        <td></td>
+                                        <td class="px-4 py-3 text-center">
+                                            <button onclick="MinhaArea.Relatorios.copiarLinha('PROD', 'Acumulado Anual', '${Math.round(avgMetaP)}', '${Math.round(avgRealP)}', '${avgPctP.toFixed(1)}')" 
+                                                    class="w-6 h-6 rounded bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition opacity-0 group-hover/acc:opacity-100">
+                                                <i class="fas fa-copy text-[9px]"></i>
+                                            </button>
+                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -249,7 +256,6 @@ MinhaArea.Relatorios = {
             const metaVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
             const realizado = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
             
-            // Lógica de atingimento de qualidade (Escalonado conforme metas.js)
             let atingimento = 0;
             if (realizado > 0) {
                 if (realizado < 90) atingimento = 0;
@@ -287,7 +293,6 @@ MinhaArea.Relatorios = {
             `;
         });
 
-        // Acumulado Assertividade
         const avgMetaA = countMesesMetaA > 0 ? (totalMetaA / countMesesMetaA) : 97;
         const avgRealA = countMesesAssert > 0 ? (sumMediaAssert / countMesesAssert) : 0;
         
@@ -304,7 +309,7 @@ MinhaArea.Relatorios = {
         html += `
                                 </tbody>
                                 <tfoot class="bg-slate-50 border-t-2 border-slate-200 font-black">
-                                    <tr>
+                                    <tr class="group/acc">
                                         <td class="px-4 py-3 text-slate-800">Acumulado</td>
                                         <td class="px-4 py-3 text-right text-slate-600">${Math.round(avgMetaA)}%</td>
                                         <td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/30">${avgRealA.toFixed(2)}%</td>
@@ -313,7 +318,12 @@ MinhaArea.Relatorios = {
                                                 ${avgAtingA}%
                                             </span>
                                         </td>
-                                        <td></td>
+                                        <td class="px-4 py-3 text-center">
+                                            <button onclick="MinhaArea.Relatorios.copiarLinha('ASSERT', 'Acumulado Anual', '${Math.round(avgMetaA)}%', '${avgRealA.toFixed(2)}%', '${avgAtingA}')" 
+                                                    class="w-6 h-6 rounded bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition opacity-0 group-hover/acc:opacity-100">
+                                                <i class="fas fa-copy text-[9px]"></i>
+                                            </button>
+                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>
