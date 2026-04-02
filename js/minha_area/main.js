@@ -76,7 +76,14 @@ window.MinhaArea = {
         const p = (this.usuario.perfil || '').toUpperCase();
         const f = (this.usuario.funcao || '').toUpperCase();
         const id = parseInt(this.usuario.id);
-        return p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || f.includes('COORDENADOR') || f.includes('LIDER') || id === 1 || id === 1000;
+        const isExactAdmin = p === 'ADMIN' || p === 'ADMINISTRADOR' || f === 'ADMIN' || f === 'ADMINISTRADOR';
+        const isLeadershipRole = ['GESTOR', 'AUDITOR', 'COORDENADOR', 'COORDENA', 'LIDER', 'LÍDER', 'HEAD', 'DIRETOR'].some(t => p.includes(t) || f.includes(t));
+        // Evita que Assistente de Auditoria ganhe poderes globais se não for para ter, mas caso eles tenham 'Auditor' no título, 
+        // as well as 'Assistente Administrativo'.
+        // Na verdade, the new logic prevents explicitly 'ASSISTENTE ADMINISTRATIVO' 
+        // since 'ADMIN' is exact match. For 'AUDITOR', if we want to block 'Assistente de Auditoria', we should check:
+        const isAssistente = f.includes('ASSISTENTE');
+        return isExactAdmin || (isLeadershipRole && !isAssistente) || id === 1 || id === 1000;
     },
 
     setupAdminAccess: async function () {
@@ -190,7 +197,7 @@ window.MinhaArea = {
     },
 
     getDatasFiltro: function () {
-        const fmt = (d) => d.toISOString().split('T')[0];
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const ano = parseInt(document.getElementById('sel-ano').value);
 
         if (this.filtroPeriodo === 'mes') {
@@ -229,9 +236,12 @@ window.MinhaArea = {
             tipo: this.filtroPeriodo,
             ano: document.getElementById('sel-ano')?.value,
             mes: document.getElementById('sel-mes')?.value,
-            sub: document.getElementById('sel-subperiodo-ano')?.value
+            sub: document.getElementById('sel-subperiodo-ano')?.value,
+            alvoId: this.usuarioAlvoId
         };
         localStorage.setItem('ma_filtro_state', JSON.stringify(estado));
+        // [PERF] Invalida cache de dados ao mudar período
+        if (MinhaArea.Metas) MinhaArea.Metas.rawDataCache = null;
         this.atualizarTudo();
     },
 
@@ -244,6 +254,15 @@ window.MinhaArea = {
                 if (s.ano && document.getElementById('sel-ano')) document.getElementById('sel-ano').value = s.ano;
                 if (s.mes && document.getElementById('sel-mes')) document.getElementById('sel-mes').value = s.mes;
                 if (s.sub && document.getElementById('sel-subperiodo-ano')) document.getElementById('sel-subperiodo-ano').value = s.sub;
+
+                if (s.alvoId !== undefined) {
+                    if (this.isAdmin()) {
+                        this.usuarioAlvoId = s.alvoId;
+                    } else {
+                        // Força o ID próprio se não for admin
+                        this.usuarioAlvoId = this.usuario.id;
+                    }
+                }
             } catch (e) { }
         }
     },
@@ -297,68 +316,67 @@ window.MinhaArea = {
         }
     },
 
-    filtroEquipe: 'GERAL',
-
     atualizarListaAssistentes: async function () {
         if (!this.isAdmin()) return;
         const select = document.getElementById('admin-user-selector');
-        if (!select || (select.options.length > 3)) return; // Já populado (3 = GERAL, CLT, TERC)
+        if (!select || select.options.length > 1) return;
 
         try {
             const { data, error } = await Sistema.supabase
                 .from('usuarios')
-                .select('id, nome, perfil, funcao')
-                .eq('ativo', true)
+                .select('id, nome, funcao, perfil, ativo')
                 .order('nome');
 
             if (!error) {
-                let options = `
-                    <optgroup label="Visão Macro">
-                        <option value="GERAL">👥 Geral (Todos)</option>
-                        <option value="CLT">🏢 Equipe CLT</option>
-                        <option value="TERCEIROS">🤝 Terceiros</option>
-                    </optgroup>
-                `;
+                let options = `<option value="">👥 Geral (Todos)</option>`;
+                options += `<option value="GRUPO_CLT">👥 Equipe CLT</option>`;
+                options += `<option value="GRUPO_TERCEIROS">👥 Equipe Terceiros</option>`;
+                options += `<option disabled>──────────────</option>`;
 
-                options += `<optgroup label="Individual">`;
+                const termosExcluidos = ['gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena'];
+
                 data.forEach(u => {
-                    const p = (u.perfil || '').toUpperCase();
-                    const f = (u.funcao || '').toUpperCase();
-                    const n = (u.nome || '').toUpperCase();
+                    // [SYNC v4.41] Restore active filter but keep Roberta (Special Case)
+                    const isActive = u.ativo === true || u.ativo === 1 || u.ativo === '1';
+                    if (!isActive && String(u.id).trim() !== '1074356') return;
 
-                    const isExcluido = p.includes('AUDITOR') || f.includes('AUDITOR') || n.includes('AUDITOR') ||
-                        p.includes('AUDIT') || f.includes('AUDIT') || n.includes('AUDIT') ||
-                        n.includes('SUPER ADMIN') || n.includes('GUPY') ||
-                        n.includes('ADMINISTRADOR') || p.includes('ADMIN');
+                    const f = (u.funcao || '').toLowerCase();
+                    const p = (u.perfil || '').toLowerCase();
 
-                    if (!isExcluido) {
+                    // Checagem rigorosa para Admin para não bloquear "Assistente Administrativo"
+                    const isAdmin = p === 'admin' || p === 'administrador' || f === 'admin' || f === 'administrador';
+                    const ehLideranca = isAdmin || termosExcluidos.some(t => f.includes(t) || p.includes(t)) || u.id == 1 || u.id == 1000;
+
+                    if (!ehLideranca) {
                         options += `<option value="${u.id}">${u.nome}</option>`;
                     }
                 });
-                options += `</optgroup>`;
-
                 select.innerHTML = options;
 
-                // Sync UI
-                if (this.usuarioAlvoId) {
-                    select.value = this.usuarioAlvoId;
-                } else {
-                    select.value = this.filtroEquipe;
-                }
+                // Se já estiver selecionado, mantém, senão default para Equipe (vazio)
+                select.value = this.usuarioAlvoId || "";
             }
         } catch (e) { }
     },
 
-    mudarUsuarioAlvo: function (id) {
-        if (['GERAL', 'CLT', 'TERCEIROS'].includes(id)) {
-            this.filtroEquipe = id;
+    mudarUsuarioAlvo: function (novoId) {
+        if (novoId === 'EQUIPE' || novoId === "") {
             this.usuarioAlvoId = null;
+        } else if (novoId === 'GRUPO_CLT' || novoId === 'GRUPO_TERCEIROS') {
+            this.usuarioAlvoId = novoId; // Salva como string
         } else {
-            this.usuarioAlvoId = id ? parseInt(id) : null;
-            // Se mudou para individual, o filtro de equipe padrão é GERAL (não importa muito aqui)
-            if (this.usuarioAlvoId) this.filtroEquipe = 'GERAL';
+            this.usuarioAlvoId = novoId ? parseInt(novoId) : null;
         }
-        this.atualizarTudo();
+
+        // [PERF] Se estamos na aba Meta/OKR e há cache disponível, só re-processa (sem API)
+        const metasTabVisible = document.getElementById('ma-tab-metas') && !document.getElementById('ma-tab-metas').classList.contains('hidden');
+        if (metasTabVisible && MinhaArea.Metas && MinhaArea.Metas.rawDataCache) {
+            MinhaArea.Metas.reaplicarFiltros();
+            // Atualiza o seletor de assistentes caso mude (sem re-fetch)
+            this.atualizarListaAssistentes();
+        } else {
+            this.atualizarTudo();
+        }
     },
 
     getUsuarioAlvo: function () { return this.usuarioAlvoId; }

@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<!-- DEPLOY TRIGGER: REVERT BIBLIOTECA - 2026-02-20 -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Área - GupyMesa</title>
+    <link rel="shortcut icon" href="img/favicon.png" type="image/png">
+
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+
+        .tab-btn {
+            transition: all 0.2s;
+            position: relative;
+            cursor: pointer;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .tab-btn:hover {
+            color: #1e293b;
+            background-color: #f1f5f9;
+        }
+
+        .tab-btn.active {
+            color: #2563eb;
+            background-color: #eff6ff;
+        }
+
+        .animate-enter {
+            animation: enter 0.3s ease-out;
+        }
+
+        @keyframes enter {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f1f5f9;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 140px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-icon-bg {
+            position: absolute;
+            right: -10px;
+            bottom: -15px;
+            font-size: 4rem;
+            opacity: 0.06;
+            transform: rotate(-15deg);
+            pointer-events: none;
+        }
+
+        .kpi-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            color: #64748b;
+        }
+
+        .kpi-fraction {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .kpi-val {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1;
+        }
+
+        .kpi-sep {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .kpi-meta {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .kpi-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            font-size: 0.7rem;
+            color: #64748b;
+            padding-top: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50">
+    <script src="js/config.js?v=20260302_1725"></script>
+    <script src="js/sistema.js?v=20260302_1725"></script>
+    <script src="js/gestao/config_mes.js?v=20260302_1725"></script>
+
+    <script src="js/menu/global.js?v=20260302_1725"></script>
+    <div id="global-menu"></div>
+
+    <div class="bg-white border-b border-slate-200 sticky top-12 left-0 w-full z-40 h-14 flex items-center shadow-sm">
+        <div class="max-w-[1600px] mx-auto px-4 w-full flex items-center justify-between">
+            <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                <button onclick="MinhaArea.mudarAba('diario')" id="btn-ma-diario"
+                    class="tab-btn active px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
+                        class="fas fa-calendar-day text-xs"></i> Dia a Dia</button>
+                <button onclick="MinhaArea.mudarAba('metas')" id="btn-ma-metas"
+                    class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
+                        class="fas fa-bullseye text-xs"></i> Meta/OKR</button>
+                <button onclick="MinhaArea.mudarAba('auditoria')" id="btn-ma-auditoria"
+                    class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
+                        class="fas fa-clipboard-check text-xs"></i> Auditoria</button>
+
+                <button onclick="MinhaArea.mudarAba('feedback')" id="btn-ma-feedback"
+                    class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
+                        class="fas fa-comments text-xs"></i> Feedback</button>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div id="admin-selector-container"
+                    class="hidden flex items-center gap-2 border-r border-slate-200 pr-4 mr-2">
+                    <select id="admin-user-selector" onchange="MinhaArea.mudarUsuarioAlvo(this.value)"
+                        class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded block p-1.5 outline-none cursor-pointer w-40 truncate shadow-sm focus:border-blue-300"></select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                        <button onclick="MinhaArea.mudarPeriodo('mes')" id="btn-periodo-mes"
+                            class="px-3 py-1 text-xs font-bold rounded shadow-sm text-blue-600 bg-white transition">Mês</button>
+                        <button onclick="MinhaArea.mudarPeriodo('semana')" id="btn-periodo-semana"
+                            class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-white hover:text-slate-700 transition">Semana</button>
+                        <button onclick="MinhaArea.mudarPeriodo('ano')" id="btn-periodo-ano"
+                            class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-white hover:text-slate-700 transition">Ano</button>
+                    </div>
+                    <div class="w-px h-5 bg-slate-200 mx-2"></div>
+                    <div class="flex gap-2">
+                        <select id="sel-ano" onchange="MinhaArea.salvarEAtualizar()"
+                            class="bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded px-2 py-1 outline-none cursor-pointer hover:border-blue-300 transition"></select>
+                        <select id="sel-mes" onchange="MinhaArea.salvarEAtualizar()"
+                            class="bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded px-2 py-1 outline-none cursor-pointer min-w-[100px] hover:border-blue-300 transition">
+                            <option value="0">Janeiro</option>
+                            <option value="1">Fevereiro</option>
+                            <option value="2">Março</option>
+                            <option value="3">Abril</option>
+                            <option value="4">Maio</option>
+                            <option value="5">Junho</option>
+                            <option value="6">Julho</option>
+                            <option value="7">Agosto</option>
+                            <option value="8">Setembro</option>
+                            <option value="9">Outubro</option>
+                            <option value="10">Novembro</option>
+                            <option value="11">Dezembro</option>
+                        </select>
+                        <select id="sel-semana" onchange="MinhaArea.salvarEAtualizar()"
+                            class="hidden bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold rounded px-2 py-1 outline-none cursor-pointer"></select>
+                        <select id="sel-subperiodo-ano" onchange="MinhaArea.salvarEAtualizar()"
+                            class="hidden bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold rounded px-2 py-1 outline-none cursor-pointer">
+                            <option value="full">Ano Completo</option>
+                            <optgroup label="Semestres">
+                                <option value="S1">1º Semestre</option>
+                                <option value="S2">2º Semestre</option>
+                            </optgroup>
+                            <optgroup label="Trimestres">
+                                <option value="T1">1º Trimestre</option>
+                                <option value="T2">2º Trimestre</option>
+                                <option value="T3">3º Trimestre</option>
+                                <option value="T4">4º Trimestre</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pt-8">
+
+        <div id="ma-tab-diario" class="ma-view animate-enter space-y-4">
+            <div id="container-checkin-alert" class="hidden mb-4"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="kpi-card border-l-4 border-l-blue-500">
+                    <i class="fas fa-cubes kpi-icon-bg text-blue-500"></i>
+                    <div class="kpi-title">Produtividade</div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-prod-real">--</span><span
+                            class="kpi-sep">/</span><span class="kpi-meta" id="kpi-prod-meta">--</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div id="bar-prod" class="h-full bg-blue-500 rounded-full transition-all duration-1000"
+                            style="width: 0%"></div>
+                    </div>
+                    <div class="kpi-footer flex justify-between items-center">
+                        <span class="font-bold">Atingimento</span>
+                        <div class="text-right">
+                            <span id="pct-prod" class="font-black text-blue-600 block">--%</span>
+                            <span id="kpi-prod-restante"
+                                class="text-[9px] font-bold text-slate-400 block mt-0.5">Faltam: --</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="kpi-card border-l-4 border-l-purple-500">
+                    <i class="fas fa-calendar-day kpi-icon-bg text-purple-500"></i>
+                    <div class="kpi-title">Dias Produtivos</div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-dias-trab">--</span><span
+                            class="kpi-sep">/</span><span class="kpi-meta" id="kpi-dias-uteis">--</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div id="bar-dias" class="h-full bg-purple-500 rounded-full transition-all duration-1000"
+                            style="width: 0%"></div>
+                    </div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-dias"
+                            class="font-black text-purple-600">--%</span></div>
+                </div>
+                <div class="kpi-card border-l-4 border-l-amber-500">
+                    <i class="fas fa-bolt kpi-icon-bg text-amber-500"></i>
+                    <div class="kpi-title">Velocidade (Média/Dia)</div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-dia-media">--</span><span
+                            class="kpi-sep">/</span><span class="kpi-meta" id="kpi-dia-meta">--</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div id="bar-dia" class="h-full bg-amber-500 rounded-full transition-all duration-1000"
+                            style="width: 0%"></div>
+                    </div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-dia"
+                            class="font-black text-amber-600">--%</span></div>
+                </div>
+                <div class="kpi-card border-l-4 border-l-emerald-500">
+                    <i class="fas fa-check-circle kpi-icon-bg text-emerald-500"></i>
+                    <div class="kpi-title">Assertividade</div>
+                    <div class="kpi-fraction"><span class="kpi-val" id="kpi-assert-real">--%</span><span
+                            class="kpi-sep">/</span><span class="kpi-meta" id="kpi-assert-meta">--%</span></div>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div id="bar-assert" class="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                            style="width: 0%"></div>
+                    </div>
+                    <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-assert"
+                            class="font-black text-emerald-600">--%</span></div>
+                </div>
+            </div>
+
+            <div
+                class="bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-320px)]">
+                <div class="overflow-auto custom-scrollbar flex-1">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead
+                            class="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-wide sticky top-0 z-10 shadow-sm">
+                            <tr class="divide-x divide-slate-200 border-b border-slate-300">
+                                <th class="px-3 py-3 w-[12%] text-left">Data</th>
+                                <th class="px-2 py-3 w-[10%] text-center">Meta (Gestão)</th>
+                                <th class="px-2 py-3 w-[10%] text-center">Meta Real</th>
+                                <th
+                                    class="px-2 py-3 w-[10%] text-center bg-blue-50/50 text-blue-700 border-x border-blue-100">
+                                    Produção</th>
+                                <th class="px-2 py-3 w-[8%] text-center">% Prod.</th>
+                                <th class="px-2 py-3 w-[10%] text-center">Assertividade</th>
+                                <th class="px-3 py-3 text-left">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-extrato" class="divide-y divide-slate-200 bg-white"></tbody>
+                    </table>
+                </div>
+                <div
+                    class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500 font-bold flex justify-between items-center">
+                    <span><i class="fas fa-table mr-1"></i> Visão de Grade</span>
+                    <span>Total Registros: <span id="total-registros-footer">--</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="ma-tab-metas" class="ma-view hidden animate-enter pb-10">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+                <div onclick="MinhaArea.Metas.abrirModalGraficosGerais()"
+                    class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all cursor-pointer">
+                    <i
+                        class="fas fa-check-double absolute -right-4 -bottom-4 text-7xl text-blue-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Validação</p>
+                        <span
+                            class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded border border-blue-100 shadow-sm">TOTAL</span>
+                    </div>
+                    <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight" id="card-ranking-prod">
+                        --</h3>
+                    <div class="flex justify-between items-center mt-1 relative z-10">
+                        <p class="text-[11px] text-slate-500 font-medium">Entregas totais realizadas</p>
+                        <p id="card-ranking-prod-restante"
+                            class="text-[10px] font-bold text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 hidden">
+                            Faltam: --</p>
+                    </div>
+                </div>
+
+                <div onclick="MinhaArea.Metas.abrirModalGraficosGerais()"
+                    class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all cursor-pointer">
+                    <i
+                        class="fas fa-calendar-day absolute -right-4 -bottom-4 text-7xl text-amber-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Velocidade (Média/Dia)</p>
+                        <span
+                            class="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-1 rounded border border-amber-100 shadow-sm">MÉDIA</span>
+                    </div>
+                    <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight" id="card-ranking-media">
+                        --</h3>
+                    <p class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">Média produtiva no período</p>
+                </div>
+
+                <div onclick="MinhaArea.Metas.abrirModalGraficosGerais()"
+                    class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all cursor-pointer">
+                    <i
+                        class="fas fa-percent absolute -right-4 -bottom-4 text-7xl text-emerald-50 transform -rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <p id="card-label-atingimento"
+                            class="text-xs font-bold text-slate-400 uppercase tracking-wider">Atingimento</p>
+                        <span id="card-badge-atingimento"
+                            class="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2 py-1 rounded border border-emerald-100 shadow-sm">META</span>
+                    </div>
+                    <h3 class="text-3xl font-black text-slate-800 relative z-10 tracking-tight"
+                        id="card-ranking-assert">--%</h3>
+                    <p id="card-sublabel-atingimento" class="text-[11px] text-slate-500 mt-1 relative z-10 font-medium">
+                        Percentual de atingimento da meta</p>
+                </div>
+            </div>
+
+            <div class="mb-4 flex flex-col md:flex-row justify-between items-end gap-4">
+                <div id="metas-header-text">
+                    <h2 id="metas-ranking-title" class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-list-ol text-blue-600"></i> Ranking & Evolução
+                    </h2>
+                    <p id="metas-ranking-subtitle" class="text-xs text-slate-500 mt-1">
+                        Visualize a performance dia a dia ou mês a mês. Valores em <span
+                            class="text-rose-600 font-bold">vermelho</span> estão abaixo da meta.<br>
+                        Clique no nome para abrir o comparativo.
+                    </p>
+                </div>
+
+                <div
+                    class="flex items-center gap-4 text-[10px] font-bold bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                        Acima Meta</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                        Abaixo Meta</div>
+                </div>
+            </div>
+
+            <div
+                class="bg-white border border-slate-300 rounded-xl shadow-sm flex flex-col h-[calc(100vh-340px)] overflow-hidden relative">
+                <div id="loading-metas"
+                    class="absolute inset-0 bg-white/90 z-50 flex flex-col items-center justify-center hidden">
+                    <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-3"></i>
+                    <span class="text-sm font-bold text-slate-600 animate-pulse">Processando dados...</span>
+                </div>
+
+                <div class="overflow-auto custom-scrollbar flex-1 relative">
+                    <table class="w-full text-xs text-left border-collapse separate border-spacing-0">
+                        <thead class="bg-slate-100 text-slate-600 font-bold uppercase sticky top-0 z-30 shadow-sm h-12">
+                            <tr id="grade-equipe-header"></tr>
+                        </thead>
+                        <tbody id="grade-equipe-body" class="divide-y divide-slate-200 bg-white"></tbody>
+                    </table>
+                </div>
+
+                <div
+                    class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500 font-bold flex justify-between items-center z-30">
+                    <span id="metas-periodo-label">--</span>
+                    <span id="metas-total-users">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="ma-tab-auditoria" class="ma-view hidden animate-enter space-y-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fas fa-list-alt text-blue-600"></i> Histórico de Auditorias
+                    </h3>
+                    <span id="auditoria-total-count"
+                        class="text-xs font-bold text-slate-400 bg-slate-200 px-2 py-1 rounded-full">0 docs</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
+                            <tr>
+                                <th class="px-4 py-3 border-b">Nome do documento auditados</th>
+                                <th class="px-4 py-3 border-b text-center">% Assertividade</th>
+                                <th class="px-4 py-3 border-b">Apontamento/Obs</th>
+                                <th class="px-4 py-3 border-b text-center">Status</th>
+                                <th class="px-4 py-3 border-b">Empresa</th>
+                                <th class="px-4 py-3 border-b">Documento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditoria-grid-geral" class="text-sm text-slate-600 divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="auditoria-loading-geral" class="hidden text-center py-4 text-blue-500"><i
+                        class="fas fa-circle-notch fa-spin"></i> Carregando...</div>
+            </div>
+
+            <div class="bg-rose-50 rounded-xl border border-rose-100 overflow-hidden">
+                <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
+                    <div class="md:col-span-1">
+                        <h4 class="text-rose-800 font-bold flex items-center gap-2"><i class="fas fa-times-circle"></i>
+                            Documentos NOK</h4>
+                        <p class="text-xs text-rose-600 mt-1">Auditados com erro</p>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">Docs Validados</div>
+                        <div id="nok-total-validados" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">% Assertividade</div>
+                        <div id="nok-pct-assert" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">Docs Auditados (NOK)</div>
+                        <div id="nok-qtd-docs" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-rose-200">
+                        <div class="text-xs text-rose-500 uppercase font-bold">Campos Errados</div>
+                        <div id="nok-qtd-campos" class="text-lg font-black text-rose-800">-</div>
+                    </div>
+                </div>
+
+                <div class="bg-rose-100/50 px-4 py-2 border-t border-rose-200 flex justify-center">
+                    <button onclick="MinhaArea.Auditoria.toggleDetalhes('nok')"
+                        class="text-xs font-bold text-rose-700 hover:text-rose-900 flex items-center gap-2 focus:outline-none">
+                        <span id="btn-text-nok">Ver Detalhes</span> <i id="icon-nok"
+                            class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                </div>
+
+                <div id="detalhes-nok" class="hidden border-t border-rose-200 bg-white">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-rose-50 text-rose-800 font-bold">
+                            <tr>
+                                <th class="px-4 py-2">Empresa</th>
+                                <th class="px-4 py-2">Categoria</th>
+                                <th class="px-4 py-2">Documento (Oculto)</th>
+                                <th class="px-4 py-2 text-center">Campos NOK</th>
+                                <th class="px-4 py-2">Apontamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grid-detalhes-nok" class="text-slate-600 divide-y divide-rose-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 rounded-xl border border-emerald-100 overflow-hidden">
+                <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                    <div class="md:col-span-1">
+                        <h4 class="text-emerald-800 font-bold flex items-center gap-2"><i
+                                class="fas fa-check-circle"></i> Documentos OK</h4>
+                        <p class="text-xs text-emerald-600 mt-1">Auditados com sucesso</p>
+                    </div>
+                    <div class="text-center border-l border-emerald-200">
+                        <div class="text-xs text-emerald-500 uppercase font-bold">Docs Validados</div>
+                        <div id="ok-total-validados" class="text-lg font-black text-emerald-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-emerald-200">
+                        <div class="text-xs text-emerald-500 uppercase font-bold">% Assertividade</div>
+                        <div id="ok-pct-assert" class="text-lg font-black text-emerald-800">-</div>
+                    </div>
+                    <div class="text-center border-l border-emerald-200">
+                        <div class="text-xs text-emerald-500 uppercase font-bold">Total Acertos (OK)</div>
+                        <div id="ok-qtd-docs" class="text-lg font-black text-emerald-800">-</div>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-100/50 px-4 py-2 border-t border-emerald-200 flex justify-center">
+                    <button onclick="MinhaArea.Auditoria.toggleDetalhes('ok')"
+                        class="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-2 focus:outline-none">
+                        <span id="btn-text-ok">Ver Detalhes</span> <i id="icon-ok"
+                            class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                </div>
+
+                <div id="detalhes-ok" class="hidden border-t border-emerald-200 bg-white">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-emerald-50 text-emerald-800 font-bold">
+                            <tr>
+                                <th class="px-4 py-2">Empresa</th>
+                                <th class="px-4 py-2">Categoria</th>
+                                <th class="px-4 py-2">Documento (Oculto)</th>
+                                <th class="px-4 py-2">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grid-detalhes-ok" class="text-slate-600 divide-y divide-emerald-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+
+        <div id="ma-tab-feedback" class="ma-view hidden animate-enter h-[calc(100vh-140px)] flex rounded-2xl overflow-hidden shadow-xl border border-slate-200">
+
+            <!-- SIDEBAR ESCURA: Lista de Conversas -->
+            <div class="w-[280px] bg-[#1a1f2e] flex flex-col shrink-0">
+
+                <!-- Header Sidebar -->
+                <div class="px-4 pt-5 pb-3">
+                    <h3 class="text-white font-black text-base tracking-tight">Conversas</h3>
+                </div>
+
+                <!-- Busca -->
+                <div class="px-4 pb-3">
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="text" id="chat-search-contact" placeholder="Buscar ou começar conversa"
+                            class="w-full pl-8 pr-3 py-2 bg-white/10 text-white text-xs placeholder-slate-500 rounded-lg outline-none focus:bg-white/15 transition border border-transparent focus:border-white/10"
+                            oninput="MinhaArea.Feedback.filtrarContatos(this.value)">
+                    </div>
+                </div>
+
+                <!-- Lista de Contatos -->
+                <div id="chat-contact-list" class="flex-1 overflow-y-auto custom-scrollbar">
+
+                    <!-- Canal Geral -->
+                    <div onclick="MinhaArea.Feedback.selecionarChat('GERAL')" id="contact-item-GERAL"
+                        class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-white/8 transition border-b border-white/5 group">
+                        <div class="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                            <i class="fas fa-users text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-white text-sm truncate">Canal Geral</span>
+                                <span class="text-[10px] text-slate-500" id="last-time-GERAL"></span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 truncate mt-0.5" id="last-msg-GERAL">Toque para abrir</p>
+                        </div>
+                    </div>
+
+                    <!-- Divisor -->
+                    <div class="px-4 py-1.5">
+                        <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest">Pessoas</span>
+                    </div>
+
+                    <!-- Lista Dinâmica -->
+                    <div id="chat-contacts-dynamic"></div>
+                </div>
+            </div>
+
+            <!-- ÁREA PRINCIPAL: Chat -->
+            <div class="flex-1 flex flex-col overflow-hidden" style="background: #f0f2f5;">
+
+                <!-- Chat Header -->
+                <div class="h-[60px] border-b border-slate-200 flex items-center justify-between px-5 bg-[#f0f2f5] shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div id="chat-header-avatar"
+                            class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 shadow-sm overflow-hidden">
+                            <i class="fas fa-user text-sm"></i>
+                        </div>
+                        <div>
+                            <h3 id="chat-header-name" class="font-black text-slate-800 text-sm leading-tight">Selecione uma conversa</h3>
+                            <p id="chat-header-status" class="text-[10px] text-emerald-500 font-bold flex items-center gap-1 hidden">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> online
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button class="w-9 h-9 rounded-full text-slate-500 hover:bg-slate-200 flex items-center justify-center transition" title="Buscar">
+                            <i class="fas fa-search text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Area -->
+                <div id="chat-messages-area"
+                    class="flex-1 overflow-y-auto custom-scrollbar px-6 py-4 space-y-1 flex flex-col"
+                    style="background-image: url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23cbd5e1' fill-opacity='0.12'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\");">
+                    <!-- Placeholder -->
+                    <div class="flex flex-col items-center justify-center h-full text-slate-400 opacity-60 select-none">
+                        <div class="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-4 shadow-md">
+                            <i class="fas fa-comments text-3xl text-slate-300"></i>
+                        </div>
+                        <p class="font-bold text-sm text-slate-500">Selecione uma conversa para começar</p>
+                        <p class="text-xs text-slate-400 mt-1">Suas mensagens ficam aqui</p>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="px-4 py-3 bg-[#f0f2f5] shrink-0 flex flex-col gap-2">
+                    <!-- Preview de Arquivo/Áudio -->
+                    <div id="chat-upload-preview" class="hidden">
+                        <div class="flex items-center gap-2 bg-white rounded-xl px-4 py-2.5 border border-slate-200 shadow-sm">
+                            <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                <i class="fas fa-microphone text-emerald-600 text-xs"></i>
+                            </div>
+                            <span id="chat-upload-filename" class="text-xs text-slate-600 font-bold flex-1 truncate">Áudio gravado</span>
+                            <button onclick="MinhaArea.Feedback.limparAnexo()" class="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 hover:bg-rose-200 transition">
+                                <i class="fas fa-times text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Linha do Input -->
+                    <div class="flex items-end gap-2">
+                        <!-- Botão Microfone -->
+                        <button id="btn-gravar-audio" onclick="MinhaArea.Feedback.toggleGravacao()"
+                            class="w-11 h-11 rounded-full bg-white text-slate-500 hover:text-rose-500 flex items-center justify-center shadow-sm border border-slate-200 hover:border-rose-200 transition shrink-0">
+                            <i class="fas fa-microphone text-base"></i>
+                        </button>
+
+                        <!-- Input Texto -->
+                        <div class="flex-1 bg-white rounded-3xl flex items-end px-4 py-2.5 shadow-sm border border-slate-200 focus-within:border-emerald-300 transition min-h-[44px]">
+                            <textarea id="chat-input-text" rows="1" placeholder="Digite uma mensagem"
+                                class="w-full bg-transparent border-none outline-none text-sm text-slate-700 resize-none max-h-28 leading-relaxed custom-scrollbar"
+                                onkeydown="MinhaArea.Feedback.checkEnter(event)"></textarea>
+                        </div>
+
+                        <!-- Botão Enviar -->
+                        <button onclick="MinhaArea.Feedback.enviar()"
+                            class="w-11 h-11 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-md hover:shadow-lg transition flex items-center justify-center active:scale-95 shrink-0">
+                            <i class="fas fa-paper-plane text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <div id="modal-comparativo-metas"
+        class="fixed inset-0 z-[70] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div
+            class="bg-white w-[95%] max-w-6xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                            <i class="fas fa-balance-scale text-blue-600"></i> Comparador de Performance
+                        </h3>
+                        <p class="text-xs text-slate-500">Gráficos de colunas para facilitar a comparação visual.</p>
+                    </div>
+                    <button onclick="MinhaArea.Metas.fecharModalComparativo()"
+                        class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="border-t-4 border-blue-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
+                        <label class="text-[10px] font-bold text-blue-500 uppercase block mb-1">Comparativo 1</label>
+                        <select id="comp-sel-1" onchange="MinhaArea.Metas.atualizarComparativoManual()"
+                            class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-blue-500"></select>
+                    </div>
+                    <div class="border-t-4 border-emerald-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
+                        <label class="text-[10px] font-bold text-emerald-500 uppercase block mb-1">Comparativo 2</label>
+                        <select id="comp-sel-2" onchange="MinhaArea.Metas.atualizarComparativoManual()"
+                            class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-emerald-500"></select>
+                    </div>
+                    <div class="border-t-4 border-amber-500 pt-2 bg-white rounded-lg p-2 shadow-sm">
+                        <label class="text-[10px] font-bold text-amber-500 uppercase block mb-1">Comparativo 3</label>
+                        <select id="comp-sel-3" onchange="MinhaArea.Metas.atualizarComparativoManual()"
+                            class="w-full text-xs border border-slate-300 rounded p-1.5 font-bold text-slate-700 outline-none focus:border-amber-500"></select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 p-6 overflow-y-auto bg-slate-50/50">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[400px]">
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Validação</h4>
+                        <div class="flex-1 w-full min-h-0 relative">
+                            <canvas id="chart-comp-prod"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col relative">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Assertividade</h4>
+                        <div class="flex-1 w-full min-h-0 relative">
+                            <canvas id="chart-comp-assert"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [NEW] Modal de Evolução Individual (Bar Chart) -->
+    <div id="modal-evolucao-metas"
+        class="fixed inset-0 z-[70] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div
+            class="bg-white w-[95%] max-w-5xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-chart-bar text-blue-600"></i> Evolução Individual
+                    </h3>
+                    <div class="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                        <span id="evolucao-nome" class="font-bold text-slate-700">--</span>
+                        <span class="text-slate-300">|</span>
+                        <span id="evolucao-funcao">--</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex gap-4 text-right mr-4 border-r border-slate-200 pr-4">
+                        <div>
+                            <span class="block text-[9px] uppercase font-bold text-slate-400">Média/Dia</span>
+                            <span id="evolucao-kpi-media" class="text-lg font-black text-blue-600">0</span>
+                        </div>
+                        <div>
+                            <span class="block text-[9px] uppercase font-bold text-slate-400">Total</span>
+                            <span id="evolucao-kpi-total" class="text-lg font-black text-slate-700">0</span>
+                        </div>
+                    </div>
+                    <button onclick="MinhaArea.Metas.fecharModalEvolucao()"
+                        class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 flex items-center justify-center transition shadow-sm outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 p-4 overflow-hidden bg-slate-50/50 flex flex-col gap-4">
+                <!-- Produção (Barras) -->
+                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col flex-1 relative min-h-0">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 flex justify-between items-center">
+                        <span>Produção Diária</span>
+                        <span class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Barras</span>
+                    </h4>
+                    <div class="flex-1 w-full min-h-0 relative">
+                        <canvas id="canvas-evolucao-prod"></canvas>
+                    </div>
+                </div>
+
+                <!-- Assertividade (Linha) -->
+                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col flex-1 relative min-h-0">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 flex justify-between items-center">
+                        <span>Assertividade e Qualidade</span>
+                        <span class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-100">Linha</span>
+                    </h4>
+                    <div class="flex-1 w-full min-h-0 relative">
+                        <canvas id="canvas-evolucao-assert"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-obs-assistente"
+        class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/50 backdrop-blur-sm transition-opacity opacity-0 pointer-events-none"
+        style="transition: opacity 0.3s;">
+        <div
+            class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-slate-700 text-lg flex items-center gap-2">
+                    <i class="fas fa-edit text-blue-500"></i> Observação
+                </h3>
+                <button onclick="MinhaArea.Geral.fecharModalObs()"
+                    class="text-slate-400 hover:text-rose-500 transition outline-none">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    <span>Data Referência</span>
+                    <span id="obs-data-ref"
+                        class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">--/--/----</span>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                        <i class="fas fa-user-tie"></i> Justificativa da Gestão
+                    </label>
+                    <div id="obs-gestao-view"
+                        class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-600 italic min-h-[50px] flex items-center">
+                        --
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                        <i class="fas fa-comment-dots"></i> Sua Observação
+                    </label>
+                    <textarea id="obs-assistente-text" rows="4"
+                        class="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition resize-none placeholder:text-slate-300"
+                        placeholder="Escreva aqui sua observação sobre este dia..."></textarea>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
+                <button onclick="MinhaArea.Geral.fecharModalObs()"
+                    class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancelar</button>
+                <button id="btn-salvar-obs" onclick="MinhaArea.Geral.salvarObsAssistente()"
+                    class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i class="fas fa-save"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #modal-obs-assistente.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #modal-obs-assistente.active>div {
+            transform: scale(100%);
+        }
+
+        #modal-comparativo-metas.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #modal-comparativo-metas.active>div {
+            transform: scale(100%);
+        }
+
+        #modal-evolucao-metas.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #modal-evolucao-metas.active>div {
+            transform: scale(100%);
+        }
+    </style>
+
+    <script src="js/minha_area/main.js?v=20260318_1548"></script>
+    <script src="js/minha_area/assertividade.js?v=20260318_1850"></script>
+    <script src="js/minha_area/geral.js?v=20260325_1906"></script>
+    <script src="js/minha_area/metas.js?v=20260318_1706"></script>
+    <script src="js/minha_area/auditoria.js?v=20260311_0920"></script>
+    <script src="js/minha_area/comparativo.js?v=20260311_0920"></script>
+    <script src="js/minha_area/feedback.js?v=20260311_0920"></script>
+</body>
+
+</html>

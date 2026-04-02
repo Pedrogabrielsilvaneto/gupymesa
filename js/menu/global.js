@@ -73,9 +73,10 @@ Menu.Global = {
         html += `   </div>
                 </div>
                 
-                <div class="flex items-center gap-4 text-xs">
+                <div class="flex items-center gap-3 text-xs">
                     <span class="hidden md:inline">Olá, <strong class="text-white">${user.nome ? user.nome.split(' ')[0] : 'Visitante'}</strong></span>
-                    <button onclick="Sistema.limparSessao()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition shadow-sm border border-red-800"><i class="fas fa-sign-out-alt"></i> Sair</button>
+                    <button onclick="Menu.Global.abrirModalSenha()" class="text-slate-400 hover:text-white transition flex items-center gap-1"><i class="fas fa-key text-[10px]"></i> Trocar Senha</button>
+                    <button onclick="Sistema.limparSessao()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded transition shadow-sm border border-red-800 flex items-center gap-1"><i class="fas fa-sign-out-alt"></i> Sair</button>
                 </div>
             </div>
         </nav>`;
@@ -83,6 +84,81 @@ Menu.Global = {
         container.innerHTML = html;
         // Ajusta o padding do body para o menu não cobrir o conteúdo (48px = h-12)
         document.body.style.paddingTop = '48px';
+    },
+
+    abrirModalSenha: function() {
+        // Usa a modal global do sistema (injetamos se não existir)
+        if (typeof Login !== 'undefined' && Login.exibirTrocaSenha) {
+            Login.exibirTrocaSenha();
+        } else {
+            // Fallback se não estiver no login.js (injetamos a lógica mínima)
+            this.injetarModalSenha();
+        }
+    },
+
+    injetarModalSenha: function() {
+        const antigo = document.getElementById('modal-troca-senha');
+        if (antigo) antigo.remove();
+
+        const modalHtml = `
+            <div id="modal-troca-senha" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+                    <div class="bg-slate-800 p-6 text-white flex justify-between items-center">
+                        <h3 class="text-lg font-bold flex items-center gap-2">
+                            <i class="fas fa-lock"></i> Alterar Senha
+                        </h3>
+                        <button onclick="document.getElementById('modal-troca-senha').remove()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-8 space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Nova Senha</label>
+                            <input type="password" id="nova-senha-global" class="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:border-indigo-500 font-bold text-slate-700" placeholder="Mínimo 6 caracteres">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Confirmar Nova Senha</label>
+                            <input type="password" id="confirma-senha-global" class="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:border-indigo-500 font-bold text-slate-700" placeholder="Repita a senha">
+                        </div>
+                        <div id="erro-senha-global" class="hidden text-rose-500 text-xs font-bold text-center"></div>
+                        <button id="btn-salvar-senha-global" onclick="Menu.Global.salvarNovaSenha()" class="w-full py-3.5 rounded-xl shadow-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all transform active:scale-[0.98]">
+                            Atualizar Senha
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    salvarNovaSenha: async function() {
+        const s1 = document.getElementById('nova-senha-global').value.trim();
+        const s2 = document.getElementById('confirma-senha-global').value.trim();
+        const err = document.getElementById('erro-senha-global');
+        const btn = document.getElementById('btn-salvar-senha-global');
+
+        if (s1.length < 6) {
+            err.innerText = "Mínimo 6 caracteres.";
+            err.classList.remove('hidden');
+            return;
+        }
+        if (s1 !== s2) {
+            err.innerText = "As senhas não coincidem.";
+            err.classList.remove('hidden');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+        const res = await Sistema.atualizarSenha(s1);
+        if (res.success) {
+            alert("✅ Senha alterada com sucesso!");
+            document.getElementById('modal-troca-senha').remove();
+        } else {
+            err.innerText = "Erro: " + res.error;
+            err.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = 'Atualizar Senha';
+        }
     }
 };
 

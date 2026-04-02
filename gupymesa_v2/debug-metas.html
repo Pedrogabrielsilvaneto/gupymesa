@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Metas (Self-Contained)</title>
+    <!-- Supabase for auth if needed, but our API handles most -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+
+<body style="font-family: monospace; padding: 20px;">
+    <h2>Diagnóstico de Metas</h2>
+    <div id="output">Carregando...</div>
+    <div id="errors" style="color: red; margin-top: 20px;"></div>
+
+    <script>
+        // CONFIGURAR URL GLOBAL DA API (PRODUÇÃO)
+        const API_URL = "https://gupymesa.vercel.app/api/banco"; // Assumindo Vercel
+
+        // SIMULAÇÃO DO SISTEMA.QUERY
+        async function query(sql, params = []) {
+            try {
+                // Tenta fetch na URL de produção
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: sql, values: params })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+
+                if (result.error) throw new Error(result.error);
+                return result.data;
+            } catch (erro) {
+                console.error("Falha API:", erro);
+                document.getElementById('errors').innerHTML += `<strong>Erro na Query:</strong> ${erro.message}<br>`;
+                return null;
+            }
+        }
+
+        async function runDebug() {
+            const out = document.getElementById('output');
+            out.innerHTML = "Iniciando consulta ao TiDB/Vercel...";
+
+            try {
+                // 1. Metas
+                const metas = await query("SELECT * FROM metas LIMIT 50");
+
+                let html = `<h3>Tabela 'metas' (Top 50)</h3>`;
+                if (!metas || metas.length === 0) {
+                    html += "<p style='color:red'>Nenhum registro encontrado na tabela 'metas'.</p>";
+                } else {
+                    html += "<table><tr>";
+                    if (metas[0]) Object.keys(metas[0]).forEach(k => html += `<th>${k}</th>`);
+                    html += "</tr>";
+
+                    metas.forEach(row => {
+                        html += "<tr>";
+                        Object.values(row).forEach(v => html += `<td>${v}</td>`);
+                        html += "</tr>";
+                    });
+                    html += "</table>";
+                }
+
+                // 2. Users
+                const users = await query("SELECT id, nome FROM usuarios LIMIT 10");
+                html += `<h3>Usuários (Amostra)</h3>`;
+                if (users) users.forEach(u => html += `${u.id}: ${u.nome}<br>`);
+
+                out.innerHTML = html;
+
+            } catch (e) {
+                out.innerHTML = `<p style="color:red">Erro fatal: ${e.message}</p>`;
+                console.error(e);
+            }
+        }
+
+        runDebug();
+    </script>
+</body>
+
+</html>

@@ -84,7 +84,16 @@ const Sistema = {
     lerSessao() {
         try {
             const dados = localStorage.getItem('usuario_logado');
-            return dados ? JSON.parse(dados) : null;
+            if (!dados) return null;
+
+            // [FIX] Força logout de todos os usuários para atualizar permissões da Minha Área (Março/2026)
+            const versaoSessao = localStorage.getItem('sessao_v_2026_03_24');
+            if (versaoSessao !== 'v1') {
+                this.limparSessao();
+                return null;
+            }
+
+            return JSON.parse(dados);
         } catch (e) {
             this.limparSessao();
             return null;
@@ -93,6 +102,7 @@ const Sistema = {
 
     salvarSessao(dadosUsuario) {
         localStorage.setItem('usuario_logado', JSON.stringify(dadosUsuario));
+        localStorage.setItem('sessao_v_2026_03_24', 'v1'); // Nova versão de sessão
         // Registra acesso simples (opcional)
         localStorage.setItem('ultimo_acesso', new Date().toISOString());
     },
@@ -134,6 +144,28 @@ const Sistema = {
         return await this.query(sql, [
             id, usuarioId, dados.data, dados.mes, dados.ano, dados.tarefa, dados.qtd, dados.tempo || 0
         ]);
+    },
+
+    async atualizarSenha(novaSenha) {
+        const usuario = this.lerSessao();
+        if (!usuario || !usuario.id) return { success: false, error: 'Sessão não encontrada' };
+
+        try {
+            const hash = await this.gerarHash(novaSenha);
+            const sql = `UPDATE usuarios SET senha = ?, trocar_senha = 0 WHERE id = ?`;
+            const result = await this.query(sql, [hash, usuario.id]);
+
+            if (result !== null) {
+                // Atualiza a sessão local
+                usuario.senha = hash;
+                usuario.trocar_senha = 0;
+                this.salvarSessao(usuario);
+                return { success: true };
+            }
+            return { success: false, error: 'Erro ao salvar no banco' };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
     },
 
     atualizarTodasAbas() {

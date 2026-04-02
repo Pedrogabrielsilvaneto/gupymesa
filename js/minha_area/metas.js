@@ -16,6 +16,8 @@ MinhaArea.Metas = {
     viewState: 'GRID',
     activeSubTab: 'PROD',
     selectedUserId: null,
+    rawDataCache: null,   // [PERF] Cache de dados brutos por período
+    lastPeriodKey: null,  // [PERF] Chave do período atual em cache
 
     chartDetailProd: null,
     chartDetailAssert: null,
@@ -46,7 +48,26 @@ MinhaArea.Metas = {
 
     mudarFiltroContrato: function (novoValor) {
         this.currentFilterContract = novoValor;
-        this.carregar();
+        // [PERF] Apenas re-processa com cache - não busca do banco novamente
+        if (this.rawDataCache) { this.reaplicarFiltros(); } else { this.carregar(); }
+    },
+
+    getLookupAtingimentoQualidade: function (val) {
+        if (val < 90) return "Abaixo de 90% = 0% de atingimento";
+        if (val < 94) return "Entre 90% e 93% = 50% de atingimento";
+        if (val < 95) return "Entre 94% e 95% = 70% de atingimento";
+        if (val < 96) return "Entre 95 e 96% = 80% de atingimento";
+        if (val <= 97) return "Entre 96 e 97% = 90% de atingimento";
+        return "Acima de 97% = 100% de atingimento";
+    },
+
+    getPercentualAtingimentoQualidade: function (val) {
+        if (val < 90) return 0;
+        if (val < 94) return 50;
+        if (val < 95) return 70;
+        if (val < 96) return 80;
+        if (val <= 97) return 90;
+        return 100;
     },
 
     // [MERGE v4.39] HTML Template for Assertividade Dashboard (Moved from minha_area.html)
@@ -61,11 +82,11 @@ MinhaArea.Metas = {
                         </div>
                         <div class="flex flex-col items-end gap-2">
                             <div class="flex bg-slate-100 rounded-lg p-1">
-                                <button onclick="MinhaArea.Comparativo.mudarVisao('doc')" id="btn-view-doc" class="px-3 py-1 text-[10px] font-bold rounded bg-white text-rose-600 shadow-sm transition">Docs</button>
-                                <button onclick="MinhaArea.Comparativo.mudarVisao('empresa')" id="btn-view-empresa" class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">Empresas</button>
-                                <button onclick="MinhaArea.Comparativo.mudarVisao('ndf')" id="btn-view-ndf" class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">NDF</button>
+                                <button onclick="MinhaArea.Assertividade.mudarVisao('doc')" id="btn-view-doc" class="px-3 py-1 text-[10px] font-bold rounded bg-white text-rose-600 shadow-sm transition">Docs</button>
+                                <button onclick="MinhaArea.Assertividade.mudarVisao('empresa')" id="btn-view-empresa" class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">Empresas</button>
+                                <button onclick="MinhaArea.Assertividade.mudarVisao('ndf')" id="btn-view-ndf" class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition">NDF</button>
                             </div>
-                            <button id="btn-ver-todos" onclick="MinhaArea.Comparativo.toggleMostrarTodos()" class="text-[10px] font-bold text-blue-500 hover:underline">Ver Todos</button>
+                            <button id="btn-ver-todos" onclick="MinhaArea.Assertividade.toggleMostrarTodos()" class="text-[10px] font-bold text-blue-500 hover:underline">Ver Todos</button>
                         </div>
                     </div>
                     <div class="flex-1 w-full relative min-h-[200px]"><canvas id="graficoTopOfensores"></canvas></div>
@@ -73,12 +94,15 @@ MinhaArea.Metas = {
                         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                             <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">Visão Geral</h3>
                             <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
-                                <span class="text-[10px] font-bold text-slate-600">Total Auditados</span><span id="card-total-auditados" class="text-xs font-black text-blue-600">--</span>
+                                <span class="text-[10px] font-bold text-slate-600">Docs Validados</span><span id="card-total-auditados" class="text-xs font-black text-blue-600">--</span>
                             </div>
                             <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
                                 <span class="text-[10px] font-bold text-slate-600">Total de Acertos</span><span id="card-total-acertos" class="text-xs font-black text-emerald-600">--</span>
                             </div>
-                            <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Total de Erros</span><span id="card-total-erros" class="text-xs font-black text-rose-600">--</span></div>
+                            <div class="flex justify-between items-center py-1.5 border-b border-slate-100 dashed">
+                                <span class="text-[10px] font-bold text-slate-600">Total Docs NOK</span><span id="card-total-docs-nok" class="text-xs font-black text-rose-600">--</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Campos NOK</span><span id="card-total-erros" class="text-xs font-black text-rose-600">--</span></div>
                         </div>
                         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                             <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1">Detalhamento</h3>
@@ -87,10 +111,6 @@ MinhaArea.Metas = {
                             </div>
                             <div class="flex justify-between items-center py-1.5"><span class="text-[10px] font-bold text-slate-600">Erros NDF</span><span id="card-erros-ndf" class="text-xs font-black text-amber-600">--</span></div>
                             <div class="flex justify-between items-center pl-2 mt-0.5"><span class="text-[9px] font-bold text-amber-500/80 flex items-center gap-1"><i class="fas fa-level-up-alt rotate-90 text-[8px]"></i> Empresa Valida</span><span id="card-empresa-validar" class="text-[10px] font-bold text-amber-500">--</span></div>
-                            <!-- NEW GAP CARD -->
-                            <div class="flex justify-between items-center py-1.5 border-t border-slate-100 mt-2">
-                                <span class="text-[10px] font-bold text-slate-600">GAP Assistentes</span><span id="card-gap-assistentes" class="text-xs font-black text-blue-600">--</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -103,8 +123,8 @@ MinhaArea.Metas = {
                             <p class="text-xs text-slate-500">Documentos reprovados (NOK).</p>
                         </div>
                         <div class="flex items-center gap-3">
-                            <div class="relative"><input type="text" placeholder="Buscar..." onkeyup="MinhaArea.Comparativo.filtrarPorBusca(this.value)" class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-blue-500 w-40 transition"><i class="fas fa-search absolute left-2.5 top-2 text-slate-400 text-xs"></i></div>
-                            <button id="btn-limpar-filtro" onclick="MinhaArea.Comparativo.limparFiltro()" class="hidden px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition flex items-center gap-2"><i class="fas fa-times text-rose-500"></i> Limpar</button>
+                            <div class="relative"><input type="text" placeholder="Buscar..." onkeyup="MinhaArea.Assertividade.filtrarPorBusca(this.value)" class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-blue-500 w-40 transition"><i class="fas fa-search absolute left-2.5 top-2 text-slate-400 text-xs"></i></div>
+                            <button id="btn-limpar-filtro" onclick="MinhaArea.Assertividade.limparFiltro()" class="hidden px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition flex items-center gap-2"><i class="fas fa-times text-rose-500"></i> Limpar</button>
                         </div>
                     </div>
                     <div id="feed-erros-container" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50">
@@ -135,14 +155,17 @@ MinhaArea.Metas = {
             if (btnProd) btnProd.className = styleActive;
             this.toggleContainerPrincipal(true);
             this.reordenarEExibir();
+            this.atualizarCardsTopo();
         } else if (modo === 'ASSERT') {
             if (btnAssert) btnAssert.className = styleActiveAssert;
             this.toggleContainerPrincipal(true); // Show Grid (Qualidade)
             this.reordenarEExibir();
+            this.atualizarCardsTopo();
         } else if (modo === 'DASH') {
             if (btnDash) btnDash.className = styleActiveDash;
             this.toggleContainerPrincipal(false); // Hide Grid, Show Dashboard (Assertividade)
             this.carregarDashboardAssertividade();
+            this.atualizarCardsTopo();
         }
     },
 
@@ -295,10 +318,6 @@ MinhaArea.Metas = {
         this.atualizarCardsTopo();
     },
 
-    abrirDetalhe: function (uid) {
-        // [REF_FIX] Agora abre o modal comparativo ao clicar no nome
-        this.abrirComparativoVizinhos(uid);
-    },
 
     // --- HELPER: Gerador de Placeholders SQL ---
     gerarPlaceholders: function (array) {
@@ -317,35 +336,31 @@ MinhaArea.Metas = {
             const datas = MinhaArea.getDatasFiltro();
             if (!datas) throw new Error("Datas do filtro não encontradas.");
             const { inicio, fim } = datas;
+            this.currentRange = { inicio, fim }; // Store for background calculations
+
 
             const diffDias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24);
             this.isMacroView = diffDias > 45;
 
             // [FIX v4.38] Robust Manager Check & Decoupled Global Query
             const uLogado = MinhaArea.usuario || {};
-            const pLogado = (uLogado.perfil || '').toLowerCase();
-            const fLogado = (uLogado.funcao || '').toLowerCase();
+            const pLogado = (uLogado.perfil || '').toUpperCase();
+            const fLogado = (uLogado.funcao || '').toUpperCase();
             const uidLogado = parseInt(uLogado.id);
 
+            const isExactAdminLogado = pLogado === 'ADMIN' || pLogado === 'ADMINISTRADOR' || fLogado === 'ADMIN' || fLogado === 'ADMINISTRADOR';
+            const isAssistenteLogado = fLogado.includes('ASSISTENTE');
+            const isLeadershipLogado = ['GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'].some(t => pLogado.includes(t) || fLogado.includes(t));
+
             // Matches Produtividade.ehGestao logic + extra minhare-area keywords
-            const isManagerEffective = pLogado === 'admin' || pLogado === 'administrador' ||
-                fLogado.includes('gestor') || fLogado.includes('auditor') ||
-                fLogado.includes('lider') || fLogado.includes('coordenador') ||
-                fLogado.includes('head') || fLogado.includes('diretor') ||
-                uidLogado === 1 || MinhaArea.isAdmin();
+            const isManagerEffective = isExactAdminLogado || (isLeadershipLogado && !isAssistenteLogado) || uidLogado === 1 || MinhaArea.isAdmin();
 
             const isAdmin = isManagerEffective;
             const myId = MinhaArea.usuario ? MinhaArea.usuario.id : null;
+            const filtroContrato = this.currentFilterContract;
 
-            // [SYNC] Use global filter from MinhaArea if set, mapping GERAL->TODOS and TERCEIROS->PJ
-            let mainFiltro = window.MinhaArea?.filtroEquipe || 'GERAL';
-            if (mainFiltro === 'GERAL') mainFiltro = 'TODOS';
-            if (mainFiltro === 'TERCEIROS') mainFiltro = 'PJ';
-            const filtroContrato = (MinhaArea.usuarioAlvoId) ? 'TODOS' : mainFiltro;
-            this.currentFilterContract = filtroContrato;
-
-            // 1. Buscar Usuários via SQL
-            let sqlUsers = `SELECT id, nome, perfil, funcao, contrato FROM usuarios WHERE ativo = TRUE`;
+            // 1. Buscar Usuários via SQL (Remove filtro ativo = TRUE para somar ex-colaboradores que tiveram produção no mês)
+            let sqlUsers = `SELECT id, nome, perfil, funcao, contrato, ativo FROM usuarios WHERE 1=1`;
             let paramsUsers = [];
 
             if (!isAdmin && myId) {
@@ -356,29 +371,42 @@ MinhaArea.Metas = {
             const users = await Sistema.query(sqlUsers, paramsUsers);
             if (!users) throw new Error("Erro ao buscar usuários.");
 
-            const forbidden = ['GESTOR', 'AUDITOR', 'ADMIN', 'LIDER', 'COORDENADOR'];
+            const forbidden = ['GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENADOR', 'COORDENA', 'HEAD', 'DIRETOR'];
+            // Para ADMIN, checamos apenas no PERFIL ou se for a palavra exata na FUNÇÃO para não travar 'Assistente Administrativo'
+
+            const myAlvoReal = (typeof MinhaArea.getUsuarioAlvo === 'function') ? MinhaArea.getUsuarioAlvo() : null;
 
             // [SYNC v4.35] Include all active users for volume calculation
             const allActiveUsers = users.map(u => {
                 const p = (u.perfil || '').toUpperCase();
                 const f = (u.funcao || '').toUpperCase();
-                u.isManagement = forbidden.some(word => p.includes(word) || f.includes(word));
+                const isAdminRole = forbidden.some(word => p.includes(word) || f.includes(word));
+                const isAdminExact = p === 'ADMIN' || p === 'ADMINISTRADOR' || f === 'ADMIN' || f === 'ADMINISTRADOR';
+                u.isManagement = isAdminRole || isAdminExact;
                 return u;
             });
+            this.allActiveUsers = allActiveUsers;
 
-            // Filter for the RANKING (Grid visibility)
-            const assistentes = allActiveUsers.filter(u => {
-                if (!isAdmin) return true;
+            // [SYNC v4.41] Filter for ranking but keep Roberta (Special Case)
+            // AND Apply User Selection Filter (Team Selector)
+            const rankingUsers = allActiveUsers.filter(u => {
+                const isActive = u.ativo !== false && u.ativo !== 0 && u.ativo !== '0';
+                if (!isActive && String(u.id).trim() !== '1074356') return false;
 
-                if (filtroContrato !== 'TODOS') {
-                    const userContrato = (u.contrato || 'CLT').trim().toUpperCase();
-                    if (filtroContrato === 'PJ' && !userContrato.includes('PJ')) return false;
-                    if (filtroContrato === 'CLT' && userContrato.includes('PJ')) return false;
+                // Restringe ao alvo selecionado no seletor Admin (Se houver)
+                if (myAlvoReal && myAlvoReal !== 'EQUIPE' && myAlvoReal !== 'GRUPO_CLT' && myAlvoReal !== 'GRUPO_TERCEIROS') {
+                    if (String(u.id) !== String(myAlvoReal)) return false;
+                } else if (myAlvoReal === 'GRUPO_CLT') {
+                    const c = (u.contrato || 'CLT').toUpperCase();
+                    if (c.includes('PJ') || c.includes('TERCEIROS')) return false;
+                } else if (myAlvoReal === 'GRUPO_TERCEIROS') {
+                    const c = (u.contrato || 'CLT').toUpperCase();
+                    if (!c.includes('PJ') && !c.includes('TERCEIROS')) return false;
                 }
                 return true;
             });
 
-            const userIds = allActiveUsers.map(u => u.id);
+            const userIds = rankingUsers.map(u => u.id);
 
             if (userIds.length === 0) {
                 this.cacheUsers = [];
@@ -398,8 +426,10 @@ MinhaArea.Metas = {
             // If Manager: Fetch entire table (includes inactives/auditors) -> Matches Produtividade (234.146)
             // If Individual: Fetch only their ID -> Matches filtered view
             let sqlProd, paramsProd;
-            if (isManagerEffective) {
-                // Modo GESTÃO Ativo: Buscando Global (Produtividade Logic)
+            const isTargetedSearch = myAlvoReal && myAlvoReal !== 'EQUIPE';
+
+            if (isManagerEffective && !isTargetedSearch) {
+                console.log("🔍 [v4.38] Modo GESTÃO Ativo: Buscando Global (Produtividade Logic)");
                 sqlProd = `SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ? `;
                 paramsProd = [inicio, fim];
             } else {
@@ -408,7 +438,7 @@ MinhaArea.Metas = {
             }
 
             // Query Assertividade
-            const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN(${placeholders}) AND data_referencia >= ? AND data_referencia <= ? `;
+            const sqlAssert = `SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, qtd_nok, assertividade_val, auditora_nome FROM assertividade WHERE usuario_id IN(${placeholders}) AND data_referencia >= ? AND data_referencia <= ? `;
             const paramsAssert = [...userIds, inicio, fim];
 
             // Query Metas
@@ -417,13 +447,48 @@ MinhaArea.Metas = {
             const sqlMetas = `SELECT * FROM metas WHERE usuario_id IN(${placeholders}) AND ano >= ? AND ano <= ? `;
             const paramsMetas = [...userIds, anoInicio, anoFim];
 
-            const [dadosProd, dadosAssert, dadosMetas] = await Promise.all([
-                Sistema.query(sqlProd, paramsProd),
-                Sistema.query(sqlAssert, paramsAssert),
-                Sistema.query(sqlMetas, paramsMetas)
-            ]);
+            // Extrair mês e ano da data de início para a chamada correta do ConfigMes.obter(mes, ano)
+            const dInicioConfig = new Date(inicio + 'T12:00:00');
+            const mesConfig = dInicioConfig.getMonth() + 1;
+            const anoConfig = dInicioConfig.getFullYear();
+
+            // [PERF] Usa cache de dados se o período e o escopo (global/individual) não mudaram
+            // [FIX] 'GLOBAL' só quando myAlvoReal é null/vazio. Se for grupo ou id, é uma busca alvo.
+            const targetKey = (myAlvoReal && myAlvoReal !== 'EQUIPE') ? String(myAlvoReal) : 'GLOBAL';
+            const periodKey = `${inicio}|${fim}|${targetKey}`;
+            
+            const lastTargetKey = this.lastPeriodKey ? this.lastPeriodKey.split('|')[2] : null;
+            const isGlobalCache = lastTargetKey === 'GLOBAL';
+            const isSamePeriod = this.lastPeriodKey && this.lastPeriodKey.startsWith(`${inicio}|${fim}`);
+            
+            let dadosProd, dadosAssert, dadosMetas, configMesParaMeta;
+
+            // Pode usar o cache se for o MESMO período E (o mesmo alvo OU se tivermos cache GLOBAL e estivermos buscando um alvo específico)
+            if (this.rawDataCache && isSamePeriod && (targetKey === lastTargetKey || (isGlobalCache && targetKey !== 'GLOBAL'))) {
+                console.log(`⚡ [PERF] Período em cache (${targetKey}): pulando requisições ao banco`);
+                dadosProd = this.rawDataCache.dadosProd;
+                dadosAssert = this.rawDataCache.dadosAssert;
+                dadosMetas = this.rawDataCache.dadosMetas;
+                configMesParaMeta = this.rawDataCache.configMesParaMeta;
+                this.configMesParaMeta = configMesParaMeta;
+                this._lastDadosProd = dadosProd || [];
+            } else {
+                console.log(`🔍 [FETCH] Novo período ou alvo (${targetKey}): buscando no banco...`);
+                [dadosProd, dadosAssert, dadosMetas, configMesParaMeta] = await Promise.all([
+                    Sistema.query(sqlProd, paramsProd),
+                    Sistema.query(sqlAssert, paramsAssert),
+                    Sistema.query(sqlMetas, paramsMetas),
+                    (window.Gestao && window.Gestao.ConfigMes) ? window.Gestao.ConfigMes.obter(mesConfig, anoConfig) : null
+                ]);
+                this.configMesParaMeta = configMesParaMeta;
+                this._lastDadosProd = dadosProd || [];
+                // [PERF] Salva cache
+                this.rawDataCache = { dadosProd, dadosAssert, dadosMetas, configMesParaMeta };
+                this.lastPeriodKey = periodKey;
+            }
 
 
+            console.log('--- DEBUG DADOS METAS (TIDB) ---', dadosMetas);
 
             this._lastDadosProd = dadosProd || []; // [FIX v4.36] Store raw data for consistent global total
 
@@ -436,7 +501,9 @@ MinhaArea.Metas = {
             this.statsUsers = {};
 
             userIds.forEach(uid => {
-                this.statsUsers[String(uid)] = {
+                const uidStr = String(uid).trim();
+                const userObj = allActiveUsers.find(u => String(u.id).trim() === uidStr);
+                this.statsUsers[uidStr] = {
                     prod: 0,
                     dias_efetivos: 0,
                     metaSum: 0,
@@ -445,11 +512,11 @@ MinhaArea.Metas = {
                     somaMediasMensais: 0,
                     somaMetasMensais: 0,
                     countMesesComDados: 0,
-                    // [ALIGNMENT v4.34] New counters for average of averages logic
                     acc_assert_ratio: 0,
                     qtd_auditorias: 0,
-                    // [SYNC v4.35] Identity flag
-                    isManagement: allActiveUsers.find(u => String(u.id) === String(uid))?.isManagement || false
+                    acc_nok: 0, // [NEW] Accumulator for Fields NOK
+                    contrato: (userObj?.contrato || 'CLT').trim().toUpperCase(),
+                    isManagement: userObj?.isManagement || false
                 };
             });
 
@@ -483,24 +550,43 @@ MinhaArea.Metas = {
 
             const mapMetas = {};
             (dadosMetas || []).forEach(m => {
-                const k = `${m.usuario_id}-${m.ano}-${m.mes}`;
+                const k = `${String(m.usuario_id).trim()}-${m.ano}-${m.mes}`;
                 mapMetas[k] = { p: m.meta_producao || 0, a: m.meta_assertividade || 0 };
+            });
+
+            // [FIX] Pre-inicializar Metas para TODOS os usuários em TODAS as colunas do período
+            // Isso garante que mesmo quem não produziu nada seja contado no atingimento médio
+            Object.keys(this.cacheDados).forEach(key => {
+                const parts = key.split('-');
+                const dAux = new Date(parts[0], parseInt(parts[1]) - 1, 15);
+                const mKeyBase = `-${dAux.getFullYear()}-${dAux.getMonth() + 1}`;
+
+                userIds.forEach(uid => {
+                    const mKey = String(uid).trim() + mKeyBase;
+                    if (mapMetas[mKey]) {
+                        const m = mapMetas[mKey];
+                        const uidStr = String(uid).trim();
+                        this.cacheDados[key][uidStr].metaProd = m.p;
+                        this.cacheDados[key][uidStr].metaAssert = m.a;
+                    }
+
+                    // Encontrar a Maior Meta do período para esse usuário
+                    const uidStr = String(uid).trim();
+                    if (this.statsUsers[uidStr]) {
+                        const pValue = mapMetas[mKey] ? mapMetas[mKey].p : 0;
+                        this.statsUsers[uidStr].maxMetaPeriodo = Math.max(this.statsUsers[uidStr].maxMetaPeriodo || 0, pValue);
+                    }
+                });
             });
 
             // 1. PRODUÇÃO
             (dadosProd || []).forEach(reg => {
-                const uidStr = String(reg.usuario_id);
+                const uidStr = String(reg.usuario_id).trim();
                 const key = this.getKeyFromDate(reg.data_referencia, this.isMacroView);
 
                 if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
                     const qtd = Number(reg.quantidade || 0);
                     const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
-
-                    // [FIX] Safe Date Parsing (Sanitize T)
-                    const cleanDate = String(reg.data_referencia).split('T')[0];
-                    const d = new Date(cleanDate + 'T12:00:00');
-                    const mKey = `${reg.usuario_id}-${d.getFullYear()}-${d.getMonth() + 1}`;
-                    const metaBase = mapMetas[mKey] ? mapMetas[mKey].p : 0;
 
                     if (qtd > 0) {
                         this.cacheDados[key][uidStr].prod += qtd;
@@ -509,11 +595,10 @@ MinhaArea.Metas = {
                         if (this.statsUsers[uidStr]) {
                             this.statsUsers[uidStr].prod += qtd;
                             this.statsUsers[uidStr].dias_efetivos += fator;
-                            this.statsUsers[uidStr].metaSum += (metaBase * fator);
+                            // metaSum continua sendo baseado na produção real (proporcional aos dias trabalhados)
+                            this.statsUsers[uidStr].metaSum += (this.cacheDados[key][uidStr].metaProd * fator);
                         }
                     }
-                    this.cacheDados[key][uidStr].metaProd = metaBase;
-                    if (mapMetas[mKey]) this.cacheDados[key][uidStr].metaAssert = mapMetas[mKey].a;
                 }
             });
 
@@ -527,17 +612,23 @@ MinhaArea.Metas = {
                 if (!reg.auditora_nome && !reg.assertividade_val) return;
 
                 const valParsed = this.parseAssertiveness(reg.assertividade_val);
-                if (valParsed === null) return; // Skip invalid/empty values
 
-                const ratio = valParsed / 100.0;
                 const key = this.getKeyFromDate(reg.data_referencia, this.isMacroView);
+                const nokValue = Number(reg.qtd_nok || 0);
 
                 if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
-                    this.cacheDados[key][uidStr].acc_assert_ratio += ratio;
-                    this.cacheDados[key][uidStr].qtd_auditorias += 1;
+                    // [FIX v4.52] Strict validation: Contar % Assert apenas nos dados válidos (0 a 100)
+                    if (valParsed !== null && valParsed >= 0 && valParsed <= 100) {
+                        const ratio = valParsed / 100.0;
+                        this.cacheDados[key][uidStr].acc_assert_ratio += ratio;
+                        this.cacheDados[key][uidStr].qtd_auditorias += 1;
+                        this.statsUsers[uidStr].acc_assert_ratio += ratio;
+                        this.statsUsers[uidStr].qtd_auditorias += 1;
+                    }
 
-                    this.statsUsers[uidStr].acc_assert_ratio += ratio;
-                    this.statsUsers[uidStr].qtd_auditorias += 1;
+                    // A soma de NOK (Campos) pode ser preservada para todos os registros vinculados
+                    this.cacheDados[key][uidStr].acc_nok = (this.cacheDados[key][uidStr].acc_nok || 0) + nokValue;
+                    this.statsUsers[uidStr].acc_nok += nokValue;
                 }
             });
 
@@ -552,7 +643,15 @@ MinhaArea.Metas = {
                         celula.assert = null;
                     }
 
-                    const divisor = celula.dias_efetivos > 0 ? celula.dias_efetivos : 1;
+                    let diasDivisorMes = celula.dias_efetivos;
+                    if (this.isMacroView && this.statsUsers[uid]) {
+                        const isCLT = !(this.statsUsers[uid].contrato || '').toUpperCase().includes('PJ') && !(this.statsUsers[uid].contrato || '').toUpperCase().includes('TERCEIRO');
+                        if (isCLT && diasDivisorMes > 0) {
+                            diasDivisorMes = Math.max(0, diasDivisorMes - 1);
+                        }
+                    }
+                    const divisor = diasDivisorMes > 0 ? diasDivisorMes : 1;
+
                     if (celula.prod > 0) {
                         celula.velocidade = Math.round(celula.prod / divisor);
 
@@ -568,18 +667,56 @@ MinhaArea.Metas = {
                 });
             });
 
-            // [SYNC v4.35] Filter cacheUsers for the ranking: Strictly Assistants
-            // Exclude Gestora, Auditora, Admin regardless of production
-            this.cacheUsers = allActiveUsers.filter(u => {
+            // [FIX] Roberta/Assistente Missing: Garantir que metaSum seja povoado para todos no período
+            // Mesmo sem produção, se o usuário tem meta definida no banco, ele deve contar no atingimento (como 0%)
+            Object.keys(this.statsUsers).forEach(uid => {
+                const s = this.statsUsers[uid];
+                if (s.metaSum === 0 && !s.isManagement) {
+                    let totalMetaPeriodo = 0;
+                    Object.values(this.cacheDados).forEach(col => {
+                        const uidStr = String(uid).trim();
+                        if (col[uidStr] && col[uidStr].metaProd) totalMetaPeriodo += col[uidStr].metaProd;
+                    });
+                    s.metaSum = totalMetaPeriodo;
+                }
+            });
+
+            // [SYNC v4.41] Show only active assistants in the final Ranking Grid
+            const assistentes = allActiveUsers.filter(u => {
                 const funcao = (u.funcao || '').toUpperCase();
                 const perfil = (u.perfil || '').toUpperCase();
                 const rolesToExclude = ['GESTORA', 'AUDITORA', 'ADMIN', 'ADMINISTRADOR'];
 
-                if (rolesToExclude.some(r => funcao.includes(r) || perfil.includes(r))) return false;
-                if (u.isManagement) return false; // Safety check if isManagement is set
+                const terms = ['GESTORA', 'AUDITORA', 'COORDENADORA', 'LIDER'];
+                const isExcludedRole = terms.some(r => funcao.includes(r) || perfil.includes(r));
+                const isExcludedAdmin = perfil === 'ADMIN' || perfil === 'ADMINISTRADOR';
+
+                if (isExcludedRole || isExcludedAdmin) return false;
+                if (u.isManagement) return false;
+
+                let myAlvoReal = null;
+                if (typeof MinhaArea.getUsuarioAlvo === 'function') {
+                    myAlvoReal = MinhaArea.getUsuarioAlvo();
+                }
+
+                if (myAlvoReal && myAlvoReal !== 'EQUIPE' && myAlvoReal !== 'GRUPO_CLT' && myAlvoReal !== 'GRUPO_TERCEIROS') {
+                    if (String(u.id) !== String(myAlvoReal)) return false;
+                } else if (myAlvoReal === 'GRUPO_CLT') {
+                    const userContrato = (u.contrato || 'CLT').trim().toUpperCase();
+                    if (userContrato.includes('PJ') || userContrato.includes('TERCEIROS')) return false;
+                } else if (myAlvoReal === 'GRUPO_TERCEIROS') {
+                    const userContrato = (u.contrato || 'CLT').trim().toUpperCase();
+                    if (!userContrato.includes('PJ') && !userContrato.includes('TERCEIROS')) return false;
+                }
+
+                // Restore active filter for ranking grid
+                const isActive = u.ativo !== false && u.ativo !== 0 && u.ativo !== '0';
+                if (!isActive && String(u.id).trim() !== '1074356') return false;
 
                 return true;
             });
+
+            this.cacheUsers = assistentes;
 
             this.atualizarCardsTopo();
 
@@ -587,6 +724,10 @@ MinhaArea.Metas = {
                 this.renderizarDashboardAssistente(this.selectedUserId);
             } else {
                 this.reordenarEExibir();
+                // [FIX] Resenha filters: Refresh Dashboard if active
+                if (this.activeSubTab === 'DASH') {
+                    this.carregarDashboardAssertividade();
+                }
             }
 
             const elPeriodo = document.getElementById('metas-periodo-label');
@@ -597,11 +738,22 @@ MinhaArea.Metas = {
         } catch (err) {
             console.error("❌ ERRO MATRIZ:", err);
             const tbody = document.getElementById('grade-equipe-body');
-            if (tbody) tbody.innerHTML = `< tr > <td colspan="100" class="p-8 text-center text-rose-500 font-bold">Erro: ${err.message}</td></tr > `;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="100" class="p-8 text-center text-rose-500 font-bold">Erro: ${err.message}</td></tr>`;
         } finally {
             this.toggleLoading(false);
             this.isLocked = false;
         }
+    },
+
+    // [PERF] Reaplicar filtros sem ir ao banco - aproveita rawDataCache em carregar()
+    reaplicarFiltros: function () {
+        if (!this.rawDataCache || !this.currentRange) {
+            this.carregar();
+            return;
+        }
+        // Desbloqueia e chama carregar() que detectará o período igual e usará o cache
+        this.isLocked = false;
+        this.carregar();
     },
 
     // [ALIGNMENT v4.34] Helper for parsing percentage strings
@@ -615,111 +767,371 @@ MinhaArea.Metas = {
         } catch (e) { return null; }
     },
 
+    obterFeriados: function (ano) {
+        const feriados = [
+            `${ano}-01-01`, // Ano Novo
+            `${ano}-04-21`, // Tiradentes
+            `${ano}-05-01`, // Dia do Trabalho
+            `${ano}-09-07`, // Independência
+            `${ano}-10-12`, // Padroeira
+            `${ano}-11-02`, // Finados
+            `${ano}-11-15`, // Proclamação da República
+            `${ano}-11-20`, // Consciência Negra
+            `${ano}-12-25`  // Natal
+        ];
+        // Cálculos Páscoa
+        const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mesPascoa = Math.floor((h + l - 7 * m + 114) / 31), diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
+        const dataPascoa = new Date(ano, mesPascoa - 1, diaPascoa);
+        const addDias = (data, dias) => { const d = new Date(data); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0]; };
+        feriados.push(addDias(dataPascoa, -48), addDias(dataPascoa, -47), addDias(dataPascoa, -2), addDias(dataPascoa, 60)); // -48: Seg, -47: Ter (Carnaval)
+        return new Set(feriados);
+    },
+
+    contarDiasUteis: function (inicio, fim) {
+        let count = 0;
+        let cur = new Date(inicio + 'T12:00:00');
+        let end = new Date(fim + 'T12:00:00');
+        const cacheFeriados = {};
+
+        while (cur <= end) {
+            let day = cur.getDay();
+            if (day !== 0 && day !== 6) {
+                const ano = cur.getFullYear();
+                if (!cacheFeriados[ano]) cacheFeriados[ano] = this.obterFeriados(ano);
+                const dataStr = cur.toISOString().split('T')[0];
+                if (!cacheFeriados[ano].has(dataStr)) count++;
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+        return count;
+    },
+
+
     novoItemVazio: function () { return { prod: 0, dias_efetivos: 0, velocidade: 0, acc_assert_ratio: 0, qtd_auditorias: 0, assert: null, metaProd: 0, metaAssert: 0 }; },
 
     atualizarCardsTopo: function () {
-        let rawGlobalProd = 0;
-        (this._lastDadosProd || []).forEach(p => rawGlobalProd += (Number(p.quantidade) || 0));
+        const range = this.currentRange || { inicio: '', fim: '' };
+        const config = this.configMesParaMeta;
+        let subAba = this.currentFilterContract; // 'TODOS', 'CLT', 'PJ'
+        const loggedInUid = MinhaArea.usuario ? MinhaArea.usuario.id : null;
 
-        let globalProd = 0;
+        let alvoReal = null;
+        if (typeof MinhaArea.getUsuarioAlvo === 'function') {
+            alvoReal = MinhaArea.getUsuarioAlvo();
+        }
+
+        if (alvoReal === 'GRUPO_CLT') subAba = 'CLT';
+        if (alvoReal === 'GRUPO_TERCEIROS') subAba = 'PJ';
+
+        let rawGlobalProd = 0;
         let globalOk = 0;
         let globalTotalAud = 0;
 
-        let somaDasMediasIndividuais = 0;
-        let contadorUsuariosComDados = 0;
-        let globalDiasEfetivosMicro = 0;
+        // [ALIGN] Sum production and assertiveness based on subAba (CLT/PJ/TODOS)
+        Object.entries(this.statsUsers).forEach(([uid, s]) => {
+            if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+                if (String(uid) !== String(alvoReal)) return;
+            } else {
+                // Apply contract filter
+                if (subAba !== 'TODOS') {
+                    const c = s.contrato || 'CLT';
+                    if (subAba === 'PJ' && !(c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                    if (subAba === 'CLT' && (c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                }
+            }
 
-        // For Assertividade Dashboard
-        let countTotalAuditados = 0;
-        let totalAcertos = 0;
-        let totalErrosReais = 0;
-        let countErrosGupy = 0;
-        let countErrosNdf = 0;
-        let countNdfEmpresa = 0;
-
-        Object.values(this.statsUsers).forEach(s => {
-            // [SYNC v4.35] Volume is GLOBAL (All production)
-            globalProd += s.prod;
-
-            // [ALIGNMENT v4.34] Aggregate Global Assertiveness
+            rawGlobalProd += s.prod;
             globalOk += s.acc_assert_ratio;
             globalTotalAud += s.qtd_auditorias;
+        });
 
-            // For Assertividade Dashboard
-            countTotalAuditados += s.qtd_auditorias;
-            totalAcertos += (s.acc_assert_ratio * s.qtd_auditorias); // Sum of (ratio * count)
-            totalErrosReais += (s.qtd_auditorias - (s.acc_assert_ratio * s.qtd_auditorias)); // Total - Acertos
-            // Note: countErrosGupy, countErrosNdf, countNdfEmpresa are calculated in MinhaArea.Comparativo.carregar()
+        let globalProdAssistentes = rawGlobalProd;
 
-            // [SYNC v4.35] Divisor for Velocity (Effort) is only for ASSISTANTS (Non-Management)
-            if (!s.isManagement) {
-                if (this.isMacroView) {
-                    // Cálculo da Média das Médias para o Card de Equipe
-                    const divisor = s.countMesesComDados > 0 ? s.countMesesComDados : 1;
-                    const mediaAcumuladaUsuario = s.somaMediasMensais / divisor;
-                    if (s.prod > 0) {
-                        somaDasMediasIndividuais += mediaAcumuladaUsuario;
-                        contadorUsuariosComDados++;
+        const diasUteisRef = this.contarDiasUteis(range.inicio, range.fim);
+        let abonoManualGestora = 0;
+        let metaDiariaGestor = 0;
+
+        // Identificar Gestor Logado para abono e meta
+        Object.entries(this.statsUsers).forEach(([uid, s]) => {
+            const isManager = s.isManagement || (uid == '1' || uid == '1000');
+            if (isManager && String(uid) === String(loggedInUid)) {
+                abonoManualGestora = Math.max(0, diasUteisRef - s.dias_efetivos);
+                for (let k in this.cacheDados) {
+                    if (this.cacheDados[k][uid] && this.cacheDados[k][uid].metaProd > 0) {
+                        metaDiariaGestor = this.cacheDados[k][uid].metaProd;
+                        break;
                     }
-                } else {
-                    globalDiasEfetivosMicro += s.dias_efetivos;
                 }
             }
         });
 
-        const kpiVolume = rawGlobalProd;
+        // ------------------ LÓGICA DE VELOCIDADE (PRODUTIVIDADE) ---------------------
+        const hasCustomConfig = config && (Number(config.dias_uteis_clt) > 0 || Number(config.dias_uteis_terceiros) > 0 || Number(config.dias_uteis) > 0);
 
-        // [ALIGNMENT v4.41] Sync Global Velocity Card with Produtividade Dashboard Logic
-        let kpiVelocidade = 0;
-        if (this.isMacroView) {
-            kpiVelocidade = contadorUsuariosComDados > 0 ? Math.round(somaDasMediasIndividuais / contadorUsuariosComDados) : 0;
-        } else {
-            // Logic: Total Prod / (Assistants count * (Elapsed Days - 1))
-            const hoje = new Date().toISOString().split('T')[0];
-            const range = MinhaArea.getDatasFiltro();
-            let diasContagem = this.cacheColunas.length; // Dias úteis no período selecionado
+        const diasCalendario = diasUteisRef;
+        let vTerc = diasCalendario;
+        let vClt = Math.max(0, diasCalendario - 1);
+        let vGeral = Math.max(0, diasCalendario - 1);
 
-            if (hoje >= range.inicio && hoje <= range.fim && typeof MinhaArea.Geral?.contarDiasUteis === 'function') {
-                diasContagem = MinhaArea.Geral.contarDiasUteis(range.inicio, hoje);
-            }
-
-            // Assume CLT rule for global view (-1 day)
-            const diasParaVelocidade = Math.max(0, diasContagem - 1);
-            const hcParaVelocidade = Object.values(this.statsUsers).filter(s => !s.isManagement).length || 1;
-            const divisor = hcParaVelocidade * diasParaVelocidade;
-
-            kpiVelocidade = divisor > 0 ? Math.round(globalProd / divisor) : (globalDiasEfetivosMicro > 0 ? Math.round(globalProd / globalDiasEfetivosMicro) : 0);
+        if (hasCustomConfig) {
+            vTerc = Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || diasCalendario;
+            vClt = Number(config.dias_uteis_clt) || Number(config.dias_uteis) || Math.max(0, vTerc - 1);
+            vGeral = Number(config.dias_uteis_clt) || Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || Math.max(0, vTerc - 1);
         }
 
-        // [ALIGNMENT v4.34] Global Average = Sum(Ratios) / Count(Audits)
+        let dBase = vGeral;
+        if (subAba === 'CLT') dBase = vClt;
+        else if (subAba === 'PJ') dBase = vTerc;
+
+        const hClt = (config && Number(config.hc_clt) > 0) ? Number(config.hc_clt) : 8;
+        const hTerc = (config && Number(config.hc_terceiros) > 0) ? Number(config.hc_terceiros) : 9;
+        const hGeral = hClt + hTerc;
+
+        let numAssistentesFiltrados = 0;
+        Object.entries(this.statsUsers).forEach(([uid, s]) => {
+            if (!s.isManagement) {
+                // Remove Inativos reais, igual a Produtividade (já que agora temos users inativos na memoria para somar global)
+                const u = (this.allActiveUsers || []).find(x => String(x.id) === String(uid));
+                if (u && (u.ativo === false || u.ativo === 0 || u.ativo === '0') && String(uid).trim() !== '1074356') return;
+
+                if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+                    if (String(uid) !== String(alvoReal)) return;
+                } else if (subAba !== 'TODOS') {
+                    const c = s.contrato || 'CLT';
+                    if (subAba === 'PJ' && !(c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                    if (subAba === 'CLT' && (c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                }
+                numAssistentesFiltrados++;
+            }
+        });
+
+        // Use head count filtrado se > 0, senão o hardcoded do config
+        let hcParaVelocidade = numAssistentesFiltrados > 0 ? numAssistentesFiltrados : hGeral;
+        if (numAssistentesFiltrados === 0) {
+            if (subAba === 'CLT') hcParaVelocidade = hClt;
+            if (subAba === 'PJ') hcParaVelocidade = hTerc;
+        }
+
+        // Determinar Meta Base (Maior meta entre assistentes)
+        let maxMetaAssistente = 0;
+        Object.values(this.cacheDados).forEach(col => {
+            Object.entries(col).forEach(([uid, cel]) => {
+                const s = this.statsUsers[uid];
+                if (s && !s.isManagement && cel.metaProd > maxMetaAssistente) {
+                    maxMetaAssistente = cel.metaProd;
+                }
+            });
+        });
+        if (maxMetaAssistente === 0) maxMetaAssistente = 650;
+
+        let targetVelocidade = (subAba === 'TODOS' && metaDiariaGestor > 0) ? metaDiariaGestor : maxMetaAssistente;
+
+        // Dias para divisor (hoje se estiver no range)
+        const hojeStr = new Date().toISOString().split('T')[0];
+        const isPeriodo = range.inicio !== range.fim;
+
+        // [FIX] dBaseReferencia deve ser o calendário PURO para evitar dupla subtração no diasParaVelocidade
+        const diasCalendarioEfetivos = this.contarDiasUteis(range.inicio, range.fim);
+        let diasDivisorReal = diasCalendarioEfetivos;
+
+        if (hojeStr >= range.inicio && hojeStr <= range.fim) {
+            diasDivisorReal = this.contarDiasUteis(range.inicio, hojeStr);
+        }
+
+        // Regra Central: CLT e TODOS (Geral) subtraem 1 dia no período. PJ não subtrai.
+        let descontarDia = false;
+        if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+            const uInfo = this.statsUsers[alvoReal] || {};
+            const isTargetTerceiro = ((uInfo.contrato || '').includes('PJ') || (uInfo.contrato || '').includes('TERCEIRO'));
+            if (!isTargetTerceiro) descontarDia = true;
+        } else if (subAba === 'CLT' || subAba === 'TODOS') {
+            descontarDia = true;
+        }
+
+        const diasParaVelocidade = descontarDia
+            ? Math.max(1, (isPeriodo ? (diasDivisorReal - 1 - abonoManualGestora) : diasDivisorReal))
+            : Math.max(1, diasDivisorReal);
+
+        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
+
+        let kpiVelocidade = 0;
+        if (this.isMacroView) {
+            // No modo Macro (Tri/Ano), mantemos a média das médias para não distorcer pelo HC fixo do mês
+            let somaDasMediasIndividuais = 0;
+            let contadorUsuariosComDados = 0;
+            Object.entries(this.statsUsers).forEach(([uid, s]) => {
+                if (!s.isManagement && s.prod > 0) {
+                    if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+                        if (String(uid) !== String(alvoReal)) return;
+                    } else if (subAba !== 'TODOS') {
+                        const c = s.contrato || 'CLT';
+                        if (subAba === 'PJ' && !(c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                        if (subAba === 'CLT' && (c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                    }
+
+                    const divisor = s.countMesesComDados > 0 ? s.countMesesComDados : 1;
+                    somaDasMediasIndividuais += (s.somaMediasMensais / divisor);
+                    contadorUsuariosComDados++;
+                }
+            });
+            kpiVelocidade = contadorUsuariosComDados > 0 ? Math.round(somaDasMediasIndividuais / contadorUsuariosComDados) : 0;
+        } else {
+            if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+                const s = this.statsUsers[alvoReal] || { dias_efetivos: 1 };
+                const uInfo = this.statsUsers[alvoReal] || {};
+                const isTargetTerceiro = ((uInfo.contrato || '').includes('PJ') || (uInfo.contrato || '').includes('TERCEIRO'));
+
+                let div = s.dias_efetivos;
+                if (!isTargetTerceiro && isPeriodo && s.dias_efetivos > 0) {
+                    div = Math.max(0, s.dias_efetivos - 1);
+                }
+
+                div = div > 0 ? div : 1;
+                kpiVelocidade = Math.round(rawGlobalProd / div);
+            } else {
+                kpiVelocidade = divisorVelocidade > 0 ? Math.round(rawGlobalProd / divisorVelocidade) : 0;
+            }
+        }
+
         const kpiAssert = globalTotalAud > 0 ? (globalOk / globalTotalAud) * 100 : 0;
+
+        // [NEW] Calcular Atingimento (Média dos Atingimentos quando for Visão de Grupo)
+        let atingimentoFinalVal = 0;
+
+        // Se for um usuário único selecionado
+        if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+            if (this.activeSubTab === 'PROD') {
+                atingimentoFinalVal = targetVelocidade > 0 ? (kpiVelocidade / targetVelocidade) * 100 : 0;
+            } else {
+                // [FIX] Atingimento de Qualidade segue a Regra de Faixas (OKR) para o indivíduo
+                atingimentoFinalVal = this.getPercentualAtingimentoQualidade(kpiAssert);
+            }
+        } else {
+            // Se for VISÃO DE GRUPO (CLT, TERCEIROS, GERAL) -> Média dos Atingimentos Individuais
+            let somaAtingimentos = 0;
+            let contadorAtingimentos = 0;
+
+            Object.entries(this.statsUsers).forEach(([uid, s]) => {
+                if (s.isManagement) return;
+
+                // Aplicar filtros de contrato/grupo
+                if (alvoReal === 'GRUPO_CLT') {
+                    if (s.contrato.includes('PJ') || s.contrato.includes('TERCEIROS')) return;
+                } else if (alvoReal === 'GRUPO_TERCEIROS') {
+                    if (!(s.contrato.includes('PJ') || s.contrato.includes('TERCEIROS'))) return;
+                } else {
+                    // subAba filter if no global group filter
+                    if (subAba !== 'TODOS') {
+                        const c = s.contrato || 'CLT';
+                        if (subAba === 'PJ' && !(c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                        if (subAba === 'CLT' && (c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                    }
+                }
+
+                if (this.activeSubTab === 'PROD') {
+                    // Atingimento Prod Individual
+                    const divisor = this.isMacroView ? (s.countMesesComDados || 1) : (s.dias_efetivos || 1);
+                    const avgVel = this.isMacroView ? (s.somaMediasMensais / divisor) : (s.prod / divisor);
+                    const avgMeta = this.isMacroView ? (s.maxMetaPeriodo > 0 ? s.maxMetaPeriodo : 650) : (s.metaSum / divisor);
+
+                    // Só conta no atingimento médio se tiver Meta definida > 0 (ou seja, se for assistente com meta)
+                    if (avgMeta > 0) {
+                        somaAtingimentos += (avgVel / avgMeta) * 100;
+                        contadorAtingimentos++;
+                    } else if (s.prod > 0) {
+                        // Fallback caso tenha produção mas sem meta explicitamente no banco
+                        somaAtingimentos += 100;
+                        contadorAtingimentos++;
+                    }
+                } else {
+                    // Atingimento Qualidade Individual (OKR)
+                    // Busca a meta de assertividade para ver se esse usuário deve ser contado (assistentes ativos)
+                    let maxMetaA = 0;
+                    Object.values(this.cacheDados).forEach(col => {
+                        const cel = col[String(uid).trim()];
+                        if (cel && cel.metaAssert > maxMetaA) maxMetaA = cel.metaAssert;
+                    });
+
+                    // Se tem meta de qualidade (tipicamente 97%), conta no atingimento médio mesmo com 0 auditorias
+                    if (maxMetaA > 0) {
+                        const assertIndiv = s.qtd_auditorias > 0 ? (s.acc_assert_ratio / s.qtd_auditorias) * 100 : 0;
+                        somaAtingimentos += this.getPercentualAtingimentoQualidade(assertIndiv);
+                        contadorAtingimentos++;
+                    }
+                }
+            });
+
+            atingimentoFinalVal = contadorAtingimentos > 0 ? (somaAtingimentos / contadorAtingimentos) : 0;
+        }
 
         const elProd = document.getElementById('card-ranking-prod');
         const elMedia = document.getElementById('card-ranking-media');
-        const elAssert = document.getElementById('card-ranking-assert');
+        const elAtingimento = document.getElementById('card-ranking-assert');
+        const elLabelAtingimento = document.getElementById('card-label-atingimento');
+        const elSubLabelAtingimento = document.getElementById('card-sublabel-atingimento');
 
-        if (elProd) elProd.innerText = kpiVolume.toLocaleString('pt-BR');
+        const elHeaderTitle = document.getElementById('metas-ranking-title');
+        const elHeaderSubtitle = document.getElementById('metas-ranking-subtitle');
+
+        if (elProd) elProd.innerText = rawGlobalProd.toLocaleString('pt-BR');
         if (elMedia) elMedia.innerText = kpiVelocidade.toLocaleString('pt-BR');
-        if (elAssert) elAssert.innerText = (globalTotalAud > 0) ? kpiAssert.toFixed(2) + '%' : '--%';
 
-        // Update Assertividade Dashboard cards (if they exist)
-        const elTotalAuditados = document.getElementById('card-total-auditados');
-        const elTotalAcertos = document.getElementById('card-total-acertos');
-        const elTotalErros = document.getElementById('card-total-erros');
-        const elErrosGupy = document.getElementById('card-erros-gupy');
-        const elErrosNdf = document.getElementById('card-erros-ndf');
-        const elEmpresaValidar = document.getElementById('card-empresa-validar');
+        if (elLabelAtingimento) elLabelAtingimento.innerText = 'Atingimento';
+        if (elSubLabelAtingimento) {
+            if (this.activeSubTab === 'PROD') {
+                elSubLabelAtingimento.innerText = 'Atingimento da produção (acumulado)';
+                // [RESTORE] Restore Header
+                if (elHeaderTitle) elHeaderTitle.innerHTML = '<i class="fas fa-list-ol text-blue-600"></i> Ranking & Evolução';
+                if (elHeaderSubtitle) elHeaderSubtitle.innerHTML = 'Visualize a performance dia a dia ou mês a mês. Valores em <span class="text-rose-600 font-bold">vermelho</span> estão abaixo da meta.<br>Clique no nome para abrir o comparativo.';
+            } else {
+                const msgLookup = this.getLookupAtingimentoQualidade(kpiAssert);
+                elSubLabelAtingimento.innerHTML = `Atingimento da qualidade (acumulado)<br><strong class="text-blue-600">${msgLookup}</strong>`;
 
-        if (elTotalAuditados) elTotalAuditados.innerText = countTotalAuditados.toLocaleString('pt-BR');
-        if (elTotalAcertos) elTotalAcertos.innerText = totalAcertos.toLocaleString('pt-BR');
-        if (elTotalErros) elTotalErros.innerText = totalErrosReais.toLocaleString('pt-BR');
-        if (elErrosGupy) elErrosGupy.innerText = countErrosGupy.toLocaleString('pt-BR');
-        if (elErrosNdf) elErrosNdf.innerText = countErrosNdf.toLocaleString('pt-BR');
-        if (elEmpresaValidar) elEmpresaValidar.innerText = countNdfEmpresa.toLocaleString('pt-BR');
-        // GAP Assistentes: diferença entre total auditados e total de acertos
-        const elGap = document.getElementById('card-gap-assistentes');
-        if (elGap) elGap.innerText = (countTotalAuditados - totalAcertos).toLocaleString('pt-BR');
+                // [HIGHLIGHT] Replace Header with OKR attainment
+                if (elHeaderTitle) {
+                    elHeaderTitle.innerHTML = `<i class="fas fa-star text-amber-500 animate-pulse"></i> <span class="text-blue-700">Atingimento OKR:</span> <span class="text-emerald-600">${msgLookup.split('=')[1] || msgLookup}</span>`;
+                }
+                if (elHeaderSubtitle) {
+                    elHeaderSubtitle.innerHTML = `Mensagem baseada na assertividade bruta acumulada de <strong>${kpiAssert.toFixed(2).replace('.', ',')}%</strong>. <br>Clique no assistente para ver detalhes.`;
+                }
+            }
+        }
+        if (elAtingimento) elAtingimento.innerText = atingimentoFinalVal.toFixed(2).replace('.', ',') + '%';
+
+        // [NEW] Calcular quanto falta no Total
+        const elTotalRestante = document.getElementById('card-ranking-prod-restante');
+        if (elTotalRestante) {
+            let totalMetaGeral = 0;
+            Object.entries(this.statsUsers).forEach(([uid, s]) => {
+                if (s.isManagement) return;
+                // Filtros de contrato/grupo (Mesmos de cima)
+                if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
+                    if (String(uid) !== String(alvoReal)) return;
+                } else {
+                    if (subAba !== 'TODOS') {
+                        const c = s.contrato || 'CLT';
+                        if (subAba === 'PJ' && !(c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                        if (subAba === 'CLT' && (c.includes('PJ') || c.includes('TERCEIROS'))) return;
+                    }
+                }
+                totalMetaGeral += (s.metaSum || 0);
+            });
+
+            const faltaTotal = Math.max(0, Math.round(totalMetaGeral) - rawGlobalProd);
+            if (faltaTotal > 0 && totalMetaGeral > 0) {
+                elTotalRestante.textContent = `Faltam: ${faltaTotal.toLocaleString('pt-BR')}`;
+                elTotalRestante.className = "text-[10px] font-bold text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block";
+                elTotalRestante.classList.remove('hidden');
+            } else if (totalMetaGeral > 0 && rawGlobalProd >= totalMetaGeral) {
+                elTotalRestante.textContent = "Meta Batida!";
+                elTotalRestante.className = "text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 block";
+                elTotalRestante.classList.remove('hidden');
+            } else {
+                elTotalRestante.classList.add('hidden');
+            }
+        }
     },
+
 
     renderizarMatriz: function () {
         if (this.viewState === 'DETAIL') return;
@@ -734,64 +1146,74 @@ MinhaArea.Metas = {
 
         let htmlHeader = `<th class="px-4 py-3 ${bgHeader} border-b border-r border-slate-300 min-w-[200px] sticky left-0 top-0 z-[60] text-left text-slate-700 shadow-md">
     <div class="flex flex-col gap-1">
-        <div class="flex items-center justify-between">
-            <span>${isAssert ? 'RANKING (QUALIDADE)' : 'RANKING (VELOCIDADE)'}</span>
-            <select onchange="MinhaArea.Metas.mudarFiltroContrato(this.value)" class="text-[10px] font-bold text-slate-600 bg-white border border-slate-300 rounded px-1 py-0.5 cursor-pointer">
-                <option value="TODOS" ${this.currentFilterContract === 'TODOS' ? 'selected' : ''}>Todos</option>
-                <option value="CLT" ${this.currentFilterContract === 'CLT' ? 'selected' : ''}>CLT</option>
-                <option value="PJ" ${this.currentFilterContract === 'PJ' ? 'selected' : ''}>PJ</option>
-            </select>
-        </div>
+        <span>${isAssert ? 'RANKING (QUALIDADE)' : 'RANKING (VELOCIDADE)'}</span>
         <span class="text-[9px] text-slate-400 font-normal">${subLabel}</span>
     </div>
         </th>`;
 
         const corAcum = isAssert ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-blue-50 text-blue-800 border-blue-200';
-        htmlHeader += `<th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">PROD.TOTAL</th>`;
-        htmlHeader += `<th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title="Média das Médias do Período">ACUMULADO</th>`;
+        htmlHeader += `<th class="px-2 py-3 bg-white border-b border-r border-slate-200 min-w-[70px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">${isAssert ? "TOTAL VALIDADOS" : "PROD.TOTAL"}</th>`;
+        htmlHeader += `<th class="px-2 py-3 ${corAcum} border-b border-r border-slate-200 min-w-[80px] text-center font-bold text-xs sticky top-0 z-40" title="Média das Médias do Período">${isAssert ? "% ASSERTIVID." : "ACUMULADO"}</th>`;
+
+        // CAMPOS NOK removido a pedido do usuário
 
         this.cacheColunas.forEach(col => {
             htmlHeader += `<th class="px-1 py-3 bg-slate-50 border-b border-r border-slate-200 min-w-[60px] text-center font-bold text-xs text-slate-600 sticky top-0 z-40">${col.label}</th>`;
         });
         thead.innerHTML = htmlHeader;
-
         let htmlBody = '';
+
         this.cacheUsers.forEach((u, index) => {
             const pos = index + 1;
             let medalha = '';
             if (pos === 1) medalha = '🥇'; else if (pos === 2) medalha = '🥈'; else if (pos === 3) medalha = '🥉';
 
-            const stats = this.statsUsers[String(u.id)] || { prod: 0, dias_efetivos: 0, metaSum: 0, ok: 0, total: 0, somaMediasMensais: 0, somaMetasMensais: 0, countMesesComDados: 0 };
+            const stats = this.statsUsers[String(u.id).trim()] || { prod: 0, dias_efetivos: 0, metaSum: 0, ok: 0, total: 0, somaMediasMensais: 0, somaMetasMensais: 0, countMesesComDados: 0 };
 
             let cellTotal = '<span class="text-slate-300">-</span>';
             let cellMedia = '<span class="text-slate-300">-</span>';
+            let cellNok = '';
 
             if (isAssert) {
-                // [ALIGNMENT v4.34] Use new counters for display
-                if (stats.qtd_auditorias > 0) cellTotal = `<span class="font-bold text-slate-600">${stats.qtd_auditorias}</span>`;
+                // [ASSERT_FIX] First column is production volume, not audits count
+                if (stats.prod > 0) cellTotal = `<span class="font-bold text-slate-700">${stats.prod.toLocaleString('pt-BR')}</span>`;
 
                 const assertGeral = stats.qtd_auditorias > 0 ? (stats.acc_assert_ratio / stats.qtd_auditorias) * 100 : 0;
 
                 if (stats.qtd_auditorias > 0) {
                     const corVal = assertGeral >= 97 ? 'text-emerald-700' : 'text-rose-600';
-                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${assertGeral.toFixed(1)}%</div>`;
+                    cellMedia = `<div class="${corVal} font-black text-sm leading-none">${assertGeral.toFixed(2).replace('.', ',')}%</div>`;
                 }
+
+                // CAMPOS NOK removido
+                cellNok = '';
             } else {
                 if (stats.prod > 0) cellTotal = `<span class="font-bold text-slate-700">${stats.prod.toLocaleString('pt-BR')}</span>`;
+                cellNok = ''; // Hide when not in assert mode
 
                 // LÓGICA DE MÉDIA ACUMULADA: MÉDIA DAS MÉDIAS (MACRO)
-                const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : (stats.dias_efetivos || 1);
+                // [FIX] Apply CLT Rule: Days - 1 if period
+                const range = this.currentRange || { inicio: '', fim: '' };
+                const isPeriodo = range.inicio !== range.fim;
+                let diasDivisor = stats.dias_efetivos;
+                const isCLT = !(stats.contrato || '').toUpperCase().includes('PJ') && !(stats.contrato || '').toUpperCase().includes('TERCEIRO');
+                if (isCLT && isPeriodo && diasDivisor > 0) {
+                    diasDivisor = Math.max(0, diasDivisor - 1);
+                }
+                diasDivisor = diasDivisor > 0 ? diasDivisor : 1;
+
+                const divisor = this.isMacroView ? (stats.countMesesComDados || 1) : diasDivisor;
                 const avgVel = this.isMacroView ? Math.round(stats.somaMediasMensais / divisor) : Math.round(stats.prod / divisor);
 
                 // Meta Média
-                const avgMeta = this.isMacroView ? (stats.somaMetasMensais / divisor) : (stats.metaSum / divisor);
+                const avgMeta = this.isMacroView ? (stats.maxMetaPeriodo > 0 ? stats.maxMetaPeriodo : 650) : (stats.metaSum / (stats.dias_efetivos || 1));
                 const avgPct = avgMeta > 0 ? (avgVel / avgMeta * 100) : 0;
 
                 if (stats.prod > 0) {
                     const corVal = avgVel >= avgMeta ? 'text-blue-700' : 'text-rose-700';
                     const corBadge = avgPct >= 100 ? 'bg-blue-200 text-blue-800' : 'bg-rose-100 text-rose-700 border border-rose-200';
                     cellMedia = `<div class="${corVal} font-black text-sm leading-none">${avgVel.toLocaleString('pt-BR')}</div>
-    <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(0)}%</span></div>`;
+    <div class="mt-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${corBadge}">${avgPct.toFixed(2).replace('.', ',')}%</span></div>`;
                 }
             }
 
@@ -803,10 +1225,11 @@ MinhaArea.Metas = {
                     </button>
                 </td>
                 <td class="px-2 py-2 border-b border-r border-slate-100 bg-white text-center align-middle">${cellTotal}</td>
-                <td class="px-2 py-2 border-b border-r border-slate-100 bg-slate-50/50 text-center align-middle">${cellMedia}</td>`;
+                <td class="px-2 py-2 border-b border-r border-slate-100 bg-slate-50/50 text-center align-middle">${cellMedia}</td>
+                `;
 
             this.cacheColunas.forEach(col => {
-                const dados = this.cacheDados[col.key][String(u.id)];
+                const dados = this.cacheDados[col.key][String(u.id).trim()];
                 let cellHtml = '<span class="text-slate-200">-</span>';
                 let subHtml = '';
 
@@ -819,7 +1242,7 @@ MinhaArea.Metas = {
                         if (batido) colorClass = 'text-emerald-600';
                         else if (val >= (dados.metaAssert - 5)) colorClass = 'text-amber-500';
 
-                        cellHtml = `<div class="${colorClass} font-bold cursor-help" title="${dados.qtd_auditorias} auditados">${val.toFixed(0)}%</div>`;
+                        cellHtml = `<div class="${colorClass} font-bold cursor-help" title="${dados.qtd_auditorias} auditados">${val.toFixed(2).replace('.', ',')}%</div>`;
                     }
                 } else {
                     if (dados && dados.velocidade > 0) {
@@ -828,7 +1251,7 @@ MinhaArea.Metas = {
                         if (dados.metaProd > 0) {
                             const pct = (dados.velocidade / dados.metaProd) * 100;
                             const corBadge = pct >= 100 ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 border border-rose-200';
-                            subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(0)}%</span></div>`;
+                            subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(2).replace('.', ',')}%</span></div>`;
                         }
                     }
                 }
@@ -855,7 +1278,7 @@ MinhaArea.Metas = {
 
         this.cacheColunas.forEach(col => {
             labels.push(col.label);
-            const dados = this.cacheDados[col.key]?.[String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
+            const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
 
             dataProd.push(dados.velocidade);
             dataMetaProd.push(dados.metaProd || 0); // Garante que usa a meta individual do cache
@@ -957,9 +1380,6 @@ MinhaArea.Metas = {
             id3 = null;
         }
 
-        // Inicializa os filtros do comparador (novo sistema)
-        this.compInicializarFiltros();
-
         const el1 = document.getElementById('comp-sel-1');
         const el2 = document.getElementById('comp-sel-2');
         const el3 = document.getElementById('comp-sel-3');
@@ -990,661 +1410,123 @@ MinhaArea.Metas = {
             else { id1 = this.cacheUsers[index - 1].id; id2 = this.cacheUsers[index].id; id3 = this.cacheUsers[index + 1].id; }
         }
         this.popularSelectsManual();
-        const el1 = document.getElementById('comp-sel-1');
-        const el2 = document.getElementById('comp-sel-2');
-        if (el1) el1.value = id1 || '';
-        if (el2) el2.value = id2 || '';
-
-        // Inicializa os filtros do comparador (novo sistema)
-        this.compInicializarFiltros();
-
+        const el1 = document.getElementById('comp-sel-1'); const el2 = document.getElementById('comp-sel-2'); const el3 = document.getElementById('comp-sel-3');
+        if (el1) el1.value = id1 || ''; if (el2) el2.value = id2 || ''; if (el3) el3.value = id3 || '';
         this.atualizarComparativoManual();
         const modal = document.getElementById('modal-comparativo-metas');
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
     },
 
+    popularSelectsManual: function () {
+        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+        ['comp-sel-1', 'comp-sel-2', 'comp-sel-3'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
+    },
+
+    atualizarComparativoManual: function () {
+        const id1 = document.getElementById('comp-sel-1')?.value;
+        const id2 = document.getElementById('comp-sel-2')?.value;
+        const id3 = document.getElementById('comp-sel-3')?.value;
+        const ids = [id1, id2, id3].filter(id => id);
+        this.renderizarGraficosComparativos(ids);
+    },
+
     fecharModalComparativo: function () {
         const modal = document.getElementById('modal-comparativo-metas');
-        if (modal) {
-            modal.classList.remove('active');
-            setTimeout(() => modal.classList.add('hidden', 'pointer-events-none'), 300);
-        }
+        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
     },
 
     fecharModalEvolucao: function () {
         const modal = document.getElementById('modal-evolucao-metas');
-        if (modal) {
-            modal.classList.remove('active');
-            setTimeout(() => modal.classList.add('hidden', 'pointer-events-none'), 300);
-        }
+        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
     },
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SISTEMA DE FILTROS DO COMPARATIVO (espelho do MinhaArea/main.js)
-    // ═══════════════════════════════════════════════════════════════════
+    renderizarGraficosComparativos: function (userIds) {
+        const labels = this.cacheColunas.map(c => c.label);
+        const slotColors = ['#3b82f6', '#10b981', '#f59e0b'];
+        const datasetsProd = []; const datasetsAssert = [];
 
-    compFiltroPeriodo: 'mes', // Estado local do comparador: 'mes', 'semana', 'ano'
+        // [NEW] Linhas de Meta (Referência)
+        const metaProd = [];
+        const metaAssert = [];
+        // Usa o primeiro usuário como referência para as metas (assumindo metas iguais para o grupo comparado)
+        const referenceUid = userIds[0] || (this.cacheUsers[0] ? this.cacheUsers[0].id : null);
 
-    // Chamado pelos botões Mês/Semana/Ano do comparador
-    compMudarPeriodo: function (tipo) {
-        this.compFiltroPeriodo = tipo;
-        this.compAtualizarInterface();
-        if (tipo === 'semana') this.compPopularSemanas();
-        this.atualizarComparativoManual();
-    },
-
-    // Atualiza aparência dos botões e visibilidade dos seletores
-    compAtualizarInterface: function () {
-        const tipo = this.compFiltroPeriodo;
-        ['mes', 'semana', 'ano'].forEach(t => {
-            const btn = document.getElementById(`comp-btn-${t}`);
-            if (btn) {
-                btn.className = (t === tipo)
-                    ? 'px-2.5 py-1 text-[10px] font-bold rounded text-blue-600 bg-white shadow-sm transition'
-                    : 'px-2.5 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-white transition';
+        this.cacheColunas.forEach(col => {
+            let mp = 0;
+            let ma = 0;
+            if (referenceUid) {
+                const d = this.cacheDados[col.key][String(referenceUid)];
+                if (d) { mp = d.metaProd || 0; ma = d.metaAssert || 0; }
             }
+            metaProd.push(mp);
+            metaAssert.push(ma);
         });
 
-        const elMes = document.getElementById('comp-filter-mes');
-        const elSemana = document.getElementById('comp-filter-semana');
-        const elSubAno = document.getElementById('comp-filter-subano');
-
-        if (elMes) elMes.classList.add('hidden');
-        if (elSemana) elSemana.classList.add('hidden');
-        if (elSubAno) elSubAno.classList.add('hidden');
-
-        if (tipo === 'mes') {
-            if (elMes) elMes.classList.remove('hidden');
-        } else if (tipo === 'semana') {
-            if (elMes) elMes.classList.remove('hidden');
-            if (elSemana) elSemana.classList.remove('hidden');
-        } else if (tipo === 'ano') {
-            if (elSubAno) elSubAno.classList.remove('hidden');
-        }
-    },
-
-    // Chamado ao mudar ano ou mês (para repopular semanas se necessário)
-    compOnAnoMesChange: function () {
-        if (this.compFiltroPeriodo === 'semana') {
-            this.compPopularSemanas();
-        }
-        this.atualizarComparativoManual();
-    },
-
-    // Popula o seletor de semanas (igual ao popularSemanasDoMes do main.js)
-    compPopularSemanas: function () {
-        const elSemana = document.getElementById('comp-filter-semana');
-        const elAno = document.getElementById('comp-filter-year');
-        const elMes = document.getElementById('comp-filter-mes');
-        if (!elSemana || !elAno || !elMes) return;
-
-        const ano = parseInt(elAno.value);
-        const mes = parseInt(elMes.value);
-
-        const primeiroDiaMes = new Date(ano, mes, 1);
-        const ultimoDiaMes = new Date(ano, mes + 1, 0);
-
-        let diaSemana = primeiroDiaMes.getDay();
-        if (diaSemana === 0) diaSemana = 7;
-
-        let segundaFeiraAtual = new Date(primeiroDiaMes);
-        segundaFeiraAtual.setDate(primeiroDiaMes.getDate() - (diaSemana - 1));
-
-        let html = '';
-        let count = 1;
-        const fmt = d => d.toISOString().split('T')[0];
-        const fmtBr = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-
-        while (segundaFeiraAtual <= ultimoDiaMes) {
-            const domingoAtual = new Date(segundaFeiraAtual);
-            domingoAtual.setDate(segundaFeiraAtual.getDate() + 6);
-            if (segundaFeiraAtual > ultimoDiaMes) break;
-            const inicioReal = segundaFeiraAtual < primeiroDiaMes ? primeiroDiaMes : segundaFeiraAtual;
-            const fimReal = domingoAtual > ultimoDiaMes ? ultimoDiaMes : domingoAtual;
-            if (inicioReal <= fimReal) {
-                const valor = `${fmt(inicioReal)}|${fmt(fimReal)}`;
-                html += `<option value="${valor}">Semana ${count} (${fmtBr(inicioReal)} a ${fmtBr(fimReal)})</option>`;
-                count++;
-            }
-            segundaFeiraAtual.setDate(segundaFeiraAtual.getDate() + 7);
-        }
-        elSemana.innerHTML = html;
-        if (elSemana.options.length > 0 && !elSemana.value) elSemana.selectedIndex = 0;
-    },
-
-    // Retorna {inicio, fim} para o filtro local do comparador (igual ao getDatasFiltro do main.js)
-    compGetDatasFiltro: function () {
-        const fmt = d => d.toISOString().split('T')[0];
-        const ano = parseInt(document.getElementById('comp-filter-year')?.value || new Date().getFullYear());
-        const tipo = this.compFiltroPeriodo;
-
-        if (tipo === 'mes') {
-            const mes = parseInt(document.getElementById('comp-filter-mes')?.value ?? new Date().getMonth());
-            return { inicio: fmt(new Date(ano, mes, 1)), fim: fmt(new Date(ano, mes + 1, 0)) };
-        } else if (tipo === 'semana') {
-            const rawVal = document.getElementById('comp-filter-semana')?.value;
-            if (rawVal && rawVal.includes('|')) {
-                const [i, f] = rawVal.split('|');
-                return { inicio: i, fim: f };
-            }
-            // Fallback ao mês se semana não estiver populada
-            const mes = parseInt(document.getElementById('comp-filter-mes')?.value ?? new Date().getMonth());
-            return { inicio: fmt(new Date(ano, mes, 1)), fim: fmt(new Date(ano, mes + 1, 0)) };
-        } else if (tipo === 'ano') {
-            const sub = document.getElementById('comp-filter-subano')?.value || 'full';
-            let inicio, fim;
-            switch (sub) {
-                case 'S1': inicio = new Date(ano, 0, 1); fim = new Date(ano, 5, 30); break;
-                case 'S2': inicio = new Date(ano, 6, 1); fim = new Date(ano, 11, 31); break;
-                case 'T1': inicio = new Date(ano, 0, 1); fim = new Date(ano, 2, 31); break;
-                case 'T2': inicio = new Date(ano, 3, 1); fim = new Date(ano, 5, 30); break;
-                case 'T3': inicio = new Date(ano, 6, 1); fim = new Date(ano, 8, 30); break;
-                case 'T4': inicio = new Date(ano, 9, 1); fim = new Date(ano, 11, 31); break;
-                default: inicio = new Date(ano, 0, 1); fim = new Date(ano, 11, 31); break;
-            }
-            return { inicio: fmt(inicio), fim: fmt(fim) };
-        }
-        // Default fallback: mês atual
-        const mes = new Date().getMonth();
-        return { inicio: fmt(new Date(ano, mes, 1)), fim: fmt(new Date(ano, mes + 1, 0)) };
-    },
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Inicializa os filtros ao abrir o comparador
-    // ═══════════════════════════════════════════════════════════════════
-    compInicializarFiltros: function () {
-        const anoAtual = new Date().getFullYear();
-        const mesAtual = new Date().getMonth();
-        const subAtual = mesAtual <= 5 ? 'S1' : 'S2';
-
-        const elAno = document.getElementById('comp-filter-year');
-        if (elAno) {
-            elAno.innerHTML = `
-                <option value="${anoAtual}">${anoAtual}</option>
-                <option value="${anoAtual - 1}">${anoAtual - 1}</option>
-            `;
-            elAno.value = anoAtual;
-        }
-
-        const elMes = document.getElementById('comp-filter-mes');
-        if (elMes) elMes.value = mesAtual;
-
-        const elSubAno = document.getElementById('comp-filter-subano');
-        if (elSubAno) elSubAno.value = subAtual;
-
-        // Inicia no modo Mês (mais comum)
-        this.compFiltroPeriodo = 'mes';
-        this.compAtualizarInterface();
-    },
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Funções legadas mantidas para não quebrar código existente
-    // ═══════════════════════════════════════════════════════════════════
-    popularValoresSubFiltro: function () {
-        // Mantida por compatibilidade – agora é um no-op
-    },
-
-    popularSelectsManual: function () {
-        const createOpts = () => '<option value="">(Vazio)</option>' + this.cacheUsers.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
-        ['comp-sel-1', 'comp-sel-2'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = createOpts(); });
-    },
-
-    // Cache exclusivo do comparativo (independente do cache global do grid)
-    compCache: { colunas: [], dados: {}, periodo: null },
-
-    // Verifica se o período local já está no compCache, senão busca no banco
-    atualizarComparativoManual: async function () {
-        const id1 = document.getElementById('comp-sel-1')?.value;
-        const id2 = document.getElementById('comp-sel-2')?.value;
-        const ids = [id1, id2].filter(id => id);
-        if (ids.length === 0) return;
-
-        const datas = this.compGetDatasFiltro();
-        const chave = `${datas.inicio}|${datas.fim}`;
-
-        // Só vai ao banco se o período mudou
-        if (this.compCache.periodo !== chave) {
-            await this.compCarregarPeriodo(datas.inicio, datas.fim);
-            this.compCache.periodo = chave;
-        }
-
-        // Granularidade baseada no tipo de filtro atual
-        const tipo = this.compFiltroPeriodo;
-        let granularidade = 'dia';
-        if (tipo === 'ano') {
-            granularidade = 'mes'; // Mês a mês em Ano/Trimestre/Semestre
-        } else {
-            granularidade = 'dia'; // Dia a dia em Mês ou Semana
-        }
-
-        const ids2 = [id1, id2].filter(id => id);
-        this.renderizarGraficosComparativos(ids2, granularidade);
-    },
-
-    // Busca dados do banco para o período local e popula compCache
-    compCarregarPeriodo: async function (inicio, fim) {
-        try {
-            const userIds = this.cacheUsers.map(u => u.id);
-            if (userIds.length === 0) return;
-
-            const placeholders = this.gerarPlaceholders(userIds);
-            const diffDias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24);
-            const isMacro = diffDias > 45;
-
-            const [dadosProd, dadosAssert] = await Promise.all([
-                Sistema.query(`SELECT usuario_id, data_referencia, quantidade, fator FROM producao WHERE data_referencia >= ? AND data_referencia <= ?`, [inicio, fim]),
-                Sistema.query(`SELECT usuario_id, data_referencia, qtd_ok, qtd_campos, assertividade_val FROM assertividade WHERE usuario_id IN(${placeholders}) AND data_referencia >= ? AND data_referencia <= ?`, [...userIds, inicio, fim])
-            ]);
-
-            // Zera e reconstrói compCache
-            this.compCache.colunas = [];
-            this.compCache.dados = {};
-
-            let curr = new Date(inicio + 'T12:00:00');
-            const end = new Date(fim + 'T12:00:00');
-
-            if (isMacro) {
-                curr.setDate(1);
-                while (curr <= end) {
-                    const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}`;
-                    if (!this.compCache.colunas.find(c => c.key === key)) {
-                        this.compCache.colunas.push({ key, label: curr.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase() });
-                        this.compCache.dados[key] = {};
-                        userIds.forEach(uid => this.compCache.dados[key][String(uid)] = { velocidade: null, assert: null, qtd_auditorias: 0, somaVel: 0, countVel: 0, somaOk: 0, somaTot: 0 });
-                    }
-                    curr.setMonth(curr.getMonth() + 1);
-                }
-            } else {
-                while (curr <= end) {
-                    const dow = curr.getDay();
-                    if (dow !== 0 && dow !== 6) { // Pula fim de semana
-                        const key = curr.toISOString().split('T')[0];
-                        const label = String(curr.getDate()).padStart(2, '0');
-                        this.compCache.colunas.push({ key, label });
-                        this.compCache.dados[key] = {};
-                        userIds.forEach(uid => this.compCache.dados[key][String(uid)] = { velocidade: null, assert: null, qtd_auditorias: 0, somaVel: 0, countVel: 0, somaOk: 0, somaTot: 0 });
-                    }
-                    curr.setDate(curr.getDate() + 1);
-                }
-            }
-
-            const getKey = (dateStr) => {
-                const d = new Date(String(dateStr).split('T')[0] + 'T12:00:00');
-                if (isMacro) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                return d.toISOString().split('T')[0];
-            };
-
-            (dadosProd || []).forEach(reg => {
-                const key = getKey(reg.data_referencia);
-                const uid = String(reg.usuario_id);
-                if (this.compCache.dados[key]?.[uid]) {
-                    this.compCache.dados[key][uid].somaVel += Number(reg.quantidade || 0);
-                    this.compCache.dados[key][uid].countVel++;
-                }
-            });
-
-            (dadosAssert || []).forEach(reg => {
-                const key = getKey(reg.data_referencia);
-                const uid = String(reg.usuario_id);
-                if (this.compCache.dados[key]?.[uid]) {
-                    this.compCache.dados[key][uid].somaOk += Number(reg.qtd_ok || 0);
-                    this.compCache.dados[key][uid].somaTot += Number(reg.qtd_campos || 0);
-                    this.compCache.dados[key][uid].qtd_auditorias++;
-                }
-            });
-
-            // Finaliza velocidade média e assertividade por período
-            this.compCache.colunas.forEach(col => {
-                userIds.forEach(uid => {
-                    const d = this.compCache.dados[col.key]?.[String(uid)];
-                    if (!d) return;
-                    d.velocidade = d.countVel > 0 ? Math.round(d.somaVel / d.countVel) : null;
-                    d.assert = d.somaTot > 0 ? d.somaOk / d.somaTot : null;
-                });
-            });
-        } catch (e) {
-            console.error('[Comparativo] Erro ao carregar dados do período:', e);
-        }
-    },
-    // ═══════════════════════════════════════════════════════════════════
-    // Agrupa dados usando o compCache (dados próprios do comparativo)
-    // ═══════════════════════════════════════════════════════════════════
-    _agruparPorGranularidade: function (uid, granularidade) {
-        const datas = this.compGetDatasFiltro();
-        const start = new Date(datas.inicio + 'T00:00:00');
-        const end = new Date(datas.fim + 'T23:59:59');
-
-        const grupos = {};
-
-        // Usa compCache — dados do período local, não o cache global
-        this.compCache.colunas.forEach(col => {
-            const dCol = new Date(col.key + 'T12:00:00');
-            if (dCol < start || dCol > end) return;
-
-            const dados = this.compCache.dados[col.key]?.[String(uid)];
-            let gKey = col.label;
-
-            if (granularidade === 'mes') {
-                const m = dCol.getMonth();
-                const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                gKey = meses[m] + '/' + dCol.getFullYear().toString().slice(-2);
-            } else if (granularidade === 'semana') {
-                const diff = dCol - start;
-                const weekNum = Math.floor(diff / (7 * 86400000)) + 1;
-                gKey = `Sem. ${String(weekNum).padStart(2, '0')}`;
-            } else {
-                gKey = col.label; // dia
-            }
-
-            if (!grupos[gKey]) {
-                grupos[gKey] = { somaVel: 0, countVel: 0, somaAssert: 0, countAssert: 0, start: col.key, end: col.key };
-            }
-            const g = grupos[gKey];
-            if (col.key < g.start) g.start = col.key;
-            if (col.key > g.end) g.end = col.key;
-
-            if (dados) {
-                if (dados.velocidade !== null && dados.velocidade !== undefined) { g.somaVel += (dados.velocidade || 0); g.countVel++; }
-                if (dados.assert !== null && dados.assert !== undefined && dados.qtd_auditorias > 0) { g.somaAssert += (dados.assert * 100); g.countAssert++; }
-            }
+        // Adiciona datasets de Meta primeiro (back layer)
+        datasetsProd.push({
+            label: 'Meta',
+            data: metaProd,
+            borderColor: '#94a3b8',
+            borderWidth: 2,
+            pointRadius: 0,
+            borderDash: [5, 5],
+            fill: false,
+            order: 1
         });
 
-        const labels = Object.keys(grupos).sort((a, b) => grupos[a].start > grupos[b].start ? 1 : -1);
-        const prodData = labels.map(k => grupos[k].countVel > 0 ? Math.round(grupos[k].somaVel / grupos[k].countVel) : null);
-        const assertData = labels.map(k => grupos[k].countAssert > 0 ? parseFloat((grupos[k].somaAssert / grupos[k].countAssert).toFixed(2)) : null);
-        const ranges = labels.map(k => ({ start: grupos[k].start, end: grupos[k].end }));
+        datasetsAssert.push({
+            label: 'Meta Qualidade',
+            data: metaAssert,
+            borderColor: '#10b981',
+            borderWidth: 2,
+            pointRadius: 0,
+            borderDash: [2, 2],
+            fill: false,
+            order: 1
+        });
 
-        return { labels, prodData, assertData, ranges };
-    },
-
-    renderizarGraficosComparativos: function (userIds, granularidade) {
-        granularidade = granularidade || 'mes';
-        const colors = ['#3b82f6', '#10b981'];
-        const colorsLight = ['rgba(59,130,246,0.18)', 'rgba(16,185,129,0.18)'];
-
-        const userData = userIds.map((uid, idx) => {
+        // Adiciona datasets dos usuários
+        userIds.forEach((uid, idx) => {
             const user = this.cacheUsers.find(u => String(u.id) === String(uid));
-            const grouped = this._agruparPorGranularidade(uid, granularidade);
-            return { uid, user, grouped, color: colors[idx] || '#94a3b8', colorLight: colorsLight[idx] || 'rgba(100,100,100,0.1)' };
+            if (!user) return;
+            const color = slotColors[idx % 3];
+            const dataProd = []; const dataAssert = [];
+            this.cacheColunas.forEach(col => {
+                const dados = this.cacheDados[col.key][String(uid)] || { velocidade: null, assert: null };
+                dataProd.push(dados.velocidade);
+                dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
+            });
+            const dsBase = {
+                label: user.nome.split(' ')[0],
+                borderColor: color,
+                backgroundColor: color,
+                borderWidth: 3,
+                pointRadius: 4,
+                tension: 0.2,
+                fill: false,
+                order: 2
+            };
+            datasetsProd.push({ ...dsBase, data: dataProd });
+            datasetsAssert.push({ ...dsBase, data: dataAssert });
         });
 
-        let allLabels = [];
-        userData.forEach(d => { d.grouped.labels.forEach(l => { if (!allLabels.includes(l)) allLabels.push(l); }); });
-
-        this._renderizarVSPanel(userData, allLabels);
+        this.createChartComp('chart-comp-prod', labels, datasetsProd, false);
+        this.createChartComp('chart-comp-assert', labels, datasetsAssert, true);
     },
 
-    drillDownComparativo: function (label, start, end) {
-        const selType = document.getElementById('comp-filter-type');
-        const selVal = document.getElementById('comp-filter-value');
-
-        // Se estiver em modo Todas as Semanas/Mês/etc, clicar detalha para dia dentro do comparador
-        if (selType && selType.value !== 'dia') {
-            // Simplesmente mudamos a visualização local para detalhada se clicou em algo macro
-            // (A lógica de atualizarComparativoManual já decide a granularidade)
-            // Por enquanto, o drill-down local é feito via atualização de filtros ou clique no gráfico
-        }
-    },
-
-    _renderizarVSPanel: function (userData, allLabels) {
-        const vsCards = document.getElementById('gap-vs-cards');
-        const gridsContainer = document.getElementById('gap-grids-container');
-
-        if (userData.length < 2 || !userData[0].user || !userData[1].user) {
-            if (vsCards) vsCards.classList.add('hidden');
-            if (gridsContainer) gridsContainer.classList.add('hidden');
-            return;
-        }
-
-        const nome1 = userData[0].user.nome.split(' ')[0];
-        const nome2 = userData[1].user.nome.split(' ')[0];
-
-        // Médias globais
-        const prodVals1 = userData[0].grouped.prodData.filter(v => v !== null);
-        const prodVals2 = userData[1].grouped.prodData.filter(v => v !== null);
-        const assertVals1 = userData[0].grouped.assertData.filter(v => v !== null);
-        const assertVals2 = userData[1].grouped.assertData.filter(v => v !== null);
-
-        const med1P = prodVals1.reduce((s, v) => s + v, 0) / (prodVals1.length || 1);
-        const med2P = prodVals2.reduce((s, v) => s + v, 0) / (prodVals2.length || 1);
-        const med1A = assertVals1.reduce((s, v) => s + v, 0) / (assertVals1.length || 1);
-        const med2A = assertVals2.reduce((s, v) => s + v, 0) / (assertVals2.length || 1);
-
-        const gapP = Math.abs(med1P - med2P);
-        const gapA = Math.abs(med1A - med2A);
-        const liderP = med1P >= med2P ? nome1 : nome2;
-        const liderA = med1A >= med2A ? nome1 : nome2;
-        const winner = (med1P + med1A) >= (med2P + med2A) ? nome1 : nome2;
-
-        if (vsCards) vsCards.classList.remove('hidden');
-        if (gridsContainer) {
-            gridsContainer.classList.remove('hidden');
-
-            const elG1Title = document.getElementById('grid-a1-title');
-            const elG2Title = document.getElementById('grid-a2-title');
-            if (elG1Title) elG1Title.textContent = nome1;
-            if (elG2Title) elG2Title.textContent = nome2;
-
-            const elMiniA1P = document.getElementById('mini-a1-prod');
-            const elMiniA1A = document.getElementById('mini-a1-assert');
-            const elMiniA2P = document.getElementById('mini-a2-prod');
-            const elMiniA2A = document.getElementById('mini-a2-assert');
-
-            if (elMiniA1P) elMiniA1P.textContent = `${Math.round(med1P)} pcs`;
-            if (elMiniA1A) elMiniA1A.textContent = `${med1A.toFixed(1)}%`;
-            if (elMiniA2P) elMiniA2P.textContent = `${Math.round(med2P)} pcs`;
-            if (elMiniA2A) elMiniA2A.textContent = `${med2A.toFixed(1)}%`;
-
-            const badge = document.getElementById('gap-winner-badge');
-            if (badge) badge.textContent = `🏆 ${winner} é a mais performante`;
-
-            const elGapP = document.getElementById('gap-center-prod');
-            const elGapA = document.getElementById('gap-center-assert');
-            if (elGapP) elGapP.textContent = `Δ ${Math.round(gapP)}`;
-            if (elGapA) elGapA.textContent = `Δ ${gapA.toFixed(1)}pp`;
-
-            const elLiderP = document.getElementById('gap-center-prod-lider');
-            const elLiderA = document.getElementById('gap-center-assert-lider');
-            if (elLiderP) elLiderP.textContent = `${liderP} produz mais`;
-            if (elLiderA) elLiderA.textContent = `${liderA} tem maior qualidade`;
-        }
-
-        // Extrai as séries temporais antes do setTimeout para gerar os Insights Automáticos
-        const getSeries = (userIdx, dataKey) => allLabels.map(l => {
-            const i = userData[userIdx].grouped.labels.indexOf(l);
-            return i >= 0 ? userData[userIdx].grouped[dataKey][i] : 0;
-        });
-
-        const pS1 = getSeries(0, 'prodData');
-        const pS2 = getSeries(1, 'prodData');
-        const aS1 = getSeries(0, 'assertData');
-        const aS2 = getSeries(1, 'assertData');
-
-        // Motor de análise de tendência do GAP
-        const buildTrendHtml = (d1, d2, isPct) => {
-            const limit = Math.floor(d1.length / 2);
-            if (limit < 1) return '<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded shadow-sm">Sem histórico suficiente</span>';
-
-            const gaps = d1.map((v, i) => Math.abs((v || 0) - (d2[i] || 0)));
-            const h1 = gaps.slice(0, limit);
-            const h2 = gaps.slice(-limit); // pega os últimos períodos
-            const a1 = h1.reduce((a, b) => a + b, 0) / h1.length;
-            const a2 = h2.reduce((a, b) => a + b, 0) / h2.length;
-
-            if (a1 === 0 && a2 === 0) return '<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded shadow-sm">Estável</span>';
-
-            const reduziu = a2 < a1;
-            const diff = Math.abs(a2 - a1);
-            if (diff < 0.5) return '<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded shadow-sm flex items-center gap-1"><i class="fas fa-minus"></i> GAP Estável</span>';
-
-            const valStr = isPct ? diff.toFixed(1) + 'pp' : Math.round(diff) + ' pcs';
-
-            if (reduziu) {
-                return `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded shadow-sm flex items-center gap-1" title="Média inicial do período era ${isPct ? a1.toFixed(1) + '%' : Math.round(a1)} e agora é ${isPct ? a2.toFixed(1) + '%' : Math.round(a2)}"><i class="fas fa-arrow-down"></i>Aproximando (-${valStr})</span>`;
-            } else {
-                return `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded shadow-sm flex items-center gap-1" title="Média inicial do período era ${isPct ? a1.toFixed(1) + '%' : Math.round(a1)} e agora é ${isPct ? a2.toFixed(1) + '%' : Math.round(a2)}"><i class="fas fa-arrow-up"></i>Distanciando (+${valStr})</span>`;
+    createChartComp: function (canvasId, labels, datasets, isPct) {
+        const ctx = document.getElementById(canvasId); if (!ctx) return;
+        if (canvasId === 'chart-comp-prod') { if (this.chartCompProd) this.chartCompProd.destroy(); } else { if (this.chartCompAssert) this.chartCompAssert.destroy(); }
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
             }
-        };
-
-        const elTrendP = document.getElementById('trend-prod');
-        const elTrendA = document.getElementById('trend-assert');
-        if (elTrendP) elTrendP.innerHTML = buildTrendHtml(pS1, pS2, false);
-        if (elTrendA) elTrendA.innerHTML = buildTrendHtml(aS1, aS2, true);
-
-        // Atualiza nomes nos labels dos gráficos espelhados
-        ['comp-label-prod-a1', 'comp-label-assert-a1'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = nome1; });
-        ['comp-label-prod-a2', 'comp-label-assert-a2'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = nome2; });
-
-        // Oculta os badges Δ (não fazem mais sentido no novo visual)
-        const elGapProdBadge = document.getElementById('gap-center-prod');
-        const elGapAssertBadge = document.getElementById('gap-center-assert');
-        if (elGapProdBadge) elGapProdBadge.classList.add('hidden');
-        if (elGapAssertBadge) elGapAssertBadge.classList.add('hidden');
-
-        setTimeout(() => {
-            // Destroi todos os 4 charts se existirem
-            ['chartGapProdTop', 'chartGapProdBot', 'chartGapAssertTop', 'chartGapAssertBot'].forEach(k => {
-                if (this[k]) { this[k].destroy(); this[k] = null; }
-            });
-
-            // Lógica do "Beijinho": Proporção em relação ao líder do período
-            const calcProportions = (s1, s2) => {
-                const p1 = [], p2 = [];
-                for (let i = 0; i < s1.length; i++) {
-                    const v1 = s1[i] || 0;
-                    const v2 = s2[i] || 0;
-                    const maxLocal = Math.max(v1, v2);
-                    if (maxLocal === 0) {
-                        p1.push(1); p2.push(1);
-                    } else {
-                        p1.push(v1 / maxLocal);
-                        p2.push(v2 / maxLocal);
-                    }
-                }
-                return { p1, p2 };
-            };
-
-            const prodProps = calcProportions(pS1, pS2);
-            const assertProps = calcProportions(aS1, aS2);
-
-            /**
-             * createHalfConfig: cria config para o gráfico de espelho proporcional.
-             * @param data      - série de proporção (0 a 1)
-             * @param color     - cor das barras
-             * @param reversed  - FALSE (TOP): zero no topo, 1 na base (centro)
-             *                    TRUE (BOT): zero na base, 1 no topo (centro)
-             * @param isPct     - formata labels
-             * @param label     - nome do assistente
-             * @param realData  - valores reais para o tooltip
-             */
-            const createHalfConfig = (data, color, reversed, isPct, label, realData) => ({
-                type: 'bar',
-                data: {
-                    labels: allLabels,
-                    datasets: [{
-                        label,
-                        data,
-                        backgroundColor: color + 'cc',
-                        borderColor: color,
-                        borderWidth: 1,
-                        borderRadius: reversed
-                            ? { topLeft: 5, topRight: 5 }       // BOT: cresce descendo (pico na ponta de cima) -> arredonda topo
-                            : { bottomLeft: 5, bottomRight: 5 }, // TOP: cresce subindo (pico na ponta de baixo) -> arredonda base
-                        barPercentage: 0.75
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    animation: { duration: 400 },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            enabled: true, mode: 'index', intersect: false,
-                            backgroundColor: 'rgba(15,23,42,0.9)',
-                            callbacks: {
-                                label: ctx => {
-                                    const val = realData[ctx.dataIndex] || 0;
-                                    const prop = ctx.parsed.y * 100;
-                                    return `${label}: ${isPct ? val.toFixed(1) + '%' : val + ' pcs'} (${prop.toFixed(0)}% do líder)`;
-                                }
-                            }
-                        }
-                    },
-                    onClick: (e, elements) => {
-                        if (elements.length > 0) {
-                            const idx = elements[0].index;
-                            const rng = userData[0].grouped.ranges[idx];
-                            if (rng) this.drillDownComparativo(allLabels[idx], rng.start, rng.end);
-                        }
-                    },
-                    scales: {
-                        x: {
-                            // Labels X aparecem no gráfico de BAIXO (que tem reversed=true, pois está invertido e as datas ficam na base)
-                            // Na prática: mostrar labels no gráfico cujo zero está no TOPO (= gráfico inferior = reversed:true)
-                            display: reversed,
-                            grid: { display: false },
-                            ticks: { color: 'rgba(71,85,105,0.7)', font: { size: 8, weight: 'bold' } }
-                        },
-                        y: {
-                            type: 'linear',
-                            display: false, // Ocultar eixo Y para focar no visual de preenchimento
-                            reverse: !reversed, // Inverte o gráfico superior para o 1 ser na base, e o inferior para o 1 ser no topo
-                            min: 0,
-                            max: 1,
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-
-            // === Produção ===
-            const ctxPTop = document.getElementById('chart-gap-prod-top');
-            const ctxPBot = document.getElementById('chart-gap-prod-bot');
-            if (ctxPTop) this.chartGapProdTop = new Chart(ctxPTop, createHalfConfig(prodProps.p1, '#3b82f6', false, false, nome1, pS1));
-            if (ctxPBot) this.chartGapProdBot = new Chart(ctxPBot, createHalfConfig(prodProps.p2, '#10b981', true, false, nome2, pS2));
-
-            // === Assertividade ===
-            const ctxATop = document.getElementById('chart-gap-assert-top');
-            const ctxABot = document.getElementById('chart-gap-assert-bot');
-            if (ctxATop) this.chartGapAssertTop = new Chart(ctxATop, createHalfConfig(assertProps.p1, '#3b82f6', false, true, nome1, aS1));
-            if (ctxABot) this.chartGapAssertBot = new Chart(ctxABot, createHalfConfig(assertProps.p2, '#10b981', true, true, nome2, aS2));
-        }, 50);
-
-        if (gridsContainer) {
-            const elG1Body = document.getElementById('grid-a1-body');
-            const elG2Body = document.getElementById('grid-a2-body');
-
-            const buildGridRow = (label, prodVal, assertVal, isHighlight) => {
-                const assertStr = assertVal > 0 ? assertVal.toFixed(1) + '%' : '--';
-                const assertColor = assertVal >= 97 ? 'text-emerald-600 font-black' : (assertVal > 0 ? 'text-amber-600 font-bold' : 'text-slate-400');
-                const prodStr = prodVal > 0 ? prodVal + ' pcs' : '--';
-                const bg = isHighlight ? 'bg-slate-50/50' : '';
-                return `<tr class="${bg} hover:bg-blue-50/30 transition-colors cursor-default">
-                    <td class="px-3 py-2 text-slate-500 font-bold text-[10px]">${label}</td>
-                    <td class="px-3 py-2 text-right font-black text-slate-700 text-[11px]">${prodStr}</td>
-                    <td class="px-3 py-2 text-right text-[11px] ${assertColor}">${assertStr}</td>
-                </tr>`;
-            };
-
-            const htmlG1 = allLabels.map((label, idx) => {
-                const i = userData[0].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[0].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[0].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
-            }).join('');
-
-            const htmlG2 = allLabels.map((label, idx) => {
-                const i = userData[1].grouped.labels.indexOf(label);
-                return buildGridRow(label, i >= 0 ? (userData[1].grouped.prodData[i] || 0) : 0, i >= 0 ? (userData[1].grouped.assertData[i] || 0) : 0, idx % 2 !== 0);
-            }).join('');
-
-            const footerRow = (medP, medA) => `<tr class="bg-slate-50 border-t-2 border-slate-200">
-                <td class="px-3 py-2 text-[9px] font-black text-slate-500 uppercase">Média</td>
-                <td class="px-3 py-2 text-right font-black text-slate-800 text-[11px]">${Math.round(medP)} pcs</td>
-                <td class="px-3 py-2 text-right font-black text-[11px] ${medA >= 97 ? 'text-emerald-600' : 'text-amber-600'}">${medA.toFixed(1)}%</td>
-            </tr>`;
-
-            if (elG1Body) elG1Body.innerHTML = (htmlG1 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med1P, med1A);
-            if (elG2Body) elG2Body.innerHTML = (htmlG2 || '<tr><td colspan="3" class="text-center text-slate-400 py-4 text-xs">Sem dados</td></tr>') + footerRow(med2P, med2A);
-        }
+        });
+        if (canvasId === 'chart-comp-prod') this.chartCompProd = chart; else this.chartCompAssert = chart;
     },
 
     toggleLoading: function (show) {
@@ -1652,4 +1534,3 @@ MinhaArea.Metas = {
         if (el) show ? el.classList.remove('hidden') : el.classList.add('hidden');
     }
 };
-

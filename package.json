@@ -1,13 +1,10 @@
 {
   "name": "performance-pro",
   "version": "1.0.0",
-  "type": "module",
   "dependencies": {
     "@ai-sdk/openai": "^3.0.29",
     "ai": "^6.0.90",
     "dotenv": "^17.3.1",
-    "luxon": "^3.7.2",
-    "mysql2": "^3.9.0",
-    "playwright": "^1.58.2"
+    "mysql2": "^3.18.2"
   }
 }
