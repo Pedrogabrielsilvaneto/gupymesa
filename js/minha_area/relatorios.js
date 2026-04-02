@@ -1,5 +1,5 @@
 /* ARQUIVO: js/minha_area/relatorios.js
-   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.8 (Fix Accumulated Logic)
+   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.9 (Simple Arithmetic Mean for Totals)
 */
 
 MinhaArea.Relatorios = {
@@ -37,11 +37,9 @@ MinhaArea.Relatorios = {
             const mesAtual = dHoje.getMonth() + 1;
             const diaHojeStr = dHoje.toISOString().split('T')[0];
 
-            const dIni = new Date(inicio + 'T12:00:00');
-            const dFim = new Date(fim + 'T12:00:00');
-            const ano = dIni.getFullYear();
-            const mesIni = dIni.getMonth() + 1;
-            const mesFim = dFim.getMonth() + 1;
+            const ano = new Date(inicio + 'T12:00:00').getFullYear();
+            const mesIni = new Date(inicio + 'T12:00:00').getMonth() + 1;
+            const mesFim = new Date(fim + 'T12:00:00').getMonth() + 1;
 
             const configMes = await Sistema.query(`SELECT * FROM config_mes WHERE ano = ?`, [ano]);
 
@@ -92,41 +90,43 @@ MinhaArea.Relatorios = {
     renderizarMetasOKR: function(metas, producao, assertividade, ano, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        let htmlIdx = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
+        
+        let htmlIdx = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-enter"><div class="space-y-4">
             <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
-        let tMP = 0, cMP = 0, tPP = 0, tDP = 0, countV = 0;
+        let sM = 0, cM = 0, sR = 0, cR = 0;
         producao.forEach(p => {
             const mN = p.mes; const mObj = (metas || []).find(m => Number(m.mes) === mN);
             const mVal = mObj ? (Number(mObj.meta_producao) || 0) : 0;
             const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0;
             const pct = mVal > 0 ? (r / mVal) * 100 : 0;
             const cl = pct >= 100 ? 'text-emerald-600 bg-emerald-50' : (pct >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
-            // Só soma no acumulado se houver produção (ou for mês passado)
+            // Média Aritmética conforme solicitação USER
             if (p.total_prod > 0) {
-                if (mVal > 0) { tMP += mVal; cMP++; }
-                tPP += p.total_prod; tDP += p.denominador; countV++;
+                if (mVal > 0) { sM += mVal; cM++; }
+                sR += r; cR++;
             }
             htmlIdx += `<tr><td class="px-4 py-2.5 font-bold">${mS[mN-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal || '--'}</td><td class="px-4 py-2.5 text-right font-black text-blue-600">${r > 0 ? Math.round(r).toLocaleString() : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${pct.toFixed(1)}%</span></td></tr>`;
         });
-        const aMP = cMP > 0 ? (tMP / cMP) : 0; const aRP = tDP > 0 ? (tPP / tDP) : 0; const aPP = aMP > 0 ? (aRP / aMP * 100) : 0;
-        htmlIdx += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMP).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-blue-50/50">${Math.round(aRP).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aPP.toFixed(1)}%</span></td></tr></tfoot></table></div></div>`;
+        const aM = cM > 0 ? sM / cM : 0; const aR = cR > 0 ? sR / cR : 0; const aP = aM > 0 ? (aR / aM * 100) : 0;
+        htmlIdx += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aM).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-blue-50/50">${Math.round(aR).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aP.toFixed(1)}%</span></td></tr></tfoot></table></div></div>`;
         
         let htmlAs = `<div class="space-y-4"><div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Assertividade</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
-        let sA = 0, cA = 0, tMA = 0, cMA = 0;
+        let sMA = 0, cMA = 0, sRA = 0, cRA = 0;
         assertividade.forEach(as => {
             const mN = as.mes; const mObj = (metas || []).find(m => Number(m.mes) === mN);
             const mVal = mObj ? (Number(mObj.meta_assertividade) || 97) : 97;
-            const rV = as.assert; let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
+            const rV = as.assert;
             if (rV > 0) {
-                if (mVal > 0) { tMA += mVal; cMA++; }
-                sA += rV; cA++;
+                if (mVal > 0) { sMA += mVal; cMA++; }
+                sRA += rV; cRA++;
             }
+            let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
             const cl = rV >= mVal ? 'text-emerald-600 bg-emerald-50' : (rV >= 90 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
             htmlAs += `<tr><td class="px-4 py-2.5 font-bold">${mS[mN-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal}%</td><td class="px-4 py-2.5 text-right font-black text-emerald-600">${rV > 0 ? rV.toFixed(2) + '%' : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${at}%</span></td></tr>`;
         });
-        const aMA = cMA > 0 ? tMA / cMA : 97; const aRA = cA > 0 ? sA / cA : 0;
+        const aMA = cMA > 0 ? sMA / cMA : 97; const aRA = cRA > 0 ? sRA / cRA : 0;
         let aAt = 0; if (aRA > 0) { if (aRA < 90) aAt = 0; else if (aRA < 94) aAt = 50; else if (aRA < 95) aAt = 70; else if (aRA < 96) aAt = 80; else if (aRA <= 97) aAt = 90; else aAt = 100; }
         htmlAs += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMA)}%</td><td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/50">${aRA.toFixed(2)}%</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aAt}%</span></td></tr></tfoot></table></div></div></div>`;
         
@@ -169,10 +169,9 @@ MinhaArea.Relatorios = {
     renderizarGAP: function(roadmap, topM, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         if (!container) return;
-        const mesesStr = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const lista = Object.values(roadmap).sort((a,b) => a.nome.localeCompare(b.nome));
         let html = `<div class="space-y-4"><div class="bg-rose-50 p-4 rounded-xl flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm"><i class="fas fa-chart-line"></i></div><div><h4 class="text-rose-900 font-bold uppercase text-xs tracking-widest">Análise de GAP de Performance</h4></div></div><div class="overflow-x-auto rounded-xl border bg-white shadow-sm"><table class="w-full text-xs text-left"><thead class="bg-slate-50 text-[9px] font-bold uppercase text-slate-500"><tr><th class="px-4 py-4 sticky left-0 bg-slate-50 z-10 w-32">Assistente</th>`;
-        for (let m = mesIni; m <= mesFim; m++) html += `<th class="px-3 py-4 text-center">${mesesStr[m-1]}</th>`;
+        for (let m = mesIni; m <= mesFim; m++) html += `<th class="px-3 py-4 text-center">${m}</th>`;
         html += `<th class="px-4 py-4 text-center">Ev %</th><th class="px-4 py-4 text-right">Gap</th></tr></thead><tbody class="divide-y">`;
         lista.forEach(as => {
             let pV = null, uV = null;
