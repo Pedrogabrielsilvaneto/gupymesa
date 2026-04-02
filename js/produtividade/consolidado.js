@@ -302,6 +302,9 @@ Produtividade.Consolidado = {
                 // Normalizar data para YYYY-MM-DD (sem timezone)
                 const dataRef = r.data_referencia ? r.data_referencia.split('T')[0] : null;
 
+                // Aplica filtro de contrato para colunas individuais (semana)
+                if (!self.passaFiltroContrato(r.usuario_id)) return;
+
                 const funcao    = (self.mapaFuncoes[r.usuario_id] || '').toLowerCase();
                 const isGestor  = GESTAO.some(g => funcao.includes(g));
                 const ativo     = self.mapaAtivo[r.usuario_id];
@@ -322,10 +325,7 @@ Produtividade.Consolidado = {
                     if (self.monthToColMap[mesData]) b = self.monthToColMap[mesData];
                 }
 
-                if (b < 1 || b > numCols) {
-                    console.log('%c[DEBUG] Registro sem coluna:', 'color:red', dataRef, 'qty:', r.quantidade);
-                    return;
-                }
+                if (b < 1 || b > numCols) return;
 
                 const rQty  = Number(r.quantidade)       || 0;
                 const rFifo = Number(r.fifo)             || 0;
@@ -335,19 +335,31 @@ Produtividade.Consolidado = {
 
                 const totalProd = rQty + rFifo;
 
-                [b, 99].forEach(k => {
-                    st[k].qty  += totalProd;
-                    st[k].fifo += rFifo;
-                    st[k].gt   += rGt;
-                    st[k].gp   += rGp;
-                    st[k].fc   += rFc;
+                // Soma na coluna da semana (com filtro)
+                st[b].qty  += totalProd;
+                st[b].fifo += rFifo;
+                st[b].gt   += rGt;
+                st[b].gp   += rGp;
+                st[b].fc   += rFc;
 
-                    if (!isGestor && !isInativo) {
-                        st[k].users.add(r.usuario_id);
-                        st[k].dias.add(dataRef);
-                        st[k].diasFator += (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
-                    }
-                });
+                if (!isGestor && !isInativo) {
+                    st[b].users.add(r.usuario_id);
+                    st[b].dias.add(dataRef);
+                    st[b].diasFator += (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
+                }
+
+                // TOTAL (coluna 99): soma SEM filtro (igual aba Geral)
+                st[99].qty  += totalProd;
+                st[99].fifo += rFifo;
+                st[99].gt   += rGt;
+                st[99].gp   += rGp;
+                st[99].fc   += rFc;
+
+                if (!isGestor && !isInativo) {
+                    st[99].users.add(r.usuario_id);
+                    st[99].dias.add(dataRef);
+                    st[99].diasFator += (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
+                }
             });
         }
 
