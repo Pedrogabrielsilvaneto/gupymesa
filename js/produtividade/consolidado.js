@@ -204,7 +204,7 @@ Produtividade.Consolidado = {
         }
     },
 
-    // ─── Semanas do mês com data local ───────────────────────────────────────
+    // ─── Semanas do mês com data local (Segunda a Domingo) ─────────────────────
     getSemanasDoMes: function (year, month) {
         const self = this;
         const weeks = [];
@@ -214,11 +214,17 @@ Produtividade.Consolidado = {
         lastDay.setHours(12, 0, 0, 0);
         let currentDay = new Date(firstDay);
 
+        // Ajustar para iniciar na segunda-feira
+        const dayOfWeek = currentDay.getDay(); // 0=domingo, 1=segunda...
+        if (dayOfWeek !== 1) {
+            const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek; // Se domingo, vai para segunda seguinte
+            currentDay.setDate(currentDay.getDate() + daysToMonday);
+        }
+
         while (currentDay <= lastDay) {
             const startOfWeek = new Date(currentDay);
-            const daysToSat   = 6 - currentDay.getDay();
             let endOfWeek = new Date(currentDay);
-            endOfWeek.setDate(currentDay.getDate() + daysToSat);
+            endOfWeek.setDate(currentDay.getDate() + 6); // Domingo
             endOfWeek.setHours(12, 0, 0, 0);
             if (endOfWeek > lastDay) endOfWeek = new Date(lastDay);
             weeks.push({ inicio: self.fmtData(startOfWeek), fim: self.fmtData(endOfWeek) });
