@@ -1,5 +1,5 @@
 /* ARQUIVO: js/minha_area/relatorios.js
-   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.9 (Simple Arithmetic Mean for Totals)
+   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V6.0.0 (Global Filters Fix)
 */
 
 MinhaArea.Relatorios = {
@@ -37,9 +37,11 @@ MinhaArea.Relatorios = {
             const mesAtual = dHoje.getMonth() + 1;
             const diaHojeStr = dHoje.toISOString().split('T')[0];
 
-            const ano = new Date(inicio + 'T12:00:00').getFullYear();
-            const mesIni = new Date(inicio + 'T12:00:00').getMonth() + 1;
-            const mesFim = new Date(fim + 'T12:00:00').getMonth() + 1;
+            const dIni = new Date(inicio + 'T12:00:00');
+            const dFim = new Date(fim + 'T12:00:00');
+            const ano = dIni.getFullYear();
+            const mesIni = dIni.getMonth() + 1;
+            const mesFim = dFim.getMonth() + 1;
 
             const configMes = await Sistema.query(`SELECT * FROM config_mes WHERE ano = ?`, [ano]);
 
@@ -49,13 +51,31 @@ MinhaArea.Relatorios = {
             
             const metas = await Sistema.query(`SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, utForMeta]);
 
+            // [FIX] PRODUÇÃO COM FILTROS
             let pP = [inicio, fim];
-            let sqlP = `SELECT MONTH(data_referencia) as mes, SUM(quantidade) as total_prod FROM producao WHERE data_referencia >= ? AND data_referencia <= ? AND usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) GROUP BY mes`;
+            let sqlP = `SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod FROM producao p `;
+            if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
+                sqlP += ` WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id = ? `;
+                pP.push(alvoId);
+            } else {
+                sqlP += ` JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) `;
+                if (alvoId === 'GRUPO_CLT') sqlP += ` AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE '%pj%' AND LOWER(u.contrato) NOT LIKE '%terceiro%')) `;
+                else if (alvoId === 'GRUPO_TERCEIROS') sqlP += ` AND (LOWER(u.contrato) LIKE '%pj%' OR LOWER(u.contrato) LIKE '%terceiro%') `;
+            }
+            sqlP += ` GROUP BY mes`;
             const prodR = await Sistema.query(sqlP, pP);
 
+            // [FIX] ASSERTIVIDADE COM FILTROS
             let pA = [inicio, fim];
-            let sqlA = `SELECT MONTH(data_referencia) as mes, AVG(assertividade_val) as media_assert FROM assertividade WHERE data_referencia >= ? AND data_referencia <= ? `;
-            if (alvoId && alvoId !== 'EQUIPE') { sqlA += ` AND usuario_id = ? `; pA.push(alvoId); }
+            let sqlA = `SELECT MONTH(a.data_referencia) as mes, AVG(a.assertividade_val) as media_assert FROM assertividade a `;
+            if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
+                sqlA += ` WHERE a.data_referencia >= ? AND a.data_referencia <= ? AND a.usuario_id = ? `;
+                pA.push(alvoId);
+            } else {
+                sqlA += ` JOIN usuarios u ON a.usuario_id = u.id WHERE a.data_referencia >= ? AND a.data_referencia <= ? `;
+                if (alvoId === 'GRUPO_CLT') sqlA += ` AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE '%pj%' AND LOWER(u.contrato) NOT LIKE '%terceiro%')) `;
+                else if (alvoId === 'GRUPO_TERCEIROS') sqlA += ` AND (LOWER(u.contrato) LIKE '%pj%' OR LOWER(u.contrato) LIKE '%terceiro%') `;
+            }
             sqlA += ` GROUP BY mes`;
             const asR = await Sistema.query(sqlA, pA);
 
@@ -69,6 +89,9 @@ MinhaArea.Relatorios = {
                 if (alvoId === 'GRUPO_CLT') hc = (c && c.hc_clt) ? Number(c.hc_clt) : 8;
                 else if (alvoId === 'GRUPO_TERCEIROS') hc = (c && c.hc_terceiros) ? Number(c.hc_terceiros) : 9;
                 else if (c && (Number(c.hc_clt) || 0) + (Number(c.hc_terceiros) || 0) > 0) hc = Number(c.hc_clt) + Number(c.hc_terceiros);
+                
+                // [IMPORTANTE] Se for Individual, HC é obrigatoriamente 1
+                if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') hc = 1;
 
                 let dUteisBase = (c && c.dias_uteis) ? Number(c.dias_uteis) : 0;
                 if (dUteisBase === 0) dUteisBase = this.calcularDiasUteisCalendario(m, ano);
@@ -79,7 +102,7 @@ MinhaArea.Relatorios = {
                 if (m === mesAtual && ano === anoAtual) dRef = this.contarDiasUteis(`${ano}-${String(m).padStart(2,'0')}-01`, diaHojeStr);
 
                 let dFinal = Math.max(1, dRef - 1);
-                let denV = (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') ? (hc * dFinal) : dFinal;
+                let denV = hc * dFinal;
 
                 dataF.push({ mes: m, total_prod: p ? Number(p.total_prod) : 0, denominador: denV, assert: a ? Number(a.media_assert) : 0 });
             }
@@ -101,7 +124,6 @@ MinhaArea.Relatorios = {
             const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0;
             const pct = mVal > 0 ? (r / mVal) * 100 : 0;
             const cl = pct >= 100 ? 'text-emerald-600 bg-emerald-50' : (pct >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
-            // Média Aritmética conforme solicitação USER
             if (p.total_prod > 0) {
                 if (mVal > 0) { sM += mVal; cM++; }
                 sR += r; cR++;
