@@ -173,37 +173,23 @@ Produtividade.Consolidado = {
             await Promise.all([this.carregarHeadcountConfig(), this.carregarMapas()]);
 
             // Busca produção do período completo (inclusive dia 31)
-            // Ajuste: usar < próximo dia para garantir inclusão completa do último dia
-            const eNext = this.formatDateLocal(new Date(new Date(e).getTime() + 24 * 60 * 60 * 1000));
+            // Ajuste: usar BETWEEN para garantir inclusão completa do último dia
             const rawData = await Sistema.query(
                 `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
                  FROM producao
-                 WHERE data_referencia >= ? AND data_referencia < ?`,
-                [s, eNext]
+                 WHERE data_referencia BETWEEN ? AND ?
+                 ORDER BY data_referencia ASC`,
+                [s, e]
             );
 
-            console.log('%c[DEBUG CONS] Período consultado:', 'color:purple;font-weight:bold', s, '→', eNext);
+            console.log('%c[DEBUG CONS] Período consultado:', 'color:purple;font-weight:bold', s, '→', e);
             console.log('%c[DEBUG CONS] rawData rows →', 'color:purple;font-weight:bold', rawData?.length);
             if (rawData && rawData.length) {
                 console.log('%c[DEBUG CONS] Primeiro registro →', 'color:purple;font-weight:bold', rawData[0].data_referencia);
                 console.log('%c[DEBUG CONS] Último registro →', 'color:purple;font-weight:bold', rawData[rawData.length - 1].data_referencia);
-                // Soma bruta de tudo no rawData (sem nenhum filtro)
                 const somaQty  = rawData.reduce((a, r) => a + (Number(r.quantidade) || 0), 0);
                 const somaFifo = rawData.reduce((a, r) => a + (Number(r.fifo)       || 0), 0);
-                console.log('%c[DEBUG CONS] Soma bruta qty (quantidade):', 'color:purple;font-weight:bold', somaQty.toLocaleString('pt-BR'));
-                console.log('%c[DEBUG CONS] Soma bruta fifo:', 'color:purple;font-weight:bold', somaFifo.toLocaleString('pt-BR'));
-                console.log('%c[DEBUG CONS] TOTAL BRUTO (qty):', 'color:red;font-weight:bold', somaQty.toLocaleString('pt-BR'));
-                console.log('%c[DEBUG CONS] TOTAL BRUTO (qty+fifo):', 'color:red;font-weight:bold', (somaQty + somaFifo).toLocaleString('pt-BR'));
-                
-                // Debug: filtrar por contrato
-                let countContratoPass = 0;
-                let countNomePass = 0;
-                rawData.forEach(r => {
-                    if (self.passaFiltroContrato(r.usuario_id)) countContratoPass++;
-                    if (self.passaFiltroNome(r.usuario_id)) countNomePass++;
-                });
-                console.log('%c[DEBUG CONS] Passam filtro contrato →', 'color:orange;font-weight:bold', countContratoPass);
-                console.log('%c[DEBUG CONS] Passam filtro nome →', 'color:orange;font-weight:bold', countNomePass);
+                console.log('%c[DEBUG CONS] TOTAL (qty+fifo):', 'color:red;font-weight:bold', (somaQty + somaFifo).toLocaleString('pt-BR'));
             }
 
             if (!rawData) throw new Error('Falha ao buscar dados de produção.');
