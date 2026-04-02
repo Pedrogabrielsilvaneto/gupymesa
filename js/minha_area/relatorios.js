@@ -1,5 +1,5 @@
 /* ARQUIVO: js/minha_area/relatorios.js
-   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.3 (Force Feb Sync)
+   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.4 (Fix Feb 764 Sync)
 */
 
 MinhaArea.Relatorios = {
@@ -48,7 +48,7 @@ MinhaArea.Relatorios = {
             
             const metas = await Sistema.query(`SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, utForMeta]);
 
-            // PRODUÇÃO: MONTH() para garantir agrupamento correto
+            // PRODUÇÃO
             let pP = [inicio, fim];
             let sqlP = `SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod FROM producao p `;
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
@@ -78,23 +78,29 @@ MinhaArea.Relatorios = {
                 let hc = c ? ((Number(c.hc_clt) || 0) + (Number(c.hc_terceiros) || 0)) : 0;
                 if (hc === 0) hc = 17;
 
-                let dUteis = c ? Number(c.dias_uteis) : 0;
-                if (dUteis === 0) {
-                    // Fallback Inteligente (Sincronizado com Dashboard 2026)
-                    dUteis = this.calcularDiasUteisCalendario(m, ano);
-                    if (m === 2 && ano === 2026) dUteis = 18; // Fevereiro 2026 (Carnaval)
-                }
+                // [FIX CRÍTICO] Prioriza dias_uteis_clt ou dias_uteis para alinhar com o Dashboard
+                let dUteisMeta = c ? (Number(c.dias_uteis_clt) || Number(c.dias_uteis)) : 0;
+                if (dUteisMeta === 0) dUteisMeta = this.calcularDiasUteisCalendario(m, ano);
                 
-                let dDivisor = dUteis;
-                // Se for mês futuro (maior que hoje), usa o mês cheio. Se for atual, usa o decorrido.
+                // Force Feb 2026 Sync if data is inconsistent
+                if (m === 2 && ano === 2026) dUteisMeta = 18;
+
+                let dBaseParaCalculo = dUteisMeta;
+                
+                // Se for o mês atual, calculamos proporcional aos dias decorridos
                 if (m === (dHoje.getMonth() + 1) && ano === dHoje.getFullYear()) {
-                    dDivisor = this.contarDiasUteis(`${ano}-${String(m).padStart(2,'0')}-01`, diaHojeStr);
+                    dBaseParaCalculo = this.contarDiasUteis(`${ano}-${String(m).padStart(2,'0')}-01`, diaHojeStr);
                 }
 
-                let dFinal = Math.max(1, dDivisor - 1);
+                // A regra da GupyMesa para Velocidade é sempre (Dias - 1)
+                let dFinal = Math.max(1, dBaseParaCalculo - 1);
+                
                 let denV = 0;
-                if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') denV = hc * dFinal;
-                else denV = dFinal;
+                if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') {
+                    denV = hc * dFinal;
+                } else {
+                    denV = dFinal;
+                }
 
                 dataF.push({
                     mes: m,
@@ -114,7 +120,7 @@ MinhaArea.Relatorios = {
         
         let html = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-enter">
             <div class="space-y-4">
-                <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase">Produção (Velocidade)</h3><button onclick="MinhaArea.Relatorios.copiarRelatorio('PROD', '${ano}')" class="text-[10px] font-bold text-blue-600">Copiar</button></div>
+                <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3><button onclick="MinhaArea.Relatorios.copiarRelatorio('PROD', '${ano}')" class="text-[10px] font-bold text-blue-600">Copiar</button></div>
                 <div class="overflow-hidden rounded-xl border border-slate-200 bg-white"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
 
         let tMP = 0, cMP = 0, tPP = 0, tDP = 0;
@@ -132,7 +138,7 @@ MinhaArea.Relatorios = {
         html += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMP).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-emerald-50/40">${Math.round(aRP).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aPP.toFixed(1)}%</span></td></tr></tfoot></table></div></div>`;
 
         html += `<div class="space-y-4 shadow-xl">
-            <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase">Assertividade</h3></div>
+            <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Assertividade</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
         let sA = 0, cA = 0, tMA = 0, cMA = 0;
         assertividade.forEach(as => {
@@ -181,18 +187,18 @@ MinhaArea.Relatorios = {
                 roadmap[uid].meses[row.mes] = v;
                 if (!topM[row.mes] || v > topM[row.mes]) topM[row.mes] = v;
             });
-            const dI = new Date(inicio + 'T12:00:00');
-            this.renderizarGAP(roadmap, topM, dI.getMonth() + 1, new Date(fim + 'T12:00:00').getMonth() + 1);
+            this.renderizarGAP(roadmap, topM, new Date(inicio+'T12:00:00').getMonth() + 1, new Date(fim+'T12:00:00').getMonth() + 1);
         } catch (e) { console.error(e); }
     },
 
     renderizarGAP: function(roadmap, topM, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
+        if (!container) return;
         const mesesStr = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const lista = Object.values(roadmap).sort((a,b) => a.nome.localeCompare(b.nome));
-        let html = `<div class="space-y-6"><div class="bg-rose-50 p-4 rounded-xl flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm"><i class="fas fa-chart-line"></i></div><div><h4 class="text-rose-900 font-bold">Análise de GAP</h4></div></div><div class="overflow-x-auto rounded-xl border bg-white"><table class="w-full text-xs text-left"><thead class="bg-slate-50 text-[9px] font-bold uppercase"><tr><th class="px-4 py-4 sticky left-0 bg-slate-50 z-10">Assistente</th>`;
+        let html = `<div class="space-y-4"><div class="bg-rose-50 p-4 rounded-xl flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm"><i class="fas fa-chart-line"></i></div><div><h4 class="text-rose-900 font-bold">Análise de GAP</h4></div></div><div class="overflow-x-auto rounded-xl border bg-white"><table class="w-full text-xs text-left"><thead class="bg-slate-50 text-[9px] font-bold uppercase"><tr><th class="px-4 py-4 sticky left-0 bg-slate-50 z-10 w-32">Assistente</th>`;
         for (let m = mesIni; m <= mesFim; m++) html += `<th class="px-3 py-4 text-center">${mesesStr[m-1]}</th>`;
-        html += `<th>Ev %</th><th class="px-4 py-4 text-right">Gap</th></tr></thead><tbody class="divide-y">`;
+        html += `<th class="px-4 py-4 text-center bg-slate-100/50">Ev. %</th><th class="px-4 py-4 text-right bg-slate-100/50">Gap</th></tr></thead><tbody class="divide-y">`;
         lista.forEach(as => {
             let pV = null, uV = null;
             html += `<tr><td class="px-4 py-3 font-bold sticky left-0 bg-white z-10 border-r">${as.nome}</td>`;
@@ -202,9 +208,22 @@ MinhaArea.Relatorios = {
             }
             let ev = (pV > 0 && uV > 0) ? ((uV / pV) - 1) * 100 : 0;
             const g = (topM[mesFim] || 0) - (uV || 0);
-            html += `<td class="px-4 py-3 text-center ${ev > 0 ? 'text-emerald-600' : 'text-rose-600'} font-bold">${ev.toFixed(1)}%</td><td class="px-4 py-3 text-right ${g <= 0 ? 'text-emerald-600' : 'text-amber-600'} font-bold">${g <= 0 ? 'TOP' : `-${Math.round(g)}`}</td></tr>`;
+            html += `<td class="px-4 py-3 text-center bg-slate-50/30 ${ev > 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}">${ev.toFixed(1)}%</td><td class="px-4 py-3 text-right bg-slate-50/30 font-black ${g <= 0 ? 'text-emerald-600' : 'text-amber-600'}">${g <= 0 ? 'TOP' : `-${Math.round(g)}`}</td></tr>`;
         });
         html += `</tbody></table></div></div>`;
         container.innerHTML = html;
+    },
+
+    copiarRelatorio: function(tipo, ano) {
+        const titulo = tipo === 'PROD' ? '📈 RELATÓRIO DE PRODUÇÃO' : '✅ RELATÓRIO DE ASSERTIVIDADE';
+        let t = `${titulo} - ${ano}\n\n`;
+        const { mesIni, mesFim } = this._lastMesRange || { mesIni: 1, mesFim: 12 };
+        for (let i = mesIni - 1; i < mesFim; i++) {
+            const mN = i + 1;
+            const p = (this._lastProd || []).find(x => x.mes === mN);
+            const m = (this._lastMetas || []).find(x => x.mes === mN);
+            if (p) t += `${mN}: Meta ${m?.meta_producao || 0} | Realizado ${Math.round(p.total_prod / p.denominador)} | Ating. ${Math.round((p.total_prod / p.denominador) / (m?.meta_producao || 1) * 100)}%\n`;
+        }
+        navigator.clipboard.writeText(t);
     }
 };
