@@ -303,8 +303,8 @@ Produtividade.Consolidado = {
                     return;
                 }
 
-                // Exclui gestão estrita (AUDITORA, GESTORA)
-                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
+                // Exclui gestão estrita e visitantes (teste)
+                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao) || funcao.includes('VISITANTE');
 
                 // Exclui inativos
                 const ativo = this.mapaAtivo[uid];

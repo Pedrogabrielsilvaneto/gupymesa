@@ -261,7 +261,7 @@ Produtividade.Geral = {
         const f = (u.funcao || '').toUpperCase();
         const id = parseInt(u.id);
 
-        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
+        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR', 'VISITANTE'];
         return forbidden.some(t => p.includes(t) || f.includes(t)) || id === 1 || id === 1000;
     },
 
@@ -468,7 +468,7 @@ Produtividade.Geral = {
         let somaEquipe = { producao: 0, fifo: 0, gt: 0, gp: 0, qtd_assert: 0, soma_media_assert: 0 };
         let countEquipeAssert = 0;
 
-        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
+        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR', 'VISITANTE'];
         const currentLoggedInUid = String(window.Sistema?.usuario?.id || window.MinhaArea?.usuario?.id || '');
 
         for (const item of mapa.values()) {
@@ -602,7 +602,7 @@ Produtividade.Geral = {
             const u = this.state.mapaUsuarios[item.uid] || {};
             const funcao = (u.funcao || '').toLowerCase();
             const perfil = (u.perfil || '').toLowerCase();
-            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante'];
+            const termosGestao = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador', 'coordena', 'visitante', 'head', 'diretor'];
 
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
             if (ehGestao) return false; // Nunca aparece na grade
@@ -854,7 +854,7 @@ Produtividade.Geral = {
         let totalDiasUteis = this.getDiasUteisConfig();
         let totalAbonoEquipe = 0;
 
-        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
+        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR', 'VISITANTE'];
         const gestoraItem = listaOriginal.find(i => i.isAggregatedManager);
 
         // [FIX v5.5] Busca a meta da Gestora de forma global para o período
@@ -1124,7 +1124,7 @@ Produtividade.Geral = {
     },
     contarAssistentesElegiveis: function (filtroContrato = 'todos', filtroFuncao = 'todos') {
         let count = 0;
-        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
+        const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR', 'VISITANTE'];
 
         for (const uid in this.state.mapaUsuarios) {
             const u = this.state.mapaUsuarios[uid];

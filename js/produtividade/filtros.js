@@ -39,7 +39,7 @@ Produtividade.Filtros = {
                 selFuncao.innerHTML = '<option value="">Função</option>';
                 funcoes.forEach(f => {
                     const role = f.funcao.toUpperCase();
-                    const termosExclusao = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENADOR', 'COORDENA'];
+                    const termosExclusao = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENADOR', 'COORDENA', 'VISITANTE'];
                     if (termosExclusao.some(t => role.includes(t))) return;
 
                     const opt = document.createElement('option');
