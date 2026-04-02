@@ -4,6 +4,7 @@
 
 MinhaArea.Relatorios = {
     relatorioAtivo: null,
+    ID_LIDERANCA: '1074356', // ID da Roberta (Baseline para Meta de Gestão)
 
     init: function() {
         console.log("📊 Relatórios da Minha Área Inicializado.");
@@ -18,7 +19,6 @@ MinhaArea.Relatorios = {
         const container = document.getElementById('relatorio-ativo-content');
         if (!container) return;
 
-        // Se clicar no mesmo que já está aberto, recolhe
         if (this.relatorioAtivo === id) {
             this.relatorioAtivo = null;
             container.innerHTML = `
@@ -60,58 +60,68 @@ MinhaArea.Relatorios = {
             const mesIni = dInicio.getMonth() + 1;
             const mesFim = dFim.getMonth() + 1;
 
-            let sqlMetas = `SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ?`;
-            let paramsMetas = [ano, mesIni, mesFim];
-            
-            if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlMetas += ` AND usuario_id = ?`;
-                paramsMetas.push(alvoId);
-            } else if (!MinhaArea.isAdmin() && myId) {
-                sqlMetas += ` AND usuario_id = ?`;
-                paramsMetas.push(myId);
+            // [FIX] Determina para quem buscar a Meta (ID_GESTORA se for Geral)
+            let userTargetForMeta = alvoId;
+            if (MinhaArea.isAdmin()) {
+                if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') {
+                    userTargetForMeta = this.ID_LIDERANCA;
+                }
+            } else {
+                userTargetForMeta = myId;
             }
 
+            // SQL para buscar as metas no período selecionado para o alvo específico
+            let sqlMetas = `SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`;
+            let paramsMetas = [ano, mesIni, mesFim, userTargetForMeta];
             const metas = await Sistema.query(sqlMetas, paramsMetas);
             
+            // [FIX] SQL para buscar produção filtrada por tipo de usuário (Somente Assistentes se for Geral)
             let sqlProd = `
                 SELECT 
-                    mes_referencia as mes, 
-                    SUM(quantidade) as total_prod,
-                    COUNT(DISTINCT CONCAT(usuario_id, '_', data_referencia)) as dias_trab
-                FROM producao 
-                WHERE data_referencia >= ? AND data_referencia <= ?
+                    p.mes_referencia as mes, 
+                    SUM(p.quantidade) as total_prod,
+                    COUNT(DISTINCT CONCAT(p.usuario_id, '_', p.data_referencia)) as dias_trab
+                FROM producao p
+                JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.data_referencia >= ? AND p.data_referencia <= ?
             `;
             let paramsProd = [inicio, fim];
 
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlProd += ` AND usuario_id = ?`;
+                sqlProd += ` AND p.usuario_id = ?`;
                 paramsProd.push(alvoId);
-            } else if (!MinhaArea.isAdmin() && myId) {
-                sqlProd += ` AND usuario_id = ?`;
-                paramsProd.push(myId);
+            } else if (alvoId === 'GRUPO_CLT') {
+                sqlProd += ` AND (u.contrato IS NULL OR u.contrato NOT LIKE '%PJ%' AND u.contrato NOT LIKE '%TERCEIRO%')`;
+            } else if (alvoId === 'GRUPO_TERCEIROS') {
+                sqlProd += ` AND u.contrato LIKE '%PJ%' OR u.contrato LIKE '%TERCEIRO%'`;
+            } else if (!alvoId || alvoId === 'EQUIPE') {
+                // Se visao geral, restringe a assistentes conforme regra de HEADCOUNT (MinhaArea.Geral logic)
+                const forbidden = ['GESTOR', 'AUDITOR', 'COORDENADOR', 'COORDENA', 'LIDER', 'LÍDER', 'HEAD', 'DIRETOR'];
+                sqlProd += ` AND NOT (${forbidden.map(f => `LOWER(u.funcao) LIKE '%${f.toLowerCase()}%' OR LOWER(u.perfil) LIKE '%${f.toLowerCase()}%'`).join(' OR ')})`;
             }
-            sqlProd += ` GROUP BY mes_referencia ORDER BY mes_referencia`;
 
+            sqlProd += ` GROUP BY p.mes_referencia ORDER BY p.mes_referencia`;
             const producao = await Sistema.query(sqlProd, paramsProd);
 
+            // [FIX] SQL para Assertividade
             let sqlAssert = `
                 SELECT 
-                    MONTH(data_referencia) as mes,
-                    AVG(assertividade_val) as media_assert
-                FROM assertividade
-                WHERE data_referencia >= ? AND data_referencia <= ?
+                    MONTH(a.data_referencia) as mes,
+                    AVG(a.assertividade_val) as media_assert
+                FROM assertividade a
+                JOIN usuarios u ON a.usuario_id = u.id
+                WHERE a.data_referencia >= ? AND a.data_referencia <= ?
             `;
             let paramsAssert = [inicio, fim];
             
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
-                sqlAssert += ` AND usuario_id = ?`;
+                sqlAssert += ` AND a.usuario_id = ?`;
                 paramsAssert.push(alvoId);
-            } else if (!MinhaArea.isAdmin() && myId) {
-                sqlAssert += ` AND usuario_id = ?`;
-                paramsAssert.push(myId);
+            } else if (!alvoId || alvoId === 'EQUIPE') {
+                const forbidden = ['GESTOR', 'AUDITOR', 'COORDENADOR', 'COORDENA', 'LIDER', 'LÍDER', 'HEAD', 'DIRETOR'];
+                sqlAssert += ` AND NOT (${forbidden.map(f => `LOWER(u.funcao) LIKE '%${f.toLowerCase()}%' OR LOWER(u.perfil) LIKE '%${f.toLowerCase()}%'`).join(' OR ')})`;
             }
-            sqlAssert += ` GROUP BY MONTH(data_referencia) ORDER BY mes`;
-            
+            sqlAssert += ` GROUP BY MONTH(a.data_referencia) ORDER BY mes`;
             const assertividade = await Sistema.query(sqlAssert, paramsAssert);
 
             this.renderizarMetasOKR(metas, producao, assertividade, ano, mesIni, mesFim);
@@ -279,7 +289,7 @@ MinhaArea.Relatorios = {
             const assertObj = (assertividade || []).find(a => a.mes === mesNum);
 
             const metaVal = metaObj ? (Number(metaObj.meta_assertividade) || 97) : 97;
-            const realizado = assertObj ? (Number(assertObj.media_assert) || 0) : 0;
+            const realizado = assertObj ? (Number(assertividade[i]?.media_assert) || Number(assertObj?.media_assert) || 0) : 0;
             
             let atingimento = 0;
             if (realizado > 0) {
@@ -379,8 +389,6 @@ MinhaArea.Relatorios = {
             const mesIni = dInicio.getMonth() + 1;
             const mesFim = dFim.getMonth() + 1;
 
-            // Busca produção de TODOS no período para calcular a Velocidade (Média Diária)
-            // Filtra por 'ASSISTENTE' para evitar inflar o Max
             let sql = `
                 SELECT 
                     p.usuario_id, 
@@ -397,9 +405,8 @@ MinhaArea.Relatorios = {
             `;
             const data = await Sistema.query(sql, [inicio, fim]);
 
-            // Organiza por usuário e mês
-            const roadmap = {}; // { userId: { nome: '', meses: { mes: vel } } }
-            const topMensal = {}; // { mes: maxVel }
+            const roadmap = {};
+            const topMensal = {};
 
             data.forEach(row => {
                 if (!roadmap[row.usuario_id]) roadmap[row.usuario_id] = { nome: row.nome, meses: {} };
@@ -444,7 +451,6 @@ MinhaArea.Relatorios = {
                                 <th class="px-4 py-4 sticky left-0 bg-slate-50 z-10 w-28">Assistente</th>
         `;
 
-        // Cabeçalhos de Meses
         for (let m = mesIni; m <= mesFim; m++) {
             html += `<th class="px-3 py-4 text-center whitespace-nowrap min-w-[70px]">${mesesStr[m-1]}</th>`;
         }
@@ -489,7 +495,6 @@ MinhaArea.Relatorios = {
                 `;
             }
 
-            // Evolução
             let evolPct = 0;
             if (primeiroValor > 0 && ultimoValor > 0) {
                 evolPct = ((ultimoValor / primeiroValor) - 1) * 100;
@@ -497,7 +502,6 @@ MinhaArea.Relatorios = {
             const evolClass = evolPct > 0 ? 'text-emerald-600' : (evolPct < 0 ? 'text-rose-600' : 'text-slate-400');
             const evolIcon = evolPct > 0 ? 'fa-arrow-up' : (evolPct < 0 ? 'fa-arrow-down' : 'fa-minus');
 
-            // Gap vs Top do último mês ativo
             const topUltimoMes = topMensal[mesFim] || 0;
             const gap = topUltimoMes - currentVel;
             const gapPct = topUltimoMes > 0 ? (gap / topUltimoMes) * 100 : 0;
@@ -544,7 +548,7 @@ MinhaArea.Relatorios = {
         `;
 
         container.innerHTML = html;
-        this._lastGAPData = roadmap; // Store for copy if needed
+        this._lastGAPData = roadmap;
     },
 
     copiarLinha: function(tipo, mes, meta, realizado, ating) {
