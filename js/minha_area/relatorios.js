@@ -1,5 +1,5 @@
 /* ARQUIVO: js/minha_area/relatorios.js
-   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.7 (Final Sync 17 HC)
+   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V5.9.8 (Fix Accumulated Logic)
 */
 
 MinhaArea.Relatorios = {
@@ -37,9 +37,11 @@ MinhaArea.Relatorios = {
             const mesAtual = dHoje.getMonth() + 1;
             const diaHojeStr = dHoje.toISOString().split('T')[0];
 
-            const ano = new Date(inicio + 'T12:00:00').getFullYear();
-            const mesIni = new Date(inicio + 'T12:00:00').getMonth() + 1;
-            const mesFim = new Date(fim + 'T12:00:00').getMonth() + 1;
+            const dIni = new Date(inicio + 'T12:00:00');
+            const dFim = new Date(fim + 'T12:00:00');
+            const ano = dIni.getFullYear();
+            const mesIni = dIni.getMonth() + 1;
+            const mesFim = dFim.getMonth() + 1;
 
             const configMes = await Sistema.query(`SELECT * FROM config_mes WHERE ano = ?`, [ano]);
 
@@ -49,12 +51,10 @@ MinhaArea.Relatorios = {
             
             const metas = await Sistema.query(`SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, utForMeta]);
 
-            // PRODUÇÃO: Soma tudo, menos visitantes
             let pP = [inicio, fim];
             let sqlP = `SELECT MONTH(data_referencia) as mes, SUM(quantidade) as total_prod FROM producao WHERE data_referencia >= ? AND data_referencia <= ? AND usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) GROUP BY mes`;
             const prodR = await Sistema.query(sqlP, pP);
 
-            // ASSERTIVIDADE
             let pA = [inicio, fim];
             let sqlA = `SELECT MONTH(data_referencia) as mes, AVG(assertividade_val) as media_assert FROM assertividade WHERE data_referencia >= ? AND data_referencia <= ? `;
             if (alvoId && alvoId !== 'EQUIPE') { sqlA += ` AND usuario_id = ? `; pA.push(alvoId); }
@@ -67,23 +67,19 @@ MinhaArea.Relatorios = {
                 const p = (prodR || []).find(x => Number(x.mes) === m);
                 const a = (asR || []).find(x => Number(x.mes) === m);
 
-                // Headcount Fixo 17 assistants (Geral)
                 let hc = 17;
                 if (alvoId === 'GRUPO_CLT') hc = (c && c.hc_clt) ? Number(c.hc_clt) : 8;
                 else if (alvoId === 'GRUPO_TERCEIROS') hc = (c && c.hc_terceiros) ? Number(c.hc_terceiros) : 9;
                 else if (c && (Number(c.hc_clt) || 0) + (Number(c.hc_terceiros) || 0) > 0) hc = Number(c.hc_clt) + Number(c.hc_terceiros);
 
-                // Dias Úteis Baseline
                 let dUteisBase = (c && c.dias_uteis) ? Number(c.dias_uteis) : 0;
                 if (dUteisBase === 0) dUteisBase = this.calcularDiasUteisCalendario(m, ano);
                 if (m === 1 && ano === 2026) dUteisBase = 21;
                 if (m === 2 && ano === 2026 && dUteisBase > 18) dUteisBase = 18; 
 
-                // Mês Atual?
                 let dRef = dUteisBase;
                 if (m === mesAtual && ano === anoAtual) dRef = this.contarDiasUteis(`${ano}-${String(m).padStart(2,'0')}-01`, diaHojeStr);
 
-                // Divider Rule (-1)
                 let dFinal = Math.max(1, dRef - 1);
                 let denV = (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') ? (hc * dFinal) : dFinal;
 
@@ -96,36 +92,45 @@ MinhaArea.Relatorios = {
     renderizarMetasOKR: function(metas, producao, assertividade, ano, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        let html = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
+        let htmlIdx = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
             <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
-        let tMP = 0, cMP = 0, tPP = 0, tDP = 0;
+        let tMP = 0, cMP = 0, tPP = 0, tDP = 0, countV = 0;
         producao.forEach(p => {
             const mN = p.mes; const mObj = (metas || []).find(m => Number(m.mes) === mN);
             const mVal = mObj ? (Number(mObj.meta_producao) || 0) : 0;
             const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0;
             const pct = mVal > 0 ? (r / mVal) * 100 : 0;
-            if (mVal > 0) { tMP += mVal; cMP++; } tPP += p.total_prod; tDP += p.denominador;
             const cl = pct >= 100 ? 'text-emerald-600 bg-emerald-50' : (pct >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
-            html += `<tr><td class="px-4 py-2.5 font-bold">${mS[mN-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal || '--'}</td><td class="px-4 py-2.5 text-right font-black text-blue-600">${r > 0 ? Math.round(r).toLocaleString() : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${pct.toFixed(1)}%</span></td></tr>`;
+            // Só soma no acumulado se houver produção (ou for mês passado)
+            if (p.total_prod > 0) {
+                if (mVal > 0) { tMP += mVal; cMP++; }
+                tPP += p.total_prod; tDP += p.denominador; countV++;
+            }
+            htmlIdx += `<tr><td class="px-4 py-2.5 font-bold">${mS[mN-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal || '--'}</td><td class="px-4 py-2.5 text-right font-black text-blue-600">${r > 0 ? Math.round(r).toLocaleString() : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${pct.toFixed(1)}%</span></td></tr>`;
         });
         const aMP = cMP > 0 ? (tMP / cMP) : 0; const aRP = tDP > 0 ? (tPP / tDP) : 0; const aPP = aMP > 0 ? (aRP / aMP * 100) : 0;
-        html += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMP).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-blue-50/50">${Math.round(aRP).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aPP.toFixed(1)}%</span></td></tr></tfoot></table></div></div>`;
-        html += `<div class="space-y-4 shadow-xl"><div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Assertividade</h3></div>
+        htmlIdx += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMP).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-blue-50/50">${Math.round(aRP).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aPP.toFixed(1)}%</span></td></tr></tfoot></table></div></div>`;
+        
+        let htmlAs = `<div class="space-y-4"><div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Assertividade</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
         let sA = 0, cA = 0, tMA = 0, cMA = 0;
         assertividade.forEach(as => {
             const mN = as.mes; const mObj = (metas || []).find(m => Number(m.mes) === mN);
             const mVal = mObj ? (Number(mObj.meta_assertividade) || 97) : 97;
             const rV = as.assert; let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
-            if (mVal > 0) { tMA += mVal; cMA++; } if (rV > 0) { sA += rV; cA++; }
+            if (rV > 0) {
+                if (mVal > 0) { tMA += mVal; cMA++; }
+                sA += rV; cA++;
+            }
             const cl = rV >= mVal ? 'text-emerald-600 bg-emerald-50' : (rV >= 90 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
-            html += `<tr><td class="px-4 py-2.5 font-bold">${mS[mN-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal}%</td><td class="px-4 py-2.5 text-right font-black text-emerald-600">${rV > 0 ? rV.toFixed(2) + '%' : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${at}%</span></td></tr>`;
+            htmlAs += `<tr><td class="px-4 py-2.5 font-bold">${mS[mN-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal}%</td><td class="px-4 py-2.5 text-right font-black text-emerald-600">${rV > 0 ? rV.toFixed(2) + '%' : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${at}%</span></td></tr>`;
         });
         const aMA = cMA > 0 ? tMA / cMA : 97; const aRA = cA > 0 ? sA / cA : 0;
         let aAt = 0; if (aRA > 0) { if (aRA < 90) aAt = 0; else if (aRA < 94) aAt = 50; else if (aRA < 95) aAt = 70; else if (aRA < 96) aAt = 80; else if (aRA <= 97) aAt = 90; else aAt = 100; }
-        html += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMA)}%</td><td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/50">${aRA.toFixed(2)}%</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aAt}%</span></td></tr></tfoot></table></div></div></div>`;
-        container.innerHTML = html;
+        htmlAs += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aMA)}%</td><td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/50">${aRA.toFixed(2)}%</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aAt}%</span></td></tr></tfoot></table></div></div></div>`;
+        
+        container.innerHTML = htmlIdx + htmlAs;
         this._lastMetas = metas; this._lastProd = producao; this._lastAssert = assertividade; this._lastMesRange = { mesIni, mesFim };
     },
 
