@@ -93,10 +93,14 @@ window.Produtividade.Importacao.Validacao = {
         if (statusEl) statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Sincronizando usuários...</span>`;
         
         const resUsers = await Sistema.query("SELECT id, nome FROM usuarios WHERE ativo = 1");
-        this.cacheUsuarios = (resUsers || []).reduce((acc, u) => {
-            if (u.nome) acc[u.nome.trim().toUpperCase()] = u.id;
-            return acc;
-        }, {});
+        // [FIX v5.7] Cache como nome → [array de IDs] para tratar nomes duplicados
+        this.cacheUsuarios = {};
+        (resUsers || []).forEach(u => {
+            if (!u.nome) return;
+            const chave = u.nome.trim().toUpperCase();
+            if (!this.cacheUsuarios[chave]) this.cacheUsuarios[chave] = [];
+            this.cacheUsuarios[chave].push(u.id);
+        });
 
         if (statusEl) statusEl.innerHTML = `<span class="text-blue-500"><i class="fas fa-spinner fa-spin"></i> Detectando codificação...</span>`;
 
@@ -189,12 +193,22 @@ window.Produtividade.Importacao.Validacao = {
 
             let usuarioId = parseInt(idRaw.toString().replace(/\D/g, ''));
             
-            // 🔥 CORREÇÃO DE SEGURANÇA GUPYMESA:
-            // Mapeia ID pelo nome para evitar erros de ID trocado no Gupy
+            // [FIX v5.7] Só substitui o ID pelo nome se houver UMA correspondência única
+            // Se houver nomes duplicados, mantém o ID original do CSV (ID sempre vence)
             if (assistenteNome && this.cacheUsuarios) {
                 const nomeBusca = assistenteNome.trim().toUpperCase();
-                if (this.cacheUsuarios[nomeBusca]) {
-                    usuarioId = this.cacheUsuarios[nomeBusca];
+                const idsEncontrados = this.cacheUsuarios[nomeBusca];
+                if (idsEncontrados && idsEncontrados.length === 1) {
+                    // Nome único, substitui com segurança
+                    usuarioId = idsEncontrados[0];
+                } else if (idsEncontrados && idsEncontrados.length > 1 && !isNaN(usuarioId)) {
+                    // Nome ambíguo: usa o ID do CSV se ele estiver na lista de IDs válidos
+                    if (idsEncontrados.includes(usuarioId) || idsEncontrados.includes(String(usuarioId))) {
+                        // ID do CSV bate com um dos cadastros, mantém
+                    } else {
+                        // ID do CSV não bate: usa o primeiro ID (fallback)
+                        usuarioId = idsEncontrados[0];
+                    }
                 }
             }
 

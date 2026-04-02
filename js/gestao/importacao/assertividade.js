@@ -209,10 +209,14 @@ Gestao.Importacao.Assertividade = {
 
         await this.mostrarProgresso(16, "Sincronizando banco de dados de usuários...", 'normal');
         const resUsers = await Sistema.query("SELECT id, nome FROM usuarios WHERE ativo = 1");
-        this.cacheUsuarios = (resUsers || []).reduce((acc, u) => {
-            if (u.nome) acc[u.nome.trim().toUpperCase()] = u.id;
-            return acc;
-        }, {});
+        // [FIX v5.7] Cache como nome → [array de IDs] para tratar nomes duplicados
+        this.cacheUsuarios = {};
+        (resUsers || []).forEach(u => {
+            if (!u.nome) return;
+            const chave = u.nome.trim().toUpperCase();
+            if (!this.cacheUsuarios[chave]) this.cacheUsuarios[chave] = [];
+            this.cacheUsuarios[chave].push(u.id);
+        });
 
         await this.mostrarProgresso(18, "Calculando Datas (Inteligência Artificial)...", 'normal');
         await new Promise(r => setTimeout(r, 100));
@@ -249,12 +253,19 @@ Gestao.Importacao.Assertividade = {
                     // Se não tiver ID da PPC ou se for linha de TOTAL, ignoramos o registro.
                     if (!dataCompetencia || !idPpc || (assistenteNome && assistenteNome.toUpperCase().includes('TOTAL'))) return;
 
-                    // 🔥 CORREÇÃO DE SEGURANÇA GUPYMESA: 
-                    // Se o assistente existe por nome no nosso banco, usamos o nosso ID (mais confiável que o export do Gupy)
-                    if (assistenteNome && this.cacheUsuarios && this.cacheUsuarios[assistenteNome.toUpperCase()]) {
-                        const idCorreto = this.cacheUsuarios[assistenteNome.toUpperCase()];
-                        if (userId !== idCorreto) {
-                            userId = idCorreto;
+                    // [FIX v5.7] Só substitui o ID pelo nome se houver UMA correspondência única
+                    // Se houver nomes duplicados, mantém o ID original do CSV (ID sempre vence)
+                    if (assistenteNome && this.cacheUsuarios) {
+                        const chaveNome = assistenteNome.toUpperCase();
+                        const idsEncontrados = this.cacheUsuarios[chaveNome];
+                        if (idsEncontrados && idsEncontrados.length === 1) {
+                            // Nome único no sistema: usa nosso ID com segurança
+                            userId = idsEncontrados[0];
+                        } else if (idsEncontrados && idsEncontrados.length > 1) {
+                            // Nome ambíguo: preferência para o ID que já existe no CSV
+                            const idCsvStr = String(userId);
+                            const idMatch = idsEncontrados.find(id => String(id) === idCsvStr);
+                            userId = idMatch !== undefined ? idMatch : idsEncontrados[0];
                         }
                     }
 
