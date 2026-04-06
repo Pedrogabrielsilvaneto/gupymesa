@@ -73,7 +73,7 @@
             <!-- Busca Principal -->
             <div class="flex-grow min-w-[200px] relative group h-9">
                 <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors text-xs"></i>
-                <input type="text" id="lib-search" oninput="GupyBiblioteca.aplicarFiltros(true)"
+                <input type="text" id="lib-search" oninput="GupyBiblioteca.aplicarFiltros(true, true)"
                     placeholder="Pesquisar (ex: Dependente)..."
                     class="w-full h-full pl-9 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400 focus:bg-white transition-all placeholder:text-slate-400">
             </div>
@@ -81,7 +81,7 @@
             <!-- Busca Complementar -->
             <div class="flex-grow min-w-[150px] relative group h-9">
                 <i class="fas fa-filter absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors text-xs"></i>
-                <input type="text" id="lib-search-2" oninput="GupyBiblioteca.aplicarFiltros(true)"
+                <input type="text" id="lib-search-2" oninput="GupyBiblioteca.aplicarFiltros(true, true)"
                     placeholder="+ Filtro (ex: RG)..."
                     class="w-full h-full pl-9 pr-9 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-400">
                 <button onclick="GupyBiblioteca.limparBusca()" id="btn-limpar-busca" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 p-1 transition" title="Limpar Buscas">

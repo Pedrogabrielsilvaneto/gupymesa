@@ -290,7 +290,15 @@ window.GupyBiblioteca = {
         return (t || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     },
 
-    aplicarFiltros: function (scrollToTop) {
+    aplicarFiltros: function (scrollToTop, originIsSearch) {
+        if (originIsSearch) {
+            const elEmp = document.getElementById('lib-filtro-empresa');
+            const elMot = document.getElementById('lib-filtro-motivo');
+            const elDoc = document.getElementById('lib-filtro-doc');
+            if (elEmp) elEmp.value = "";
+            if (elMot) elMot.value = "";
+            if (elDoc) elDoc.value = "";
+        }
         const inputBusca = document.getElementById('lib-search');
         const inputBusca2 = document.getElementById('lib-search-2');
         const termo = this.normalizar(inputBusca?.value || '');
