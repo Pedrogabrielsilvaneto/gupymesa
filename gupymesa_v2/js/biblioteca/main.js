@@ -110,8 +110,14 @@ window.GupyBiblioteca = {
         const key = `gupy_favs_${this.usuario.id}`;
         try {
             const saved = localStorage.getItem(key);
-            this.cacheFavoritos = saved ? JSON.parse(saved) : [];
+            if (saved) {
+                // Força todos a serem strings para evitar problemas de comparação
+                this.cacheFavoritos = JSON.parse(saved).map(id => String(id));
+            } else {
+                this.cacheFavoritos = [];
+            }
         } catch (e) {
+            console.error("Erro ao carregar favoritos:", e);
             this.cacheFavoritos = [];
         }
     },
@@ -119,23 +125,33 @@ window.GupyBiblioteca = {
     salvarFavoritos: function () {
         if (!this.usuario) return;
         const key = `gupy_favs_${this.usuario.id}`;
-        localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
+        // Limpar duplicatas e salvar somente strings
+        const listaUnica = [...new Set(this.cacheFavoritos.map(id => String(id)))];
+        localStorage.setItem(key, JSON.stringify(listaUnica));
+        this.cacheFavoritos = listaUnica;
     },
 
     toggleFavorito: function (id) {
-        id = id.toString();
+        if (!id) return;
+        id = String(id);
         const index = this.cacheFavoritos.indexOf(id);
+        
         if (index > -1) {
             this.cacheFavoritos.splice(index, 1);
         } else {
             this.cacheFavoritos.push(id);
         }
+        
         this.salvarFavoritos();
-        this.aplicarFiltros();
+        
+        // Se estiver na aba de favoritos, re-aplica filtros para remover o card da tela
+        // Se estiver em outra aba, apenas re-renderiza para atualizar o ícone do coração
+        this.aplicarFiltros(false);
     },
 
     isFavorito: function (id) {
-        return this.cacheFavoritos.includes(id.toString());
+        if (!id) return false;
+        return this.cacheFavoritos.includes(String(id));
     },
 
     toggleOpcoes: function () {
