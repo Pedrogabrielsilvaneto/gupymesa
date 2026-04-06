@@ -302,7 +302,8 @@ MinhaArea.Relatorios = {
                 }
             });
         });
-    },
+    });
+},
 
     fecharGrafico: function() {
         document.getElementById('gap-chart-container').classList.add('hidden');
