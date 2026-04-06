@@ -1,5 +1,5 @@
 /* ARQUIVO: js/minha_area/relatorios.js
-   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V6.2.0 (Relative GAP Benchmark)
+   DESCRIÇÃO: Módulo de Relatórios da Minha Área - V6.4.0 (Gráfico Comparativo)
 */
 
 MinhaArea.Relatorios = {
@@ -131,7 +131,11 @@ MinhaArea.Relatorios = {
             if (!MinhaArea.isAdmin()) return;
             const datas = MinhaArea.getDatasFiltro();
             const { inicio, fim } = datas;
-            const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND u.ativo = 1 AND p.usuario_id NOT IN (2026, 200601) AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, mes ORDER BY u.nome, mes`;
+            const alvoId = MinhaArea.getUsuarioAlvo();
+            let filtroGrupo = '';
+            if (alvoId === 'GRUPO_CLT') filtroGrupo = ' AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE "%pj%" AND LOWER(u.contrato) NOT LIKE "%terceiro%")) ';
+            else if (alvoId === 'GRUPO_TERCEIROS') filtroGrupo = ' AND (LOWER(u.contrato) LIKE "%pj%" OR LOWER(u.contrato) LIKE "%terceiro%") ';
+            const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND u.ativo = 1 AND p.usuario_id NOT IN (2026, 200601) AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') ${filtroGrupo} GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, mes ORDER BY u.nome, mes`;
             const data = await Sistema.query(sql, [inicio, fim]);
             const roadmap = {};
             data.forEach(row => {
@@ -150,13 +154,22 @@ MinhaArea.Relatorios = {
         if (!container || !this._gapData) return;
         const { roadmap, mesIni, mesFim } = this._gapData;
         const lista = Object.values(roadmap).sort((a,b) => a.nome.localeCompare(b.nome));
+        
+        // [FIX] Encontrar o último mês com dados (shared)
+        let lastSharedMes = mesIni;
+        for (let m = mesFim; m >= mesIni; m--) {
+            const hasData = lista.some(as => as.meses[m] > 0);
+            if (hasData) { lastSharedMes = m; break; }
+        }
+        
         const benchmarkRow = roadmap[this._gapBenchmarkId] || lista[0];
+        const outrosUsuarios = lista.filter(as => as.id !== this._gapBenchmarkId);
         
         let html = `<div class="space-y-6 animate-enter">
-            <div class="bg-rose-50 p-4 rounded-2xl flex items-center justify-between border border-rose-100">
+            <div class="bg-rose-50 p-4 rounded-2xl flex items-center justify-between border border-rose-100 shadow-sm">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg"><i class="fas fa-balance-scale"></i></div>
-                    <div><h4 class="text-rose-900 font-black text-xs uppercase tracking-widest">Comparativo de Performance</h4><p class="text-[10px] text-rose-600 font-bold">Defina uma assistente de referência para comparar as demais</p></div>
+                    <div><h4 class="text-rose-900 font-black text-xs uppercase tracking-widest">Comparativo de Performance</h4><p class="text-[10px] text-rose-600 font-bold">Base de comparação: Mês ${lastSharedMes}</p></div>
                 </div>
                 <div class="flex flex-col items-end">
                     <span class="text-[8px] font-bold text-rose-400 uppercase mb-1">Referência (Benchmark):</span>
@@ -169,8 +182,8 @@ MinhaArea.Relatorios = {
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div class="flex flex-wrap gap-2 items-center">
                     <span class="text-[10px] font-black text-slate-400 uppercase mr-2">Exibir:</span>
-                    <button onclick="MinhaArea.Relatorios.toggleAllGap(true)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition">Todos</button>
-                    <button onclick="MinhaArea.Relatorios.toggleAllGap(false)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition">Nenhum</button>
+                    <button onclick="MinhaArea.Relatorios.toggleAllGap(true)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition text-slate-600">Todos</button>
+                    <button onclick="MinhaArea.Relatorios.toggleAllGap(false)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition text-slate-600">Nenhum</button>
                     <div class="h-4 w-px bg-slate-200 mx-2"></div>
                     <div class="flex flex-wrap gap-1.5">`;
         
@@ -180,26 +193,23 @@ MinhaArea.Relatorios = {
         });
         
         html += `</div></div></div>
-
+            </div>
+            
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-500 border-b"><tr><th class="px-6 py-4 sticky left-0 bg-slate-50 z-10 w-48 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-900 border-r">Assistente</th>`;
         for (let m = mesIni; m <= mesFim; m++) html += `<th class="px-4 py-4 text-center border-r">Mês ${m}</th>`;
-        html += `<th class="px-4 py-4 text-right bg-rose-50/50 text-rose-900 pr-8">DIFERENÇA VS REF.</th></tr></thead><tbody class="divide-y">`;
+        html += `<th class="px-4 py-4 text-center bg-blue-50/50 text-blue-900 border-r">EVOLUÇÃO %</th><th class="px-4 py-4 text-right bg-rose-50/50 text-rose-900 pr-8">DIFERENÇA VS REF.</th></tr></thead><tbody class="divide-y">`;
         
-        lista.forEach(as => {
+        // Primeiro: Referência (sempre no topo)
+        html += this.renderizarLinhaGAP(benchmarkRow, benchmarkRow, lastSharedMes, true);
+        
+        // Depois: outros usuários
+        outrosUsuarios.forEach(as => {
             if (this._selectedGapUsers.size > 0 && !this._selectedGapUsers.has(as.id)) return;
-            const isRef = as.id === this._gapBenchmarkId;
-            html += `<tr class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/30' : ''}"><td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">${as.nome} ${isRef ? '⭐' : ''}</td>`;
-            for (let m = mesIni; m <= mesFim; m++) {
-                const val = as.meses[m] || 0;
-                html += `<td class="px-4 py-4 text-center border-r font-mono font-bold text-slate-500">${val > 0 ? Math.round(val) : '--'}</td>`;
-            }
-            const curVal = as.meses[mesFim] || 0; const refVal = benchmarkRow.meses[mesFim] || 0;
-            const diff = curVal - refVal;
-            html += `<td class="px-4 py-4 text-right font-black pr-8 ${isRef ? 'text-slate-400' : (diff >= 0 ? 'text-emerald-600' : 'text-rose-600')}" style="font-size: 11px;">${isRef ? 'REFERÊNCIA' : (diff >= 0 ? `+${Math.round(diff)} metas/dia` : `-${Math.abs(Math.round(diff))} metas/dia`)}</td></tr>`;
+            html += this.renderizarLinhaGAP(as, benchmarkRow, lastSharedMes, false);
         });
         
-        html += `</tbody></table></div></div>`;
+        html += `</tbody></table></div></div></div>`;
         container.innerHTML = html;
     },
 
@@ -212,9 +222,90 @@ MinhaArea.Relatorios = {
         if (this._selectedGapUsers.has(id)) this._selectedGapUsers.delete(id); else this._selectedGapUsers.add(id);
         this.renderizarGAP();
     },
+
+    renderizarLinhaGAP: function(as, benchmarkRow, lastSharedMes, isRef) {
+        let onclick = isRef ? '' : `onclick="MinhaArea.Relatorios.abrirGrafico('${as.id}')" style="cursor:pointer"`;
+        let html = `<tr ${onclick} class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/10' : ''}"><td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">${as.nome} ${isRef ? '⭐' : ''}</td>`;
+        
+        let pVal = null, lVal = null;
+        for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
+            const val = as.meses[m] || 0;
+            if (val > 0) { if (pVal === null) pVal = val; lVal = val; }
+            html += `<td class="px-4 py-4 text-center border-r font-mono font-bold text-slate-500">${val > 0 ? Math.round(val) : '--'}</td>`;
+        }
+        
+        let ev = (pVal > 0 && lVal > 0) ? ((lVal / pVal) - 1) * 100 : 0;
+        
+        const curMonthVal = as.meses[lastSharedMes] || 0;
+        const refMonthVal = benchmarkRow.meses[lastSharedMes] || 0;
+        const diff = curMonthVal - refMonthVal;
+        
+        html += `
+            <td class="px-4 py-4 text-center border-r font-black ${ev >= 0 ? 'text-emerald-600' : 'text-rose-600'} text-[10px] bg-blue-50/10">${ev > 0 ? '+' : ''}${ev.toFixed(1)}%</td>
+            <td class="px-4 py-4 text-right font-black pr-8 ${isRef ? 'text-slate-400' : (diff >= 0 ? 'text-emerald-600' : 'text-rose-600')}" style="font-size: 11px;">
+                ${isRef ? '<span class="text-[9px] opacity-50 uppercase">Referência</span>' : (diff >= 0 ? `+${Math.round(diff)} metas/dia` : `-${Math.abs(Math.round(diff))} metas/dia`)}
+            </td></tr>`;
+        return html;
+    },
     
     toggleAllGap: function(sel) {
         if (!sel) this._selectedGapUsers = new Set(['FORCED_EMPTY']); else this._selectedGapUsers.clear();
         this.renderizarGAP();
+    },
+
+    abrirGrafico: function(userId) {
+        if (!this._gapData || !userId) return;
+        const { roadmap, mesIni, mesFim } = this._gapData;
+        const user = roadmap[userId];
+        const benchmark = roadmap[this._gapBenchmarkId];
+        if (!user || !benchmark) return;
+
+        const container = document.getElementById('gap-chart-container');
+        container.classList.remove('hidden');
+        document.getElementById('chart-user-name').textContent = user.nome;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const ctx = document.getElementById('gap-chart');
+                if (!ctx || typeof Chart === 'undefined') return;
+                if (this._gapChartInstance) this._gapChartInstance.destroy();
+
+            const meses = [];
+            const labels = [];
+            for (let m = mesIni; m <= mesFim; m++) {
+                meses.push(m);
+                labels.push('Mês ' + m);
+            }
+
+            const userData = meses.map(m => user.meses[m] || 0);
+            const refData = meses.map(m => benchmark.meses[m] || 0);
+
+            this._gapChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: user.nome, data: userData, backgroundColor: '#3b82f6', borderRadius: 4 },
+                        { label: benchmark.nome, data: refData, backgroundColor: '#f43f5e', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Metas/Dia' } }
+                    }
+                }
+            });
+        });
+    },
+
+    fecharGrafico: function() {
+        document.getElementById('gap-chart-container').classList.add('hidden');
+        if (this._gapChartInstance) { this._gapChartInstance.destroy(); this._gapChartInstance = null; }
     }
 };

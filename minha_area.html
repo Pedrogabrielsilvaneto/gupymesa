@@ -728,6 +728,15 @@
                             Selecione um relatório acima para visualizar os dados.
                         </div>
                     </div>
+                    
+                    <!-- Container do Gráfico GAP (fora do relatório ativo) -->
+                    <div id="gap-chart-container" class="hidden bg-white p-4 rounded-xl border border-slate-200 shadow-lg mt-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-xs font-black text-slate-700 uppercase">Comparativo: <span id="chart-user-name"></span> vs Referência</h4>
+                            <button onclick="MinhaArea.Relatorios.fecharGrafico()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="h-64" id="gap-chart"></div>
+                    </div>
                 </div>
             </div>
         </div>
