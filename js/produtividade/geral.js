@@ -1006,6 +1006,10 @@ Produtividade.Geral = {
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
         const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
 
+        // [FIX] Define rangeSel e isPeriodoKpi para uso nos cálculos
+        const rangeSel = this.state.range || {};
+        const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
+
         // [FIX] Dias Efetivos por Assistente - seguindo a lógica correta da Minha Área
         // Para CLT em período: soma_fator - 1. Para Terceiros ou dia único: soma_fator
         let totalDiasEfetivosAssistentes = 0;
@@ -1044,7 +1048,6 @@ Produtividade.Geral = {
         }
 
         const diasTotalKpi = totalDiasUteis;
-        const isPeriodo = rangeSel.inicio !== rangeSel.fim;
 
         // --- [FIX v5.7] CÁLCULO DA META GLOBAL (PRODUTIVIDADE) CONFORME REGRAS ESPECÍFICAS ---
         // Regra: Meta Diária * Headcount * Dias Produtivos
