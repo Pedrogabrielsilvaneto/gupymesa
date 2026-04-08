@@ -1010,10 +1010,10 @@ Produtividade.Geral = {
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
-        // [FIX] Dias Efetivos por Assistente - seguindo a lógica correta da Minha Área
+        // [FIX] Dias trabalhados por assistente - seguindo a lógica correta da Minha Área
         // Para CLT em período: soma_fator - 1. Para Terceiros ou dia único: soma_fator
-        let totalDiasEfetivosAssistentes = 0;
-        let totalDiasUteisLiquidos = 0;
+        let totalDiasTrabalhados = 0;
+        let totalAssistentes = 0;
         listaExibicao.forEach(i => {
             if (!i.isAggregatedManager) {
                 const u = this.state.mapaUsuarios[i.uid] || {};
@@ -1021,22 +1021,20 @@ Produtividade.Geral = {
                 const perfil = (u.perfil || '').toUpperCase();
                 const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
                 if (!ehGestao && i.producao > 0) {
+                    totalAssistentes++;
                     const uContrato = (u.contrato || '').toUpperCase();
                     const isTerceiro = uContrato.includes('PJ') || uContrato.includes('TERCEIR') || uContrato.includes('PREST');
                     const ehCLT = !isTerceiro;
                     const somaFatorItem = i.soma_fator || 0;
                     const diasItem = (ehCLT && isPeriodoKpi && somaFatorItem > 0) ? Math.max(0, somaFatorItem - 1) : somaFatorItem;
-                    totalDiasEfetivosAssistentes += diasItem;
-                    // Dias úteis líquidos = dias úteis bruto - abonos
-                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
-                    const diasBrutos = isPeriodoKpi ? (ehCLT ? Math.max(0, diasCalendarioEfetivos - 1) : diasCalendarioEfetivos) : diasCalendarioEfetivos;
-                    totalDiasUteisLiquidos += Math.max(0, diasBrutos - abono);
+                    totalDiasTrabalhados += diasItem;
                 }
             }
         });
 
-        // [FIX] Velocidade = Produção Total / (HC × Dias Úteis Líquidos) - igual Minha Área equipe
-        const divisorVelocidade = hcParaVelocidade * Math.max(1, totalDiasUteisLiquidos);
+        // [FIX] Velocidade EQUIPE = Total Prod / Total Assistentes / Dias Trabalhados
+        // Aplica para TODOS, CLT e TERCEIROS (mesma fórmula)
+        const divisorVelocidade = totalAssistentes * Math.max(1, totalDiasTrabalhados);
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
 
