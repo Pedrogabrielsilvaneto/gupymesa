@@ -1006,9 +1006,9 @@ Produtividade.Geral = {
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
         const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
 
-        // [FIX] Abono Manual da Gestora (Soma acumulada de abonos parciais ex: 0.5 + 0.5 = 1 dia)
-        // Agora considera TODOS os assistentes, não só a gestora
-        let totalAbonoAssistentes = 0;
+        // [FIX] Dias Efetivos por Assistente - seguindo a lógica correta da Minha Área
+        // Para CLT em período: soma_fator - 1. Para Terceiros ou dia único: soma_fator
+        let totalDiasEfetivosAssistentes = 0;
         listaExibicao.forEach(i => {
             if (!i.isAggregatedManager) {
                 const u = this.state.mapaUsuarios[i.uid] || {};
@@ -1016,21 +1016,18 @@ Produtividade.Geral = {
                 const perfil = (u.perfil || '').toUpperCase();
                 const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
                 if (!ehGestao && i.producao > 0) {
-                    // Abono = days worked - sum of factors (ex: 21 - 20 = 1 day off)
-                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
-                    if (abono > 0) totalAbonoAssistentes += abono;
+                    const uContrato = (u.contrato || '').toUpperCase();
+                    const isTerceiro = uContrato.includes('PJ') || uContrato.includes('TERCEIR') || uContrato.includes('PREST');
+                    const ehCLT = !isTerceiro;
+                    const somaFatorItem = i.soma_fator || 0;
+                    const diasItem = (ehCLT && isPeriodoKpi && somaFatorItem > 0) ? Math.max(0, somaFatorItem - 1) : somaFatorItem;
+                    totalDiasEfetivosAssistentes += diasItem;
                 }
             }
         });
 
-        // [FIX] Regra Gestora (CLT e TODOS): Sempre subtrai 1 dia se for um período (mês/semana) + Abono Total dos Assistentes
-        const rangeSel = this.state.range || {};
-        const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
-        const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
-            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - 1 - totalAbonoAssistentes) : diasDivisorReal))
-            : Math.max(1, diasDivisorReal); // Terceiro puro, ignorar abono
-
-        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
+        // [FIX] Regra: HC * Dias Efetivos Totais (soma dos dias efetivos de cada assistente)
+        const divisorVelocidade = hcParaVelocidade * Math.max(1, totalDiasEfetivosAssistentes);
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
 
@@ -1078,7 +1075,21 @@ Produtividade.Geral = {
         }
 
         // Subtrai abono dos assistentes do total de dias produtivos se aplicável
-        const diasAjustadosComAbono = Math.max(0, diasProdutivosFinal - totalAbonoAssistentes);
+        // Re-calcula abono total para Meta Global (dias totais - dias efetivos)
+        let totalAbonoAssistentesMeta = 0;
+        listaExibicao.forEach(i => {
+            if (!i.isAggregatedManager) {
+                const u = this.state.mapaUsuarios[i.uid] || {};
+                const cargo = (u.funcao || '').toUpperCase();
+                const perfil = (u.perfil || '').toUpperCase();
+                const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
+                if (!ehGestao && i.producao > 0) {
+                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
+                    if (abono > 0) totalAbonoAssistentesMeta += abono;
+                }
+            }
+        });
+        const diasAjustadosComAbono = Math.max(0, diasProdutivosFinal - totalAbonoAssistentesMeta);
         
         window.Produtividade.MetaGlobalCalculada = Math.round(metaBaseGeral * hcFinal * diasAjustadosComAbono);
         // --------------------------------------------------------------------------------
