@@ -251,8 +251,12 @@
                             class="fas fa-file-csv"></i> <span class="hidden sm:inline">Importar</span></button>
 
                     <button onclick="Produtividade.Geral.excluirDadosDia()"
-                        class="bg-white hover:bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition border border-rose-200 hover:border-rose-300 active:scale-95"><i
-                            class="fas fa-trash-alt"></i></button>
+                        class="bg-white hover:bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition border border-rose-200 hover:border-rose-300 active:scale-95"
+                        title="Excluir dados de um dia específico"><i class="fas fa-trash-alt"></i></button>
+
+                    <button onclick="Produtividade.Geral.limparDuplicatasProducao()"
+                        class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition border border-amber-300 active:scale-95"
+                        title="Limpar registros duplicados"><i class="fas fa-broom"></i></button>
                 </div>
             </div>
         </div>

@@ -1409,6 +1409,35 @@ Produtividade.Geral = {
         }
     },
 
+    limparDuplicatasProducao: async function () {
+        if (!this.ehGestao(window.Produtividade.usuario || {})) {
+            alert("Apenas gestores podem limpar duplicatas.");
+            return;
+        }
+
+        if (!confirm("🔧 Isso irá excluir registros duplicados na tabela producao, mantendo apenas o primeiro registro de cada combinação (usuario_id, data_referencia).\n\nDeseja continuar?")) return;
+
+        this.renderLoading();
+
+        try {
+            const result = await Sistema.query(`
+                DELETE p1 FROM producao p1
+                INNER JOIN producao p2 ON 
+                    p1.usuario_id = p2.usuario_id AND 
+                    p1.data_referencia = p2.data_referencia AND 
+                    p1.id > p2.id
+            `);
+            
+            alert(`✅ Limpeza concluída! Registros duplicados removidos.`);
+            this.atualizarDados();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao limpar duplicatas: " + e.message);
+            this.state.loading = false;
+            this.renderizarTabela();
+        }
+    },
+
     abrirDetalhes: function (uid) { this.state.modoDetalhe = true; this.state.usuarioDetalhe = uid; this.renderizarDetalhes(uid); },
     voltarParaGrade: function () {
         this.state.modoDetalhe = false; this.state.usuarioDetalhe = null;
