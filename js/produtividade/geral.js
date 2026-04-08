@@ -1077,8 +1077,8 @@ Produtividade.Geral = {
             diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - (1 * numMeses)) : diasBrutos;
         }
 
-        // Subtrai abono da gestora do total de dias produtivos se aplicável
-        const diasAjustadosComAbono = Math.max(0, diasProdutivosFinal - abonoManualGestora);
+        // Subtrai abono dos assistentes do total de dias produtivos se aplicável
+        const diasAjustadosComAbono = Math.max(0, diasProdutivosFinal - totalAbonoAssistentes);
         
         window.Produtividade.MetaGlobalCalculada = Math.round(metaBaseGeral * hcFinal * diasAjustadosComAbono);
         // --------------------------------------------------------------------------------
