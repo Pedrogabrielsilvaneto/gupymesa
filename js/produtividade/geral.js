@@ -1030,8 +1030,8 @@ Produtividade.Geral = {
             }
         });
 
-        // [FIX] Regra: HC * Dias Efetivos Totais (soma dos dias efetivos de cada assistente)
-        const divisorVelocidade = hcParaVelocidade * Math.max(1, totalDiasEfetivosAssistentes);
+        // [FIX] Velocidade = Produção Total / Dias Efetivos Totais (igual Minha Área)
+        const divisorVelocidade = Math.max(1, totalDiasEfetivosAssistentes);
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
 
