@@ -1007,17 +1007,28 @@ Produtividade.Geral = {
         const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
 
         // [FIX] Abono Manual da Gestora (Soma acumulada de abonos parciais ex: 0.5 + 0.5 = 1 dia)
-        let abonoManualGestora = 0;
-        if (gestoraItem) {
-            abonoManualGestora = (gestoraItem.count_fator || 0) - (gestoraItem.soma_fator || 0);
-        }
+        // Agora considera TODOS os assistentes, não só a gestora
+        let totalAbonoAssistentes = 0;
+        listaExibicao.forEach(i => {
+            if (!i.isAggregatedManager) {
+                const u = this.state.mapaUsuarios[i.uid] || {};
+                const cargo = (u.funcao || '').toUpperCase();
+                const perfil = (u.perfil || '').toUpperCase();
+                const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
+                if (!ehGestao && i.producao > 0) {
+                    // Abono = days worked - sum of factors (ex: 21 - 20 = 1 day off)
+                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
+                    if (abono > 0) totalAbonoAssistentes += abono;
+                }
+            }
+        });
 
-        // [FIX] Regra Gestora (CLT e TODOS): Sempre subtrai 1 dia se for um período (mês/semana) + Abono Manual acumulado
+        // [FIX] Regra Gestora (CLT e TODOS): Sempre subtrai 1 dia se for um período (mês/semana) + Abono Total dos Assistentes
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
         const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
-            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - 1 - abonoManualGestora) : diasDivisorReal))
-            : Math.max(1, diasDivisorReal); // Terceiro puro, ignorar abono gestora
+            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - 1 - totalAbonoAssistentes) : diasDivisorReal))
+            : Math.max(1, diasDivisorReal); // Terceiro puro, ignorar abono
 
         const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
