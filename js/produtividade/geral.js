@@ -1262,11 +1262,11 @@ Produtividade.Geral = {
             }
 
             for (const dia of datas) {
-                const checkSql = 'SELECT quantidade, fifo, gradual_total, gradual_parcial FROM producao WHERE usuario_id = ? AND data_referencia = ?';
+                const checkSql = 'SELECT id, quantidade, fifo, gradual_total, gradual_parcial FROM producao WHERE usuario_id = ? AND data_referencia = ?';
                 const existingRows = await Sistema.query(checkSql, [uid, dia]);
                 const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
 
-                const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
+                const uuid = existente ? existente.id : (Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID());
                 const quantidade = existente ? existente.quantidade : 0;
                 const fifo = existente ? existente.fifo : 0;
                 const gt = existente ? existente.gradual_total : 0;
