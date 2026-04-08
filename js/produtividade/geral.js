@@ -1013,6 +1013,7 @@ Produtividade.Geral = {
         // [FIX] Dias Efetivos por Assistente - seguindo a lógica correta da Minha Área
         // Para CLT em período: soma_fator - 1. Para Terceiros ou dia único: soma_fator
         let totalDiasEfetivosAssistentes = 0;
+        let totalDiasUteisLiquidos = 0;
         listaExibicao.forEach(i => {
             if (!i.isAggregatedManager) {
                 const u = this.state.mapaUsuarios[i.uid] || {};
@@ -1026,12 +1027,16 @@ Produtividade.Geral = {
                     const somaFatorItem = i.soma_fator || 0;
                     const diasItem = (ehCLT && isPeriodoKpi && somaFatorItem > 0) ? Math.max(0, somaFatorItem - 1) : somaFatorItem;
                     totalDiasEfetivosAssistentes += diasItem;
+                    // Dias úteis líquidos = dias úteis bruto - abonos
+                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
+                    const diasBrutos = isPeriodoKpi ? (ehCLT ? Math.max(0, diasCalendarioEfetivos - 1) : diasCalendarioEfetivos) : diasCalendarioEfetivos;
+                    totalDiasUteisLiquidos += Math.max(0, diasBrutos - abono);
                 }
             }
         });
 
-        // [FIX] Velocidade = Produção Total / Dias Efetivos Totais (igual Minha Área)
-        const divisorVelocidade = Math.max(1, totalDiasEfetivosAssistentes);
+        // [FIX] Velocidade = Produção Total / (HC × Dias Úteis Líquidos) - igual Minha Área equipe
+        const divisorVelocidade = hcParaVelocidade * Math.max(1, totalDiasUteisLiquidos);
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
 
