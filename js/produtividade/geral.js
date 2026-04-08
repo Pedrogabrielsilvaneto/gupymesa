@@ -1006,7 +1006,7 @@ Produtividade.Geral = {
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
         const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
 
-        // [FIX] Define rangeSel e isPeriodoKpi para uso nos cálculos
+        // [FIX] Define rangeSel e isPeriodoKpi para uso nos cálculos (v2)
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
