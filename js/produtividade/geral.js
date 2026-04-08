@@ -1020,7 +1020,7 @@ Produtividade.Geral = {
                 const cargo = (u.funcao || '').toUpperCase();
                 const perfil = (u.perfil || '').toUpperCase();
                 const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
-                if (!ehGestao && i.producao > 0) {
+                if (!ehGestao) {
                     totalAssistentes++;
                     const uContrato = (u.contrato || '').toUpperCase();
                     const isTerceiro = uContrato.includes('PJ') || uContrato.includes('TERCEIR') || uContrato.includes('PREST');
@@ -1028,9 +1028,11 @@ Produtividade.Geral = {
                     const somaFatorItem = i.soma_fator || 0;
                     const diasItem = (ehCLT && isPeriodoKpi && somaFatorItem > 0) ? Math.max(0, somaFatorItem - 1) : somaFatorItem;
                     totalDiasTrabalhados += diasItem;
+                    console.log(`[DEBUG VEL] ${i.nome}: soma_fator=${somaFatorItem}, ehCLT=${ehCLT}, isPeriodoKpi=${isPeriodoKpi}, diasItem=${diasItem}`);
                 }
             }
         });
+        console.log(`[DEBUG VEL] totalProd=${totalProd}, totalAssistentes=${totalAssistentes}, totalDiasTrabalhados=${totalDiasTrabalhados}`);
 
         // [FIX] Velocidade EQUIPE = Total Prod / Total Assistentes / Dias Trabalhados
         // Aplica para TODOS, CLT e TERCEIROS (mesma fórmula)
