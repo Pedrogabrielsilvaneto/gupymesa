@@ -45,7 +45,7 @@ MinhaArea.Relatorios = {
             else if (!isAdmin) utForMeta = MinhaArea.usuario?.id;
             const metas = await Sistema.query(`SELECT * FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, utForMeta]);
             let pP = [inicio, fim];
-            let sqlP = `SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) `;
+            let sqlP = `SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, SUM(COALESCE(p.fator, 1.0)) as soma_fator, MAX(u.contrato) as contrato FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) `;
             if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
                 sqlP += ` AND p.usuario_id = ? `; pP.push(alvoId);
             } else {
@@ -73,7 +73,20 @@ MinhaArea.Relatorios = {
                 let dUteisBase = (c && c.dias_uteis) ? Number(c.dias_uteis) : 0; if (dUteisBase === 0) dUteisBase = this.calcularDiasUteisCalendario(m, ano);
                 if (m === 1 && ano === 2026) dUteisBase = 21; if (m === 2 && ano === 2026 && dUteisBase > 18) dUteisBase = 18; 
                 let dRef = dUteisBase; if (m === mesAtual && ano === anoAtual) dRef = this.contarDiasUteis(`${ano}-${String(m).padStart(2,'0')}-01`, diaHojeStr);
-                let dFinal = Math.max(1, dRef - 1); let denV = hc * dFinal;
+                let dFinal = Math.max(1, dRef - 1); 
+
+                let denV = hc * dFinal;
+                
+                // [FIX] Sobrescreve denominador para visão Individual, usando Fatores exatos e abstraindo abonos da Gestora
+                if (alvoId && alvoId !== 'EQUIPE' && alvoId !== 'GRUPO_CLT' && alvoId !== 'GRUPO_TERCEIROS') {
+                    let somaFator = p ? Number(p.soma_fator || 0) : 0;
+                    let uContrato = p ? (p.contrato || '').toLowerCase() : '';
+                    let isClt = !(uContrato.includes('pj') || uContrato.includes('terceiro'));
+                    let divIndividual = somaFator;
+                    if (isClt && divIndividual > 0) divIndividual = Math.max(0, divIndividual - 1);
+                    denV = divIndividual > 0 ? divIndividual : 1;
+                }
+
                 dataF.push({ mes: m, total_prod: p ? Number(p.total_prod) : 0, denominador: denV, assert: a ? Number(a.media_assert) : 0 });
             }
             this.renderizarMetasOKR(metas, dataF, dataF, ano, mesIni, mesFim);
