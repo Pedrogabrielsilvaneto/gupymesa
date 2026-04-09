@@ -754,13 +754,17 @@ Produtividade.Geral = {
             const contrato = (u.contrato || '').toUpperCase();
             const isCLT = contrato.includes('CLT');
 
-            // Regra de Exibição de Dias: CLT em período desconta 1 dia
-            const countDiasReais = row.count_fator || 0;
-            const diasTrabalhadosExibido = (isCLT && isPeriodo && countDiasReais > 0) ? countDiasReais - 1 : countDiasReais;
+            // [FIX Multi-mês] Desconta -1 dia por mês para CLT
+            const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
+            const numMeses = mesesNoPeriodo.length || 1;
 
-            // Dias abonados = (Diferença entre dias previstos e efetivos) + (1 dia da regra CLT se aplicável)
+            // Regra de Exibição de Dias: CLT em período desconta 1 dia por mês
+            const countDiasReais = row.count_fator || 0;
+            const diasTrabalhadosExibido = (isCLT && isPeriodo && countDiasReais > 0) ? Math.max(0, countDiasReais - numMeses) : countDiasReais;
+
+            // Dias abonados = (Diferença entre dias previstos e efetivos) + ( regra CLT se aplicável)
             const abonoManual = countDiasReais - (row.soma_fator || 0);
-            const diasAbonadosExibido = abonoManual + ((isCLT && isPeriodo && countDiasReais > 0) ? 1 : 0);
+            const diasAbonadosExibido = abonoManual + ((isCLT && isPeriodo && countDiasReais > 0) ? numMeses : 0);
 
             const isAbonado = row.fator < 1.0;
             const metaParaCalculo = row.meta_real_calculada;
@@ -1011,6 +1015,9 @@ Produtividade.Geral = {
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
+        const mesesNoPeriodoKpi = this._getMesesNoPeriodo(rangeInicio, rangeFim);
+        const numMeses = mesesNoPeriodoKpi.length || 1;
+
         // [FIX v6.0] Calcula abono manual da gestora para descontar do divisor de velocidade
         let abonoManualGestora = 0;
         if (gestoraItem && gestoraItem.count_fator > 0) {
@@ -1023,7 +1030,7 @@ Produtividade.Geral = {
         // Regra PJ/Terceiros: Usa dias puros sem desconto
         const descontarDiaCLT = (filtroContrato === 'CLT' || filtroContrato === 'TODOS');
         const diasParaVelocidade = descontarDiaCLT
-            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - 1 - abonoManualGestora) : diasDivisorReal))
+            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - numMeses - abonoManualGestora) : diasDivisorReal))
             : Math.max(1, diasDivisorReal);
 
         const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
@@ -1488,9 +1495,11 @@ Produtividade.Geral = {
             // Base total the person has in the calendar/config
             const diasTotalBase = this.state.totalDiasUteisFull || this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
+            const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
+            const numMesesCLT = (isPeriodo && contrato.includes('CLT')) ? mesesNoPeriodo.length : 0;
 
-            // Base final discounting the CLT strict rule (-1)
-            const calcDiasBaseMensal = (isPeriodo && contrato.includes('CLT')) ? Math.max(0, diasTotalBase - 1) : diasTotalBase;
+            // Base final discounting the CLT strict rule (-1 per month)
+            const calcDiasBaseMensal = Math.max(0, diasTotalBase - numMesesCLT);
             
             // The exact manual abono they received is the difference between rows and their actual sum factors
             const cFator = itemConsolidado.count_fator || 0;

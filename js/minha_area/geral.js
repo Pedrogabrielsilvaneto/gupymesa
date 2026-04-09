@@ -300,12 +300,10 @@ MinhaArea.Geral = {
             const isTerceiro = contratoUser.includes('PJ') || contratoUser.includes('TERCEIR') || contratoUser.includes('PREST');
             const defaultMeta = isTerceiro ? 100 : 650;
 
-            const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-            const ehCLTVel = !isTerceiro;
-
-            // [FIX] Base real previstando descontar CLT, em seguida abater abonos explícitos
+            // [FIX] Base real previstando descontar CLT (-1 dia/mês), em seguida abater abonos explícitos
+            const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
             let diasPrevistos = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-            if (ehCLTVel && isPeriodo) diasPrevistos = Math.max(0, diasPrevistos - 1);
+            if (ehCLTVel && isPeriodo) diasPrevistos = Math.max(0, diasPrevistos - (mesesNoPeriodo.length || 1));
             
             const diasEfetivosVel = Math.max(1, diasPrevistos - item.soma_abono);
             item.dias_efetivos_kpi = diasEfetivosVel;

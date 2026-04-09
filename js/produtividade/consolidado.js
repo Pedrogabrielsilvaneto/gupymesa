@@ -30,6 +30,24 @@ Produtividade.Consolidado = {
         return `${t}_${datas.inicio}_${datas.fim}`;
     },
 
+    _getMesesNoPeriodo: function (inicio, fim) {
+        const meses = [];
+        const d = new Date(inicio + 'T12:00:00');
+        const fimDate = new Date(fim + 'T12:00:00');
+        const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        while (d <= fimDate) {
+            const ano = d.getFullYear();
+            const mes = d.getMonth() + 1;
+            const inicioMes = new Date(ano, mes - 1, 1);
+            const fimMes = new Date(ano, mes, 0);
+            const inicioReal = d < inicioMes ? inicioMes : new Date(d);
+            const fimReal = fimMes > fimDate ? new Date(fimDate) : fimMes;
+            meses.push({ ano, mes, inicio: fmt(inicioReal), fim: fmt(fimReal) });
+            d.setDate(1); d.setMonth(d.getMonth() + 1);
+        }
+        return meses;
+    },
+
     carregarMapas: async function () {
         if (Object.keys(this.mapaFuncoes).length > 0) return;
         try {
@@ -144,8 +162,10 @@ Produtividade.Consolidado = {
         const hasCustomConfig = config && (Number(config.dias_uteis_clt) > 0 || Number(config.dias_uteis_terceiros) > 0 || Number(config.dias_uteis) > 0);
 
         let vTerc = diasCalendario;
-        // CLT: -1 apenas se o mês já passou ou se o -1 não vai zerar o divisor atual
-        let vClt = isCurrentRange ? Math.max(1, diasCalendario) : Math.max(1, diasCalendario - 1);
+        // CLT: -1 por mês apenas se o período contiver meses completos ou se for maior que um dia
+        const mesesNoPeriodo = this._getMesesNoPeriodo(datas.inicio, datas.fim);
+        const numMeses = mesesNoPeriodo.length || 1;
+        let vClt = isCurrentRange ? Math.max(1, diasCalendario) : Math.max(1, diasCalendario - numMeses);
 
         if (hasCustomConfig) {
             vTerc = Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || diasCalendario;
@@ -268,12 +288,17 @@ Produtividade.Consolidado = {
             }
         }
 
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase() : 'TODOS';
+        const isCLT = (filtroContrato === 'CLT' || filtroContrato === 'TODOS');
+
         const numCols = cols.length;
         let st = {};
         for (let i = 1; i <= numCols; i++) {
             st[i] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
-            // [FIX] Calcula dias úteis já trabalhados (capado em hoje) para a coluna
-            st[i].diasUteis = this.contarDiasUteis(datesMap[i].ini, datesMap[i].fim, true);
+            const rawDU = this.contarDiasUteis(datesMap[i].ini, datesMap[i].fim, true);
+            // Se for visão de ano (onde cada coluna é um mês), desconta 1 dia CLT por coluna
+            const descontar = isCLT && (t === 'ano');
+            st[i].diasUteis = (descontar && rawDU > 0) ? Math.max(0, rawDU - 1) : rawDU;
         }
         // TOTAL (99) usa o valor configurado capado em hoje (definido em getDiasUteisConfig)
         st[99] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0, diasUteis: this.diasUteisConfig };
