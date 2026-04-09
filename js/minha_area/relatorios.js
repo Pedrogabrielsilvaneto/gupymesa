@@ -109,7 +109,6 @@ MinhaArea.Relatorios = {
                 }
 
                 const a = (asR || []).find(x => Number(x.mes) === m);
-                const isIndView = alvoId && !['EQUIPE', 'GRUPO_CLT', 'GRUPO_TERCEIROS'].includes(alvoId);
                 dataF.push({ mes: m, total_prod: p ? Number(p.total_prod) : 0, denominador: denV > 0 ? denV : (isIndView ? 1 : 0), meta_meta: metaVal, assert: a ? Number(a.media_assert) : 0 });
             }
             this.renderizarMetasOKR(dataF, ano, mesIni, mesFim);
