@@ -684,6 +684,7 @@ Produtividade.Geral = {
             const HC = this.getHeadcountConfig();
             const diasUteisPeriodo = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
             const diasUteisMes = this.getDiasUteisConfig();
+            const metaBaseGestor = gestoraItem._rawBaseMeta || 650;
 
             let diasFinal = diasUteisPeriodo;
             if (diasUteisPeriodo >= (diasUteisMes * 0.8)) {
