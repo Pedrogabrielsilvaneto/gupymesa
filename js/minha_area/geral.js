@@ -353,12 +353,16 @@ MinhaArea.Geral = {
                 item.meta_total_periodo = Math.round(metaTotalAcumulada);
                 item.meta_velocidade_media = qtdMeses > 0 ? Math.round(somaMetaDiaria / qtdMeses) : defaultMeta;
 
-                const numMesesAtivos = item.distinct_months ? item.distinct_months.size : 1;
+                const rangeInicio = this.state.range.inicio;
+                const rangeFim = this.state.range.fim;
+                const mesesNoRangeMacro = this._getMesesNoPeriodo(rangeInicio, rangeFim);
+                const chavesRangeMacro = mesesNoRangeMacro.map(m => `${m.ano}-${String(m.mes).padStart(2, '0')}`);
+                const numMesesAtivos = (item.distinct_months && item.distinct_months.size > 0) 
+                    ? Array.from(item.distinct_months).filter(m => chavesRangeMacro.includes(m)).length
+                    : 1;
                 
                 // [FIX] Velocidade Macro agora usa dias decorridos até hoje para ser uma média real de desempenho
                 const hojeStr = new Date().toISOString().split('T')[0];
-                const rangeInicio = this.state.range.inicio;
-                const rangeFim = this.state.range.fim;
                 
                 let diasBrutosCapped = this.contarDiasUteis(rangeInicio, rangeFim);
                 if (hojeStr >= rangeInicio && hojeStr <= rangeFim) {
@@ -650,7 +654,10 @@ MinhaArea.Geral = {
             if (hojeLocal >= rangeInicio && hojeLocal <= rangeFim) dBaseVel = this.contarDiasUteis(rangeInicio, hojeLocal);
 
             const mRange = this._getMesesNoPeriodo(rangeInicio, rangeFim);
-            const mDecorridosUser = i.distinct_months ? i.distinct_months.size : (mRange.filter(m => m.inicio <= hojeLocal).length || 1);
+            const mRangeChaves = mRange.map(m => `${m.ano}-${String(m.mes).padStart(2, '0')}`);
+            const mDecorridosUser = (i.distinct_months && i.distinct_months.size > 0)
+                ? Array.from(i.distinct_months).filter(m => mRangeChaves.includes(m)).length
+                : (mRange.filter(m => m.inicio <= hojeLocal).length || 1);
 
             let dUser = dBaseVel;
             if (!isTerceiro) dUser = Math.max(0, dUser - mDecorridosUser);

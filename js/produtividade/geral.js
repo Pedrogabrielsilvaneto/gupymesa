@@ -1024,7 +1024,15 @@ Produtividade.Geral = {
 
             const contrato = (u.contrato || '').toUpperCase();
             const countsAsCLT = contrato.includes('CLT') || (contrato === '' && filtroContrato === 'TODOS');
-            const numMesesUser = i.distinct_months ? i.distinct_months.size : (isPeriodoKpi ? mesesDecorridos : 0);
+            
+            // [FIX] Conta apenas os meses ativos QUE ESTÃO DENTRO DO RANGE selecionado
+            let numMesesUser = 0;
+            if (i.distinct_months && i.distinct_months.size > 0) {
+                const mesesNoRangeChaves = mesesNoRange.map(m => `${m.ano}-${String(m.mes).padStart(2, '0')}`);
+                numMesesUser = Array.from(i.distinct_months).filter(m => mesesNoRangeChaves.includes(m)).length;
+            } else {
+                numMesesUser = isPeriodoKpi ? mesesDecorridos : 0;
+            }
 
             let dBaseUser = diasDivisorBase;
             if (countsAsCLT) dBaseUser = Math.max(0, dBaseUser - numMesesUser);
