@@ -1210,7 +1210,10 @@ Produtividade.Geral = {
     },
     injetarModalAbono: function () {
         if (document.getElementById('modal-abono-geral')) return;
-        const html = `<div id="modal-abono-geral" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all"><div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center"><h3 class="font-bold text-amber-800 flex items-center gap-2"><i class="fas fa-user-clock"></i> Registrar Abono</h3><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="text-amber-400 hover:text-amber-700"><i class="fas fa-times"></i></button></div><div class="p-6 space-y-4"><div id="modal-abono-msg" class="text-sm text-slate-600"></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Abono</label><select id="modal-abono-fator" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white"><option value="0.0">Abono Total (Dia não conta)</option><option value="0.5">Meio Período (0.5)</option><option value="1.0">Remover Abono (Dia Normal)</option></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Justificativa (Obrigatória)</label><textarea id="modal-abono-just" rows="3" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500" placeholder="Ex: Atestado médico, Folga compensatória..."></textarea></div></div><div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 border-t border-slate-100"><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onclick="Produtividade.Geral.salvarAbonoModal()" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-sm">Confirmar</button></div></div></div>`;
+        const html = `<div id="modal-abono-geral" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-all"><div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center"><h3 class="font-bold text-amber-800 flex items-center gap-2"><i class="fas fa-user-clock"></i> Registrar Abono/Fator</h3><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="text-amber-400 hover:text-amber-700"><i class="fas fa-times"></i></button></div><div class="p-6 space-y-4"><div id="modal-abono-msg" class="text-sm text-slate-600"></div><div class="flex gap-4">
+        <div class="flex-1"><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Data Início</label><input type="date" id="modal-abono-dt-ini" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white shadow-sm"></div>
+        <div class="flex-1"><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Data Fim</label><input type="date" id="modal-abono-dt-fim" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white shadow-sm"></div>
+        </div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Fator Diário</label><select id="modal-abono-fator" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 bg-white"><option value="0.0">Abono Total (Fator 0.0)</option><option value="0.5">Meio Período (Fator 0.5)</option><option value="1.0">Remover Abono (Fator 1.0)</option></select></div><div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Justificativa (Obrigatória se Fator < 1)</label><textarea id="modal-abono-just" rows="3" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-amber-500" placeholder="Ex: Férias, Atestado, Treinamento externo..."></textarea></div></div><div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 border-t border-slate-100"><button onclick="document.getElementById('modal-abono-geral').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onclick="Produtividade.Geral.salvarAbonoModal()" class="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-sm">Aplicar Período</button></div></div></div>`;
         document.body.insertAdjacentHTML('beforeend', html);
     },
 
@@ -1220,14 +1223,18 @@ Produtividade.Geral = {
         const modal = document.getElementById('modal-abono-geral');
         const msg = document.getElementById('modal-abono-msg');
         const just = document.getElementById('modal-abono-just');
+        
+        document.getElementById('modal-abono-dt-ini').value = this.state.range.inicio;
+        document.getElementById('modal-abono-dt-fim').value = this.state.range.fim;
+        
         just.value = '';
         document.getElementById('modal-abono-fator').value = '0.0';
 
         if (alvo === 'mass') {
-            msg.innerHTML = `Aplicando para <strong>${this.state.selecionados.size} assistentes</strong> selecionados no período.`;
+            msg.innerHTML = `Aplicando para <strong>${this.state.selecionados.size} assistentes</strong> selecionados no período ou datas definidas.`;
         } else {
             const item = this.state.listaTabela.find(i => String(i.uid) === String(alvo));
-            msg.innerHTML = `Editando abono de <strong>${item ? item.nome : 'Assistente'}</strong>.`;
+            msg.innerHTML = `Lançando fator de <strong>${item ? item.nome : 'Assistente'}</strong>.`;
             if (item && item.fator < 1) {
                 document.getElementById('modal-abono-fator').value = String(item.fator);
                 just.value = item.justificativa || '';
@@ -1239,9 +1246,21 @@ Produtividade.Geral = {
     salvarAbonoModal: async function () {
         const fator = parseFloat(document.getElementById('modal-abono-fator').value);
         const just = document.getElementById('modal-abono-just').value.trim();
+        const customInicio = document.getElementById('modal-abono-dt-ini').value;
+        const customFim = document.getElementById('modal-abono-dt-fim').value;
 
         if (fator < 1.0 && !just) {
             alert("Para abonar, a justificativa é obrigatória.");
+            return;
+        }
+
+        if (!customInicio || !customFim) {
+            alert("A Data Inicial e Final são obrigatórias.");
+            return;
+        }
+
+        if (customInicio > customFim) {
+            alert("A Data Inicial não pode ser maior que a Data Final.");
             return;
         }
 
@@ -1250,15 +1269,14 @@ Produtividade.Geral = {
 
         try {
             const listaUids = (this.state.abonoAlvo === 'mass') ? Array.from(this.state.selecionados) : [this.state.abonoAlvo];
-            const isPeriodo = this.state.range.inicio !== this.state.range.fim;
 
             for (const uid of listaUids) {
-                await this.executarAbono(uid, isPeriodo, fator, just);
+                await this.executarAbono(uid, customInicio, customFim, fator, just);
             }
 
             // Recarrega TUDO para garantir que o estado visual (cores amarelas) corresponda ao banco
             this.atualizarDados();
-            alert("✅ Abono aplicado com sucesso!");
+            alert("✅ Período atualizado com sucesso no banco de dados!");
 
         } catch (e) {
             console.error(e);
@@ -1267,45 +1285,39 @@ Produtividade.Geral = {
         }
     },
 
-    executarAbono: async function (uid, isPeriodo, novoFator, justificativa) {
-        const { inicio, fim } = this.state.range;
+    executarAbono: async function (uid, customInicio, customFim, novoFator, justificativa) {
+        let datas = [];
+        let cur = new Date(customInicio + 'T12:00:00');
+        let end = new Date(customFim + 'T12:00:00');
 
-        if (isPeriodo) {
-            let datas = [];
-            let cur = new Date(inicio + 'T12:00:00');
-            let end = new Date(fim + 'T12:00:00');
+        while (cur <= end) {
+            const d = cur.getDay();
+            if (d !== 0 && d !== 6) datas.push(cur.toISOString().split('T')[0]);
+            cur.setDate(cur.getDate() + 1);
+        }
 
-            while (cur <= end) {
-                const d = cur.getDay();
-                if (d !== 0 && d !== 6) datas.push(cur.toISOString().split('T')[0]);
-                cur.setDate(cur.getDate() + 1);
-            }
+        for (const dia of datas) {
+            const checkSql = 'SELECT id, quantidade, fifo, gradual_total, gradual_parcial FROM producao WHERE usuario_id = ? AND data_referencia = ?';
+            const existingRows = await Sistema.query(checkSql, [uid, dia]);
+            const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
 
-            for (const dia of datas) {
-                const checkSql = 'SELECT id, quantidade, fifo, gradual_total, gradual_parcial FROM producao WHERE usuario_id = ? AND data_referencia = ?';
-                const existingRows = await Sistema.query(checkSql, [uid, dia]);
-                const existente = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
+            const uuid = existente ? existente.id : (Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID());
+            const quantidade = existente ? existente.quantidade : 0;
+            const fifo = existente ? existente.fifo : 0;
+            const gt = existente ? existente.gradual_total : 0;
+            const gp = existente ? existente.gradual_parcial : 0;
 
-                const uuid = existente ? existente.id : (Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID());
-                const quantidade = existente ? existente.quantidade : 0;
-                const fifo = existente ? existente.fifo : 0;
-                const gt = existente ? existente.gradual_total : 0;
-                const gp = existente ? existente.gradual_parcial : 0;
+            const partesData = dia.split('-');
+            const anoRef = parseInt(partesData[0]);
+            const mesRef = parseInt(partesData[1]);
 
-                const partesData = dia.split('-');
-                const anoRef = parseInt(partesData[0]);
-                const mesRef = parseInt(partesData[1]);
-
-                // Upsert logic with INSERT ... ON DUPLICATE KEY UPDATE
-                await Sistema.query(
-                    `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE fator = VALUES(fator), justificativa = VALUES(justificativa)`,
-                    [uuid, uid, dia, mesRef, anoRef, novoFator, justificativa, quantidade, fifo, gt, gp]
-                );
-            }
-        } else {
-            await this.atualizarLinha(uid, this.state.range.inicio, 'abono_total', { fator: novoFator, just: justificativa });
+            // Upsert logic with INSERT ... ON DUPLICATE KEY UPDATE
+            await Sistema.query(
+                `INSERT INTO producao(id, usuario_id, data_referencia, mes_referencia, ano_referencia, fator, justificativa, quantidade, fifo, gradual_total, gradual_parcial)
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE fator = VALUES(fator), justificativa = VALUES(justificativa)`,
+                [uuid, uid, dia, mesRef, anoRef, novoFator, justificativa, quantidade, fifo, gt, gp]
+            );
         }
     },
 
@@ -1489,7 +1501,7 @@ Produtividade.Geral = {
         if (this.els.selectionHeader) {
             this.els.selectionHeader.classList.remove('hidden');
             this.els.selectionHeader.className = "bg-blue-50 border border-blue-100 p-2 rounded-lg flex justify-between items-center animate-fade-in mb-4";
-            this.els.selectionHeader.innerHTML = `<div class="flex items-center gap-3"><button onclick="Produtividade.Geral.voltarParaGrade()" class="bg-white hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button><div class="h-6 w-px bg-blue-200"></div><span class="text-sm font-bold text-blue-900 flex items-center gap-2"><i class="fas fa-user-circle text-blue-500 text-lg"></i> Análise Individual: <span class="uppercase tracking-wide text-blue-700 underline">${nomeUsuario}</span></span></div>`;
+            this.els.selectionHeader.innerHTML = `<div class="flex items-center gap-3 w-full"><button onclick="Produtividade.Geral.voltarParaGrade()" class="bg-white hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button><div class="h-6 w-px bg-blue-200"></div><span class="text-sm font-bold text-blue-900 flex items-center gap-2"><i class="fas fa-user-circle text-blue-500 text-lg"></i> Análise Individual: <span class="uppercase tracking-wide text-blue-700 underline">${nomeUsuario}</span></span><button onclick="Produtividade.Geral.abrirModalAbono('${uid}')" class="ml-auto bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-2"><i class="fas fa-calendar-minus"></i> Lançar Fator / Abono</button></div>`;
         }
         this.renderizarTabelaDetalhe(uid);
     },
