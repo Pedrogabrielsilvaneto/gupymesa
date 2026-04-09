@@ -101,43 +101,113 @@ MinhaArea.Relatorios = {
     renderizarMetasOKR: function(producao, ano, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        let hIdx = `<div class="mb-4 flex justify-end">
-                <button onclick="MinhaArea.Relatorios.copiarDados()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-black transition-all border border-slate-200 shadow-sm flex items-center gap-2">
-                    <i class="fas fa-copy"></i> COPIAR DADOS (EXCEL)
+        
+        let hIdx = `<div class="mb-4 flex justify-end gap-2">
+                <button onclick="MinhaArea.Relatorios.copiarTudo()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black transition-all shadow-lg flex items-center gap-2">
+                    <i class="fas fa-copy"></i> COPIAR RELATÓRIO COMPLETO
                 </button>
             </div>
             <div id="tabela-metas-okr" class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
-            <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3></div>
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
+            <div class="flex justify-between items-center px-1">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3>
+                <button onclick="MinhaArea.Relatorios.copiarTabela('PROD')" class="text-[10px] font-bold text-blue-600 hover:underline"><i class="fas fa-copy"></i> Copiar Tabela</button>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y">`;
+        
         let sM = 0, cM = 0, sR = 0, cR = 0;
-        producao.forEach(p => {
+        producao.forEach((p, idx) => {
             const mVal = p.meta_meta;
             const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0; const pct = mVal > 0 ? (r / mVal) * 100 : 0;
             const cl = pct >= 100 ? 'text-emerald-600 bg-emerald-50' : (pct >= 80 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
             if (p.total_prod > 0) { if (mVal > 0) { sM += mVal; cM++; } sR += r; cR++; }
-            hIdx += `<tr><td class="px-4 py-2.5 font-bold">${mS[p.mes-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal || '--'}</td><td class="px-4 py-2.5 text-right font-black text-blue-600">${r > 0 ? Math.round(r).toLocaleString() : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${pct.toFixed(1)}%</span></td></tr>`;
+            hIdx += `<tr class="group"><td class="px-4 py-2.5 font-bold">${mS[p.mes-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal || '--'}</td><td class="px-4 py-2.5 text-right font-black text-blue-600">${r > 0 ? Math.round(r).toLocaleString() : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${pct.toFixed(1)}%</span></td><td class="px-2 text-center opacity-0 group-hover:opacity-100 transition"><button onclick="MinhaArea.Relatorios.copiarLinha('PROD', ${idx})" class="text-slate-300 hover:text-blue-600"><i class="fas fa-copy"></i></button></td></tr>`;
         });
         const aM = cM > 0 ? sM / cM : 0; const aR = cR > 0 ? sR / cR : 0; const aP = aM > 0 ? (aR / aM * 100) : 0;
-        hIdx += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aM).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-blue-50/50">${Math.round(aR).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aP.toFixed(1)}%</span></td></tr></tfoot></table></div></div>`;
+        hIdx += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">${Math.round(aM).toLocaleString()}</td><td class="px-4 py-3 text-right text-blue-700 bg-blue-50/50">${Math.round(aR).toLocaleString()}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aP.toFixed(1)}%</span></td><td></td></tr></tfoot></table></div></div>`;
         
-        let hAs = `<div class="space-y-4"><div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Assertividade</h3></div>
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
+        let hAs = `<div class="space-y-4"><div class="flex justify-between items-center px-1">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Assertividade</h3>
+                <button onclick="MinhaArea.Relatorios.copiarTabela('ASSERT')" class="text-[10px] font-bold text-emerald-600 hover:underline"><i class="fas fa-copy"></i> Copiar Tabela</button>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y">`;
         
         let sRA = 0, cRA = 0;
-        producao.forEach(p => {
-            const mVal = 97; // Meta padrão assertividade
+        producao.forEach((p, idx) => {
+            const mVal = 97;
             const rV = p.assert || 0;
             if (rV > 0) { sRA += rV; cRA++; }
             let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
             const cl = rV >= mVal ? 'text-emerald-600 bg-emerald-50' : (rV >= 90 ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50');
-            hAs += `<tr><td class="px-4 py-2.5 font-bold">${mS[p.mes-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal}%</td><td class="px-4 py-2.5 text-right font-black text-emerald-600">${rV > 0 ? rV.toFixed(2) + '%' : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${at}%</span></td></tr>`;
+            hAs += `<tr class="group"><td class="px-4 py-2.5 font-bold">${mS[p.mes-1]}</td><td class="px-4 py-2.5 text-right text-slate-600">${mVal}%</td><td class="px-4 py-2.5 text-right font-black text-emerald-600">${rV > 0 ? rV.toFixed(2) + '%' : '--'}</td><td class="px-4 py-2.5 text-center"><span class="px-1.5 py-0.5 rounded font-black text-[10px] ${cl}">${at}%</span></td><td class="px-2 text-center opacity-0 group-hover:opacity-100 transition"><button onclick="MinhaArea.Relatorios.copiarLinha('ASSERT', ${idx})" class="text-slate-300 hover:text-emerald-600"><i class="fas fa-copy"></i></button></td></tr>`;
         });
         const aRA = cRA > 0 ? sRA / cRA : 0;
         let aAt = 0; if (aRA > 0) { if (aRA < 90) aAt = 0; else if (aRA < 94) aAt = 50; else if (aRA < 95) aAt = 70; else if (aRA < 96) aAt = 80; else if (aRA <= 97) aAt = 90; else aAt = 100; }
-        hAs += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">97%</td><td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/50">${aRA.toFixed(2)}%</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aAt}%</span></td></tr></tfoot></table></div></div></div>`;
+        hAs += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">97%</td><td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/50">${aRA.toFixed(2)}%</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aAt}%</span></td><td></td></tr></tfoot></table></div></div></div>`;
         
         container.innerHTML = hIdx + hAs;
         this._lastData = producao;
+    },
+
+    copiarTudo: function() {
+        this.copiarDados(); // Reusa a função que já copia tudo
+    },
+
+    copiarTabela: function(tipo) {
+        if (!this._lastData) return;
+        const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        let txt = "";
+        
+        if (tipo === 'PROD') {
+            txt = "Mês\tMeta\tRealizado\tAtingimento%\n";
+            let sM = 0, cM = 0, sR = 0, cR = 0;
+            this._lastData.forEach(p => {
+                const mVal = p.meta_meta || 650;
+                const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0;
+                const pct = (r / mVal) * 100;
+                if (p.total_prod > 0) { sM += mVal; cM++; sR += r; cR++; }
+                txt += `${mS[p.mes-1]}\t${mVal}\t${Math.round(r)}\t${pct.toFixed(1)}%\n`;
+            });
+            const aM = cM > 0 ? sM / cM : 0; const aR = cR > 0 ? sR / cR : 0; const aP = aM > 0 ? (aR / aM * 100) : 0;
+            txt += `Acumulado\t${Math.round(aM)}\t${Math.round(aR)}\t${aP.toFixed(1)}%`;
+        } else {
+            txt = "Mês\tMeta\tRealizado\tStatus\n";
+            let sRA = 0, cRA = 0;
+            this._lastData.forEach(p => {
+                const rV = p.assert || 0;
+                if (rV > 0) { sRA += rV; cRA++; }
+                let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
+                txt += `${mS[p.mes-1]}\t97%\t${rV > 0 ? rV.toFixed(2) + '%' : '--'}\t${at}%\n`;
+            });
+            const aRA = cRA > 0 ? sRA / cRA : 0;
+            let aAt = 0; if (aRA > 0) { if (aRA < 90) aAt = 0; else if (aRA < 94) aAt = 50; else if (aRA < 95) aAt = 70; else if (aRA < 96) aAt = 80; else if (aRA <= 97) aAt = 90; else aAt = 100; }
+            txt += `Acumulado\t97%\t${aRA.toFixed(2)}%\t${aAt}%`;
+        }
+        this._finishCopy(txt);
+    },
+
+    copiarLinha: function(tipo, idx) {
+        if (!this._lastData || !this._lastData[idx]) return;
+        const p = this._lastData[idx];
+        const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        let txt = "";
+        
+        if (tipo === 'PROD') {
+            const mVal = p.meta_meta || 650;
+            const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0;
+            const pct = (r / mVal) * 100;
+            txt = `${mS[p.mes-1]}\t${mVal}\t${Math.round(r)}\t${pct.toFixed(1)}%`;
+        } else {
+            const rV = p.assert || 0;
+            let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
+            txt = `${mS[p.mes-1]}\t97%\t${rV > 0 ? rV.toFixed(2) + '%' : '--'}\t${at}%`;
+        }
+        this._finishCopy(txt);
+    },
+
+    _finishCopy: function(txt) {
+        navigator.clipboard.writeText(txt).then(() => {
+            Sistema.notificar("Copiado com sucesso! Use Ctrl+V para colar.");
+        });
     },
 
     copiarDados: function() {
