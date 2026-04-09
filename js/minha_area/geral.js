@@ -597,6 +597,7 @@ MinhaArea.Geral = {
         let maxMetaProducao = 0;
         let assistentesReaisComProducao = 0;
         let totalAbonoParticipante = 0; // Abono apenas de quem teve produção > 0
+        this._somaDivisoresEquipe = 0;
 
         const forbidden = ['ADMIN', 'GESTOR', 'AUDITOR', 'LIDER', 'LÍDER', 'COORDENA', 'HEAD', 'DIRETOR'];
         const currentLoggedInUid = String(window.MinhaArea?.usuario?.id || '');
@@ -640,6 +641,22 @@ MinhaArea.Geral = {
             const isTerceiro = contratoUser.includes('PJ') || contratoUser.includes('TERCEIR') || contratoUser.includes('PREST');
             const metaVal = Number(i.meta_velocidade_media) || (isTerceiro ? 100 : 650);
             if (metaVal > maxMetaProducao) maxMetaProducao = metaVal;
+
+            // [FIX] Soma de divisores reais para Velocidade Global exata (igual à Produtividade)
+            const rangeInicio = this.state.range.inicio;
+            const rangeFim = this.state.range.fim;
+            const hojeLocal = new Date().toISOString().split('T')[0];
+            let dBaseVel = this.contarDiasUteis(rangeInicio, rangeFim);
+            if (hojeLocal >= rangeInicio && hojeLocal <= rangeFim) dBaseVel = this.contarDiasUteis(rangeInicio, hojeLocal);
+
+            const mRange = this._getMesesNoPeriodo(rangeInicio, rangeFim);
+            const mDecorridosUser = i.distinct_months ? i.distinct_months.size : (mRange.filter(m => m.inicio <= hojeLocal).length || 1);
+
+            let dUser = dBaseVel;
+            if (!isTerceiro) dUser = Math.max(0, dUser - mDecorridosUser);
+            
+            const abonoIndiv = (i.soma_abono || 0);
+            this._somaDivisoresEquipe = (this._somaDivisoresEquipe || 0) + Math.max(0, dUser - abonoIndiv);
         });
 
         const targetMetaFallback = (filtroContrato === 'TERCEIROS') ? 100 : 650;
@@ -745,12 +762,8 @@ MinhaArea.Geral = {
             diasDivisorReal = this.contarDiasUteis(rangeSel.inicio, hoje);
         }
 
-        const diasParaVelocidade = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
-            ? Math.max(1, (isPeriodo ? (diasDivisorReal - 1 - abonoManualGestora) : diasDivisorReal))
-            : Math.max(1, diasDivisorReal); // Terceiro puro, nunca desconta abono da gestora
-
-        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
-        const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
+        const mediaVelocidadeReal = this._somaDivisoresEquipe > 0 ? Math.round(totalProd / this._somaDivisoresEquipe) : 0;
+        console.log(`[DEBUG VEL MA] totalProd=${totalProd}, somaDivisores=${this._somaDivisoresEquipe}, velocidade=${mediaVelocidadeReal}`);
 
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 
@@ -758,7 +771,7 @@ MinhaArea.Geral = {
             prod: { real: totalProd, meta: totalMeta },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
-                diasReal: (filtroContrato === 'CLT' && isPeriodo && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - 1) : datasComProducao.size,
+                diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && isPeriodo && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - mesesDecorridosKpi) : datasComProducao.size,
                 diasTotal: (filtroContrato === 'TERCEIROS') ? dTercMeta : dBase,
                 assisReal: assisRealFinal,
                 assisTotal: (filtroContrato === 'CLT') ? hClt : (filtroContrato === 'TERCEIROS' ? hTerc : hGeral)
