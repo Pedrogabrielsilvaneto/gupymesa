@@ -306,11 +306,11 @@ MinhaArea.Geral = {
 
             // [FIX] Base real previstando descontar CLT (-1 dia/mês), em seguida abater abonos explícitos
             const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
-            let diasPrevistos = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-            if (ehCLTVel && isPeriodo) diasPrevistos = Math.max(0, diasPrevistos - (mesesNoPeriodo.length || 1));
+            let diasPrevistos = item.soma_fator || 0;
+            const numMesesAtivos = (item.distinct_months?.size > 0) ? item.distinct_months.size : 1;
+            const finalDivisor = Math.max(1, ehCLTVel ? (diasPrevistos - numMesesAtivos) : diasPrevistos);
             
-            const diasEfetivosVel = Math.max(1, diasPrevistos - item.soma_abono);
-            item.dias_efetivos_kpi = diasEfetivosVel;
+            item.dias_efetivos_kpi = Math.max(1, Math.round(diasPrevistos * 10) / 10);
 
             if (this.state.isMacro) {
                 // ---- VISÃO MACRO (Trimestre / Semestre / Ano) ----
@@ -369,13 +369,12 @@ MinhaArea.Geral = {
                     diasBrutosCapped = this.contarDiasUteis(rangeInicio, hojeStr);
                 }
 
-                item.dias_uteis_brutos = ehCLTVel ? Math.max(0, diasBrutosCapped - numMesesAtivos) : diasBrutosCapped;
-                item.dias_uteis_liquidos = Math.max(0, item.dias_uteis_brutos - item.soma_abono);
-                
-                item.velocidade_acumulada = item.dias_uteis_liquidos > 0 ? Math.round(item.producao / item.dias_uteis_liquidos) : 0;
+                item.dias_uteis_brutos = item.soma_fator || 0;
+                item.dias_uteis_liquidos = finalDivisor;
+                item.velocidade_acumulada = finalDivisor > 0 ? Math.round(item.producao / finalDivisor) : 0;
             } else {
                 // ---- VISÃO MICRO (Mês / Semana / Dia) ----
-                item.velocidade_acumulada = diasEfetivosVel > 0 ? Math.round(item.producao / diasEfetivosVel) : 0;
+                item.velocidade_acumulada = finalDivisor > 0 ? Math.round(item.producao / finalDivisor) : 0;
 
                 // Mapeamento correto da Meta em visão Micro (Pega o mês do início do filtro)
                 const d1 = new Date(this.state.range.inicio + 'T12:00:00');
