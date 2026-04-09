@@ -354,8 +354,18 @@ MinhaArea.Geral = {
                 item.meta_velocidade_media = qtdMeses > 0 ? Math.round(somaMetaDiaria / qtdMeses) : defaultMeta;
 
                 const numMesesAtivos = item.distinct_months ? item.distinct_months.size : 1;
-                const diasBrutosMacro = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-                item.dias_uteis_brutos = ehCLTVel ? Math.max(0, diasBrutosMacro - numMesesAtivos) : diasBrutosMacro;
+                
+                // [FIX] Velocidade Macro agora usa dias decorridos até hoje para ser uma média real de desempenho
+                const hojeStr = new Date().toISOString().split('T')[0];
+                const rangeInicio = this.state.range.inicio;
+                const rangeFim = this.state.range.fim;
+                
+                let diasBrutosCapped = this.contarDiasUteis(rangeInicio, rangeFim);
+                if (hojeStr >= rangeInicio && hojeStr <= rangeFim) {
+                    diasBrutosCapped = this.contarDiasUteis(rangeInicio, hojeStr);
+                }
+
+                item.dias_uteis_brutos = ehCLTVel ? Math.max(0, diasBrutosCapped - numMesesAtivos) : diasBrutosCapped;
                 item.dias_uteis_liquidos = Math.max(0, item.dias_uteis_brutos - item.soma_abono);
                 
                 item.velocidade_acumulada = item.dias_uteis_liquidos > 0 ? Math.round(item.producao / item.dias_uteis_liquidos) : 0;
