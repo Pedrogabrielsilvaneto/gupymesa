@@ -1010,33 +1010,24 @@ Produtividade.Geral = {
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
-        // [FIX] Conta total de assistentes e soma dos dias trabalhados INDIVIDUAIS (considerando abonos)
-        let totalAssistentes = 0;
-        let totalDiasTrabalhadosIndividual = 0;
-        listaExibicao.forEach(i => {
-            if (!i.isAggregatedManager) {
-                const u = this.state.mapaUsuarios[i.uid] || {};
-                const cargo = (u.funcao || '').toUpperCase();
-                const perfil = (u.perfil || '').toUpperCase();
-                const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
-                if (!ehGestao) {
-                    totalAssistentes++;
-                    // Dias trabalhados individuais: soma_fator (CLT em período desconta 1 automaticamente via fator)
-                    // A lógica do fator já subtrai os dias abonados!
-                    const diasIndividuais = i.soma_fator || 0;
-                    totalDiasTrabalhadosIndividual += diasIndividuais;
-                    console.log(`[DEBUG VEL] ${i.nome}: soma_fator=${i.soma_fator}, producao=${i.producao}, vel=${i.soma_fator > 0 ? Math.round(i.producao / i.soma_fator) : 0}`);
-                }
-            }
-        });
-        console.log(`[DEBUG VEL] totalProd=${totalProd}, totalAssistentes=${totalAssistentes}, totalDiasIndividuais=${totalDiasTrabalhadosIndividual}`);
+        // [FIX v6.0] Calcula abono manual da gestora para descontar do divisor de velocidade
+        let abonoManualGestora = 0;
+        if (gestoraItem && gestoraItem.count_fator > 0) {
+            const diasGestoraEfetivos = gestoraItem.soma_fator || 0;
+            abonoManualGestora = Math.max(0, diasCalendarioEfetivos - diasGestoraEfetivos);
+        }
 
-        // [FIX] Velocidade EQUIPE = Total Prod / Total Assistentes / Dias Médios por Assistente
-        // Usa a média dos dias trabalhados por assistente (não dias úteis do período!)
-        const diasMediaPorAssistente = totalAssistentes > 0 ? totalDiasTrabalhadosIndividual / totalAssistentes : diasCalendarioEfetivos;
-        const divisorVelocidade = totalAssistentes * Math.max(1, diasMediaPorAssistente);
+        // [FIX v6.0] Velocidade ALINHADA com Minha Área:
+        // Regra CLT/TODOS: Desconta 1 dia (treinamento) + Abono da Gestora no período
+        // Regra PJ/Terceiros: Usa dias puros sem desconto
+        const descontarDiaCLT = (filtroContrato === 'CLT' || filtroContrato === 'TODOS');
+        const diasParaVelocidade = descontarDiaCLT
+            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - 1 - abonoManualGestora) : diasDivisorReal))
+            : Math.max(1, diasDivisorReal);
+
+        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
-
+        console.log(`[DEBUG VEL] hc=${hcParaVelocidade}, diasParaVel=${diasParaVelocidade}, divisor=${divisorVelocidade}, velocidade=${mediaVelocidadeReal}, abonoGestora=${abonoManualGestora}`);
 
         // [MOD V4.52] Lógica do Alvo da Velocidade (Denominador) conforme regra de filtros
         let targetVelocidade = 0;
