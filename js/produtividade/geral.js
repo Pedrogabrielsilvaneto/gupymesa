@@ -1010,9 +1010,7 @@ Produtividade.Geral = {
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
-        // [FIX] Dias trabalhados por assistente - seguindo a lógica correta da Minha Área
-        // Para CLT em período: soma_fator - 1. Para Terceiros ou dia único: soma_fator
-        let totalDiasTrabalhados = 0;
+        // [FIX] Conta total de assistentes
         let totalAssistentes = 0;
         listaExibicao.forEach(i => {
             if (!i.isAggregatedManager) {
@@ -1022,21 +1020,14 @@ Produtividade.Geral = {
                 const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
                 if (!ehGestao) {
                     totalAssistentes++;
-                    const uContrato = (u.contrato || '').toUpperCase();
-                    const isTerceiro = uContrato.includes('PJ') || uContrato.includes('TERCEIR') || uContrato.includes('PREST');
-                    const ehCLT = !isTerceiro;
-                    const somaFatorItem = i.soma_fator || 0;
-                    const diasItem = (ehCLT && isPeriodoKpi && somaFatorItem > 0) ? Math.max(0, somaFatorItem - 1) : somaFatorItem;
-                    totalDiasTrabalhados += diasItem;
-                    console.log(`[DEBUG VEL] ${i.nome}: soma_fator=${somaFatorItem}, ehCLT=${ehCLT}, isPeriodoKpi=${isPeriodoKpi}, diasItem=${diasItem}`);
                 }
             }
         });
-        console.log(`[DEBUG VEL] totalProd=${totalProd}, totalAssistentes=${totalAssistentes}, totalDiasTrabalhados=${totalDiasTrabalhados}`);
+        console.log(`[DEBUG VEL] totalProd=${totalProd}, totalAssistentes=${totalAssistentes}, diasUteisPeriodo=${diasCalendarioEfetivos}`);
 
-        // [FIX] Velocidade EQUIPE = Total Prod / Total Assistentes / Dias Trabalhados
+        // [FIX] Velocidade EQUIPE = Total Prod / Total Assistentes / Dias Úteis do Período
         // Aplica para TODOS, CLT e TERCEIROS (mesma fórmula)
-        const divisorVelocidade = totalAssistentes * Math.max(1, totalDiasTrabalhados);
+        const divisorVelocidade = totalAssistentes * Math.max(1, diasCalendarioEfetivos);
         const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
 
 
