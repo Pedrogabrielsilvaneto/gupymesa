@@ -1078,9 +1078,10 @@ Produtividade.Geral = {
         const hcClt = (this.state.configMes && this.state.configMes.hc_clt) ? Number(this.state.configMes.hc_clt) : 8;
         const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros) ? Number(this.state.configMes.hc_terceiros) : 9;
         
+        const dTrabalhadosTime = datasComProducao.size || (isPeriodoKpi ? 1 : diasDivisorBase);
         const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
-            ? Math.max(1, (isPeriodoKpi ? (diasDivisorBase - mesesDecorridos) : diasDivisorBase))
-            : Math.max(0, diasDivisorBase);
+            ? Math.max(1, (isPeriodoKpi ? (dTrabalhadosTime - mesesDecorridos) : dTrabalhadosTime))
+            : Math.max(1, dTrabalhadosTime);
         
         let hcFinalParaCard = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : (filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' ? hcTerc : (hcClt + hcTerc)));
         const divisorGlobalCard = hcFinalParaCard * dParaVelGlobal;

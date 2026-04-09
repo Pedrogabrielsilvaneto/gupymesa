@@ -769,9 +769,10 @@ MinhaArea.Geral = {
             diasDivisorReal = this.contarDiasUteis(rangeSel.inicio, hoje);
         }
 
+        const dTrabalhadosTime = datasComProducao.size || 1;
         const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
-            ? Math.max(1, (isPeriodo ? (diasDivisorReal - mesesDecorridosKpi - abonoManualGestora) : diasDivisorReal))
-            : Math.max(1, diasDivisorReal);
+            ? Math.max(1, (isPeriodo ? (dTrabalhadosTime - mesesDecorridosKpi - abonoManualGestora) : dTrabalhadosTime))
+            : Math.max(1, dTrabalhadosTime);
 
         const divisorGlobalCard = hcParaVelocidade * dParaVelGlobal;
         const mediaVelocidadeReal = divisorGlobalCard > 0 ? Math.round(totalProd / divisorGlobalCard) : 0;
