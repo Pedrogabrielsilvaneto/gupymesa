@@ -769,8 +769,13 @@ MinhaArea.Geral = {
             diasDivisorReal = this.contarDiasUteis(rangeSel.inicio, hoje);
         }
 
-        const mediaVelocidadeReal = this._somaDivisoresEquipe > 0 ? Math.round(totalProd / this._somaDivisoresEquipe) : 0;
-        console.log(`[DEBUG VEL MA] totalProd=${totalProd}, somaDivisores=${this._somaDivisoresEquipe}, velocidade=${mediaVelocidadeReal}`);
+        const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
+            ? Math.max(1, (isPeriodo ? (diasDivisorReal - mesesDecorridosKpi - abonoManualGestora) : diasDivisorReal))
+            : Math.max(1, diasDivisorReal);
+
+        const divisorGlobalCard = hcParaVelocidade * dParaVelGlobal;
+        const mediaVelocidadeReal = divisorGlobalCard > 0 ? Math.round(totalProd / divisorGlobalCard) : 0;
+        console.log(`[DEBUG VEL MA] totalProd=${totalProd}, divisor=${divisorGlobalCard}, velocidade=${mediaVelocidadeReal}`);
 
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 

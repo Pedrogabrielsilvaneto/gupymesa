@@ -1059,12 +1059,18 @@ Produtividade.Geral = {
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
         const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
 
-        // [FIX] Define rangeSel e isPeriodoKpi para uso nos cálculos (v2)
-        const rangeSel = this.state.range || {};
-        const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
-
-        const mediaVelocidadeReal = somaDivisoresEquipeTotal > 0 ? Math.round(totalProd / somaDivisoresEquipeTotal) : 0;
-        console.log(`[DEBUG VEL] totalProd=${totalProd}, somaDivisores=${somaDivisoresEquipeTotal}, velocidade=${mediaVelocidadeReal}`);
+        // [FIX] A Velocidade Global do card agora volta a usar o Headcount Fixo (igual ao Relatório/Liderança)
+        const hcClt = (this.state.configMes && this.state.configMes.hc_clt) ? Number(this.state.configMes.hc_clt) : 8;
+        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros) ? Number(this.state.configMes.hc_terceiros) : 9;
+        
+        const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
+            ? Math.max(1, (isPeriodoKpi ? (diasDivisorBase - mesesDecorridos) : diasDivisorBase))
+            : Math.max(0, diasDivisorBase);
+        
+        let hcFinalParaCard = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : (filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' ? hcTerc : (hcClt + hcTerc)));
+        const divisorGlobalCard = hcFinalParaCard * dParaVelGlobal;
+        const mediaVelocidadeReal = divisorGlobalCard > 0 ? Math.round(totalProd / divisorGlobalCard) : 0;
+        console.log(`[DEBUG VEL] totalProd=${totalProd}, divisorGlobalCard=${divisorGlobalCard}, velocidade=${mediaVelocidadeReal}`);
 
         // [MOD V4.52] Lógica do Alvo da Velocidade (Denominador) conforme regra de filtros
         let targetVelocidade = 0;
