@@ -65,8 +65,9 @@ MinhaArea.Relatorios = {
                 metasRes = await Sistema.query(`SELECT mes, meta_producao FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, alvoId]);
             }
 
-            const prodR = await Sistema.query(`SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, SUM(COALESCE(p.fator, 1.0)) as soma_fator, COUNT(p.fator) as count_fator FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) ${alvoId && alvoId.length > 10 ? ' AND p.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, alvoId && alvoId.length > 10 ? [inicio, fim, alvoId] : [inicio, fim]);
-            const asR = await Sistema.query(`SELECT MONTH(a.data_referencia) as mes, AVG(a.assertividade_val) as media_assert FROM assertividade a JOIN usuarios u ON a.usuario_id = u.id WHERE a.data_referencia >= ? AND a.data_referencia <= ? ${alvoId && alvoId.length > 10 ? ' AND a.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, alvoId && alvoId.length > 10 ? [inicio, fim, alvoId] : [inicio, fim]);
+            const isIndividual = alvoId && !['EQUIPE', 'GRUPO_CLT', 'GRUPO_TERCEIROS'].includes(alvoId);
+            const prodR = await Sistema.query(`SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, SUM(COALESCE(p.fator, 1.0)) as soma_fator, COUNT(p.fator) as count_fator FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) ${isIndividual ? ' AND p.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, isIndividual ? [inicio, fim, alvoId] : [inicio, fim]);
+            const asR = await Sistema.query(`SELECT MONTH(a.data_referencia) as mes, AVG(a.assertividade_val) as media_assert FROM assertividade a JOIN usuarios u ON a.usuario_id = u.id WHERE a.data_referencia >= ? AND a.data_referencia <= ? ${isIndividual ? ' AND a.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, isIndividual ? [inicio, fim, alvoId] : [inicio, fim]);
 
             const configMes = await Sistema.query(`SELECT * FROM config_mes WHERE ano = ?`, [ano]);
 
@@ -101,7 +102,8 @@ MinhaArea.Relatorios = {
                 }
 
                 const a = (asR || []).find(x => Number(x.mes) === m);
-                dataF.push({ mes: m, total_prod: p ? Number(p.total_prod) : 0, denominador: denV > 0 ? denV : 0, meta_meta: metaVal, assert: a ? Number(a.media_assert) : 0 });
+                const isIndView = alvoId && !['EQUIPE', 'GRUPO_CLT', 'GRUPO_TERCEIROS'].includes(alvoId);
+                dataF.push({ mes: m, total_prod: p ? Number(p.total_prod) : 0, denominador: denV > 0 ? denV : (isIndView ? 1 : 0), meta_meta: metaVal, assert: a ? Number(a.media_assert) : 0 });
             }
             this.renderizarMetasOKR(dataF, ano, mesIni, mesFim);
         } catch (e) { console.error(e); }
