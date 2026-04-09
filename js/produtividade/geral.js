@@ -1059,9 +1059,7 @@ Produtividade.Geral = {
         const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros) ? Number(this.state.configMes.hc_terceiros) : 9;
         
         const diasBrutos = diasCalendarioEfetivos; // Pega os dias úteis totais sem descontos prévios
-        const mesesNoPeriodoKpi = this._getMesesNoPeriodo(rangeInicio, rangeFim);
-        const numMeses = mesesNoPeriodoKpi.length || 1;
-
+        
         let hcFinal = 0;
         let diasProdutivosFinal = 0;
 
