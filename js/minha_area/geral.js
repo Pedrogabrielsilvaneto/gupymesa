@@ -303,8 +303,11 @@ MinhaArea.Geral = {
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
             const ehCLTVel = !isTerceiro;
 
-            // [FIX] Sempre calcular dias_efetivos_kpi, pois a visao macro tambem usa no card de Dias Produtivos
-            const diasEfetivosVel = (ehCLTVel && isPeriodo && item.soma_fator > 0) ? Math.max(0, item.soma_fator - 1) : item.soma_fator;
+            // [FIX] Base real previstando descontar CLT, em seguida abater abonos explícitos
+            let diasPrevistos = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
+            if (ehCLTVel && isPeriodo) diasPrevistos = Math.max(0, diasPrevistos - 1);
+            
+            const diasEfetivosVel = Math.max(1, diasPrevistos - item.soma_abono);
             item.dias_efetivos_kpi = diasEfetivosVel;
 
             if (this.state.isMacro) {
@@ -343,11 +346,12 @@ MinhaArea.Geral = {
 
                 item.meta_total_periodo = Math.round(metaTotalAcumulada);
                 item.meta_velocidade_media = qtdMeses > 0 ? Math.round(somaMetaDiaria / qtdMeses) : defaultMeta;
-                item.velocidade_acumulada = diasEfetivosVel > 0 ? Math.round(item.producao / diasEfetivosVel) : 0;
 
                 const diasBrutosMacro = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
                 item.dias_uteis_brutos = ehCLTVel ? Math.max(0, diasBrutosMacro - mesesNoPeriodo.length) : diasBrutosMacro;
                 item.dias_uteis_liquidos = Math.max(0, item.dias_uteis_brutos - item.soma_abono);
+                
+                item.velocidade_acumulada = item.dias_uteis_liquidos > 0 ? Math.round(item.producao / item.dias_uteis_liquidos) : 0;
             } else {
                 // ---- VISÃO MICRO (Mês / Semana / Dia) ----
                 item.velocidade_acumulada = diasEfetivosVel > 0 ? Math.round(item.producao / diasEfetivosVel) : 0;

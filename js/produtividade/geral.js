@@ -1484,17 +1484,27 @@ Produtividade.Geral = {
 
         if (itemConsolidado) {
             const contrato = (u && u.contrato || '').toUpperCase();
+            
+            // Base total the person has in the calendar/config
             const diasTotalBase = this.state.totalDiasUteisFull || this.state.totalDiasUteisConfig || this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-            const diasTrabalhadosBase = itemConsolidado.soma_fator !== undefined ? itemConsolidado.soma_fator : (itemConsolidado.count_fator || 0);
-            const diasTrabalhadosAjustado = (contrato.includes('CLT') && isPeriodo && diasTrabalhadosBase > 0) ? Math.max(0, diasTrabalhadosBase - 1) : diasTrabalhadosBase;
+
+            // Base final discounting the CLT strict rule (-1)
+            const calcDiasBaseMensal = (isPeriodo && contrato.includes('CLT')) ? Math.max(0, diasTotalBase - 1) : diasTotalBase;
+            
+            // The exact manual abono they received is the difference between rows and their actual sum factors
+            const cFator = itemConsolidado.count_fator || 0;
+            const sFator = itemConsolidado.soma_fator || 0;
+            const abonoManual = Math.max(0, cFator - sFator);
+
+            // Final functional denominator
+            const diasTrabalhadosAjustado = Math.max(1, calcDiasBaseMensal - abonoManual);
 
             this.atualizarCardsKPI({
                 prod: { real: itemConsolidado.producao, meta: itemConsolidado.meta_real_calculada },
                 assert: { real: itemConsolidado.media_final || 0, meta: itemConsolidado.meta_assert },
                 capacidade: { diasReal: diasTrabalhadosAjustado, diasTotal: diasTotalBase, assisReal: 1, assisTotal: 1 },
-                velocidade: { real: Math.round(itemConsolidado.producao / (diasTrabalhadosAjustado > 0 ? diasTrabalhadosAjustado : 1)), meta: itemConsolidado.meta_base_diaria }
+                velocidade: { real: Math.round(itemConsolidado.producao / diasTrabalhadosAjustado), meta: itemConsolidado.meta_base_diaria }
             });
         }
 
