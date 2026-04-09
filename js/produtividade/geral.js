@@ -899,20 +899,35 @@ Produtividade.Geral = {
             return forbidden.some(t => func.includes(t) || perf.includes(t)) || uid == 1 || uid == 1000;
         });
 
-        const metasGestoresMonth = this.state.dadosMetas.filter(m =>
-            uidsGestores.includes(String(m.usuario_id)) && m.mes == reqMes && m.ano == reqAno
-        );
+        const reqMes = Number(this.state.range.inicio.split('-')[1]);
+        const reqAno = Number(this.state.range.inicio.split('-')[0]);
+        const filterC = this.state.filtroContrato;
 
         let metaDiariaGestor = 0;
-        if (metasGestoresMonth.length > 0) {
-            // Pega a maior meta definida para gestores no mês
-            metaDiariaGestor = Math.max(...metasGestoresMonth.map(m => Number(m.meta_producao || m.meta_prod || 0)));
-        } else {
-            // Fallback: Tenta a gestora agregada da lista
-            if (gestoraItem) metaDiariaGestor = gestoraItem._meta_gestor_base || 0;
+        if (filterC === 'CLT' || filterC === 'TODOS') {
+            // Prioridade total para Patrícia (ID 1074356)
+            const metaPat = this.state.dadosMetas.find(m => String(m.usuario_id) === '1074356' && m.mes == reqMes && m.ano == reqAno);
+            if (metaPat) metaDiariaGestor = Number(metaPat.meta_producao || metaPat.meta_prod || 0);
+        }
+        
+        // Se ainda não tem meta (ou é Terceiros), busca o maior valor possível do grupo
+        if (metaDiariaGestor === 0) {
+            const metasG = this.state.dadosMetas.filter(m => m.mes == reqMes && m.ano == reqAno);
+            if (filterC === 'TERCEIROS' || filterC === 'PJ') {
+                // Para Terceiros, busca a maior meta entre os assistentes desse perfil
+                const uidsTerc = Object.values(this.state.mapaUsuarios)
+                    .filter(u => (u.contrato||'').toUpperCase().includes('PJ') || (u.contrato||'').toUpperCase().includes('TERCEIR'))
+                    .map(u => String(u.id));
+                const metasT = metasG.filter(m => uidsTerc.includes(String(m.usuario_id)));
+                if (metasT.length > 0) metaDiariaGestor = Math.max(...metasT.map(m => Number(m.meta_producao || m.meta_prod || 0)));
+            } else {
+                // Fallback geral (maior meta dos gestores)
+                const metasManagers = metasG.filter(m => uidsGestores.includes(String(m.usuario_id)));
+                if (metasManagers.length > 0) metaDiariaGestor = Math.max(...metasManagers.map(m => Number(m.meta_producao || m.meta_prod || 0)));
+            }
         }
 
-        if (metaDiariaGestor === 0) metaDiariaGestor = 650; // Fallback final seguro
+        if (metaDiariaGestor === 0) metaDiariaGestor = (filterC === 'TERCEIROS' || filterC === 'PJ') ? 100 : 650;
         console.log(`[DEBUG PROD] Meta Gestora Final (Mês ${reqMes}/${reqAno}): ${metaDiariaGestor}`);
 
         listaExibicao.forEach(i => {

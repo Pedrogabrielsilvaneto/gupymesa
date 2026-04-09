@@ -49,13 +49,19 @@ MinhaArea.Relatorios = {
             const assistentes = await Sistema.query(sqlUsers);
             const hcEquipe = assistentes.length || 17;
 
-            // [FIX] Busca a Meta correta (Liderança ou Individual)
+            // [FIX] Busca a Meta correta conforme regra de grupos
             let metasRes = [];
-            if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') {
-                // Busca metas de qualquer GESTOR no período e pega a maior (igual Dash)
-                const sqlMetaGroup = `SELECT mes, meta_producao FROM metas m JOIN usuarios u ON m.usuario_id = u.id WHERE m.ano = ? AND m.mes >= ? AND m.mes <= ? AND (LOWER(u.perfil) LIKE "%gestor%" OR LOWER(u.perfil) LIKE "%coordena%" OR u.id = 1074356)`;
-                metasRes = await Sistema.query(sqlMetaGroup, [ano, mesIni, mesFim]);
+            const isGroup = !alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS';
+            
+            if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT') {
+                // Time Geral ou CLT: Meta da Patrícia (ID 1074356)
+                metasRes = await Sistema.query(`SELECT mes, meta_producao FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = 1074356`, [ano, mesIni, mesFim]);
+            } else if (alvoId === 'GRUPO_TERCEIROS') {
+                // Time Terceiros: Maior meta dos assistentes do grupo
+                const sqlMetaTerc = `SELECT m.mes, m.meta_producao FROM metas m JOIN usuarios u ON m.usuario_id = u.id WHERE m.ano = ? AND m.mes >= ? AND m.mes <= ? AND (LOWER(u.contrato) LIKE "%pj%" OR LOWER(u.contrato) LIKE "%terceiro%")`;
+                metasRes = await Sistema.query(sqlMetaTerc, [ano, mesIni, mesFim]);
             } else {
+                // Individual
                 metasRes = await Sistema.query(`SELECT mes, meta_producao FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, alvoId]);
             }
 
@@ -78,7 +84,8 @@ MinhaArea.Relatorios = {
                 else if (hojeStr < inicioMes) dReferencia = 0;
 
                 const metaM = (metasRes || []).filter(x => Number(x.mes) === m);
-                const metaVal = metaM.length > 0 ? Math.max(...metaM.map(x => Number(x.meta_producao || 0))) : 650;
+                const targetFallback = (alvoId === 'GRUPO_TERCEIROS') ? 100 : 650;
+                const metaVal = metaM.length > 0 ? Math.max(...metaM.map(x => Number(x.meta_producao || 0))) : targetFallback;
 
                 let denV = 1;
                 if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') {
