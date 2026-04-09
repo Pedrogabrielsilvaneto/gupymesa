@@ -1012,7 +1012,7 @@ Produtividade.Geral = {
         if (hoje >= rangeInicio && hoje <= rangeFim) diasDivisorBase = this.contarDiasUteis(rangeInicio, hoje);
 
         const mesesNoRange = this._getMesesNoPeriodo(rangeInicio, rangeFim);
-        const mDecorridosTotal = mesesNoRange.filter(m => m.inicio <= hoje).length || 1;
+        const mesesDecorridos = mesesNoRange.filter(m => m.inicio <= hoje).length || 1;
 
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return;
@@ -1024,7 +1024,7 @@ Produtividade.Geral = {
 
             const contrato = (u.contrato || '').toUpperCase();
             const countsAsCLT = contrato.includes('CLT') || (contrato === '' && filtroContrato === 'TODOS');
-            const numMesesUser = i.distinct_months ? i.distinct_months.size : (isPeriodoKpi ? mDecorridosTotal : 0);
+            const numMesesUser = i.distinct_months ? i.distinct_months.size : (isPeriodoKpi ? mesesDecorridos : 0);
 
             let dBaseUser = diasDivisorBase;
             if (countsAsCLT) dBaseUser = Math.max(0, dBaseUser - numMesesUser);
