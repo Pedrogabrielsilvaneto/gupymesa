@@ -66,7 +66,7 @@ MinhaArea.Relatorios = {
             }
 
             const isIndividual = alvoId && !['EQUIPE', 'GRUPO_CLT', 'GRUPO_TERCEIROS'].includes(alvoId);
-            const prodR = await Sistema.query(`SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, SUM(COALESCE(p.fator, 1.0)) as soma_fator, COUNT(p.fator) as count_fator FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) ${isIndividual ? ' AND p.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, isIndividual ? [inicio, fim, alvoId] : [inicio, fim]);
+            const prodR = await Sistema.query(`SELECT MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, SUM(COALESCE(p.fator, 1.0)) as soma_fator, MAX(u.contrato) as contrato FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) ${isIndividual ? ' AND p.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, isIndividual ? [inicio, fim, alvoId] : [inicio, fim]);
             const asR = await Sistema.query(`SELECT MONTH(a.data_referencia) as mes, AVG(a.assertividade_val) as media_assert FROM assertividade a JOIN usuarios u ON a.usuario_id = u.id WHERE a.data_referencia >= ? AND a.data_referencia <= ? ${isIndividual ? ' AND a.usuario_id = ? ' : filtroGrupo} GROUP BY mes`, isIndividual ? [inicio, fim, alvoId] : [inicio, fim]);
 
             const configMes = await Sistema.query(`SELECT * FROM config_mes WHERE ano = ?`, [ano]);
@@ -90,15 +90,22 @@ MinhaArea.Relatorios = {
                 const metaVal = metaM.length > 0 ? Math.max(...metaM.map(x => Number(x.meta_producao || 0))) : targetFallback;
 
                 let denV = 1;
-                if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS') {
-                    // Visão Grupo: HC * (Dias - 1)
+                const isIndView = alvoId && !['EQUIPE', 'GRUPO_CLT', 'GRUPO_TERCEIROS'].includes(alvoId);
+                
+                if (!isIndView) {
+                    // Visão Grupo: Capacidade Fixa (HC * (Dias - 1))
                     denV = hcEquipe * (dReferencia > 0 ? Math.max(1, dReferencia - 1) : 0);
                 } else {
-                    // Visão Individual: (Dias - 1) - Abonos Reais do período
-                    const cFator = p ? Number(p.count_fator || 0) : 0;
+                    // Visão Individual: Real Trabalhado (Soma Fatores - 1 se for CLT)
                     const sFator = p ? Number(p.soma_fator || 0) : 0;
-                    const abonoManual = Math.max(0, cFator - sFator);
-                    denV = Math.max(0, dReferencia - 1) - abonoManual;
+                    const uContrato = p ? (p.contrato || '').toUpperCase() : 'CLT';
+                    const isClt = !uContrato.includes('PJ') && !uContrato.includes('TERCEIR');
+                    
+                    if (isClt) {
+                        denV = Math.max(0, sFator - 1);
+                    } else {
+                        denV = sFator;
+                    }
                 }
 
                 const a = (asR || []).find(x => Number(x.mes) === m);
