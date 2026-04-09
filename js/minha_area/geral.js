@@ -301,6 +301,8 @@ MinhaArea.Geral = {
             const contratoUser = uInfo ? (uInfo.contrato || 'TERCEIROS').toUpperCase() : 'TERCEIROS';
             const isTerceiro = contratoUser.includes('PJ') || contratoUser.includes('TERCEIR') || contratoUser.includes('PREST');
             const defaultMeta = isTerceiro ? 100 : 650;
+            const isPeriodo = this.state.range.inicio !== this.state.range.fim;
+            const ehCLTVel = !isTerceiro;
 
             // [FIX] Base real previstando descontar CLT (-1 dia/mês), em seguida abater abonos explícitos
             const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
