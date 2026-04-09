@@ -317,6 +317,8 @@ window.MinhaArea = {
             } else if (!document.getElementById('ma-tab-relatorios').classList.contains('hidden')) {
                 if (MinhaArea.Relatorios && MinhaArea.Relatorios.relatorioAtivo === 'metas_okr') {
                     MinhaArea.Relatorios.carregarMetasOKR();
+                } else if (MinhaArea.Relatorios && MinhaArea.Relatorios.relatorioAtivo === 'gap') {
+                    MinhaArea.Relatorios.carregarGAP();
                 }
             }
         }
