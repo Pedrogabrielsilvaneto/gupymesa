@@ -1030,6 +1030,7 @@ Produtividade.Geral = {
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
         const mesesNoPeriodoKpi = this._getMesesNoPeriodo(rangeInicio, rangeFim);
+        const numMeses = mesesNoPeriodoKpi.length || 1;
         // [FIX] Apenas desconta meses que já começaram em relação a hoje (para não punir divisor futuro)
         const mesesDecorridos = mesesNoPeriodoKpi.filter(m => m.inicio <= hoje).length || 1;
 
@@ -1083,13 +1084,13 @@ Produtividade.Geral = {
             diasProdutivosFinal = diasBrutos; // Terceiros: Dias integrais
         } else if (filtroContrato === 'CLT') {
             hcFinal = hcClt;
-            // CLT: -1 dia por mês se for período (mês cheio/semana)
-            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - (1 * numMeses)) : diasBrutos;
+            // CLT: -1 dia por mês que já iniciou
+            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - mesesDecorridos) : diasBrutos;
         } else {
             // GERAL (TODOS)
             hcFinal = hcClt + hcTerc;
-            // Geral segue regra CLT (gestora é CLT): -1 dia por mês
-            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - (1 * numMeses)) : diasBrutos;
+            // Geral segue regra CLT (gestora é CLT): -1 dia por mês que já iniciou
+            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - mesesDecorridos) : diasBrutos;
         }
 
         // Subtrai abono dos assistentes do total de dias produtivos se aplicável
@@ -1116,7 +1117,7 @@ Produtividade.Geral = {
             prod: { real: totalProd, meta: window.Produtividade.MetaGlobalCalculada },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
-                diasReal: (filtroContrato === 'CLT' && isPeriodoKpi && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - numMeses) : datasComProducao.size,
+                diasReal: (filtroContrato === 'CLT' && isPeriodoKpi && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - mesesDecorridos) : datasComProducao.size,
                 diasTotal: diasBrutos, // Valor bruto no card de capacidade para referência visual
                 assisReal: assisRealFinal,
                 assisTotal: totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : (filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' ? hcTerc : (hcClt + hcTerc)))
