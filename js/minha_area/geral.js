@@ -343,7 +343,7 @@ MinhaArea.Geral = {
                     
                     const diasCalMes = this.contarDiasUteis(inicio, fimRealMeta);
                     const jaPassouOuEstaNoMes = (hojeStr >= inicio);
-                    const duMes = (ehCLTVel && jaPassouOuEstaNoMes) ? Math.max(0, diasCalMes - 1) : diasCalMes;
+                    const duMes = ehCLTVel ? Math.max(0, diasCalMes - 1) : diasCalMes;
 
                     metaTotalAcumulada += metaBase * duMes;
                     somaMetaDiaria += metaBase;
