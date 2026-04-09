@@ -28,7 +28,7 @@ Produtividade.Matriz = {
             // [MIGRATION v4.32] Supabase -> TiDB (Sistema.query)
             const sql = `
                 SELECT 
-                    p.quantidade, p.data_referencia, p.usuario_id,
+                    p.quantidade, p.data_referencia, p.usuario_id, p.fator,
                     u.id, u.nome, u.perfil, u.funcao, u.contrato
                 FROM producao p
                 INNER JOIN usuarios u ON p.usuario_id = u.id
@@ -74,14 +74,15 @@ Produtividade.Matriz = {
                         nome: nome,
                         cargo: cargo,
                         contrato: r.contrato || 'PJ',
-                        months: new Array(12).fill(0)
+                        months: Array.from({ length: 12 }, () => ({ prod: 0, fator: 0 }))
                     };
                 }
 
                 // Mapeia o mês da data_referencia (YYYY-MM-DD)
                 const mesIndex = parseInt(r.data_referencia.split('-')[1]) - 1;
                 if (mesIndex >= 0 && mesIndex <= 11) {
-                    users[uid].months[mesIndex] += (Number(r.quantidade) || 0);
+                    users[uid].months[mesIndex].prod += (Number(r.quantidade) || 0);
+                    users[uid].months[mesIndex].fator += (r.fator !== null ? Number(r.fator) : 1.0);
                 }
             });
 
@@ -105,15 +106,33 @@ Produtividade.Matriz = {
 
         const format = (n) => n === 0 ? '-' : Math.round(n).toLocaleString('pt-BR');
 
+        const calcVelocidade = (prod, fator, contrato) => {
+            if (prod <= 0) return 0;
+            const ehCLT = contrato.toUpperCase().includes('CLT');
+            let divisor = fator;
+            if (ehCLT && divisor > 0) divisor = Math.max(0, divisor - 1);
+            divisor = divisor > 0 ? divisor : 1;
+            return Math.round(prod / divisor);
+        };
+
+        const calcMacro = (velsArray) => {
+            let soma = 0, count = 0;
+            velsArray.forEach(v => {
+                if (v > 0) { soma += v; count++; }
+            });
+            return count > 0 ? Math.round(soma / count) : 0;
+        };
+
         lista.forEach(u => {
-            const m = u.months;
-            const q1 = m[0] + m[1] + m[2];
-            const q2 = m[3] + m[4] + m[5];
-            const q3 = m[6] + m[7] + m[8];
-            const q4 = m[9] + m[10] + m[11];
-            const s1 = q1 + q2;
-            const s2 = q3 + q4;
-            const total = s1 + s2;
+            const vels = u.months.map(m => calcVelocidade(m.prod, m.fator, u.contrato));
+            
+            const q1 = calcMacro([vels[0], vels[1], vels[2]]);
+            const q2 = calcMacro([vels[3], vels[4], vels[5]]);
+            const q3 = calcMacro([vels[6], vels[7], vels[8]]);
+            const q4 = calcMacro([vels[9], vels[10], vels[11]]);
+            const s1 = calcMacro([vels[0], vels[1], vels[2], vels[3], vels[4], vels[5]]);
+            const s2 = calcMacro([vels[6], vels[7], vels[8], vels[9], vels[10], vels[11]]);
+            const total = calcMacro(vels);
 
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-50 transition odd:bg-white even:bg-slate-50/30 group border-b border-slate-100 last:border-0";
@@ -132,22 +151,22 @@ Produtividade.Matriz = {
                         <span class="text-[9px] text-slate-400 uppercase tracking-tight">${u.cargo} • ${u.contrato}</span>
                     </div>
                 </td>
-                <td class="${tdMes}">${format(m[0])}</td>
-                <td class="${tdMes}">${format(m[1])}</td>
-                <td class="${tdMes}">${format(m[2])}</td>
+                <td class="${tdMes}">${format(vels[0])}</td>
+                <td class="${tdMes}">${format(vels[1])}</td>
+                <td class="${tdMes}">${format(vels[2])}</td>
                 <td class="${tdQ}">${format(q1)}</td>
-                <td class="${tdMes}">${format(m[3])}</td>
-                <td class="${tdMes}">${format(m[4])}</td>
-                <td class="${tdMes}">${format(m[5])}</td>
+                <td class="${tdMes}">${format(vels[3])}</td>
+                <td class="${tdMes}">${format(vels[4])}</td>
+                <td class="${tdMes}">${format(vels[5])}</td>
                 <td class="${tdQ}">${format(q2)}</td>
                 <td class="${tdS}">${format(s1)}</td>
-                <td class="${tdMes}">${format(m[6])}</td>
-                <td class="${tdMes}">${format(m[7])}</td>
-                <td class="${tdMes}">${format(m[8])}</td>
+                <td class="${tdMes}">${format(vels[6])}</td>
+                <td class="${tdMes}">${format(vels[7])}</td>
+                <td class="${tdMes}">${format(vels[8])}</td>
                 <td class="${tdQ}">${format(q3)}</td>
-                <td class="${tdMes}">${format(m[9])}</td>
-                <td class="${tdMes}">${format(m[10])}</td>
-                <td class="${tdMes}">${format(m[11])}</td>
+                <td class="${tdMes}">${format(vels[9])}</td>
+                <td class="${tdMes}">${format(vels[10])}</td>
+                <td class="${tdMes}">${format(vels[11])}</td>
                 <td class="${tdQ}">${format(q4)}</td>
                 <td class="${tdS}">${format(s2)}</td>
                 <td class="${tdTotal}">${format(total)}</td>
