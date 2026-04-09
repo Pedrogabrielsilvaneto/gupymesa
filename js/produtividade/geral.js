@@ -446,6 +446,9 @@ Produtividade.Geral = {
             if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uidStr, isPeriodo ? 'Período' : this.normalizarData(p.data_referencia));
 
             const item = mapa.get(chave);
+            const dataRefStr = p.data_referencia ? p.data_referencia.split('T')[0] : null;
+            if (dataRefStr) item.distinct_months.add(dataRefStr.substring(0, 7)); // YYYY-MM
+
             item.producao += Number(p.quantidade) || 0;
             item.fifo += Number(p.fifo) || 0;
             item.gt += Number(p.gradual_total) || 0;
@@ -579,7 +582,19 @@ Produtividade.Geral = {
             }
 
             const multiplicador = isPeriodo ? diasUsuario : 1;
-            item.meta_real_calculada = Math.round(item.meta_base_diaria * multiplicador * item.fator);
+            const hoje = new Date().toISOString().split('T')[0];
+            const rangeFim = this.state.range.fim;
+            const useTodayCap = (hoje < rangeFim && isPeriodo);
+            
+            // [FIX] Cap meta by today if we are in the middle of the period
+            let finalMult = multiplicador;
+            if (useTodayCap) {
+                const diasDecorridosIndiv = this.contarDiasUteis(this.state.range.inicio, hoje);
+                const numMesesDecorr = this._getMesesNoPeriodo(this.state.range.inicio, hoje).length || 1;
+                finalMult = (contratoUpper === 'CLT' || ehGestao) ? Math.max(0, diasDecorridosIndiv - numMesesDecorr) : diasDecorridosIndiv;
+            }
+
+            item.meta_real_calculada = Math.round(item.meta_base_diaria * finalMult * item.fator);
         }
 
         // 5. Agregação da Gestora
@@ -754,17 +769,16 @@ Produtividade.Geral = {
             const contrato = (u.contrato || '').toUpperCase();
             const isCLT = contrato.includes('CLT');
 
-            // [FIX Multi-mês] Desconta -1 dia por mês para CLT
-            const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
-            const numMeses = mesesNoPeriodo.length || 1;
+            // [FIX Multi-mês] Desconta -1 dia por mês que o assistente trabalhou (CLT)
+            const numMesesAtivos = row.distinct_months ? row.distinct_months.size : 1;
 
-            // Regra de Exibição de Dias: CLT em período desconta 1 dia por mês
+            // Regra de Exibição de Dias: CLT em período desconta 1 dia por mês ativo
             const countDiasReais = row.count_fator || 0;
-            const diasTrabalhadosExibido = (isCLT && isPeriodo && countDiasReais > 0) ? Math.max(0, countDiasReais - numMeses) : countDiasReais;
+            const diasTrabalhadosExibido = (isCLT && isPeriodo && countDiasReais > 0) ? Math.max(0, countDiasReais - numMesesAtivos) : countDiasReais;
 
-            // Dias abonados = (Diferença entre dias previstos e efetivos) + ( regra CLT se aplicável)
+            // Dias abonados = (Diferença entre dias previstos e efetivos) + (regra CLT se aplicável)
             const abonoManual = countDiasReais - (row.soma_fator || 0);
-            const diasAbonadosExibido = abonoManual + ((isCLT && isPeriodo && countDiasReais > 0) ? numMeses : 0);
+            const diasAbonadosExibido = abonoManual + ((isCLT && isPeriodo && countDiasReais > 0) ? numMesesAtivos : 0);
 
             const isAbonado = row.fator < 1.0;
             const metaParaCalculo = row.meta_real_calculada;
@@ -1016,13 +1030,14 @@ Produtividade.Geral = {
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
         const mesesNoPeriodoKpi = this._getMesesNoPeriodo(rangeInicio, rangeFim);
-        const numMeses = mesesNoPeriodoKpi.length || 1;
+        // [FIX] Apenas desconta meses que já começaram em relação a hoje (para não punir divisor futuro)
+        const mesesDecorridos = mesesNoPeriodoKpi.filter(m => m.inicio <= hoje).length || 1;
 
         // [FIX v6.0] Calcula abono manual da gestora para descontar do divisor de velocidade
         let abonoManualGestora = 0;
         if (gestoraItem && gestoraItem.count_fator > 0) {
             const diasGestoraEfetivos = gestoraItem.soma_fator || 0;
-            abonoManualGestora = Math.max(0, diasCalendarioEfetivos - diasGestoraEfetivos);
+            abonoManualGestora = Math.max(0, gestoraItem.count_fator - diasGestoraEfetivos);
         }
 
         // [FIX v6.0] Velocidade ALINHADA com Minha Área:
@@ -1030,7 +1045,7 @@ Produtividade.Geral = {
         // Regra PJ/Terceiros: Usa dias puros sem desconto
         const descontarDiaCLT = (filtroContrato === 'CLT' || filtroContrato === 'TODOS');
         const diasParaVelocidade = descontarDiaCLT
-            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - numMeses - abonoManualGestora) : diasDivisorReal))
+            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - mesesDecorridos - abonoManualGestora) : diasDivisorReal))
             : Math.max(1, diasDivisorReal);
 
         const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
@@ -1126,7 +1141,7 @@ Produtividade.Geral = {
 
         mapa.set(chave, {
             chave: chave, uid: uid, data: dataLabel, nome: nomeUser,
-            fator: 1.0, soma_fator: 0, count_fator: 0,
+            fator: 1.0, soma_fator: 0, count_fator: 0, distinct_months: new Set(),
             fifo: 0, gt: 0, gp: 0, producao: 0, justificativa: '', observacao_assistente: '',
             soma_notas_bruta: 0, qtd_assert: 0, media_final: null,
             meta_base_diaria: dMeta, meta_real_calculada: dMeta, meta_assert: 97, id_prod: null

@@ -248,12 +248,14 @@ MinhaArea.Geral = {
             const item = mapa.get(chave);
 
             const fator = p.fator !== null ? Number(p.fator) : 1.0;
-            const dataRef = new Date(p.data_referencia + 'T12:00:00');
+            const dataRefStr = p.data_referencia ? p.data_referencia.split('T')[0] : null;
+            const dataRef = new Date(dataRefStr + 'T12:00:00');
             const mesChave = `${dataRef.getFullYear()}-${dataRef.getMonth() + 1}`;
 
             item.producao += Number(p.quantidade) || 0;
             item.soma_fator += fator;
             item.soma_abono += (1.0 - fator);
+            if (dataRefStr) item.distinct_months.add(dataRefStr.substring(0, 7)); // YYYY-MM
 
             if (!item.meses[mesChave]) item.meses[mesChave] = { prod: 0, dias: 0 };
             item.meses[mesChave].prod += Number(p.quantidade) || 0;
@@ -334,8 +336,12 @@ MinhaArea.Geral = {
                     if (rawAssert !== null) item.meta_assert = Number(rawAssert);
 
                     // Dias uteis deste mes respeitando regra CLT (-1/mes) vs Terceiros
-                    const diasCalMes = this.contarDiasUteis(inicio, fim);
-                    const duMes = ehCLTVel ? Math.max(0, diasCalMes - 1) : diasCalMes;
+                    const hojeStr = new Date().toISOString().split('T')[0];
+                    const fimRealMeta = (hojeStr < fim) ? hojeStr : fim;
+                    
+                    const diasCalMes = this.contarDiasUteis(inicio, fimRealMeta);
+                    const jaPassouOuEstaNoMes = (hojeStr >= inicio);
+                    const duMes = (ehCLTVel && jaPassouOuEstaNoMes) ? Math.max(0, diasCalMes - 1) : diasCalMes;
 
                     metaTotalAcumulada += metaBase * duMes;
                     somaMetaDiaria += metaBase;
@@ -345,8 +351,9 @@ MinhaArea.Geral = {
                 item.meta_total_periodo = Math.round(metaTotalAcumulada);
                 item.meta_velocidade_media = qtdMeses > 0 ? Math.round(somaMetaDiaria / qtdMeses) : defaultMeta;
 
+                const numMesesAtivos = item.distinct_months ? item.distinct_months.size : 1;
                 const diasBrutosMacro = this.contarDiasUteis(this.state.range.inicio, this.state.range.fim);
-                item.dias_uteis_brutos = ehCLTVel ? Math.max(0, diasBrutosMacro - mesesNoPeriodo.length) : diasBrutosMacro;
+                item.dias_uteis_brutos = ehCLTVel ? Math.max(0, diasBrutosMacro - numMesesAtivos) : diasBrutosMacro;
                 item.dias_uteis_liquidos = Math.max(0, item.dias_uteis_brutos - item.soma_abono);
                 
                 item.velocidade_acumulada = item.dias_uteis_liquidos > 0 ? Math.round(item.producao / item.dias_uteis_liquidos) : 0;
@@ -429,7 +436,7 @@ MinhaArea.Geral = {
 
         mapa.set(chave, {
             uid: uid, nome: u ? u.nome : `ID: ${uid}`,
-            producao: 0, soma_fator: 0, soma_abono: 0,
+            producao: 0, soma_fator: 0, soma_abono: 0, distinct_months: new Set(),
             qtd_assert: 0, soma_notas_bruta: 0, media_final: null,
             meses: {}, velocidade_acumulada: 0, meta_velocidade_media: dMeta,
             meta_total_periodo: 0, dias_uteis_liquidos: 0, meta_assert: 97,
