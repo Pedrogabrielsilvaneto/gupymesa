@@ -997,6 +997,8 @@ Produtividade.Geral = {
         });
 
         const targetMetaFallback = (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') ? 100 : 650;
+        const rangeSel = this.state.range || {};
+        const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
         if (maxMetaProducao === 0) maxMetaProducao = targetMetaFallback;
 
         // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
