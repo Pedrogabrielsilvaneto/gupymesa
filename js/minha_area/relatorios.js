@@ -101,7 +101,12 @@ MinhaArea.Relatorios = {
     renderizarMetasOKR: function(producao, ano, mesIni, mesFim) {
         const container = document.getElementById('relatorio-ativo-content');
         const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        let hIdx = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
+        let hIdx = `<div class="mb-4 flex justify-end">
+                <button onclick="MinhaArea.Relatorios.copiarDados()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-black transition-all border border-slate-200 shadow-sm flex items-center gap-2">
+                    <i class="fas fa-copy"></i> COPIAR DADOS (EXCEL)
+                </button>
+            </div>
+            <div id="tabela-metas-okr" class="grid grid-cols-1 xl:grid-cols-2 gap-8"><div class="space-y-4">
             <div class="flex justify-between items-end px-1"><h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Produção (Velocidade)</h3></div>
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead class="bg-slate-50 text-[10px] font-bold"><tr><th class="px-4 py-3">Mês</th><th class="px-4 py-3 text-right">Meta</th><th class="px-4 py-3 text-right">Realizado</th><th class="px-4 py-3 text-center">Ating.</th></tr></thead><tbody class="divide-y">`;
         let sM = 0, cM = 0, sR = 0, cR = 0;
@@ -132,7 +137,48 @@ MinhaArea.Relatorios = {
         hAs += `</tbody><tfoot class="bg-slate-50 border-t-2 font-black"><tr><td class="px-4 py-3">Acumulado</td><td class="px-4 py-3 text-right">97%</td><td class="px-4 py-3 text-right text-emerald-700 bg-emerald-50/50">${aRA.toFixed(2)}%</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded bg-amber-500 text-white">${aAt}%</span></td></tr></tfoot></table></div></div></div>`;
         
         container.innerHTML = hIdx + hAs;
-        this._lastMetas = metas; this._lastProd = producao; this._lastAssert = assertividade; this._lastMesRange = { mesIni, mesFim };
+        this._lastData = producao;
+    },
+
+    copiarDados: function() {
+        if (!this._lastData) return;
+        const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        let txt = "TABELA: PRODUÇÃO (VELOCIDADE)\nMês\tMeta\tRealizado\tAtingimento%\n";
+        
+        let sM = 0, cM = 0, sR = 0, cR = 0;
+        this._lastData.forEach(p => {
+            const mVal = p.meta_meta || 650;
+            const r = p.denominador > 0 ? (p.total_prod / p.denominador) : 0;
+            const pct = (r / mVal) * 100;
+            if (p.total_prod > 0) { sM += mVal; cM++; sR += r; cR++; }
+            txt += `${mS[p.mes-1]}\t${mVal}\t${Math.round(r)}\t${pct.toFixed(1)}%\n`;
+        });
+        
+        const aM = cM > 0 ? sM / cM : 0; const aR = cR > 0 ? sR / cR : 0; const aP = aM > 0 ? (aR / aM * 100) : 0;
+        txt += `Acumulado\t${Math.round(aM)}\t${Math.round(aR)}\t${aP.toFixed(1)}%\n\n`;
+        
+        txt += "TABELA: ASSERTIVIDADE\nMês\tMeta\tRealizado\tStatus\n";
+        let sRA = 0, cRA = 0;
+        this._lastData.forEach(p => {
+            const rV = p.assert || 0;
+            if (rV > 0) { sRA += rV; cRA++; }
+            let at = 0; if (rV > 0) { if (rV < 90) at = 0; else if (rV < 94) at = 50; else if (rV < 95) at = 70; else if (rV < 96) at = 80; else if (rV <= 97) at = 90; else at = 100; }
+            txt += `${mS[p.mes-1]}\t97%\t${rV > 0 ? rV.toFixed(2) + '%' : '--'}\t${at}%\n`;
+        });
+        const aRA = cRA > 0 ? sRA / cRA : 0;
+        let aAt = 0; if (aRA > 0) { if (aRA < 90) aAt = 0; else if (aRA < 94) aAt = 50; else if (aRA < 95) aAt = 70; else if (aRA < 96) aAt = 80; else if (aRA <= 97) aAt = 90; else aAt = 100; }
+        txt += `Acumulado\t97%\t${aRA.toFixed(2)}%\t${aAt}%\n`;
+
+        navigator.clipboard.writeText(txt).then(() => {
+            const btn = document.querySelector('button[onclick*="copiarDados"]');
+            if (btn) {
+                const old = btn.innerHTML;
+                btn.innerHTML = `<i class="fas fa-check"></i> COPIADO!`;
+                btn.classList.replace('bg-slate-100', 'bg-emerald-500');
+                btn.classList.replace('text-slate-600', 'text-white');
+                setTimeout(() => { btn.innerHTML = old; btn.classList.replace('bg-emerald-500', 'bg-slate-100'); btn.classList.replace('text-white', 'text-slate-600'); }, 2000);
+            }
+        });
     },
 
     contarDiasUteis: function (inicio, fim) {
