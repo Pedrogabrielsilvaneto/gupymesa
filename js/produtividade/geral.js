@@ -899,8 +899,6 @@ Produtividade.Geral = {
             return forbidden.some(t => func.includes(t) || perf.includes(t)) || uid == 1 || uid == 1000;
         });
 
-        const reqMes = Number(this.state.range.inicio.split('-')[1]);
-        const reqAno = Number(this.state.range.inicio.split('-')[0]);
         const filterC = this.state.filtroContrato;
 
         let metaDiariaGestor = 0;
