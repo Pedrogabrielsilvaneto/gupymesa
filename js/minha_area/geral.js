@@ -646,6 +646,7 @@ MinhaArea.Geral = {
         if (maxMetaProducao === 0) maxMetaProducao = targetMetaFallback;
 
         // ------------------ MESMA LÓGICA DE PRODUTIVIDADE ---------------------
+        const hojeStr = new Date().toISOString().split('T')[0];
         const rangeSel = this.state.range || {};
         const isPeriodo = rangeSel.inicio !== rangeSel.fim;
         const diasMetaCal = this.contarDiasUteis(rangeSel.inicio, rangeSel.fim);
