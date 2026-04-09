@@ -346,7 +346,7 @@ window.MinhaArea = {
                 data.forEach(u => {
                     // [SYNC v4.41] Restore active filter but keep Roberta (Special Case)
                     const isActive = u.ativo === true || u.ativo === 1 || u.ativo === '1';
-                    if (!isActive && String(u.id).trim() !== '1074356') return;
+                    if (!isActive && String(u.id).trim() !== '432243') return;
 
                     const f = (u.funcao || '').toLowerCase();
                     const p = (u.perfil || '').toLowerCase();

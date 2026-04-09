@@ -905,8 +905,8 @@ Produtividade.Geral = {
 
         let metaDiariaGestor = 0;
         if (filterC === 'CLT' || filterC === 'TODOS') {
-            // Prioridade total para Patrícia (ID 1074356)
-            const metaPat = this.state.dadosMetas.find(m => String(m.usuario_id) === '1074356' && m.mes == reqMes && m.ano == reqAno);
+            // Prioridade total para Patrícia (ID 432243)
+            const metaPat = this.state.dadosMetas.find(m => String(m.usuario_id) === '432243' && m.mes == reqMes && m.ano == reqAno);
             if (metaPat) metaDiariaGestor = Number(metaPat.meta_producao || metaPat.meta_prod || 0);
         }
         

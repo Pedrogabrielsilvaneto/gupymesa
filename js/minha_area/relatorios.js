@@ -4,7 +4,7 @@
 
 MinhaArea.Relatorios = {
     relatorioAtivo: null,
-    ID_LIDERANCA: '1074356', 
+    ID_LIDERANCA: '432243', 
     VISITANTE_IDS: ['2026', '200601'],
     _gapData: null,
     _selectedGapUsers: new Set(),
@@ -54,8 +54,8 @@ MinhaArea.Relatorios = {
             const isGroup = !alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT' || alvoId === 'GRUPO_TERCEIROS';
             
             if (!alvoId || alvoId === 'EQUIPE' || alvoId === 'GRUPO_CLT') {
-                // Time Geral ou CLT: Meta da Patrícia (ID 1074356)
-                metasRes = await Sistema.query(`SELECT mes, meta_producao FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = 1074356`, [ano, mesIni, mesFim]);
+                // Time Geral ou CLT: Meta da Liderança
+                metasRes = await Sistema.query(`SELECT mes, meta_producao FROM metas WHERE ano = ? AND mes >= ? AND mes <= ? AND usuario_id = ?`, [ano, mesIni, mesFim, this.ID_LIDERANCA]);
             } else if (alvoId === 'GRUPO_TERCEIROS') {
                 // Time Terceiros: Maior meta dos assistentes do grupo
                 const sqlMetaTerc = `SELECT m.mes, m.meta_producao FROM metas m JOIN usuarios u ON m.usuario_id = u.id WHERE m.ano = ? AND m.mes >= ? AND m.mes <= ? AND (LOWER(u.contrato) LIKE "%pj%" OR LOWER(u.contrato) LIKE "%terceiro%")`;
