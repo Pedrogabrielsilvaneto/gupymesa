@@ -1122,7 +1122,7 @@ Produtividade.Geral = {
             prod: { real: totalProd, meta: window.Produtividade.MetaGlobalCalculada },
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
-                diasReal: (filtroContrato === 'CLT' && isPeriodoKpi && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - mesesDecorridos) : datasComProducao.size,
+                diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && isPeriodoKpi && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - mesesDecorridos) : datasComProducao.size,
                 diasTotal: diasBrutos, // Valor bruto no card de capacidade para referência visual
                 assisReal: assisRealFinal,
                 assisTotal: totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : (filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' ? hcTerc : (hcClt + hcTerc)))

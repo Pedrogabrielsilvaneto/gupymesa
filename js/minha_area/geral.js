@@ -653,17 +653,20 @@ MinhaArea.Geral = {
         // Pega dias da configuração customizada se houver, ou pura do calendário
         const hasCustomConfigDias = configMesParaMeta && (Number(configMesParaMeta.dias_uteis_clt) > 0 || Number(configMesParaMeta.dias_uteis_terceiros) > 0 || Number(configMesParaMeta.dias_uteis) > 0);
 
+        const mesesNoRangeKpi = this._getMesesNoPeriodo(rangeSel.inicio, rangeSel.fim);
+        const mesesDecorridosKpi = mesesNoRangeKpi.filter(m => m.inicio <= hojeStr).length || 1;
+
         let targetDiasCal = hasCustomConfigDias
             ? (Number(configMesParaMeta.dias_uteis_clt) || Number(configMesParaMeta.dias_uteis_terceiros) || Number(configMesParaMeta.dias_uteis) || diasMetaCal)
-            : Math.max(0, diasMetaCal - 1); // A regra -1 entra pro GERAL se estiver sem configuração (herdando lógica de CLT)
+            : Math.max(0, diasMetaCal - mesesDecorridosKpi); // Desconto dinâmico por mês
 
         let targetDiasClt = hasCustomConfigDias
             ? (Number(configMesParaMeta.dias_uteis_clt) || targetDiasCal)
-            : Math.max(0, diasMetaCal - 1);
+            : Math.max(0, diasMetaCal - mesesDecorridosKpi);
 
         let targetDiasTerc = hasCustomConfigDias
             ? (Number(configMesParaMeta.dias_uteis_terceiros) || diasMetaCal)
-            : diasMetaCal; // Terceiro puro, nunca subtrai 1
+            : diasMetaCal; // Terceiro puro, nunca subtrai meses
 
         let dBase = targetDiasCal;
         let dCltMeta = targetDiasClt;
@@ -686,7 +689,7 @@ MinhaArea.Geral = {
 
         // --- LÓGICA CLT ---
         const mClt = targetVelocidade > 0 ? targetVelocidade : 650;
-        const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - 1 - abonoManualGestora) : dCltMeta;
+        const multCltMeta = isPeriodo ? Math.max(0, dCltMeta - mesesDecorridosKpi - abonoManualGestora) : dCltMeta;
         const valorMetaCLT = mClt * hClt * multCltMeta;
 
         // --- LÓGICA TERCEIROS ---
@@ -703,7 +706,7 @@ MinhaArea.Geral = {
         } else if (filtroContrato === 'TERCEIROS') {
             totalMetaAjustada = valorMetaTerc;
         } else {
-            const multGeral = isPeriodo ? Math.max(0, dBase - abonoManualGestora) : dBase;
+            const multGeral = isPeriodo ? Math.max(0, dBase - mesesDecorridosKpi - abonoManualGestora) : dBase;
             const metaBaseGeral = targetVelocidade > 0 ? targetVelocidade : 650;
             totalMetaAjustada = hGeral * metaBaseGeral * multGeral;
         }
