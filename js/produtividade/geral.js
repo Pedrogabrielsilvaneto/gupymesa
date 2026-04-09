@@ -1090,8 +1090,6 @@ Produtividade.Geral = {
         // Regra: Meta Diária * Headcount * Dias Produtivos
         
         const metaBaseGeral = targetVelocidade > 0 ? targetVelocidade : 650;
-        const hcClt = (this.state.configMes && this.state.configMes.hc_clt) ? Number(this.state.configMes.hc_clt) : 8;
-        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros) ? Number(this.state.configMes.hc_terceiros) : 9;
         
         const diasBrutos = diasCalendarioEfetivos; // Pega os dias úteis totais sem descontos prévios
         
