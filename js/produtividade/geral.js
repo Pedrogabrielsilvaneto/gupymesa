@@ -1002,13 +1002,39 @@ Produtividade.Geral = {
         // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
         const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
 
-        // [FIX] Define divisor de dias: Se hoje estiver no range, usa dias decorridos. Senão dias totais.
+        // [FIX] Soma de divisores reais para Velocidade Global exata
+        let somaDivisoresEquipeTotal = 0;
         const hoje = new Date().toISOString().split('T')[0];
         const rangeInicio = this.state.range.inicio;
         const rangeFim = this.state.range.fim;
         const diasCalendarioEfetivos = this.contarDiasUteis(rangeInicio, rangeFim);
-        let diasDivisorReal = diasCalendarioEfetivos;
+        let diasDivisorBase = diasCalendarioEfetivos;
+        if (hoje >= rangeInicio && hoje <= rangeFim) diasDivisorBase = this.contarDiasUteis(rangeInicio, hoje);
 
+        const mesesNoRange = this._getMesesNoPeriodo(rangeInicio, rangeFim);
+        const mDecorridosTotal = mesesNoRange.filter(m => m.inicio <= hoje).length || 1;
+
+        listaExibicao.forEach(i => {
+            if (i.isAggregatedManager) return;
+            const u = this.state.mapaUsuarios[i.uid] || {};
+            const cargo = (u.funcao || '').toUpperCase();
+            const perfil = (u.perfil || '').toUpperCase();
+            const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
+            if (ehGestao || this.ehAdmin(i.uid)) return;
+
+            const contrato = (u.contrato || '').toUpperCase();
+            const countsAsCLT = contrato.includes('CLT') || (contrato === '' && filtroContrato === 'TODOS');
+            const numMesesUser = i.distinct_months ? i.distinct_months.size : (isPeriodoKpi ? mDecorridosTotal : 0);
+
+            let dBaseUser = diasDivisorBase;
+            if (countsAsCLT) dBaseUser = Math.max(0, dBaseUser - numMesesUser);
+            
+            const abonoManual = (i.count_fator || 0) - (i.soma_fator || 0);
+            somaDivisoresEquipeTotal += Math.max(0, dBaseUser - abonoManual);
+        });
+
+        // [FIX] Divisor de dias global para a barra de capacidade (médio)
+        let diasDivisorReal = diasCalendarioEfetivos;
         if (hoje >= rangeInicio && hoje <= rangeFim) {
             diasDivisorReal = this.contarDiasUteis(rangeInicio, hoje);
         }
@@ -1029,29 +1055,8 @@ Produtividade.Geral = {
         const rangeSel = this.state.range || {};
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
 
-        const mesesNoPeriodoKpi = this._getMesesNoPeriodo(rangeInicio, rangeFim);
-        const numMeses = mesesNoPeriodoKpi.length || 1;
-        // [FIX] Apenas desconta meses que já começaram em relação a hoje (para não punir divisor futuro)
-        const mesesDecorridos = mesesNoPeriodoKpi.filter(m => m.inicio <= hoje).length || 1;
-
-        // [FIX v6.0] Calcula abono manual da gestora para descontar do divisor de velocidade
-        let abonoManualGestora = 0;
-        if (gestoraItem && gestoraItem.count_fator > 0) {
-            const diasGestoraEfetivos = gestoraItem.soma_fator || 0;
-            abonoManualGestora = Math.max(0, gestoraItem.count_fator - diasGestoraEfetivos);
-        }
-
-        // [FIX v6.0] Velocidade ALINHADA com Minha Área:
-        // Regra CLT/TODOS: Desconta 1 dia (treinamento) + Abono da Gestora no período
-        // Regra PJ/Terceiros: Usa dias puros sem desconto
-        const descontarDiaCLT = (filtroContrato === 'CLT' || filtroContrato === 'TODOS');
-        const diasParaVelocidade = descontarDiaCLT
-            ? Math.max(1, (isPeriodoKpi ? (diasDivisorReal - mesesDecorridos - abonoManualGestora) : diasDivisorReal))
-            : Math.max(1, diasDivisorReal);
-
-        const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
-        const mediaVelocidadeReal = divisorVelocidade > 0 ? Math.round(totalProd / divisorVelocidade) : 0;
-        console.log(`[DEBUG VEL] hc=${hcParaVelocidade}, diasParaVel=${diasParaVelocidade}, divisor=${divisorVelocidade}, velocidade=${mediaVelocidadeReal}, abonoGestora=${abonoManualGestora}`);
+        const mediaVelocidadeReal = somaDivisoresEquipeTotal > 0 ? Math.round(totalProd / somaDivisoresEquipeTotal) : 0;
+        console.log(`[DEBUG VEL] totalProd=${totalProd}, somaDivisores=${somaDivisoresEquipeTotal}, velocidade=${mediaVelocidadeReal}`);
 
         // [MOD V4.52] Lógica do Alvo da Velocidade (Denominador) conforme regra de filtros
         let targetVelocidade = 0;
