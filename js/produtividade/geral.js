@@ -130,22 +130,60 @@ Produtividade.Geral = {
         let sql = 'SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?';
         let params = [range.inicio, range.fim];
 
-        // Simula o filtro de permissão (aplicarFiltroPermissao)
-        // Se aplicarFiltroPermissao só adiciona WHERE usuario_id = ?, podemos fazer aqui
-
         const user = window.Produtividade.usuario || {};
         if (!this.ehGestao(user) && user.id) {
             sql += ' AND usuario_id = ?';
             params.push(user.id);
         }
 
-
         try {
             const data = await Sistema.query(sql, params);
             this.state.dadosProducao = data || [];
+            
+            // Verifica abonos pendentes globalmente (independente do range se for gestor?)
+            // O usuário quer aviso na tela. Vamos buscar todos os pendentes do mês atual ou geral.
+            this.verificarAbonosPendentes();
         } catch (error) {
             console.error("Erro Prod:", error);
             throw new Error("Erro Prod: " + error.message);
+        }
+    },
+
+    verificarAbonosPendentes: async function () {
+        const user = window.Produtividade.usuario || {};
+        if (!this.ehGestao(user)) return;
+
+        try {
+            const rows = await Sistema.query("SELECT p.*, u.nome FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.status = 'PENDENTE_ABONO' ORDER BY p.data_referencia DESC");
+            const container = document.getElementById('container-notificacao-abono');
+            if (!container) return;
+
+            if (rows && rows.length > 0) {
+                const count = rows.length;
+                container.innerHTML = `
+                    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r shadow-md flex items-center justify-between animate-enter">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 shadow-inner">
+                                <i class="fas fa-exclamation-triangle text-lg"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-black text-amber-800 text-sm">Abonos Pendentes de Aprovação</h4>
+                                <p class="text-xs text-amber-700 font-medium">Existem <strong class="text-amber-900">${count}</strong> solicitações aguardando sua validação.</p>
+                            </div>
+                        </div>
+                        <button onclick="Produtividade.Geral.abrirListaAbonosPendentes()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition active:scale-95 flex items-center gap-2">
+                            Visualizar Todos <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                `;
+                container.classList.remove('hidden');
+                this.state.abonosPendentes = rows;
+            } else {
+                container.classList.add('hidden');
+                this.state.abonosPendentes = [];
+            }
+        } catch (e) {
+            console.error("Erro ao verificar abonos:", e);
         }
     },
 
@@ -449,13 +487,22 @@ Produtividade.Geral = {
             const dataRefStr = p.data_referencia ? p.data_referencia.split('T')[0] : null;
             if (dataRefStr) item.distinct_months.add(dataRefStr.substring(0, 7)); // YYYY-MM
 
-            item.producao += Number(p.quantidade) || 0;
-            item.fifo += Number(p.fifo) || 0;
-            item.gt += Number(p.gradual_total) || 0;
-            item.gp += Number(p.gradual_parcial) || 0;
-            item.soma_fator += (p.fator !== null ? Number(p.fator) : 1.0);
-            item.count_fator++;
-            if (p.justificativa) item.justificativa = isPeriodo ? "Vários..." : p.justificativa;
+            // [NEW] Só soma na métrica se o status for OK
+            if (p.status === 'OK' || p.status === null || p.status === '') {
+                item.producao += Number(p.quantidade) || 0;
+                item.fifo += Number(p.fifo) || 0;
+                item.gt += Number(p.gradual_total) || 0;
+                item.gp += Number(p.gradual_parcial) || 0;
+                item.soma_fator += (p.fator !== null ? Number(p.fator) : 1.0);
+                item.count_fator++;
+            } else if (p.status === 'PENDENTE_ABONO') {
+                // Guarda informação de que há abono pendente para este usuário/dia
+                item.tem_abono_pendente = true;
+                item.msg_abono_pendente = p.justificativa || "Solicitação de abono";
+                item.id_abono_pendente = p.id;
+            }
+
+            if (p.justificativa && p.status === 'OK') item.justificativa = isPeriodo ? "Vários..." : p.justificativa;
             if (p.observacao_assistente) item.observacao_assistente = isPeriodo ? "Vários..." : p.observacao_assistente;
             if (!isPeriodo) item.id_prod = p.id;
         });
@@ -817,39 +864,74 @@ Produtividade.Geral = {
                 }
             }
 
-            // Safe Justificativa
+            // Safe Justificativa/Obs
             const valJustificativa = row.justificativa ? row.justificativa.replace(/"/g, '&quot;') : '';
             const valObs = row.observacao_assistente ? row.observacao_assistente.replace(/"/g, '&quot;') : '';
+            
+            let abonoHtml = '';
+            if (row.tem_abono_pendente) {
+                abonoHtml = `
+                    <div class="flex flex-col gap-1 items-center">
+                        <span class="bg-amber-100 text-amber-700 px-2 py-1 rounded text-[10px] font-black border border-amber-200">PENDENTE</span>
+                        <div class="flex gap-1">
+                            <button onclick="Produtividade.Geral.aprovarAbono('${row.id_abono_pendente}')" class="w-6 h-6 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition shadow-sm flex items-center justify-center" title="Aprovar Abono"><i class="fas fa-check text-[10px]"></i></button>
+                            <button onclick="Produtividade.Geral.rejeitarAbono('${row.id_abono_pendente}')" class="w-6 h-6 bg-rose-500 text-white rounded hover:bg-rose-600 transition shadow-sm flex items-center justify-center" title="Rejeitar Abono"><i class="fas fa-times text-[10px]"></i></button>
+                        </div>
+                    </div>
+                `;
+            } else if (isAbonado) {
+                abonoHtml = `<button onclick="Produtividade.Geral.abrirAbonoIndividual('${row.uid}', '${this.state.range.inicio}')" class="group bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black border border-amber-200 shadow-sm flex items-center gap-1.5 transition-all hover:bg-amber-200">
+                    <i class="fas fa-calendar-check text-amber-600"></i> ${Number(abonoManual).toFixed(1)}
+                </button>`;
+            } else {
+                abonoHtml = `<button onclick="Produtividade.Geral.abrirAbonoIndividual('${row.uid}', '${this.state.range.inicio}')" class="text-slate-300 hover:text-blue-600 transition-colors py-1"><i class="fas fa-calendar-plus text-lg"></i></button>`;
+            }
 
-            // Safe Data
-            const valData = row.data || '';
+            // Obs Html simplificado
+            let obsText = row.tem_abono_pendente ? `<span class="text-amber-700 font-bold bg-amber-50 px-1 rounded">[SOLICITAÇÃO]: ${row.msg_abono_pendente}</span>` : (row.justificativa ? `<span class="text-amber-600 font-bold">[Gestão]: ${row.justificativa}</span>` : '');
+            if (row.observacao_assistente) {
+                obsText += (obsText ? ' | ' : '') + `<span class="text-slate-600">[Assistente]: ${row.observacao_assistente}</span>`;
+            }
+            if (!obsText) obsText = '<span class="text-slate-300">-</span>';
 
             return `
-                <tr class="${rowClass} border-b border-slate-200 text-xs transition-colors group">
-                    <td class="px-2 py-3 text-center w-[40px]"><input type="checkbox" class="rounded border-slate-300 cursor-pointer" value="${row.uid}" ${isChecked ? 'checked' : ''} onclick="Produtividade.Geral.toggleSelecionar('${row.uid}')" ${row.isAggregatedManager ? 'disabled' : ''}></td>
-                    <td class="px-2 py-3 text-center w-[50px]"><button onclick="Produtividade.Geral.abrirModalAbono('${row.uid}')" class="w-8 h-8 rounded flex items-center justify-center border transition ${isAbonado ? 'text-amber-500 bg-amber-100 border-amber-200' : (row.isAggregatedManager ? 'hidden' : 'text-slate-300 bg-slate-50 border-slate-200 hover:text-blue-500')}" title="${isAbonado ? 'Editar Abono' : 'Abonar'}"><i class="fas ${isAbonado ? 'fa-check-square' : 'fa-square'} text-sm"></i></button></td>
-                    <td class="px-3 py-3 w-[200px] truncate cursor-pointer group-hover:bg-white" onclick="Produtividade.Geral.abrirDetalhes('${row.uid}')" title="Clique para ver Análise Individual">
-                        <div class="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                            <i class="fas fa-search text-slate-300 group-hover:text-blue-500 text-[10px]"></i>
-                            <span class="font-bold text-slate-700 group-hover:text-blue-700 group-hover:underline">${row.nome}</span>
-                            ${checkinIcon}
+                <tr class="divide-x divide-slate-100 ${rowClass} transition-colors group">
+                    <td class="px-2 py-3 text-center">
+                        ${row.isAggregatedManager ? '' : `<input type="checkbox" onchange="Produtividade.Geral.toggleSelect('${row.uid}', this.checked)" ${isChecked ? 'checked' : ''} class="cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500">`}
+                    </td>
+                    <td class="px-2 py-3 text-center flex items-center justify-center min-h-[50px]">
+                        ${row.isAggregatedManager ? '<i class="fas fa-users text-emerald-600 text-lg opacity-40"></i>' : abonoHtml}
+                    </td>
+                    <td class="px-3 py-3 cursor-pointer" onclick="${row.isAggregatedManager ? '' : `Produtividade.Geral.abrirDetalhes('${row.uid}')`}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs ring-1 ring-slate-200 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all">
+                                ${row.isAggregatedManager ? '<i class="fas fa-crown"></i>' : u.nome ? u.nome.substring(0, 1).toUpperCase() : '?'}
+                            </div>
+                            <div>
+                                <div class="font-bold ${row.isAggregatedManager ? 'text-emerald-900' : 'text-slate-700 shadow-sm'}">
+                                    ${row.isAggregatedManager ? 'Média Geral da Equipe' : (u.nome || 'Usuário ' + row.uid)}
+                                    ${checkinIcon}
+                                </div>
+                                <div class="text-[10px] text-slate-400 font-medium">${row.isAggregatedManager ? 'Performance Agregada Corporativa' : (u.funcao || 'Assistente')} • ${u.contrato || '-'} • ID: ${row.uid}</div>
+                            </div>
                         </div>
                     </td>
-                    <td class="px-2 py-3 text-center font-bold text-slate-600 bg-slate-50 border-x border-slate-100">${diasTrabalhadosExibido}</td>
-                    <td class="px-2 py-3 text-center font-bold text-amber-600 bg-slate-50 border-r border-slate-100">${diasAbonadosExibido.toFixed(1).replace('.0', '')}</td>
-                    <td class="px-2 py-3 text-center text-slate-500 font-mono bg-slate-50 border-r border-slate-100">${row.meta_base_diaria}</td>
-                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.fifo}</td>
-                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gt}</td>
-                    <td class="px-2 py-3 text-center font-mono text-slate-400">${row.gp}</td>
-                    <td class="px-2 py-3 text-center font-black text-blue-700 bg-blue-50/20 border-x border-slate-100">${row.producao}</td>
-                    <td class="px-2 py-3 text-center text-slate-700 font-bold bg-slate-50">${metaParaCalculo}</td>
-                    <td class="px-2 py-3 text-center"><span class="font-bold ${pctProd >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pctProd}%</span></td>
-                    <td class="px-2 py-3 text-center bg-emerald-50/20 border-x border-slate-100">${assertHtml}</td>
-                    <td class="px-2 py-3 min-w-[200px]">
-                        <div class="flex flex-col gap-1">
-                            <input type="text" placeholder="${isAbonado ? 'Justificativa...' : 'Observação Gestão...'}" value="${valJustificativa}" class="w-full border-b border-transparent bg-transparent hover:border-slate-300 focus:border-blue-500 outline-none transition text-xs truncate px-1 py-1" onchange="Produtividade.Geral.atualizarLinha('${row.uid}', '${valData}', 'justificativa', this.value)">
-                            ${row.observacao_assistente ? `<div class="bg-blue-50/50 p-1 rounded text-[10px] text-blue-800 italic border border-blue-100 flex items-center gap-1" title="Observação do Assistente"><i class="fas fa-comment-dots text-blue-400"></i> ${row.observacao_assistente}</div>` : ''}
+                    <td class="px-2 py-3 text-center font-bold text-slate-600">${diasTrabalhadosExibido}</td>
+                    <td class="px-2 py-3 text-center font-bold ${diasAbonadosExibido > 0 ? 'text-amber-600' : 'text-slate-400'}">${Number(diasAbonadosExibido).toFixed(1)}</td>
+                    <td class="px-2 py-3 text-center font-bold text-slate-400 bg-slate-50/50">${row.isAggregatedManager ? '-' : row.meta_base_diaria}</td>
+                    <td class="px-2 py-3 text-center text-slate-500 font-medium">${row.fifo || 0}</td>
+                    <td class="px-2 py-3 text-center text-slate-500 font-medium">${row.gt || 0}</td>
+                    <td class="px-2 py-3 text-center text-slate-500 font-medium">${row.gp || 0}</td>
+                    <td class="px-2 py-3 text-center font-black text-blue-600 bg-blue-50/20">${row.producao.toLocaleString('pt-BR')}</td>
+                    <td class="px-2 py-3 text-center font-bold text-slate-700 bg-slate-50/50">${row.meta_real_calculada.toLocaleString('pt-BR')}</td>
+                    <td class="px-2 py-3 text-center">
+                        <div class="flex flex-col items-center">
+                            <span class="font-black ${pctProd >= 100 ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded text-xs shadow-sm ring-1 ${pctProd >= 100 ? 'ring-emerald-100' : 'ring-blue-100'}">${pctProd}%</span>
                         </div>
+                    </td>
+                    <td class="px-2 py-3 text-center border-emerald-100 bg-emerald-50/20">${assertHtml}</td>
+                    <td class="px-3 py-3 text-[10px] italic text-slate-500 max-w-[200px] truncate" title="${obsText.replace(/<[^>]*>?/gm, '')}">
+                        ${obsText}
                     </td>
                 </tr>
             `;
@@ -1591,6 +1673,43 @@ Produtividade.Geral = {
     `;
             return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr>`;
         }).join('');
+    aprovarAbono: async function (id) {
+        if (!confirm("Deseja aprovar esta solicitação de abono?")) return;
+        try {
+            await Sistema.query("UPDATE producao SET status = 'OK', fator = 0.0 WHERE id = ?", [id]);
+            alert("Abono aprovado com sucesso!");
+            this.atualizarDados();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao aprovar abono: " + e.message);
+        }
+    },
+
+    rejeitarAbono: async function (id) {
+        const justificativa = prompt("Informe o motivo da rejeição:");
+        if (justificativa === null) return;
+        
+        try {
+            await Sistema.query("UPDATE producao SET status = 'REJEITADO', justificativa = ?, fator = 1.0 WHERE id = ?", [justificativa, id]);
+            alert("Solicitação rejeitada.");
+            this.atualizarDados();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao rejeitar abono: " + e.message);
+        }
+    },
+
+    abrirListaAbonosPendentes: function () {
+        // Por enquanto vamos apenas rolar para a tabela ou filtrar por pendentes
+        // Mas o render já mostra os pendentes no topo ou com badge
+        // Vamos forçar o filtro de pendentes se quiserem algo mais complexo no futuro.
+        
+        // Se estivermos em período de um dia, vamos para o primeiro pendente
+        if (this.state.abonosPendentes && this.state.abonosPendentes.length > 0) {
+            const primeiro = this.state.abonosPendentes[0];
+            // window.Produtividade.mudarPeriodo('dia'); // Talvez não mudar período, apenas mostrar
+            // alert("Os abonos aparecem na lista de produtividade com o botão de aprovação.");
+        }
     }
 };
 

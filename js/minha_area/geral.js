@@ -499,15 +499,27 @@ MinhaArea.Geral = {
             return;
         }
 
+        const range = this.state.range;
+        const businessDays = this.getBusinessDaysList(range.inicio, range.fim);
+        
         const assertMap = {};
         this.state.dadosAssertividadeDiaria.forEach(a => assertMap[a.data_referencia] = a);
+        
+        const producaoMap = {};
+        this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).forEach(d => {
+            producaoMap[d.data_referencia.split('T')[0]] = d;
+        });
 
-        this.els.tabela.innerHTML = dadosFiltrados.map(d => {
-            const fator = d.fator !== null ? Number(d.fator) : 1.0;
+        if (this.els.totalFooter) this.els.totalFooter.textContent = businessDays.length;
+
+        this.els.tabela.innerHTML = businessDays.map(dia => {
+            const d = producaoMap[dia];
+            const fator = d ? (d.fator !== null ? Number(d.fator) : 1.0) : 1.0;
             const metaBase = item ? item.meta_velocidade_media : 100;
             const metaDia = Math.round(metaBase * fator);
-            const pct = metaDia > 0 ? Math.round((d.quantidade / metaDia) * 100) : 0;
-            const assertDia = assertMap[d.data_referencia];
+            const producaoQtd = d ? (d.quantidade || 0) : 0;
+            const pct = metaDia > 0 ? Math.round((producaoQtd / metaDia) * 100) : 0;
+            const assertDia = assertMap[dia];
 
             let assertHtml = '<span class="text-slate-300">-</span>';
             if (assertDia && assertDia.qtd_auditorias > 0) {
@@ -515,27 +527,65 @@ MinhaArea.Geral = {
                 assertHtml = `<span class="${cor} font-bold">${Number(assertDia.media_assertividade).toFixed(2)}%</span>`;
             }
 
-            // Lógica de Observação em duas partes
-            const justGestao = d.justificativa ? `<span class="text-amber-600 font-bold">[Gestão]: ${d.justificativa}</span>` : '';
-            const obsAssis = d.observacao_assistente ? `<span class="text-slate-600"> | [Eu]: ${d.observacao_assistente}</span>` : '';
-            const obsHtml = justGestao || obsAssis ? (justGestao + obsAssis) : '<span class="text-slate-300">-</span>';
+            // Lógica de Observação e Status de Abono
+            let statusAbonoHtml = '';
+            const statusAbono = d ? d.status : 'OK';
+            
+            if (statusAbono === 'PENDENTE_ABONO') {
+                statusAbonoHtml = `<span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-200 mr-2"><i class="fas fa-clock"></i> AGUARDANDO APROVAÇÃO</span>`;
+            }
+
+            const justGestao = d && d.justificativa ? `<span class="text-amber-600 font-bold">[Gestão]: ${d.justificativa}</span>` : '';
+            const obsAssis = d && d.observacao_assistente ? `<span class="text-slate-600"> ${justGestao ? '| ' : ''}[Eu]: ${d.observacao_assistente}</span>` : '';
+            
+            let obsHtml = justGestao || obsAssis ? (statusAbonoHtml + justGestao + obsAssis) : (statusAbonoHtml || '<span class="text-slate-300">-</span>');
+
+            // Se for um dia sem produção E sem abono confirmado, mostra botão para solicitar abono
+            let actionHtml = '';
+            if (!d || (producaoQtd === 0 && fator === 1.0 && statusAbono === 'OK')) {
+                actionHtml = `<button onclick="MinhaArea.Geral.abrirModalAbono('${dia}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm"><i class="fas fa-calendar-minus"></i> Solicitar Abono</button>`;
+            } else if (statusAbono === 'PENDENTE_ABONO') {
+                actionHtml = `<button onclick="MinhaArea.Geral.abrirModalAbono('${dia}')" class="text-slate-400 hover:text-blue-600 bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Editar Solicitação"><i class="fas fa-edit"></i> Editar Pedido</button>`;
+            }
 
             return `
-                <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs">
-                    <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(d.data_referencia)}</td>
+                <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${statusAbono === 'PENDENTE_ABONO' ? 'bg-amber-50/20' : ''}">
+                    <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(dia)}</td>
                     <td class="px-2 py-2 text-center text-slate-500">${metaBase}</td>
                     <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
-                    <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${d.quantidade || 0}</td>
+                    <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${producaoQtd}</td>
                     <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
-                    <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[300px]" onclick="MinhaArea.Geral.abrirModalObs('${d.usuario_id}', '${d.data_referencia}')" title="Clique para editar observação">
+                    <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[300px]" onclick="MinhaArea.Geral.abrirModalObs('${uid}', '${dia}')" title="Clique para editar observação">
                         <div class="flex items-center gap-2">
                              <span class="text-slate-400 group-hover:text-blue-600"><i class="far fa-edit"></i></span>
                              <div class="truncate">${obsHtml}</div>
                         </div>
                     </td>
+                    <td class="px-2 py-2 text-right">${actionHtml}</td>
                 </tr>`;
         }).join('');
+    },
+
+    getBusinessDaysList: function (inicio, fim) {
+        const days = [];
+        let cur = new Date(inicio + 'T12:00:00');
+        const end = new Date(fim + 'T12:00:00');
+        const cacheFeriados = {};
+
+        while (cur <= end) {
+            const day = cur.getDay();
+            if (day !== 0 && day !== 6) {
+                const ano = cur.getFullYear();
+                if (!cacheFeriados[ano]) cacheFeriados[ano] = this.obterFeriados(ano);
+                const dataStr = cur.toISOString().split('T')[0];
+                if (!cacheFeriados[ano].has(dataStr)) {
+                    days.push(dataStr);
+                }
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+        return days;
     },
 
     renderizarGradeEquipe: function () {
@@ -1172,7 +1222,78 @@ MinhaArea.Geral = {
 
     fecharModalObs: function () {
         const modal = document.getElementById('modal-obs-assistente');
-        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.add('pointer-events-none'); }, 300); }
+        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden', 'pointer-events-none'); }, 300); }
+    },
+
+    abrirModalAbono: function (dataRef) {
+        const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
+        const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia.includes(dataRef));
+        
+        this.state.abonoEditando = { uid: uid, data: dataRef };
+        const elData = document.getElementById('abono-data-ref');
+        const elJust = document.getElementById('abono-justificativa-text');
+        const modal = document.getElementById('modal-solicitar-abono');
+
+        if (elData) elData.innerText = this.formatarDataSegura(dataRef);
+        if (elJust) elJust.value = (dadoDia && dadoDia.status === 'PENDENTE_ABONO') ? (dadoDia.justificativa || '') : '';
+        
+        if (modal) { 
+            modal.classList.remove('hidden', 'pointer-events-none'); 
+            setTimeout(() => modal.classList.add('active'), 10); 
+        }
+    },
+
+    fecharModalAbono: function () {
+        const modal = document.getElementById('modal-solicitar-abono');
+        if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden', 'pointer-events-none'); }, 300); }
+    },
+
+    salvarSolicitacaoAbono: async function () {
+        const { uid, data } = this.state.abonoEditando;
+        const texto = document.getElementById('abono-justificativa-text').value.trim();
+        const btn = document.getElementById('btn-salvar-abono');
+        
+        if (!texto) {
+            alert("Por favor, informe o motivo do abono.");
+            return;
+        }
+
+        if (!uid || !data) return;
+        const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'; btn.disabled = true;
+
+        try {
+            const dataRef = data.split('T')[0];
+            const partes = dataRef.split('-');
+            const ano = parseInt(partes[0]);
+            const mes = parseInt(partes[1]);
+
+            // Verifica se existe registro
+            const existenteRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, dataRef]);
+            const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
+
+            if (existente) {
+                // Update para PENDENTE_ABONO e fator 0.0 (previsto, mas só valida no KPI se aprovado?)
+                // O usuário quer que SÓ conte no KPI se aprovado.
+                // Então vamos manter o registro com status PENDENTE_ABONO.
+                await Sistema.query('UPDATE producao SET status = ?, justificativa = ?, fator = 0.0 WHERE id = ?', ['PENDENTE_ABONO', texto, existente.id]);
+            } else {
+                const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
+                await Sistema.query(
+                    'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, justificativa, status) VALUES (?, ?, ?, ?, ?, 0, 0.0, ?, ?)',
+                    [uuid, uid, dataRef, mes, ano, texto, 'PENDENTE_ABONO']
+                );
+            }
+
+            this.fecharModalAbono();
+            this.carregar();
+            alert("Solicitação de abono enviada com sucesso! Aguarde a aprovação da gestora.");
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao enviar solicitação: " + e.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     },
 
     salvarObsAssistente: async function () {

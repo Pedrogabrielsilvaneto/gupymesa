@@ -913,7 +913,55 @@
         </div>
     </div>
 
+    <div id="modal-solicitar-abono"
+        class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/50 backdrop-blur-sm transition-opacity opacity-0 pointer-events-none"
+        style="transition: opacity 0.3s;">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-amber-50 border-b border-amber-100 px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-amber-800 text-lg flex items-center gap-2">
+                    <i class="fas fa-user-clock text-amber-600"></i> Solicitar Abono
+                </h3>
+                <button onclick="MinhaArea.Geral.fecharModalAbono()" class="text-amber-400 hover:text-amber-700 transition outline-none">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    <span>Data Referência</span>
+                    <span id="abono-data-ref" class="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">--/--/----</span>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                        <i class="fas fa-comment-dots"></i> Justificativa
+                    </label>
+                    <textarea id="abono-justificativa-text" rows="4"
+                        class="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none transition resize-none placeholder:text-slate-300"
+                        placeholder="Descreva o motivo da solicitação de abono..."></textarea>
+                </div>
+                <p class="text-[10px] text-slate-400 italic font-medium">
+                    * Sua solicitação será enviada para aprovação da gestora e só será validada após a confirmação.
+                </p>
+            </div>
+            <div class="bg-slate-50 border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
+                <button onclick="MinhaArea.Geral.fecharModalAbono()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancelar</button>
+                <button id="btn-salvar-abono" onclick="MinhaArea.Geral.salvarSolicitacaoAbono()"
+                    class="px-4 py-2 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Enviar Solicitação
+                </button>
+            </div>
+        </div>
+    </div>
+
     <style>
+        #modal-solicitar-abono.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #modal-solicitar-abono.active>div {
+            transform: scale(100%);
+        }
+
         #modal-obs-assistente.active {
             opacity: 1;
             pointer-events: auto;
@@ -942,14 +990,14 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260409_1050"></script>
+    <script src="js/minha_area/main.js?v=20260415_1907"></script>
     <script src="js/minha_area/assertividade.js?v=20260406_1005"></script>
-    <script src="js/minha_area/geral.js?v=20260406_1005"></script>
+    <script src="js/minha_area/geral.js?v=20260415_1907"></script>
     <script src="js/minha_area/metas.js?v=20260406_1005"></script>
     <script src="js/minha_area/auditoria.js?v=20260406_1005"></script>
     <script src="js/minha_area/comparativo.js?v=20260406_1005"></script>
     <script src="js/minha_area/feedback.js?v=20260406_1005"></script>
-    <script src="js/minha_area/relatorios.js?v=20260409_1050"></script>
+    <script src="js/minha_area/relatorios.js?v=20260415_1907"></script>
 </body>
 
 </html>
