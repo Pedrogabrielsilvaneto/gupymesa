@@ -1233,15 +1233,34 @@ MinhaArea.Geral = {
 
     abrirModalAbono: function (dataRef) {
         const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
-        const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia.includes(dataRef));
+        const dataRefLimpa = dataRef.split('T')[0];
+        const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia.includes(dataRefLimpa));
         
-        this.state.abonoEditando = { uid: uid, data: dataRef };
+        this.state.abonoEditando = { uid: uid, data: dataRefLimpa };
         const elData = document.getElementById('abono-data-ref');
         const elJust = document.getElementById('abono-justificativa-text');
         const modal = document.getElementById('modal-solicitar-abono');
+        const btnCancel = document.getElementById('btn-cancelar-abono');
 
-        if (elData) elData.innerText = this.formatarDataSegura(dataRef);
+        if (elData) elData.innerText = this.formatarDataSegura(dataRefLimpa);
         if (elJust) elJust.value = (dadoDia && dadoDia.status === 'PENDENTE_ABONO') ? (dadoDia.justificativa || '') : '';
+        
+        // Mostrar/Ocultar botão cancelar
+        if (btnCancel) {
+            if (dadoDia && dadoDia.status === 'PENDENTE_ABONO') btnCancel.classList.remove('hidden');
+            else btnCancel.classList.add('hidden');
+        }
+
+        // Resetar rádios
+        const radios = document.getElementsByName('abono-tipo');
+        radios.forEach(r => {
+            r.checked = false;
+            if (dadoDia && dadoDia.status === 'PENDENTE_ABONO') {
+                if (parseFloat(dadoDia.fator) === parseFloat(r.value)) r.checked = true;
+            } else if (r.value === "0.0") {
+                r.checked = true; // Default
+            }
+        });
         
         if (modal) { 
             modal.classList.remove('hidden', 'pointer-events-none'); 
@@ -1259,6 +1278,9 @@ MinhaArea.Geral = {
         const texto = document.getElementById('abono-justificativa-text').value.trim();
         const btn = document.getElementById('btn-salvar-abono');
         
+        const tipoRadio = document.querySelector('input[name="abono-tipo"]:checked');
+        const fator = tipoRadio ? parseFloat(tipoRadio.value) : 0.0;
+
         if (!texto) {
             alert("Por favor, informe o motivo do abono.");
             return;
@@ -1278,15 +1300,12 @@ MinhaArea.Geral = {
             const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
 
             if (existente) {
-                // Update para PENDENTE_ABONO e fator 0.0 (previsto, mas só valida no KPI se aprovado?)
-                // O usuário quer que SÓ conte no KPI se aprovado.
-                // Então vamos manter o registro com status PENDENTE_ABONO.
-                await Sistema.query('UPDATE producao SET status = ?, justificativa = ?, fator = 0.0 WHERE id = ?', ['PENDENTE_ABONO', texto, existente.id]);
+                await Sistema.query('UPDATE producao SET status = ?, justificativa = ?, fator = ? WHERE id = ?', ['PENDENTE_ABONO', texto, fator, existente.id]);
             } else {
                 const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
                 await Sistema.query(
-                    'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, justificativa, status) VALUES (?, ?, ?, ?, ?, 0, 0.0, ?, ?)',
-                    [uuid, uid, dataRef, mes, ano, texto, 'PENDENTE_ABONO']
+                    'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, justificativa, status) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
+                    [uuid, uid, dataRef, mes, ano, fator, texto, 'PENDENTE_ABONO']
                 );
             }
 
@@ -1296,6 +1315,39 @@ MinhaArea.Geral = {
         } catch (e) {
             console.error(e);
             alert("Erro ao enviar solicitação: " + e.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    },
+
+    cancelarSolicitacaoAbono: async function () {
+        const { uid, data } = this.state.abonoEditando;
+        if (!confirm("Deseja realmente cancelar esta solicitação de abono?")) return;
+        
+        const btn = document.getElementById('btn-cancelar-abono');
+        const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelando...'; btn.disabled = true;
+
+        try {
+            const dataRef = data.split('T')[0];
+            const existenteRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, dataRef]);
+            const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
+
+            if (existente) {
+                // Se a produção for 0 e não houver obs do assistente, podemos deletar. Caso contrário, voltamos para status OK e fator 1.0
+                if (parseInt(existente.quantidade) === 0 && !existente.observacao_assistente) {
+                    await Sistema.query('DELETE FROM producao WHERE id = ?', [existente.id]);
+                } else {
+                    await Sistema.query('UPDATE producao SET status = "OK", fator = 1.0, justificativa = NULL WHERE id = ?', [existente.id]);
+                }
+                
+                this.fecharModalAbono();
+                this.carregar();
+                alert("Solicitação cancelada.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao cancelar: " + e.message);
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;

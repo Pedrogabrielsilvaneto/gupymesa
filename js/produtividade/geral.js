@@ -1678,7 +1678,7 @@ Produtividade.Geral = {
     aprovarAbono: async function (id) {
         if (!confirm("Deseja aprovar esta solicitação de abono?")) return;
         try {
-            await Sistema.query("UPDATE producao SET status = 'OK', fator = 0.0 WHERE id = ?", [id]);
+            await Sistema.query("UPDATE producao SET status = 'OK' WHERE id = ?", [id]);
             alert("Abono aprovado com sucesso!");
             this.atualizarDados();
         } catch (e) {
