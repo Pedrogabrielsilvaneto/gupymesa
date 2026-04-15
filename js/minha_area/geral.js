@@ -571,9 +571,15 @@ MinhaArea.Geral = {
         const days = [];
         let cur = new Date(inicio + 'T12:00:00');
         const end = new Date(fim + 'T12:00:00');
+        
+        // Limita a exibição até o dia atual se o período incluir o futuro
+        const hoje = new Date();
+        hoje.setHours(23, 59, 59, 999);
+        const dataLimite = end > hoje ? hoje : end;
+
         const cacheFeriados = {};
 
-        while (cur <= end) {
+        while (cur <= dataLimite) {
             const day = cur.getDay();
             if (day !== 0 && day !== 6) {
                 const ano = cur.getFullYear();

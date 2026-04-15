@@ -1673,6 +1673,7 @@ Produtividade.Geral = {
     `;
             return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr>`;
         }).join('');
+    },
     aprovarAbono: async function (id) {
         if (!confirm("Deseja aprovar esta solicitação de abono?")) return;
         try {
