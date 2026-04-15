@@ -540,9 +540,9 @@ MinhaArea.Geral = {
             
             let obsHtml = justGestao || obsAssis ? (statusAbonoHtml + justGestao + obsAssis) : (statusAbonoHtml || '<span class="text-slate-300">-</span>');
 
-            // Se for um dia sem produção E sem abono confirmado, mostra botão para solicitar abono
+            // Se for um dia sem abono confirmado ou pendente, mostra botão para solicitar abono
             let actionHtml = '';
-            if (!d || (producaoQtd === 0 && fator === 1.0 && statusAbono === 'OK')) {
+            if (statusAbono === 'OK' && fator === 1.0) {
                 actionHtml = `<button onclick="MinhaArea.Geral.abrirModalAbono('${dia}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm"><i class="fas fa-calendar-minus"></i> Solicitar Abono</button>`;
             } else if (statusAbono === 'PENDENTE_ABONO') {
                 actionHtml = `<button onclick="MinhaArea.Geral.abrirModalAbono('${dia}')" class="text-slate-400 hover:text-blue-600 bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Editar Solicitação"><i class="fas fa-edit"></i> Editar Pedido</button>`;
