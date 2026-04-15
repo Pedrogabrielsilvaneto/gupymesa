@@ -34,6 +34,7 @@ Produtividade.Geral = {
         }
 
         this.injetarModalAbono();
+        this.injetarModalPendentes();
         if (this.els.tabela) this.renderLoading();
     },
 
@@ -1701,16 +1702,108 @@ Produtividade.Geral = {
     },
 
     abrirListaAbonosPendentes: function () {
-        // Por enquanto vamos apenas rolar para a tabela ou filtrar por pendentes
-        // Mas o render já mostra os pendentes no topo ou com badge
-        // Vamos forçar o filtro de pendentes se quiserem algo mais complexo no futuro.
-        
-        // Se estivermos em período de um dia, vamos para o primeiro pendente
-        if (this.state.abonosPendentes && this.state.abonosPendentes.length > 0) {
-            const primeiro = this.state.abonosPendentes[0];
-            // window.Produtividade.mudarPeriodo('dia'); // Talvez não mudar período, apenas mostrar
-            // alert("Os abonos aparecem na lista de produtividade com o botão de aprovação.");
+        const modal = document.getElementById('modal-lista-abonos-pendentes');
+        const corpo = document.getElementById('lista-abonos-pendentes-body');
+        if (!modal || !corpo) return;
+
+        const abonos = this.state.abonosPendentes || [];
+        if (abonos.length === 0) {
+            corpo.innerHTML = '<div class="text-center py-8 text-slate-400">Nenhum abono pendente.</div>';
+        } else {
+            corpo.innerHTML = abonos.map(a => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-blue-600 font-bold border border-slate-100 shadow-sm">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-700">${a.nome}</div>
+                            <div class="text-[10px] text-slate-500 font-medium">Data: ${this.formatarDataSegura(a.data_referencia)}</div>
+                            <div class="text-[10px] text-amber-600 italic bg-amber-50 px-1 rounded mt-0.5 mt-1 border border-amber-100 inline-block">"${a.justificativa || 'Sem justificativa'}"</div>
+                        </div>
+                    </div>
+                    <button onclick="Produtividade.Geral.irParaAbonoPendente('${a.usuario_id}', '${a.data_referencia.split('T')[0]}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition active:scale-95 flex items-center gap-2">
+                        Ver na Grade <i class="fas fa-external-link-alt"></i>
+                    </button>
+                </div>
+            `).join('<div class="h-2"></div>');
         }
+
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.firstElementChild.classList.add('scale-100', 'opacity-100'), 10);
+    },
+
+    fecharModalPendentes: function () {
+        const modal = document.getElementById('modal-lista-abonos-pendentes');
+        if (modal) {
+            modal.firstElementChild.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+    },
+
+    irParaAbonoPendente: function (uid, data) {
+        this.fecharModalPendentes();
+        
+        // 1. Mudar para visão de DIA
+        if (typeof window.Produtividade.mudarPeriodo === 'function') {
+            window.Produtividade.mudarPeriodo('dia');
+        }
+
+        // 2. Definir a data no input
+        const inputDia = document.getElementById('sel-data-dia');
+        if (inputDia) {
+            inputDia.value = data;
+        }
+
+        // 3. Pesquisar pelo nome/ID no filtro para destacar
+        const filtroNome = document.getElementById('filtro-nome-prod');
+        if (filtroNome) {
+            filtroNome.value = uid;
+            if (window.Produtividade.Filtros && typeof window.Produtividade.Filtros.aplicar === 'function') {
+                window.Produtividade.Filtros.aplicar();
+            }
+        }
+
+        // 4. Atualizar os dados
+        if (typeof window.Produtividade.salvarEAtualizar === 'function') {
+            window.Produtividade.salvarEAtualizar();
+        }
+    },
+
+    injetarModalPendentes: function () {
+        if (document.getElementById('modal-lista-abonos-pendentes')) return;
+
+        const html = `
+            <div id="modal-lista-abonos-pendentes" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-95 opacity-0">
+                    <div class="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3 text-white">
+                            <i class="fas fa-list-check text-xl"></i>
+                            <h3 class="font-black text-lg">Solicitações Pendentes</h3>
+                        </div>
+                        <button onclick="Produtividade.Geral.fecharModalPendentes()" class="text-white/80 hover:text-white transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div id="lista-abonos-pendentes-body" class="p-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        <!-- Itens injetados via JS -->
+                    </div>
+                    
+                    <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">GupyMesa Workflow Approval</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
+
+    formatarDataSegura: function (dataRaw) {
+        if (!dataRaw) return '-';
+        const datePart = dataRaw.split('T')[0];
+        const [ano, mes, dia] = datePart.split('-');
+        return `${dia}/${mes}/${ano}`;
     }
 };
 
