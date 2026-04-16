@@ -1713,7 +1713,15 @@ Produtividade.Geral = {
                         <div>
                             <div class="font-bold text-slate-700">${a.nome}</div>
                             <div class="text-[10px] text-slate-500 font-medium">Data: ${this.formatarDataSegura(a.data_referencia)}</div>
-                            <div class="text-[10px] text-amber-600 italic bg-amber-50 px-1 rounded mt-0.5 mt-1 border border-amber-100 inline-block">"${a.justificativa || 'Sem justificativa'}"</div>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${parseFloat(a.fator) === 0 ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}">
+                                    <i class="fas ${parseFloat(a.fator) === 0 ? 'fa-user-clock' : 'fa-clock'} mr-1"></i>
+                                    ${parseFloat(a.fator) === 0 ? 'Dia Todo' : 'Meio Dia'}
+                                </span>
+                                <span class="text-[9px] text-slate-600 italic bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                    "${a.justificativa || 'Sem justificativa'}"
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <button onclick="Produtividade.Geral.irParaAbonoPendente('${a.usuario_id}', '${a.data_referencia.split('T')[0]}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition active:scale-95 flex items-center gap-2">
