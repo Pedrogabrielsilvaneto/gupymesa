@@ -175,6 +175,22 @@ const Sistema = {
         if (typeof atualizarConsolidado === 'function') atualizarConsolidado();
     },
 
+    notificar(msg, tipo = 'info') {
+        if (window.Swal) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: tipo,
+                title: msg,
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        } else {
+            console.log(`[NOTIFICAR] ${tipo.toUpperCase()}: ${msg}`);
+        }
+    },
+
     // --- DATA MODULE ---
     Datas: {
         feriadosFixos: ['01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'],
