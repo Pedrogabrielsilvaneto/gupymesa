@@ -118,18 +118,126 @@ MinhaArea.Relatorios = {
 
         // --- AUXILIARES ---
         async getConsolidado(datas) {
-            return await Sistema.query(`
-                SELECT u.nome, u.contrato, u.funcao,
-                       SUM(p.quantidade) as total_producao,
-                       SUM(COALESCE(p.fator, 1.0)) as total_fatores,
-                       AVG(a.assertividade_val) as media_qualidade
-                FROM usuarios u
-                LEFT JOIN producao p ON u.id = p.usuario_id AND p.data_referencia >= ? AND p.data_referencia <= ?
-                LEFT JOIN assertividade a ON u.id = a.usuario_id AND a.data_referencia >= ? AND a.data_referencia <= ?
-                WHERE u.ativo = 1 AND u.perfil != 'ADMIN'
-                GROUP BY u.id, u.nome, u.contrato, u.funcao
-                ORDER BY total_producao DESC
-            `, [datas.inicio, datas.fim, datas.inicio, datas.fim]);
+            try {
+                // 1. Obter CONFIG para Headcount e Dias Úteis
+                const mes = parseInt(datas.inicio.split('-')[1]);
+                const ano = parseInt(datas.inicio.split('-')[0]);
+                const configRes = await Sistema.query('SELECT * FROM config_mes WHERE mes = ? AND ano = ?', [mes, ano]);
+                const config = configRes && configRes[0] ? configRes[0] : null;
+
+                // 2. Obter Dados de Produção
+                const rawData = await Sistema.query(`
+                    SELECT data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, usuario_id 
+                    FROM producao 
+                    WHERE data_referencia >= ? AND data_referencia <= ?
+                `, [datas.inicio, datas.fim]);
+
+                // 3. Obter Info de Usuários para Filtro de Assistentes
+                const usersMap = {};
+                (await Sistema.query('SELECT id, funcao, ativo FROM usuarios')).forEach(u => {
+                    const func = (u.funcao || '').toLowerCase();
+                    const isStaff = !['admin', 'gesto', 'audito', 'lider', 'coordena'].some(t => func.includes(t));
+                    usersMap[u.id] = { active: u.ativo, isStaff };
+                });
+
+                // 4. Mapear Dias do Período
+                const dataFimObj = new Date(datas.fim + 'T12:00:00');
+                const cur = new Date(datas.inicio + 'T12:00:00');
+                const dias = [];
+                while (cur <= dataFimObj) {
+                    dias.push(cur.toISOString().split('T')[0]);
+                    cur.setDate(cur.getDate() + 1);
+                }
+
+                // 5. Agregação por Dia
+                const daily = {};
+                dias.forEach(d => daily[d] = { qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0, staffIds: new Set() });
+                
+                rawData.forEach(r => {
+                    const d = r.data_referencia.split('T')[0];
+                    if (daily[d]) {
+                        daily[d].qty += Number(r.quantidade) || 0;
+                        daily[d].fifo += Number(r.fifo) || 0;
+                        daily[d].gt += Number(r.gradual_total) || 0;
+                        daily[d].gp += Number(r.gradual_parcial) || 0;
+                        daily[d].fc += Number(r.perfil_fc) || 0;
+                        if (usersMap[r.usuario_id]?.isStaff) daily[d].staffIds.add(r.usuario_id);
+                    }
+                });
+
+                // 6. Montar Linhas de Indicadores (Igual ao Sistema)
+                const HC = config ? (Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0)) : 17;
+                // Calculamos DIAS ÚTEIS (simples: seg-sex no período)
+                let diasUteisProcessados = 0;
+                dias.forEach(d => {
+                    const dd = new Date(d + 'T12:00:00').getDay();
+                    if (dd !== 0 && dd !== 6) diasUteisProcessados++;
+                });
+                const DU = (config && config.dias_uteis) ? Number(config.dias_uteis) : diasUteisProcessados;
+
+                const indicadores = [
+                    { key: 'hc', label: 'TOTAL DE ASSISTENTES' },
+                    { key: 'du', label: 'DIAS ÚTEIS (PERÍODO)' },
+                    { key: 'fifo', label: 'TOTAL DOCUMENTOS FIFO' },
+                    { key: 'gp', label: 'TOTAL DOCUMENTOS GRADUAL PARCIAL' },
+                    { key: 'gt', label: 'TOTAL DOCUMENTOS GRADUAL TOTAL' },
+                    { key: 'fc', label: 'TOTAL DOCUMENTOS PERFIL FC' },
+                    { key: 'total', label: 'TOTAL DOCUMENTOS VALIDADOS' },
+                    { key: 'media_dia', label: 'MÉDIA DIÁRIA (POR DIA ÚTIL)' },
+                    { key: 'media_ast', label: 'MÉDIA POR ASSISTENTE (PERÍODO)' },
+                    { key: 'media_dia_ast', label: 'MÉDIA DIÁRIA POR ASSISTENTE' }
+                ];
+
+                const rows = indicadores.map(ind => {
+                    const row = { INDICADOR: ind.label };
+                    let totalVal = 0;
+
+                    dias.forEach(d => {
+                        const dayData = daily[d];
+                        const dayNum = d.split('-')[2];
+                        let val = 0;
+                        
+                        const isWeekend = new Date(d + 'T12:00:00').getDay() === 0 || new Date(d + 'T12:00:00').getDay() === 6;
+
+                        if (ind.key === 'hc') val = HC;
+                        else if (ind.key === 'du') val = isWeekend ? 0 : 1;
+                        else if (ind.key === 'fifo') val = dayData.fifo;
+                        else if (ind.key === 'gp') val = dayData.gp;
+                        else if (ind.key === 'gt') val = dayData.gt;
+                        else if (ind.key === 'fc') val = dayData.fc;
+                        else if (ind.key === 'total') val = dayData.qty;
+                        else if (ind.key === 'media_dia') val = isWeekend ? 0 : dayData.qty;
+                        else if (ind.key === 'media_ast') val = HC > 0 ? dayData.qty / HC : 0;
+                        else if (ind.key === 'media_dia_ast') val = HC > 0 ? dayData.qty / HC : 0;
+
+                        row[dayNum] = val;
+                    });
+
+                    // Coluna TOTAL
+                    const sumData = Object.values(daily).reduce((acc, curr) => ({
+                        qty: acc.qty + curr.qty, fifo: acc.fifo + curr.fifo, gt: acc.gt + curr.gt, gp: acc.gp + curr.gp, fc: acc.fc + curr.fc
+                    }), { qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 });
+
+                    if (ind.key === 'hc') totalVal = HC;
+                    else if (ind.key === 'du') totalVal = DU;
+                    else if (ind.key === 'fifo') totalVal = sumData.fifo;
+                    else if (ind.key === 'gp') totalVal = sumData.gp;
+                    else if (ind.key === 'gt') totalVal = sumData.gt;
+                    else if (ind.key === 'fc') totalVal = sumData.fc;
+                    else if (ind.key === 'total') totalVal = sumData.qty;
+                    else if (ind.key === 'media_dia') totalVal = DU > 0 ? sumData.qty / DU : 0;
+                    else if (ind.key === 'media_ast') totalVal = HC > 0 ? sumData.qty / HC : 0;
+                    else if (ind.key === 'media_dia_ast') totalVal = (DU > 0 && HC > 0) ? sumData.qty / DU / HC : 0;
+
+                    row['TOTAL'] = totalVal;
+                    return row;
+                });
+
+                return rows;
+            } catch (e) {
+                console.error(e);
+                return null;
+            }
         },
 
         async getArrayMatrizGrade(datas) {
