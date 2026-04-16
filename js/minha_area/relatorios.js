@@ -50,7 +50,7 @@ MinhaArea.Relatorios = {
                 let sheetName = (modulo.slice(0,3) + "_" + aba).toUpperCase();
 
                 if (modulo === 'gestao') {
-                    if (aba === 'usuarios') data = await Sistema.query("SELECT id, nome, perfil, funcao, contrato, email, ativo FROM usuarios ORDER BY nome");
+                    if (aba === 'usuarios') data = await Sistema.query("SELECT id, nome, perfil, funcao, contrato, situacao, ativo FROM usuarios ORDER BY nome");
                     else if (aba === 'empresas') data = await Sistema.query("SELECT * FROM empresas ORDER BY nome");
                     else if (aba === 'metas') data = await Sistema.query("SELECT m.*, u.nome as usuario_nome FROM metas m JOIN usuarios u ON m.usuario_id = u.id ORDER BY m.ano DESC, m.mes DESC, u.nome");
                 } 
@@ -87,7 +87,7 @@ MinhaArea.Relatorios = {
                 const wb = XLSX.utils.book_new();
 
                 // 1. GESTÃO
-                const users = await Sistema.query("SELECT id, nome, perfil, funcao, contrato, email, ativo FROM usuarios");
+                const users = await Sistema.query("SELECT id, nome, perfil, funcao, contrato, situacao, ativo FROM usuarios");
                 const empresas = await Sistema.query("SELECT * FROM empresas");
                 const metas = await Sistema.query("SELECT m.*, u.nome as usuario_nome FROM metas m JOIN usuarios u ON m.usuario_id = u.id");
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users), "GES_Usuarios");
