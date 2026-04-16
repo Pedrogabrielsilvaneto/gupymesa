@@ -310,6 +310,16 @@
                 </div>
             </div>
 
+            <div class="mb-2 flex justify-between items-center">
+                <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fas fa-calendar-check text-blue-500"></i> Diário de Produção
+                </h3>
+                <button onclick="MinhaArea.Geral.abrirModalAbono()" 
+                        class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition active:scale-95">
+                    <i class="fas fa-calendar-plus"></i> Solicitar Abono
+                </button>
+            </div>
+
             <div
                 class="bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-320px)]">
                 <div class="overflow-auto custom-scrollbar flex-1">
@@ -926,9 +936,17 @@
                 </button>
             </div>
             <div class="p-6 space-y-4">
-                <div class="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide">
-                    <span>Data Referência</span>
-                    <span id="abono-data-ref" class="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">--/--/----</span>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Data Início</label>
+                        <input type="date" id="abono-data-inicio" 
+                            class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-500 transition">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Data Fim</label>
+                        <input type="date" id="abono-data-fim" 
+                            class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-500 transition">
+                    </div>
                 </div>
                 <div class="space-y-2">
                     <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
@@ -1016,14 +1034,14 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260415_1932"></script>
+    <script src="js/minha_area/main.js?v=20260416_0230"></script>
     <script src="js/minha_area/assertividade.js?v=20260406_1005"></script>
-    <script src="js/minha_area/geral.js?v=20260415_1932"></script>
+    <script src="js/minha_area/geral.js?v=20260416_0230"></script>
     <script src="js/minha_area/metas.js?v=20260406_1005"></script>
     <script src="js/minha_area/auditoria.js?v=20260406_1005"></script>
     <script src="js/minha_area/comparativo.js?v=20260406_1005"></script>
     <script src="js/minha_area/feedback.js?v=20260406_1005"></script>
-    <script src="js/minha_area/relatorios.js?v=20260415_1932"></script>
+    <script src="js/minha_area/relatorios.js?v=20260416_0230"></script>
 </body>
 
 </html>

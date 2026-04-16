@@ -540,14 +540,6 @@ MinhaArea.Geral = {
             
             let obsHtml = justGestao || obsAssis ? (statusAbonoHtml + justGestao + obsAssis) : (statusAbonoHtml || '<span class="text-slate-300">-</span>');
 
-            // Se for um dia sem abono confirmado ou pendente, mostra botão para solicitar abono
-            let actionHtml = '';
-            if (statusAbono === 'OK' && fator === 1.0) {
-                actionHtml = `<button onclick="MinhaArea.Geral.abrirModalAbono('${dia}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm"><i class="fas fa-calendar-minus"></i> Solicitar Abono</button>`;
-            } else if (statusAbono === 'PENDENTE_ABONO') {
-                actionHtml = `<button onclick="MinhaArea.Geral.abrirModalAbono('${dia}')" class="text-slate-400 hover:text-blue-600 bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Editar Solicitação"><i class="fas fa-edit"></i> Editar Pedido</button>`;
-            }
-
             return `
                 <tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${statusAbono === 'PENDENTE_ABONO' ? 'bg-amber-50/20' : ''}">
                     <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(dia)}</td>
@@ -556,13 +548,12 @@ MinhaArea.Geral = {
                     <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${producaoQtd}</td>
                     <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
-                    <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[300px]" onclick="MinhaArea.Geral.abrirModalObs('${uid}', '${dia}')" title="Clique para editar observação">
+                    <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[400px]" onclick="MinhaArea.Geral.abrirModalObs('${uid}', '${dia}')" title="Clique para editar observação">
                         <div class="flex items-center gap-2">
                              <span class="text-slate-400 group-hover:text-blue-600"><i class="far fa-edit"></i></span>
                              <div class="truncate">${obsHtml}</div>
                         </div>
                     </td>
-                    <td class="px-2 py-2 text-right">${actionHtml}</td>
                 </tr>`;
         }).join('');
     },
@@ -1231,36 +1222,25 @@ MinhaArea.Geral = {
         if (modal) { modal.classList.remove('active'); setTimeout(() => { modal.classList.add('hidden', 'pointer-events-none'); }, 300); }
     },
 
-    abrirModalAbono: function (dataRef) {
+    abrirModalAbono: function (dataInicio = null) {
         const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
-        const dataRefLimpa = dataRef.split('T')[0];
-        const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia.includes(dataRefLimpa));
         
-        this.state.abonoEditando = { uid: uid, data: dataRefLimpa };
-        const elData = document.getElementById('abono-data-ref');
+        const elInicio = document.getElementById('abono-data-inicio');
+        const elFim = document.getElementById('abono-data-fim');
         const elJust = document.getElementById('abono-justificativa-text');
         const modal = document.getElementById('modal-solicitar-abono');
         const btnCancel = document.getElementById('btn-cancelar-abono');
 
-        if (elData) elData.innerText = this.formatarDataSegura(dataRefLimpa);
-        if (elJust) elJust.value = (dadoDia && dadoDia.status === 'PENDENTE_ABONO') ? (dadoDia.justificativa || '') : '';
+        // Se passar dataInicio, preenche. Senão limpa (novo fluxo centralizado)
+        if (elInicio) elInicio.value = dataInicio ? dataInicio.split('T')[0] : '';
+        if (elFim) elFim.value = dataInicio ? dataInicio.split('T')[0] : '';
+        if (elJust) elJust.value = '';
         
-        // Mostrar/Ocultar botão cancelar
-        if (btnCancel) {
-            if (dadoDia && dadoDia.status === 'PENDENTE_ABONO') btnCancel.classList.remove('hidden');
-            else btnCancel.classList.add('hidden');
-        }
+        if (btnCancel) btnCancel.classList.add('hidden'); // Oculto no novo fluxo de período
 
-        // Resetar rádios
+        // Resetar rádios para Dia Inteiro por padrão
         const radios = document.getElementsByName('abono-tipo');
-        radios.forEach(r => {
-            r.checked = false;
-            if (dadoDia && dadoDia.status === 'PENDENTE_ABONO') {
-                if (parseFloat(dadoDia.fator) === parseFloat(r.value)) r.checked = true;
-            } else if (r.value === "0.0") {
-                r.checked = true; // Default
-            }
-        });
+        radios.forEach(r => r.checked = (r.value === "0.0"));
         
         if (modal) { 
             modal.classList.remove('hidden', 'pointer-events-none'); 
@@ -1274,44 +1254,62 @@ MinhaArea.Geral = {
     },
 
     salvarSolicitacaoAbono: async function () {
-        const { uid, data } = this.state.abonoEditando;
+        const uid = (window.MinhaArea.usuario && window.MinhaArea.usuario.id) ? window.MinhaArea.usuario.id : (Sistema.lerSessao() ? Sistema.lerSessao().id : null);
+        const dataInicio = document.getElementById('abono-data-inicio').value;
+        const dataFim = document.getElementById('abono-data-fim').value || dataInicio;
         const texto = document.getElementById('abono-justificativa-text').value.trim();
         const btn = document.getElementById('btn-salvar-abono');
         
         const tipoRadio = document.querySelector('input[name="abono-tipo"]:checked');
         const fator = tipoRadio ? parseFloat(tipoRadio.value) : 0.0;
 
-        if (!texto) {
-            alert("Por favor, informe o motivo do abono.");
-            return;
-        }
+        if (!dataInicio) { alert("Informe a data de início."); return; }
+        if (!texto) { alert("Informe o motivo do abono."); return; }
+        if (!uid) return;
 
-        if (!uid || !data) return;
         const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'; btn.disabled = true;
 
         try {
-            const dataRef = data.split('T')[0];
-            const partes = dataRef.split('-');
-            const ano = parseInt(partes[0]);
-            const mes = parseInt(partes[1]);
+            // Gerar lista de datas no período
+            const datas = [];
+            let current = new Date(dataInicio + 'T12:00:00');
+            const end = new Date(dataFim + 'T12:00:00');
 
-            // Verifica se existe registro
-            const existenteRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, dataRef]);
-            const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
+            while (current <= end) {
+                const day = current.getDay();
+                if (day !== 0 && day !== 6) { // Pula fds
+                    datas.push(current.toISOString().split('T')[0]);
+                }
+                current.setDate(current.getDate() + 1);
+            }
 
-            if (existente) {
-                await Sistema.query('UPDATE producao SET status = ?, justificativa = ?, fator = ? WHERE id = ?', ['PENDENTE_ABONO', texto, fator, existente.id]);
-            } else {
-                const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
-                await Sistema.query(
-                    'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, justificativa, status) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
-                    [uuid, uid, dataRef, mes, ano, fator, texto, 'PENDENTE_ABONO']
-                );
+            if (datas.length === 0) {
+                alert("Nenhum dia útil encontrado no período selecionado.");
+                return;
+            }
+
+            for (const dRef of datas) {
+                const partes = dRef.split('-');
+                const ano = parseInt(partes[0]);
+                const mes = parseInt(partes[1]);
+
+                const existenteRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, dRef]);
+                const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
+
+                if (existente) {
+                    await Sistema.query('UPDATE producao SET status = ?, justificativa = ?, fator = ? WHERE id = ?', ['PENDENTE_ABONO', texto, fator, existente.id]);
+                } else {
+                    const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
+                    await Sistema.query(
+                        'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, justificativa, status) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
+                        [uuid, uid, dRef, mes, ano, fator, texto, 'PENDENTE_ABONO']
+                    );
+                }
             }
 
             this.fecharModalAbono();
             this.carregar();
-            alert("Solicitação de abono enviada com sucesso! Aguarde a aprovação da gestora.");
+            alert(`Solicitação de abono para ${datas.length} dia(s) enviada com sucesso! Aguarde a aprovação da gestora.`);
         } catch (e) {
             console.error(e);
             alert("Erro ao enviar solicitação: " + e.message);

@@ -897,12 +897,6 @@ Produtividade.Geral = {
 
             return `
                 <tr class="divide-x divide-slate-100 ${rowClass} transition-colors group">
-                    <td class="px-2 py-3 text-center">
-                        ${row.isAggregatedManager ? '' : `<input type="checkbox" onchange="Produtividade.Geral.toggleSelect('${row.uid}', this.checked)" ${isChecked ? 'checked' : ''} class="cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500">`}
-                    </td>
-                    <td class="px-2 py-3 text-center flex items-center justify-center min-h-[50px]">
-                        ${row.isAggregatedManager ? '<i class="fas fa-users text-emerald-600 text-lg opacity-40"></i>' : abonoHtml}
-                    </td>
                     <td class="px-3 py-3 cursor-pointer" onclick="${row.isAggregatedManager ? '' : `Produtividade.Geral.abrirDetalhes('${row.uid}')`}">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs ring-1 ring-slate-200 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all">
