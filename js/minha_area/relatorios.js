@@ -197,8 +197,7 @@ MinhaArea.Relatorios = {
                 alert("Erro no backup: " + e.message);
             }
         }
-    }
-};
+    },
 
     carregarMetasOKR: async function() {
         try {
