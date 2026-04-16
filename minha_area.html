@@ -712,7 +712,8 @@
                     </div>
                     
                     <!-- Menu de Relatórios -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div id="relatorios-menu-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <!-- Visualizações Dinâmicas -->
                         <div onclick="MinhaArea.Relatorios.mudarRelatorio('metas_okr')" 
                              class="p-4 rounded-xl border border-blue-100 bg-blue-50/50 hover:bg-blue-50 cursor-pointer transition-all border-l-4 border-l-blue-500 group">
                             <h3 class="font-bold text-blue-800 text-sm flex items-center gap-2 group-hover:translate-x-1 transition-transform">
@@ -728,6 +729,68 @@
                                 <i class="fas fa-chart-line"></i> Análise de GAP
                             </h3>
                             <p class="text-[10px] text-rose-600 mt-1">Comparativo de evolução entre assistentes.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- AREA DE EXPORTAÇÃO (EXCLUSIVO GESTÃO) -->
+                    <div id="container-exportacao-gestao" class="hidden space-y-4 mb-8 animate-enter">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="h-px bg-slate-200 flex-1"></div>
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Painel de Exportação (Gestão)</span>
+                            <div class="h-px bg-slate-200 flex-1"></div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Produtividade -->
+                            <div class="bg-white border-2 border-slate-100 p-4 rounded-xl shadow-sm hover:border-blue-100 transition-colors">
+                                <h4 class="text-xs font-black text-slate-700 uppercase flex items-center gap-2 mb-3">
+                                    <i class="fas fa-cubes text-blue-500"></i> Produtividade & Time
+                                </h4>
+                                <div class="space-y-2">
+                                    <button onclick="MinhaArea.Relatorios.Exportar.produtividade('excel')" 
+                                            class="w-full py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-blue-600 hover:border-blue-700 hover:text-white transition-all flex items-center justify-center gap-2 group">
+                                        <i class="fas fa-file-excel text-emerald-600 group-hover:text-white"></i> Exportar Produção Geral
+                                    </button>
+                                    <button onclick="MinhaArea.Relatorios.Exportar.extrato('excel')" 
+                                            class="w-full py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-blue-600 hover:border-blue-700 hover:text-white transition-all flex items-center justify-center gap-2 group">
+                                        <i class="fas fa-list-ul text-blue-600 group-hover:text-white"></i> Exportar Extrato (Dia a Dia)
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Assertividade -->
+                            <div class="bg-white border-2 border-slate-100 p-4 rounded-xl shadow-sm hover:border-emerald-100 transition-colors">
+                                <h4 class="text-xs font-black text-slate-700 uppercase flex items-center gap-2 mb-3">
+                                    <i class="fas fa-check-circle text-emerald-500"></i> Qualidade / Auditoria
+                                </h4>
+                                <div class="space-y-2">
+                                    <button onclick="MinhaArea.Relatorios.Exportar.assertividade('excel')" 
+                                            class="w-full py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-emerald-600 hover:border-emerald-700 hover:text-white transition-all flex items-center justify-center gap-2 group">
+                                        <i class="fas fa-file-excel text-emerald-600 group-hover:text-white"></i> Exportar Histórico Auditoria
+                                    </button>
+                                    <button onclick="MinhaArea.Relatorios.Exportar.matriz('excel')" 
+                                            class="w-full py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-emerald-600 hover:border-emerald-700 hover:text-white transition-all flex items-center justify-center gap-2 group">
+                                        <i class="fas fa-th text-emerald-600 group-hover:text-white"></i> Exportar Matriz Performance
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Backup & Geral -->
+                            <div class="bg-white border-2 border-slate-100 p-4 rounded-xl shadow-sm hover:border-amber-100 transition-colors overflow-hidden relative">
+                                <div class="absolute -right-2 -bottom-2 opacity-5">
+                                    <i class="fas fa-database text-6xl text-amber-500"></i>
+                                </div>
+                                <h4 class="text-xs font-black text-slate-700 uppercase flex items-center gap-2 mb-3">
+                                    <i class="fas fa-download text-amber-500"></i> Backup & Geral
+                                </h4>
+                                <div class="space-y-2">
+                                    <button onclick="MinhaArea.Relatorios.Exportar.backupGeral()" 
+                                            class="w-full py-2.5 bg-amber-500 text-white rounded-lg text-[10px] font-black hover:bg-amber-600 transition-all shadow-md flex items-center justify-center gap-2 active:scale-95">
+                                        <i class="fas fa-file-archive"></i> GERAR BACKUP COMPLETO (XLSX)
+                                    </button>
+                                    <p class="text-[9px] text-slate-400 text-center italic mt-2">Exporta todas as abas consolidadas em um único arquivo.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

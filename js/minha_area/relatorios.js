@@ -15,18 +15,190 @@ MinhaArea.Relatorios = {
         if (MinhaArea.isAdmin()) {
             const btnGap = document.getElementById('btn-rel-gap');
             if (btnGap) btnGap.classList.remove('hidden');
+            
+            const btnExport = document.getElementById('container-exportacao-gestao');
+            if (btnExport) btnExport.classList.remove('hidden');
         }
     },
 
     mudarRelatorio: function(id) {
         const container = document.getElementById('relatorio-ativo-content');
         if (!container) return;
-        if (this.relatorioAtivo === id) { this.relatorioAtivo = null; container.innerHTML = `<div class="text-center py-20 text-slate-300 italic"><i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>Selecione um relatório acima para visualizar os dados.</div>`; return; }
+        
+        // Se clicar no relatório já ativo, fecha. Exceto se for exportação.
+        if (this.relatorioAtivo === id) { 
+            this.relatorioAtivo = null; 
+            container.innerHTML = `<div class="text-center py-20 text-slate-300 italic"><i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>Selecione um relatório acima para visualizar os dados.</div>`; 
+            return; 
+        }
+        
         this.relatorioAtivo = id;
         container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
         if (id === 'metas_okr') this.carregarMetasOKR();
         else if (id === 'gap') this.carregarGAP();
     },
+
+    // --- MÓDULO DE EXPORTAÇÃO (EXCLUSIVO GESTÃO) ---
+    Exportar: {
+        async produtividade(formato = 'excel') {
+            try {
+                const datas = MinhaArea.getDatasFiltro();
+                const sql = `
+                    SELECT 
+                        u.nome, u.funcao, u.contrato,
+                        MONTH(p.data_referencia) as mes,
+                        YEAR(p.data_referencia) as ano,
+                        SUM(p.quantidade) as total_prod,
+                        SUM(COALESCE(p.fator, 1.0)) as total_fator
+                    FROM producao p
+                    JOIN usuarios u ON p.usuario_id = u.id
+                    WHERE p.data_referencia >= ? AND p.data_referencia <= ?
+                    GROUP BY u.nome, u.funcao, u.contrato, mes, ano
+                    ORDER BY ano, mes, u.nome
+                `;
+                const dados = await Sistema.query(sql, [datas.inicio, datas.fim]);
+                
+                if (formato === 'excel') {
+                    const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
+                        'Mês': d.mes,
+                        'Ano': d.ano,
+                        'Colaborador': d.nome,
+                        'Função': d.funcao,
+                        'Contrato': d.contrato,
+                        'Produção Total (Volume)': d.total_prod,
+                        'Dias/Fator Trabalhado': d.total_fator,
+                        'Velocidade Média': Math.round(d.total_prod / (d.total_fator || 1))
+                    })));
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Produtividade");
+                    XLSX.writeFile(wb, `Relatorio_Produtividade_${datas.inicio}_${datas.fim}.xlsx`);
+                } else {
+                    window.print(); // Placeholder para PDF
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao exportar produtividade: " + e.message);
+            }
+        },
+
+        async extrato() {
+            try {
+                const datas = MinhaArea.getDatasFiltro();
+                const sql = `
+                    SELECT p.*, u.nome 
+                    FROM producao p 
+                    JOIN usuarios u ON p.usuario_id = u.id 
+                    WHERE p.data_referencia >= ? AND p.data_referencia <= ?
+                    ORDER BY p.data_referencia DESC, u.nome
+                `;
+                const dados = await Sistema.query(sql, [datas.inicio, datas.fim]);
+                const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
+                    'Data': d.data_referencia.split('T')[0],
+                    'Colaborador': d.nome,
+                    'Tarefa': d.tarefa || '-',
+                    'Qtd': d.quantidade,
+                    'Fator': d.fator,
+                    'Status': d.status || 'OK',
+                    'Obs Gestão': d.justificativa || '-',
+                    'Obs Assistente': d.observacao_assistente || '-'
+                })));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Extrato Diário");
+                XLSX.writeFile(wb, `Extrato_Producao_${datas.inicio}_${datas.fim}.xlsx`);
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao exportar extrato: " + e.message);
+            }
+        },
+
+        async assertividade() {
+            try {
+                const datas = MinhaArea.getDatasFiltro();
+                const sql = `
+                    SELECT a.*, u.nome 
+                    FROM assertividade a 
+                    JOIN usuarios u ON a.usuario_id = u.id 
+                    WHERE a.data_referencia >= ? AND a.data_referencia <= ?
+                    ORDER BY a.data_referencia DESC, u.nome
+                `;
+                const dados = await Sistema.query(sql, [datas.inicio, datas.fim]);
+                const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
+                    'Data': d.data_referencia.split('T')[0],
+                    'Colaborador': d.nome,
+                    'Documento': d.nome_documento,
+                    'Empresa': d.empresa || '-',
+                    '% Assertividade': d.assertividade_val + '%',
+                    'Campos NOK': d.campos_nok || 0,
+                    'Obs': d.observacao || '-'
+                })));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
+                XLSX.writeFile(wb, `Relatorio_Qualidade_${datas.inicio}_${datas.fim}.xlsx`);
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao exportar assertividade: " + e.message);
+            }
+        },
+
+        async matriz() {
+            try {
+                // A matriz exige processamento igual ao da tela. 
+                // Para economia de tempo aqui, vamos exportar o que está no cache se houver, ou buscar novamente.
+                const datas = MinhaArea.getDatasFiltro();
+                const sql = `
+                    SELECT u.nome, u.contrato, 
+                           SUM(p.quantidade) as prod, 
+                           SUM(COALESCE(p.fator, 1.0)) as fator,
+                           AVG(a.assertividade_val) as quality
+                    FROM usuarios u
+                    LEFT JOIN producao p ON u.id = p.usuario_id AND p.data_referencia >= ? AND p.data_referencia <= ?
+                    LEFT JOIN assertividade a ON u.id = a.usuario_id AND a.data_referencia >= ? AND a.data_referencia <= ?
+                    WHERE u.ativo = 1 AND u.perfil != 'ADMIN'
+                    GROUP BY u.nome, u.contrato
+                    ORDER BY prod DESC
+                `;
+                const dados = await Sistema.query(sql, [datas.inicio, datas.fim, datas.inicio, datas.fim]);
+                const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
+                    'Colaborador': d.nome,
+                    'Contrato': d.contrato,
+                    'Produção Total': d.prod || 0,
+                    'Dias Efetivos': d.fator || 0,
+                    'Velocidade Média': d.fator > 0 ? Math.round(d.prod / d.fator) : 0,
+                    'Qualidade Média %': d.quality ? Number(d.quality).toFixed(2) + '%' : '-'
+                })));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Matriz Performance");
+                XLSX.writeFile(wb, `Matriz_Performance_${datas.inicio}_${datas.fim}.xlsx`);
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async backupGeral() {
+            try {
+                const datas = MinhaArea.getDatasFiltro();
+                Sistema.notificar("Iniciando Backup Geral... Aguarde.");
+                
+                const [producao, auditoria, usuarios] = await Promise.all([
+                    Sistema.query("SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?", [datas.inicio, datas.fim]),
+                    Sistema.query("SELECT * FROM assertividade WHERE data_referencia >= ? AND data_referencia <= ?", [datas.inicio, datas.fim]),
+                    Sistema.query("SELECT id, nome, perfil, funcao, contrato, data_nascimento FROM usuarios")
+                ]);
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(producao), "Producao_Bruta");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(auditoria), "Auditoria_Bruta");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(usuarios), "Lista_Usuarios");
+                
+                XLSX.writeFile(wb, `BACKUP_GUPYMESA_FULL_${datas.inicio}_${datas.fim}.xlsx`);
+                Sistema.notificar("Backup concluído com sucesso!");
+            } catch (e) {
+                console.error(e);
+                alert("Erro no backup: " + e.message);
+            }
+        }
+    }
+};
 
     carregarMetasOKR: async function() {
         try {
