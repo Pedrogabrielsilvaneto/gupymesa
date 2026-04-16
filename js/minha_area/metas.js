@@ -1245,13 +1245,21 @@ MinhaArea.Metas = {
                         cellHtml = `<div class="${colorClass} font-bold cursor-help" title="${dados.qtd_auditorias} auditados">${val.toFixed(2).replace('.', ',')}%</div>`;
                     }
                 } else {
-                    if (dados && dados.velocidade > 0) {
-                        const batido = dados.velocidade >= dados.metaProd;
-                        cellHtml = `<div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold">${dados.velocidade}</div>`;
-                        if (dados.metaProd > 0) {
-                            const pct = (dados.velocidade / dados.metaProd) * 100;
+                    if (dados && (dados.prod > 0 || dados.velocidade > 0)) {
+                        // [FIX] Compara o Volume contra a Meta Real (ajustada pelo fator trabalhado)
+                        const metaReal = Math.round((dados.metaProd || 0) * (dados.dias_efetivos || 0));
+                        const batido = dados.prod >= metaReal;
+
+                        // Exibe o volume (prod) em vez da velocidade (normalizada)
+                        cellHtml = `<div class="${batido ? 'text-blue-600' : 'text-rose-600'} font-bold">${dados.prod}</div>`;
+
+                        if (metaReal > 0) {
+                            const pct = (dados.prod / metaReal) * 100;
                             const corBadge = pct >= 100 ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 border border-rose-200';
                             subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold ${corBadge}">${pct.toFixed(2).replace('.', ',')}%</span></div>`;
+                        } else if (dados.prod > 0) {
+                            // Se produziu sem ter meta definida (ou meta 0), considera 100%
+                            subHtml = `<div class="mt-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">100%</span></div>`;
                         }
                     }
                 }
@@ -1280,8 +1288,9 @@ MinhaArea.Metas = {
             labels.push(col.label);
             const dados = this.cacheDados[col.key][String(uid)] || { velocidade: 0, assert: null, metaProd: 0, metaAssert: 0 };
 
-            dataProd.push(dados.velocidade);
-            dataMetaProd.push(dados.metaProd || 0); // Garante que usa a meta individual do cache
+            dataProd.push(dados.prod);
+            // [FIX] Exibe a meta real ajustada pelo fator (ex: 700 * 0.5 = 350) para que o gráfico de barras (volume) seja comparável
+            dataMetaProd.push(Math.round((dados.metaProd || 0) * (dados.dias_efetivos || 0)));
             dataAssert.push(dados.assert !== null ? (dados.assert * 100) : null);
             dataMetaAssert.push(dados.metaAssert || 0);
         });
