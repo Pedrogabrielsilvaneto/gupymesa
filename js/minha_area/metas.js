@@ -586,16 +586,17 @@ MinhaArea.Metas = {
 
                 if (this.cacheDados[key] && this.cacheDados[key][uidStr]) {
                     const qtd = Number(reg.quantidade || 0);
-                    const fator = reg.fator !== null ? Number(reg.fator) : 1.0;
+                    // [FIX] Solicitações pendentes não devem afetar o fator até serem aprovadas (OK)
+                    const fator = (reg.status === 'OK' || !reg.status || reg.status === '') ? (reg.fator !== null ? Number(reg.fator) : 1.0) : 1.0;
 
-                    if (qtd > 0) {
+                    // Somamos no KPI se houver volume OU se for um dia trabalhado/OK (para compor a meta)
+                    if (qtd > 0 || (reg.status === 'OK' || !reg.status)) {
                         this.cacheDados[key][uidStr].prod += qtd;
                         this.cacheDados[key][uidStr].dias_efetivos += fator;
 
                         if (this.statsUsers[uidStr]) {
                             this.statsUsers[uidStr].prod += qtd;
                             this.statsUsers[uidStr].dias_efetivos += fator;
-                            // metaSum continua sendo baseado na produção real (proporcional aos dias trabalhados)
                             this.statsUsers[uidStr].metaSum += (this.cacheDados[key][uidStr].metaProd * fator);
                         }
                     }

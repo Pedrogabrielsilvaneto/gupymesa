@@ -247,7 +247,8 @@ MinhaArea.Geral = {
             if (!mapa.has(chave)) this.iniciarItemMapa(mapa, chave, uid);
             const item = mapa.get(chave);
 
-            const fator = p.fator !== null ? Number(p.fator) : 1.0;
+            // [FIX] Solicitações pendentes não devem afetar o fator/KPIs até serem aprovadas (OK)
+            const fator = (p.status === 'OK' || !p.status || p.status === '') ? (p.fator !== null ? Number(p.fator) : 1.0) : 1.0;
             const dataRefStr = p.data_referencia ? p.data_referencia.split('T')[0] : null;
             const dataRef = new Date(dataRefStr + 'T12:00:00');
             const mesChave = `${dataRef.getFullYear()}-${dataRef.getMonth() + 1}`;
@@ -514,7 +515,8 @@ MinhaArea.Geral = {
 
         this.els.tabela.innerHTML = businessDays.map(dia => {
             const d = producaoMap[dia];
-            const fator = d ? (d.fator !== null ? Number(d.fator) : 1.0) : 1.0;
+            // [FIX] Na visão diária, a meta só é reduzida se o abono estiver aprovado (OK) ou se não houver status de pendência
+            const fator = (d && (d.status === 'OK' || !d.status || d.status === '')) ? (d.fator !== null ? Number(d.fator) : 1.0) : 1.0;
             const metaBase = item ? item.meta_velocidade_media : 100;
             const metaDia = Math.round(metaBase * fator);
             const producaoQtd = d ? (d.quantidade || 0) : 0;

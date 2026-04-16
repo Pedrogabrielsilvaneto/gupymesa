@@ -90,6 +90,10 @@ window.MinhaArea = {
         if (this.isAdmin()) {
             const container = document.getElementById('admin-selector-container');
             if (container) container.classList.remove('hidden');
+            
+            // [FIX] Oculta o botão de abono para gestores (eles usam a ferramenta na aba de Performance)
+            const btnAbono = document.getElementById('btn-solicitar-abono');
+            if (btnAbono) btnAbono.classList.add('hidden');
         }
     },
 
