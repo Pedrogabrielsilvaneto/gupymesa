@@ -40,162 +40,151 @@ MinhaArea.Relatorios = {
 
     // --- MÓDULO DE EXPORTAÇÃO (EXCLUSIVO GESTÃO) ---
     Exportar: {
-        async produtividade(formato = 'excel') {
+        async modulo(modulo, aba) {
             try {
+                Sistema.notificar(`Preparando exportação: ${modulo.toUpperCase()} - ${aba.toUpperCase()}`);
                 const datas = MinhaArea.getDatasFiltro();
-                const sql = `
-                    SELECT 
-                        u.nome, u.funcao, u.contrato,
-                        MONTH(p.data_referencia) as mes,
-                        YEAR(p.data_referencia) as ano,
-                        SUM(p.quantidade) as total_prod,
-                        SUM(COALESCE(p.fator, 1.0)) as total_fator
-                    FROM producao p
-                    JOIN usuarios u ON p.usuario_id = u.id
-                    WHERE p.data_referencia >= ? AND p.data_referencia <= ?
-                    GROUP BY u.nome, u.funcao, u.contrato, mes, ano
-                    ORDER BY ano, mes, u.nome
-                `;
-                const dados = await Sistema.query(sql, [datas.inicio, datas.fim]);
+                const wb = XLSX.utils.book_new();
                 
-                if (formato === 'excel') {
-                    const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
-                        'Mês': d.mes,
-                        'Ano': d.ano,
-                        'Colaborador': d.nome,
-                        'Função': d.funcao,
-                        'Contrato': d.contrato,
-                        'Produção Total (Volume)': d.total_prod,
-                        'Dias/Fator Trabalhado': d.total_fator,
-                        'Velocidade Média': Math.round(d.total_prod / (d.total_fator || 1))
-                    })));
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, "Produtividade");
-                    XLSX.writeFile(wb, `Relatorio_Produtividade_${datas.inicio}_${datas.fim}.xlsx`);
-                } else {
-                    window.print(); // Placeholder para PDF
+                let data = null;
+                let sheetName = (modulo.slice(0,3) + "_" + aba).toUpperCase();
+
+                if (modulo === 'gestao') {
+                    if (aba === 'usuarios') data = await Sistema.query("SELECT id, nome, perfil, funcao, contrato, email, ativo FROM usuarios ORDER BY nome");
+                    else if (aba === 'empresas') data = await Sistema.query("SELECT * FROM empresas ORDER BY nome");
+                    else if (aba === 'metas') data = await Sistema.query("SELECT m.*, u.nome as usuario_nome FROM metas m JOIN usuarios u ON m.usuario_id = u.id ORDER BY m.ano DESC, m.mes DESC, u.nome");
+                } 
+                else if (modulo === 'produtividade') {
+                    if (aba === 'validacao') data = await Sistema.query("SELECT p.*, u.nome FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? ORDER BY p.data_referencia DESC", [datas.inicio, datas.fim]);
+                    else if (aba === 'consolidado') data = await this.getConsolidado(datas);
+                    else if (aba === 'matriz') { await this.exportarMatrizGrade(datas, "PROD_Matriz"); return; }
+                } 
+                else if (modulo === 'minha_area') {
+                    if (aba === 'dia_a_dia') data = await Sistema.query("SELECT p.*, u.nome FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ? ORDER BY p.data_referencia DESC", [datas.inicio, datas.fim]);
+                    else if (aba === 'meta_okr') { await this.exportarMatrizGrade(datas, "MA_Meta_OKR"); return; }
+                } 
+                else if (modulo === 'biblioteca') {
+                    if (aba === 'frases') data = await this.fetchFrasesSupabase();
+                }
+
+                if (data && data.length > 0) {
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    XLSX.writeFile(wb, `RelatorioGupy_${modulo}_${aba}_${datas.inicio}.xlsx`);
+                } else if (data !== null) {
+                    alert("Nenhum dado encontrado para exportação.");
                 }
             } catch (e) {
                 console.error(e);
-                alert("Erro ao exportar produtividade: " + e.message);
+                alert("Erro na exportação: " + e.message);
             }
         },
 
-        async extrato() {
+        async relatorioGeral() {
             try {
+                Sistema.notificar("Gerando BACKUP COMPLETO... Aguarde.");
                 const datas = MinhaArea.getDatasFiltro();
-                const sql = `
-                    SELECT p.*, u.nome 
-                    FROM producao p 
-                    JOIN usuarios u ON p.usuario_id = u.id 
-                    WHERE p.data_referencia >= ? AND p.data_referencia <= ?
-                    ORDER BY p.data_referencia DESC, u.nome
-                `;
-                const dados = await Sistema.query(sql, [datas.inicio, datas.fim]);
-                const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
-                    'Data': d.data_referencia.split('T')[0],
-                    'Colaborador': d.nome,
-                    'Tarefa': d.tarefa || '-',
-                    'Qtd': d.quantidade,
-                    'Fator': d.fator,
-                    'Status': d.status || 'OK',
-                    'Obs Gestão': d.justificativa || '-',
-                    'Obs Assistente': d.observacao_assistente || '-'
-                })));
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Extrato Diário");
-                XLSX.writeFile(wb, `Extrato_Producao_${datas.inicio}_${datas.fim}.xlsx`);
-            } catch (e) {
-                console.error(e);
-                alert("Erro ao exportar extrato: " + e.message);
-            }
-        },
 
-        async assertividade() {
-            try {
-                const datas = MinhaArea.getDatasFiltro();
-                const sql = `
-                    SELECT a.*, u.nome 
-                    FROM assertividade a 
-                    JOIN usuarios u ON a.usuario_id = u.id 
-                    WHERE a.data_referencia >= ? AND a.data_referencia <= ?
-                    ORDER BY a.data_referencia DESC, u.nome
-                `;
-                const dados = await Sistema.query(sql, [datas.inicio, datas.fim]);
-                const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
-                    'Data': d.data_referencia.split('T')[0],
-                    'Colaborador': d.nome,
-                    'Documento': d.nome_documento,
-                    'Empresa': d.empresa || '-',
-                    '% Assertividade': d.assertividade_val + '%',
-                    'Campos NOK': d.campos_nok || 0,
-                    'Obs': d.observacao || '-'
-                })));
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
-                XLSX.writeFile(wb, `Relatorio_Qualidade_${datas.inicio}_${datas.fim}.xlsx`);
-            } catch (e) {
-                console.error(e);
-                alert("Erro ao exportar assertividade: " + e.message);
-            }
-        },
+                // 1. GESTÃO
+                const users = await Sistema.query("SELECT id, nome, perfil, funcao, contrato, email, ativo FROM usuarios");
+                const empresas = await Sistema.query("SELECT * FROM empresas");
+                const metas = await Sistema.query("SELECT m.*, u.nome as usuario_nome FROM metas m JOIN usuarios u ON m.usuario_id = u.id");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(users), "GES_Usuarios");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(empresas), "GES_Empresas");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), "GES_Metas_Setup");
 
-        async matriz() {
-            try {
-                // A matriz exige processamento igual ao da tela. 
-                // Para economia de tempo aqui, vamos exportar o que está no cache se houver, ou buscar novamente.
-                const datas = MinhaArea.getDatasFiltro();
-                const sql = `
-                    SELECT u.nome, u.contrato, 
-                           SUM(p.quantidade) as prod, 
-                           SUM(COALESCE(p.fator, 1.0)) as fator,
-                           AVG(a.assertividade_val) as quality
-                    FROM usuarios u
-                    LEFT JOIN producao p ON u.id = p.usuario_id AND p.data_referencia >= ? AND p.data_referencia <= ?
-                    LEFT JOIN assertividade a ON u.id = a.usuario_id AND a.data_referencia >= ? AND a.data_referencia <= ?
-                    WHERE u.ativo = 1 AND u.perfil != 'ADMIN'
-                    GROUP BY u.nome, u.contrato
-                    ORDER BY prod DESC
-                `;
-                const dados = await Sistema.query(sql, [datas.inicio, datas.fim, datas.inicio, datas.fim]);
-                const ws = XLSX.utils.json_to_sheet(dados.map(d => ({
-                    'Colaborador': d.nome,
-                    'Contrato': d.contrato,
-                    'Produção Total': d.prod || 0,
-                    'Dias Efetivos': d.fator || 0,
-                    'Velocidade Média': d.fator > 0 ? Math.round(d.prod / d.fator) : 0,
-                    'Qualidade Média %': d.quality ? Number(d.quality).toFixed(2) + '%' : '-'
-                })));
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Matriz Performance");
-                XLSX.writeFile(wb, `Matriz_Performance_${datas.inicio}_${datas.fim}.xlsx`);
-            } catch (e) {
-                console.error(e);
-            }
-        },
-
-        async backupGeral() {
-            try {
-                const datas = MinhaArea.getDatasFiltro();
-                Sistema.notificar("Iniciando Backup Geral... Aguarde.");
+                // 2. PRODUTIVIDADE & MATRIZ (Grade)
+                const vld = await Sistema.query("SELECT p.*, u.nome FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia >= ? AND p.data_referencia <= ?", [datas.inicio, datas.fim]);
+                const csl = await this.getConsolidado(datas);
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vld), "PRD_Validacao");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(csl), "PRD_Consolidado");
                 
-                const [producao, auditoria, usuarios] = await Promise.all([
-                    Sistema.query("SELECT * FROM producao WHERE data_referencia >= ? AND data_referencia <= ?", [datas.inicio, datas.fim]),
-                    Sistema.query("SELECT * FROM assertividade WHERE data_referencia >= ? AND data_referencia <= ?", [datas.inicio, datas.fim]),
-                    Sistema.query("SELECT id, nome, perfil, funcao, contrato, data_nascimento FROM usuarios")
-                ]);
+                // Matriz em Grade
+                const matrixData = await this.getArrayMatrizGrade(datas);
+                if (matrixData) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(matrixData), "PRD_MA_Matriz_Grade");
 
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(producao), "Producao_Bruta");
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(auditoria), "Auditoria_Bruta");
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(usuarios), "Lista_Usuarios");
-                
-                XLSX.writeFile(wb, `BACKUP_GUPYMESA_FULL_${datas.inicio}_${datas.fim}.xlsx`);
-                Sistema.notificar("Backup concluído com sucesso!");
+                // 3. BIBLIOTECA
+                const frases = await this.fetchFrasesSupabase();
+                if (frases) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(frases), "BIB_Frases_Geral");
+
+                XLSX.writeFile(wb, `BACKUP_GERAL_GUPYMESA_${datas.inicio}.xlsx`);
+                Sistema.notificar("Relatório de Backup concluído!");
             } catch (e) {
                 console.error(e);
                 alert("Erro no backup: " + e.message);
             }
+        },
+
+        // --- AUXILIARES ---
+        async getConsolidado(datas) {
+            return await Sistema.query(`
+                SELECT u.nome, u.contrato, u.funcao,
+                       SUM(p.quantidade) as total_producao,
+                       SUM(COALESCE(p.fator, 1.0)) as total_fatores,
+                       AVG(a.assertividade_val) as media_qualidade
+                FROM usuarios u
+                LEFT JOIN producao p ON u.id = p.usuario_id AND p.data_referencia >= ? AND p.data_referencia <= ?
+                LEFT JOIN assertividade a ON u.id = a.usuario_id AND a.data_referencia >= ? AND a.data_referencia <= ?
+                WHERE u.ativo = 1 AND u.perfil != 'ADMIN'
+                GROUP BY u.id, u.nome, u.contrato, u.funcao
+                ORDER BY total_producao DESC
+            `, [datas.inicio, datas.fim, datas.inicio, datas.fim]);
+        },
+
+        async getArrayMatrizGrade(datas) {
+            // Gera uma matriz pivotada: Linhas = Colaboradores, Colunas = Datas
+            const prod = await Sistema.query(`
+                SELECT u.nome, p.data_referencia, SUM(p.quantidade) as qtd
+                FROM producao p
+                JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.data_referencia >= ? AND p.data_referencia <= ?
+                GROUP BY u.nome, p.data_referencia
+                ORDER BY u.nome, p.data_referencia
+            `, [datas.inicio, datas.fim]);
+
+            if (!prod.length) return null;
+
+            const datasUnicas = [...new Set(prod.map(p => p.data_referencia.split('T')[0]))].sort();
+            const colabs = [...new Set(prod.map(p => p.nome))].sort();
+
+            const header = ["Colaborador", ...datasUnicas, "TOTAL"];
+            const rows = [header];
+
+            colabs.forEach(nome => {
+                const row = [nome];
+                let soma = 0;
+                datasUnicas.forEach(d => {
+                    const match = prod.find(p => p.nome === nome && p.data_referencia.split('T')[0] === d);
+                    const val = match ? match.qtd : 0;
+                    row.push(val || "-");
+                    soma += (val || 0);
+                });
+                row.push(soma);
+                rows.push(row);
+            });
+
+            return rows;
+        },
+
+        async exportarMatrizGrade(datas, fileName) {
+            const data = await this.getArrayMatrizGrade(datas);
+            if (!data) { alert("Sem dados para a matriz grade."); return; }
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "Matriz Performance");
+            XLSX.writeFile(wb, `${fileName}_${datas.inicio}.xlsx`);
+        },
+
+        async fetchFrasesSupabase() {
+            try {
+                const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
+                const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
+                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                const { data, error } = await client.from('frases').select('conteudo, empresa, motivo, documento, usos');
+                if (error) throw error;
+                return data;
+            } catch (e) { return null; }
         }
     },
 
