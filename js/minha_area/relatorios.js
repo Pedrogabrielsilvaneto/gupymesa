@@ -757,130 +757,86 @@ MinhaArea.Relatorios = {
             const data = await this.Exportar.fetchFrasesSupabase();
             if (!data) return;
             this._rawRankingData = data;
-            this.abrirRanking();
             this.renderizarRankingFrases(false); 
         } catch (e) { 
             console.error("Erro ao carregar ranking de frases:", e); 
         }
     },
 
-    abrirRanking: function() {
-        const modal = document.getElementById('modal-ranking-frases');
-        if (modal) {
-            modal.classList.remove('hidden');
-            setTimeout(() => modal.classList.add('active'), 10);
-        }
-    },
-
-    fecharRanking: function() {
-        const modal = document.getElementById('modal-ranking-frases');
-        if (modal) {
-            modal.classList.remove('active');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-    },
-
     renderizarRankingFrases: function(showAll = false) {
-        const container = document.getElementById('ranking-frases-content');
+        const container = document.getElementById('relatorio-ativo-content');
         if (!container || !this._rawRankingData) return;
 
         const data = showAll ? this._rawRankingData : this._rawRankingData.slice(0, 10);
         const total = this._rawRankingData.length;
 
         let html = `
-            <div class="space-y-6 animate-enter">
-                <!-- Header Premium -->
-                <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between shadow-xl relative overflow-hidden">
-                    <div class="absolute right-0 top-0 opacity-10 -mr-10 -mt-10">
-                        <i class="fas fa-crown text-[150px] text-white"></i>
-                    </div>
-                    
-                    <div class="relative z-10 flex items-center gap-5">
-                        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-3xl shadow-inner border border-white/30">
-                            <i class="fas fa-crown"></i>
-                        </div>
+            <div class="space-y-4 animate-enter">
+                <div class="flex items-center justify-between bg-slate-100 p-3 rounded-t-xl border border-slate-200 border-b-0">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-indigo-600 text-white p-2 rounded shadow-sm"><i class="fas fa-table text-sm"></i></div>
                         <div>
-                            <h2 class="text-white font-black text-2xl uppercase tracking-tighter">Ranking de Utilização</h2>
-                            <p class="text-indigo-100 font-bold opacity-80 text-xs">Análise das frases mais eficazes da Biblioteca (${total} frases total)</p>
+                            <h3 class="text-xs font-black text-slate-700 uppercase tracking-widest leading-none">Ranking de Uso - Biblioteca</h3>
+                            <p class="text-[9px] text-slate-400 font-bold mt-1">Visão de Grade Analítica (Consolidado Equipe)</p>
                         </div>
                     </div>
-
-                    <div class="relative z-10 flex gap-3 mt-6 md:mt-0">
-                        <button onclick="MinhaArea.Relatorios.copiarRanking()" 
-                                class="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-white/20 backdrop-blur-sm transition-all active:scale-95">
-                            <i class="fas fa-copy"></i> COPIAR RANKING
-                        </button>
-                    </div>
+                    <button onclick="MinhaArea.Relatorios.copiarRanking()" 
+                            class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-4 py-1.5 rounded-lg font-bold text-[10px] flex items-center gap-2 shadow-sm transition active:scale-95">
+                        <i class="fas fa-copy"></i> COPIAR RANKING
+                    </button>
                 </div>
 
-                <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
-                    <div class="max-h-[600px] overflow-y-auto custom-scroll">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b sticky top-0 z-20 backdrop-blur-sm bg-slate-50/90">
-                            <tr>
-                                <th class="px-8 py-5 w-20 text-center">RANK</th>
-                                <th class="px-6 py-5 w-28 text-center">USOS</th>
-                                <th class="px-6 py-5">CONTEÚDO DA FRASE</th>
-                                <th class="px-8 py-5 w-48">ORIGEM</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
+                <div class="bg-white border border-slate-300 rounded-b-xl overflow-hidden shadow-sm">
+                    <div class="max-h-[600px] overflow-auto custom-scroll">
+                        <table class="w-full text-xs text-left border-collapse table-fixed">
+                            <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-500 sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                                <tr class="divide-x divide-slate-200">
+                                    <th class="px-3 py-3 w-12 text-center bg-slate-100 border-b border-slate-200">#</th>
+                                    <th class="px-3 py-3 w-20 text-center bg-slate-100 border-b border-slate-200">USOS</th>
+                                    <th class="px-4 py-3 border-b border-slate-200">CONTEÚDO DA FRASE</th>
+                                    <th class="px-4 py-3 w-32 border-b border-slate-200">EMPRESA</th>
+                                    <th class="px-4 py-3 w-32 border-b border-slate-200">DOCUMENTO</th>
+                                    <th class="px-4 py-3 w-40 border-b border-slate-200">MOTIVO</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
         `;
 
         data.forEach((f, i) => {
             const rank = i + 1;
-            const isTop3 = rank <= 3;
-            // Cores específicas para o pódio
-            const rankStyle = rank === 1 ? 'bg-amber-100 text-amber-600 border-amber-200' : 
-                             (rank === 2 ? 'bg-slate-100 text-slate-500 border-slate-200' : 
-                             (rank === 3 ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-slate-50 text-slate-400 border-slate-100'));
+            const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
             
-            const rowClass = isTop3 ? 'bg-indigo-50/10' : '';
-
             html += `
-                <tr class="hover:bg-indigo-50/30 transition-colors group ${rowClass}">
-                    <td class="px-8 py-6 text-center">
-                        <div class="w-10 h-10 mx-auto rounded-xl flex items-center justify-center font-black text-base border-2 ${rankStyle} shadow-sm group-hover:scale-110 transition-transform">
-                            ${rank}
+                <tr class="${rowBg} hover:bg-indigo-50/30 transition-colors divide-x divide-slate-200">
+                    <td class="px-3 py-2 text-center font-black text-slate-400 bg-slate-50/30">${rank}</td>
+                    <td class="px-3 py-2 text-center font-mono font-black text-indigo-600">${f.usos || 0}</td>
+                    <td class="px-4 py-2">
+                        <div class="text-[11px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap line-clamp-2" title="${f.conteudo.replace(/"/g, '&quot;')}">
+                            ${f.conteudo}
                         </div>
                     </td>
-                    <td class="px-6 py-6 text-center">
-                        <span class="inline-block font-mono font-black text-xl text-indigo-600">${f.usos || 0}</span>
-                        <span class="block text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-1">vezes</span>
-                    </td>
-                    <td class="px-6 py-6">
-                        <div class="flex flex-col gap-2">
-                            <span class="text-[10px] font-black text-indigo-500 uppercase tracking-widest">${f.motivo || 'Motivo Geral'}</span>
-                            <div class="text-sm text-slate-700 font-medium leading-relaxed italic border-l-4 border-slate-200 pl-4 py-1 group-hover:border-indigo-300 transition-colors">
-                                "${f.conteudo}"
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-8 py-6">
-                        <div class="flex flex-col gap-1 text-right">
-                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">${f.empresa || 'Empresa Geral'}</span>
-                            <div class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded inline-block self-end">${f.documento || 'Documento Único'}</div>
-                        </div>
-                    </td>
+                    <td class="px-4 py-2 text-[10px] font-bold text-slate-500 uppercase truncate">${f.empresa || '-'}</td>
+                    <td class="px-4 py-2 text-[10px] font-bold text-blue-600 truncate">${f.documento || '-'}</td>
+                    <td class="px-4 py-2 text-[10px] font-bold text-slate-600 truncate">${f.motivo || '-'}</td>
                 </tr>
             `;
         });
 
         html += `
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
                     </div>
 
                     ${!showAll && total > 10 ? `
-                        <div class="p-8 bg-slate-50 border-t border-slate-100 text-center">
+                        <div class="p-4 bg-slate-50 border-t border-slate-200 text-center">
                             <button onclick="MinhaArea.Relatorios.renderizarRankingFrases(true)" 
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-3 mx-auto">
-                                <i class="fas fa-plus"></i> VER TODAS AS ${total} FRASES
+                                    class="bg-white border border-indigo-200 text-indigo-600 px-8 py-2.5 rounded-xl font-black text-[11px] shadow-sm hover:bg-indigo-50 transition-all flex items-center gap-2 mx-auto uppercase tracking-widest">
+                                <i class="fas fa-stream"></i> Carregar Ranking Completo (${total} Frases)
                             </button>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase mt-4 tracking-widest">Exibindo inicialmente as 10 mais relevantes</p>
                         </div>
                     ` : ''}
                 </div>
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter text-right italic">* Clique no conteúdo para ver a frase completa (tooltip)</p>
             </div>
         `;
 
