@@ -639,8 +639,14 @@ window.GupyBiblioteca = {
                 });
             }
             await this.registrarLog('COPIAR', String(id));
-            f.usos = (f.usos || 0) + 1;
+            
+            // Persiste o incremento no Banco de Dados
+            const novosUsos = (f.usos || 0) + 1;
+            await this.callAPI('update', 'frases', { id, data: { usos: novosUsos } });
+            
+            f.usos = novosUsos;
             f.meus_usos = (f.meus_usos || 0) + 1;
+            
             // Atualiza sem rolar ao topo
             this.aplicarFiltros(false);
         });
@@ -1103,5 +1109,34 @@ window.GupyBiblioteca = {
         else input.value = v;
     },
 
-    atualizarSugestoesModal: function() {}
+    atualizarSugestoesModal: function() {
+        if (!this.cacheFrases.length) return;
+        
+        const empresas = [...new Set(this.cacheFrases.map(f => f.empresa).filter(Boolean))].sort();
+        const docs = [...new Set(this.cacheFrases.map(f => f.documento).filter(Boolean))].sort();
+        const motivos = [...new Set(this.cacheFrases.map(f => f.motivo).filter(Boolean))].sort();
+
+        const updateList = (id, items) => {
+            let dl = document.getElementById(id);
+            if (!dl) {
+                dl = document.createElement('datalist');
+                dl.id = id;
+                document.body.appendChild(dl);
+            }
+            dl.innerHTML = items.map(item => `<option value="${item}">`).join('');
+        };
+
+        updateList('list-empresas', empresas);
+        updateList('list-documentos', docs);
+        updateList('list-motivos', motivos);
+
+        // Vincula aos inputs se existirem
+        const inpEmp = document.getElementById('lib-form-empresa');
+        const inpDoc = document.getElementById('lib-form-doc');
+        const inpMot = document.getElementById('lib-form-motivo');
+
+        if (inpEmp) inpEmp.setAttribute('list', 'list-empresas');
+        if (inpDoc) inpDoc.setAttribute('list', 'list-documentos');
+        if (inpMot) inpMot.setAttribute('list', 'list-motivos');
+    }
 };

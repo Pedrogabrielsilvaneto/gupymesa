@@ -790,6 +790,7 @@ MinhaArea.Relatorios = {
             const data = await this.Exportar.fetchFrasesSupabase();
             if (!data) return;
             this._rawRankingData = data;
+            this.atualizarSugestoesRanking();
             this.renderizarRankingFrases(false); 
         } catch (e) { 
             console.error("Erro ao carregar ranking de frases:", e); 
@@ -965,5 +966,28 @@ MinhaArea.Relatorios = {
                 Swal.fire('Erro ao excluir', e.message, 'error');
             }
         }
+    },
+
+    atualizarSugestoesRanking: function() {
+        if (!this._rawRankingData) return;
+        
+        const items = this._rawRankingData;
+        const empresas = [...new Set(items.map(f => f.empresa).filter(Boolean))].sort();
+        const docs = [...new Set(items.map(f => f.documento).filter(Boolean))].sort();
+        const motivos = [...new Set(items.map(f => f.motivo).filter(Boolean))].sort();
+
+        const populate = (id, list) => {
+            let el = document.getElementById(id);
+            if (!el) {
+                el = document.createElement('datalist');
+                el.id = id;
+                document.body.appendChild(el);
+            }
+            el.innerHTML = list.map(i => `<option value="${i}">`).join('');
+        };
+
+        populate('list-empresas-ranking', empresas);
+        populate('list-documentos-ranking', docs);
+        populate('list-motivos-ranking', motivos);
     }
 };
