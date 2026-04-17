@@ -151,30 +151,33 @@ MinhaArea.Assertividade = {
                 const d = dados[i];
                 const nokVal = Number(d.qtd_nok || 0);
                 const assertVal = d.assertividade_val !== null ? Number(d.assertividade_val) : null;
+                
+                const tipoDocUpper = (d.tipo_documento || '').toUpperCase();
+                const isNdf = tipoDocUpper.startsWith('DOC_NDF_');
+                const isAceitoIndevido = (tipoDocUpper === 'DOC_NDF_EMPRESA');
 
                 // [REGRA] Auditados: Contar Doc_name onde % ASSERT é de 0% a 100%
                 if (d.doc_name && assertVal !== null && assertVal >= 0 && assertVal <= 100) {
                     countTotalAuditados++;
                 }
 
-                // [REGRA] Total com OK: Contar Doc_name onde % ASSERT é igual ou maior que 100%
-                if (d.doc_name && assertVal !== null && assertVal >= 100) {
+                // [REGRA] Total com OK: Contar Doc_name onde % ASSERT >= 100% (Exceto se for Aceito Indevido)
+                if (d.doc_name && assertVal !== null && assertVal >= 100 && !isAceitoIndevido) {
                     countTotalAcertos++;
                 }
 
-                // [REGRA] Foco em Erros: % ASSERT menor que 100%
-                if (d.doc_name && assertVal !== null && assertVal < 100 && assertVal >= 0) {
+                // [REGRA] Foco em Erros: % ASSERT menor que 100% OU Aceito Indevido (DOC_NDF_EMPRESA)
+                const isError = (d.doc_name && assertVal !== null && assertVal < 100 && assertVal >= 0) || isAceitoIndevido;
+
+                if (isError) {
                     countTotalDocsNok++;
 
                     // Soma campos NOK reais apenas deste grupo de erro
                     countTotalNok += nokVal;
 
-                    const tipoDocUpper = (d.tipo_documento || '').toUpperCase();
-                    const isNdf = tipoDocUpper.startsWith('DOC_NDF_');
-
                     if (isNdf) {
                         countErrosNdf += nokVal;
-                        if (tipoDocUpper === 'DOC_NDF_EMPRESA') {
+                        if (isAceitoIndevido) {
                             countNdfEmpresa += nokVal; // Soma NOK para empresa validar
                             countDocsAceitosIndevidos++; // Conta o documento
                         }
@@ -183,8 +186,8 @@ MinhaArea.Assertividade = {
                     }
                 }
 
-                // Feed continua mostrando qualquer linha com NOK > 0
-                if (nokVal > 0) {
+                // Feed continua mostrando qualquer linha com NOK > 0 OU se for um Aceito Indevido
+                if (nokVal > 0 || isAceitoIndevido) {
                     listaErros.push(d);
                 }
             }
@@ -475,12 +478,16 @@ MinhaArea.Assertividade = {
                 sub = 'Todos os documentos auditados no período.';
                 break;
             case 'ok':
-                filtrados = base.filter(d => d.doc_name && d.assertividade_val !== null && Number(d.assertividade_val) >= 100);
+                filtrados = base.filter(d => d.doc_name && d.assertividade_val !== null && Number(d.assertividade_val) >= 100 && (d.tipo_documento || '').toUpperCase() !== 'DOC_NDF_EMPRESA');
                 label = 'Documentos Aprovados';
                 sub = 'Auditorias com 100% de assertividade.';
                 break;
             case 'erros_doc':
-                filtrados = base.filter(d => d.doc_name && d.assertividade_val !== null && Number(d.assertividade_val) < 100);
+                filtrados = base.filter(d => {
+                    const assertVal = d.assertividade_val !== null ? Number(d.assertividade_val) : null;
+                    const isAceitoIndevido = (d.tipo_documento || '').toUpperCase() === 'DOC_NDF_EMPRESA';
+                    return (d.doc_name && assertVal !== null && assertVal < 100) || isAceitoIndevido;
+                });
                 label = 'Documentos Reprovados';
                 sub = 'Auditorias com pontos de atenção.';
                 break;
