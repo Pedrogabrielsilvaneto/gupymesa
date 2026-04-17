@@ -492,10 +492,15 @@ MinhaArea.Assertividade = {
                 sub = 'Auditorias com pontos de atenção.';
                 break;
             case 'indevidos':
-            case 'ndf_empresa':
-                filtrados = base.filter(d => (d.tipo_documento || '').toUpperCase() === 'DOC_NDF_EMPRESA');
+                filtrados = base.filter(d => (d.tipo_documento || '').toUpperCase().trim() === 'DOC_NDF_EMPRESA');
                 label = 'Aceitos Indevidos';
-                sub = 'Documentos que a empresa deveria ter validado.';
+                sub = 'Listagem de documentos que a empresa deveria ter validado.';
+                break;
+            case 'ndf_empresa':
+                // Mostra apenas os que possuem falhas reais (contribuem para o Total NOK)
+                filtrados = base.filter(d => (d.tipo_documento || '').toUpperCase().trim() === 'DOC_NDF_EMPRESA' && (Number(d.qtd_nok || 0) > 0));
+                label = 'NOK (Empresa Válida)';
+                sub = 'Documentos com erros de validação confirmados.';
                 break;
             case 'erros_campo':
                 filtrados = base.filter(d => (d.qtd_nok || 0) > 0);
