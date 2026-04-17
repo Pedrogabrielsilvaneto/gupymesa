@@ -36,6 +36,7 @@ MinhaArea.Relatorios = {
         container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
         if (id === 'metas_okr') this.carregarMetasOKR();
         else if (id === 'gap') this.carregarGAP();
+        else if (id === 'ranking_frases') this.carregarRankingFrases();
     },
 
     // --- MÓDULO DE EXPORTAÇÃO (EXCLUSIVO GESTÃO) ---
@@ -65,6 +66,20 @@ MinhaArea.Relatorios = {
                 } 
                 else if (modulo === 'biblioteca') {
                     if (aba === 'frases') data = await this.fetchFrasesSupabase();
+                    else if (aba === 'ranking_frases') {
+                        data = await this.fetchFrasesSupabase();
+                        if (data) {
+                            data = data.sort((a, b) => (b.usos || 0) - (a.usos || 0))
+                                       .map((f, i) => ({ 
+                                           RANK: i + 1, 
+                                           USOS: f.usos || 0,
+                                           EMPRESA: f.empresa,
+                                           DOCUMENTO: f.documento,
+                                           MOTIVO: f.motivo,
+                                           CONTEUDO: f.conteudo
+                                       }));
+                        }
+                    }
                 }
 
                 if (data && data.length > 0) {
@@ -291,7 +306,8 @@ MinhaArea.Relatorios = {
                 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 const { data, error } = await client.from('frases').select('conteudo, empresa, motivo, documento, usos');
                 if (error) throw error;
-                return data;
+                // Ordena por usos por padrão
+                return (data || []).sort((a, b) => (b.usos || 0) - (a.usos || 0));
             } catch (e) { return null; }
         }
     },
@@ -731,5 +747,78 @@ MinhaArea.Relatorios = {
     fecharGrafico: function() {
         document.getElementById('gap-chart-container').classList.add('hidden');
         if (this._gapChartInstance) { this._gapChartInstance.destroy(); this._gapChartInstance = null; }
+    },
+
+    carregarRankingFrases: async function() {
+        try {
+            const data = await this.fetchFrasesSupabase();
+            if (!data) return;
+            this.renderizarRankingFrases(data);
+        } catch (e) { console.error(e); }
+    },
+
+    renderizarRankingFrases: function(data) {
+        const container = document.getElementById('relatorio-ativo-content');
+        if (!container) return;
+
+        let html = `
+            <div class="space-y-6 animate-enter">
+                <div class="bg-indigo-50 p-4 rounded-2xl flex items-center justify-between border border-indigo-100 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-lg"><i class="fas fa-crown"></i></div>
+                        <div>
+                            <h4 class="text-indigo-900 font-black text-xs uppercase tracking-widest">Ranking de Frases</h4>
+                            <p class="text-[10px] text-indigo-600 font-bold">As mais utilizadas da Biblioteca</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-500 border-b">
+                            <tr>
+                                <th class="px-6 py-4 w-16 text-center">Pos.</th>
+                                <th class="px-6 py-4 w-24 text-center">Usos</th>
+                                <th class="px-6 py-4">Detalhes da Frase</th>
+                                <th class="px-6 py-4 w-48">Empresa/Doc</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-sm">
+        `;
+
+        data.slice(0, 50).forEach((f, i) => {
+            const rank = i + 1;
+            const bgRank = rank === 1 ? 'bg-amber-100 text-amber-600' : (rank === 2 ? 'bg-slate-100 text-slate-500' : (rank === 3 ? 'bg-orange-100 text-orange-600' : 'bg-slate-50 text-slate-400'));
+            
+            html += `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 text-center">
+                        <span class="w-8 h-8 rounded-full flex items-center justify-center font-black ${bgRank}">${rank}</span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-lg">${f.usos || 0}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-700 mb-1">${f.motivo || 'Sem Motivo'}</div>
+                        <div class="text-xs text-slate-500 line-clamp-2 italic">"${f.conteudo}"</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">${f.empresa || 'GERAL'}</span>
+                            <span class="text-[10px] font-bold text-indigo-500">${f.documento || 'GERAL'}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
     }
 };
