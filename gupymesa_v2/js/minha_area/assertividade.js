@@ -156,7 +156,12 @@ MinhaArea.Assertividade = {
                 const tipoDocUpper = (d.tipo_documento || '').toUpperCase();
                 const isNdf = tipoDocUpper.startsWith('DOC_NDF_');
                 const isAceitoIndevido = (tipoDocUpper === 'DOC_NDF_EMPRESA');
-                const isNokReal = nokVal > 0 || status === 'NOK';
+                
+                // [REGRA] Um documento é considerado falho (NOK/NDF) se:
+                // 1. Possui campos NOK (> 0)
+                // 2. Status é explicitamente NOK ou NDF
+                // 3. Assertividade é menor que 100%
+                const isNokReal = nokVal > 0 || status === 'NOK' || status === 'NDF' || (assertVal !== null && assertVal < 100);
 
                 // [REGRA] Auditados: Contar Doc_name onde % ASSERT é de 0% a 100%
                 if (d.doc_name && assertVal !== null && assertVal >= 0 && assertVal <= 100) {
@@ -164,36 +169,39 @@ MinhaArea.Assertividade = {
                 }
 
                 // [REGRA] Total com OK: Contar Doc_name onde % ASSERT >= 100% (Exceto se for Aceito Indevido)
-                if (d.doc_name && assertVal !== null && assertVal >= 100 && !isAceitoIndevido) {
+                if (d.doc_name && assertVal !== null && assertVal >= 100 && !isAceitoIndevido && !isNokReal) {
                     countTotalAcertos++;
                 }
 
-                // [REGRA] DOCUMENTOS com ERRO: Consideramos erro se for Gupy < 100% OU se for um Aceito Indevido que seja de fato NOK.
-                const isGupyErrorDoc = d.doc_name && assertVal !== null && assertVal < 100 && assertVal >= 0;
+                // [REGRA] DOCUMENTOS com ERRO: Gupy < 100% OU NDF que não seja OK
+                const isGupyErrorDoc = !isNdf && d.doc_name && assertVal !== null && assertVal < 100;
                 if (isGupyErrorDoc || (isAceitoIndevido && isNokReal)) {
                     countTotalDocsNok++;
                 }
 
-                // [REGRA] CAMPOS com NOK: Somatória total de falhas identificadas
+                // [REGRA] CAMPOS com NOK: Somatória total de falhas identificadas nos campos
                 if (isNokReal) {
-                    countTotalNok += nokVal || (status === 'NOK' ? 1 : 0); // Soma os campos ou garante 1 se for status NOK
+                    // Soma campos ou garante 1 se for apenas marcação de status
+                    const valorFalha = nokVal > 0 ? nokVal : 1;
+                    countTotalNok += valorFalha;
+                    
                     if (isNdf) {
-                        countErrosNdf += nokVal || (status === 'NOK' ? 1 : 0);
-                        // [FIX] Total NOK (empresa Válida): Contador de DOCUMENTOS (Indivíduos) que falharam
+                        countErrosNdf += valorFalha;
+                        // [FIX] Total NOK (empresa Válida): Agora conta QUANTOS são NDFs (Documentos)
                         if (isAceitoIndevido) {
                             countNdfEmpresa++; 
                         }
                     } else {
-                        countErrosGupy += nokVal;
+                        countErrosGupy += valorFalha;
                     }
                 }
 
-                // [REGRA] Aceitos Indevidos: Contador TOTAL de documentos do grupo (Independente de NOK ou não)
+                // [REGRA] Aceitos Indevidos: Contador TOTAL de documentos desse grupo
                 if (isAceitoIndevido) {
                     countDocsAceitosIndevidos++;
                 }
 
-                // Feed continua mostrando qualquer linha com NOK real OU se for um Aceito Indevido para revisão
+                // Feed de Atenção
                 if (isNokReal || isAceitoIndevido) {
                     listaErros.push(d);
                 }
@@ -492,9 +500,10 @@ MinhaArea.Assertividade = {
             case 'erros_doc':
                 filtrados = base.filter(d => {
                     const assertVal = d.assertividade_val !== null ? Number(d.assertividade_val) : null;
+                    const status = (d.status || '').toUpperCase();
                     const isAceitoIndevido = (d.tipo_documento || '').toUpperCase().trim() === 'DOC_NDF_EMPRESA';
-                    const isNokReal = (Number(d.qtd_nok) > 0) || (d.status || '').toUpperCase() === 'NOK';
-                    return (d.doc_name && assertVal !== null && assertVal < 100) || (isAceitoIndevido && isNokReal);
+                    const isNokReal = (Number(d.qtd_nok) > 0) || status === 'NOK' || status === 'NDF' || (assertVal !== null && assertVal < 100);
+                    return (!isAceitoIndevido && d.doc_name && assertVal !== null && assertVal < 100) || (isAceitoIndevido && isNokReal);
                 });
                 label = 'Documentos Reprovados';
                 sub = 'Auditorias com falhas confirmadas.';
@@ -505,10 +514,15 @@ MinhaArea.Assertividade = {
                 sub = 'Listagem de documentos que a empresa deveria ter validado.';
                 break;
             case 'ndf_empresa':
-                // Mostra apenas os documentos NOK (contribuem para o sub-total vermelho)
-                filtrados = base.filter(d => (d.tipo_documento || '').toUpperCase().trim() === 'DOC_NDF_EMPRESA' && ((Number(d.qtd_nok) > 0) || (d.status || '').toUpperCase() === 'NOK'));
+                // Mostra os documentos que possuem badge NDF no feed (contribuem para o sub-total vermelho)
+                filtrados = base.filter(d => {
+                    const assertVal = d.assertividade_val !== null ? Number(d.assertividade_val) : null;
+                    const status = (d.status || '').toUpperCase();
+                    const isNokReal = (Number(d.qtd_nok) > 0) || status === 'NOK' || status === 'NDF' || (assertVal !== null && assertVal < 100);
+                    return (d.tipo_documento || '').toUpperCase().trim() === 'DOC_NDF_EMPRESA' && isNokReal;
+                });
                 label = 'Total NOK (empresa Válida)';
-                sub = 'Documentos pendentes de validação correta pela empresa.';
+                sub = 'Listagem de documentos NDF identificados pela auditoria.';
                 break;
             case 'erros_campo':
                 filtrados = base.filter(d => (d.qtd_nok || 0) > 0);
