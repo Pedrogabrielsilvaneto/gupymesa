@@ -18,6 +18,9 @@ MinhaArea.Relatorios = {
 
             const btnRanking = document.getElementById('btn-rel-ranking');
             if (btnRanking) btnRanking.classList.remove('hidden');
+
+            const btnExportTab = document.getElementById('btn-rel-exportar');
+            if (btnExportTab) btnExportTab.classList.remove('hidden');
             
             const btnExport = document.getElementById('container-exportacao-gestao');
             if (btnExport) btnExport.classList.remove('hidden');
@@ -35,7 +38,8 @@ MinhaArea.Relatorios = {
         const tabs = {
             'metas_okr': document.getElementById('tab-rel-metas'),
             'gap': document.getElementById('btn-rel-gap'),
-            'ranking_frases': document.getElementById('btn-rel-ranking')
+            'ranking_frases': document.getElementById('btn-rel-ranking'),
+            'excel_export': document.getElementById('btn-rel-exportar')
         };
 
         Object.keys(tabs).forEach(k => {
@@ -49,14 +53,26 @@ MinhaArea.Relatorios = {
                 btn.classList.add('border-transparent', 'text-slate-400');
             }
         });
+
+        // Toggle visibilidade dos containers
+        const exportContainer = document.getElementById('container-exportacao-gestao');
+        if (id === 'excel_export') {
+            container.classList.add('hidden');
+            if (exportContainer) exportContainer.classList.remove('hidden');
+        } else {
+            container.classList.remove('hidden');
+            if (exportContainer) exportContainer.classList.add('hidden');
+        }
         
-        if (this.relatorioAtivo === id) return; // Se clicar na mesma, não faz nada
+        if (this.relatorioAtivo === id) return; 
         
         this.relatorioAtivo = id;
-        container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
-        if (id === 'metas_okr') this.carregarMetasOKR();
-        else if (id === 'gap') this.carregarGAP();
-        else if (id === 'ranking_frases') this.carregarRankingFrases();
+        if (id !== 'excel_export') {
+            container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
+            if (id === 'metas_okr') this.carregarMetasOKR();
+            else if (id === 'gap') this.carregarGAP();
+            else if (id === 'ranking_frases') this.carregarRankingFrases();
+        }
     },
 
     // --- MÓDULO DE EXPORTAÇÃO (EXCLUSIVO GESTÃO) ---
