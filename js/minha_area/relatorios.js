@@ -12,22 +12,32 @@ MinhaArea.Relatorios = {
 
     init: function() {
         console.log("📊 Relatórios da Minha Área Inicializado.");
-        if (MinhaArea.isAdmin()) {
-            const btnGap = document.getElementById('btn-rel-gap');
-            if (btnGap) btnGap.classList.remove('hidden');
+        const isAdmin = MinhaArea.isAdmin();
+        const isThayla = (MinhaArea.usuario?.nome || '').toUpperCase().includes('THAYLA HUPERT');
+
+        if (isAdmin || isThayla) {
+            // Se for Thayla mas não Admin, só libera o Ranking
+            if (isAdmin) {
+                const btnGap = document.getElementById('btn-rel-gap');
+                if (btnGap) btnGap.classList.remove('hidden');
+
+                const btnExportTab = document.getElementById('btn-rel-exportar');
+                if (btnExportTab) btnExportTab.classList.remove('hidden');
+                
+                const btnExport = document.getElementById('container-exportacao-gestao');
+                if (btnExport) btnExport.classList.remove('hidden');
+            }
 
             const btnRanking = document.getElementById('btn-rel-ranking');
             if (btnRanking) btnRanking.classList.remove('hidden');
-
-            const btnExportTab = document.getElementById('btn-rel-exportar');
-            if (btnExportTab) btnExportTab.classList.remove('hidden');
-            
-            const btnExport = document.getElementById('container-exportacao-gestao');
-            if (btnExport) btnExport.classList.remove('hidden');
         }
 
-        // Inicia com o primeiro relatório por padrão
-        this.mudarRelatorio('metas_okr');
+        // Inicia com o primeiro relatório por padrão (se não tiver acesso a metas, vai pro ranking)
+        if (isAdmin) {
+            this.mudarRelatorio('metas_okr');
+        } else if (isThayla) {
+            this.mudarRelatorio('ranking_frases');
+        }
     },
 
     mudarRelatorio: function(id) {
