@@ -757,14 +757,31 @@ MinhaArea.Relatorios = {
             const data = await this.Exportar.fetchFrasesSupabase();
             if (!data) return;
             this._rawRankingData = data;
-            this.renderizarRankingFrases(false); // Começa mostrando apenas top 10
+            this.abrirRanking();
+            this.renderizarRankingFrases(false); 
         } catch (e) { 
             console.error("Erro ao carregar ranking de frases:", e); 
         }
     },
 
+    abrirRanking: function() {
+        const modal = document.getElementById('modal-ranking-frases');
+        if (modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+    },
+
+    fecharRanking: function() {
+        const modal = document.getElementById('modal-ranking-frases');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+    },
+
     renderizarRankingFrases: function(showAll = false) {
-        const container = document.getElementById('relatorio-ativo-content');
+        const container = document.getElementById('ranking-frases-content');
         if (!container || !this._rawRankingData) return;
 
         const data = showAll ? this._rawRankingData : this._rawRankingData.slice(0, 10);
@@ -868,7 +885,7 @@ MinhaArea.Relatorios = {
         `;
 
         container.innerHTML = html;
-        container.scrollIntoView({ behavior: 'smooth' });
+        container.scrollTop = 0;
     },
 
     copiarRanking: function() {
