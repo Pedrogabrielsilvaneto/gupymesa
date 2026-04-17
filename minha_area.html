@@ -740,6 +740,14 @@
                             <p class="text-[10px] text-indigo-600 mt-1">As frases mais utilizadas pela equipe.</p>
                         </div>
                     </div>
+
+                    <!-- CONTEÚDO DO RELATÓRIO ATIVO -->
+                    <div id="relatorio-ativo-content" class="animate-enter mb-10">
+                        <div class="text-center py-20 text-slate-300 italic">
+                            <i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>
+                            Selecione um relatório acima para visualizar os dados.
+                        </div>
+                    </div>
                     
                     <!-- AREA DE EXPORTAÇÃO (EXCLUSIVO GESTÃO) -->
                     <div id="container-exportacao-gestao" class="hidden space-y-6 mb-10 animate-enter">
@@ -830,10 +838,6 @@
                                         <button onclick="MinhaArea.Relatorios.Exportar.modulo('biblioteca', 'frases')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-indigo-600 hover:border-indigo-700 transition-all">
                                             <span class="text-[10px] font-black text-slate-600 group-hover:text-white">FRASES GERAL</span>
                                             <i class="fas fa-comment-dots text-[10px] text-slate-400 group-hover:text-white/50"></i>
-                                        </button>
-                                        <button id="btn-export-ranking-frases" onclick="MinhaArea.Relatorios.Exportar.modulo('biblioteca', 'ranking_frases')" class="hidden group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-indigo-50 hover:bg-indigo-600 hover:border-indigo-700 transition-all">
-                                            <span class="text-[10px] font-black text-indigo-700 group-hover:text-white">RANKING DE USO (FRASES)</span>
-                                            <i class="fas fa-crown text-[10px] text-indigo-400 group-hover:text-white/50"></i>
                                         </button>
                                     </div>
                                 </div>

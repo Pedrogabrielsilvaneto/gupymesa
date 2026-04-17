@@ -18,9 +18,6 @@ MinhaArea.Relatorios = {
 
             const btnRanking = document.getElementById('btn-rel-ranking');
             if (btnRanking) btnRanking.classList.remove('hidden');
-
-            const btnExpRanking = document.getElementById('btn-export-ranking-frases');
-            if (btnExpRanking) btnExpRanking.classList.remove('hidden');
             
             const btnExport = document.getElementById('container-exportacao-gestao');
             if (btnExport) btnExport.classList.remove('hidden');
@@ -759,61 +756,93 @@ MinhaArea.Relatorios = {
         try {
             const data = await this.Exportar.fetchFrasesSupabase();
             if (!data) return;
-            this.renderizarRankingFrases(data);
+            this._rawRankingData = data;
+            this.renderizarRankingFrases(false); // Começa mostrando apenas top 10
         } catch (e) { 
             console.error("Erro ao carregar ranking de frases:", e); 
         }
     },
 
-    renderizarRankingFrases: function(data) {
+    renderizarRankingFrases: function(showAll = false) {
         const container = document.getElementById('relatorio-ativo-content');
-        if (!container) return;
+        if (!container || !this._rawRankingData) return;
+
+        const data = showAll ? this._rawRankingData : this._rawRankingData.slice(0, 10);
+        const total = this._rawRankingData.length;
 
         let html = `
             <div class="space-y-6 animate-enter">
-                <div class="bg-indigo-50 p-4 rounded-2xl flex items-center justify-between border border-indigo-100 shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-lg"><i class="fas fa-crown"></i></div>
-                        <div>
-                            <h4 class="text-indigo-900 font-black text-xs uppercase tracking-widest">Ranking de Frases</h4>
-                            <p class="text-[10px] text-indigo-600 font-bold">As mais utilizadas da Biblioteca</p>
+                <!-- Header Premium -->
+                <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between shadow-xl relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 -mr-10 -mt-10">
+                        <i class="fas fa-crown text-[150px] text-white"></i>
+                    </div>
+                    
+                    <div class="relative z-10 flex items-center gap-5">
+                        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-3xl shadow-inner border border-white/30">
+                            <i class="fas fa-crown"></i>
                         </div>
+                        <div>
+                            <h2 class="text-white font-black text-2xl uppercase tracking-tighter">Ranking de Utilização</h2>
+                            <p class="text-indigo-100 font-bold opacity-80 text-xs">Análise das frases mais eficazes da Biblioteca (${total} frases total)</p>
+                        </div>
+                    </div>
+
+                    <div class="relative z-10 flex gap-3 mt-6 md:mt-0">
+                        <button onclick="MinhaArea.Relatorios.copiarRanking()" 
+                                class="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-white/20 backdrop-blur-sm transition-all active:scale-95">
+                            <i class="fas fa-copy"></i> COPIAR RANKING
+                        </button>
                     </div>
                 </div>
 
-                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
+                    <div class="max-h-[600px] overflow-y-auto custom-scroll">
                     <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-500 border-b">
+                        <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b sticky top-0 z-20 backdrop-blur-sm bg-slate-50/90">
                             <tr>
-                                <th class="px-6 py-4 w-16 text-center">Pos.</th>
-                                <th class="px-6 py-4 w-24 text-center">Usos</th>
-                                <th class="px-6 py-4">Detalhes da Frase</th>
-                                <th class="px-6 py-4 w-48">Empresa/Doc</th>
+                                <th class="px-8 py-5 w-20 text-center">RANK</th>
+                                <th class="px-6 py-5 w-28 text-center">USOS</th>
+                                <th class="px-6 py-5">CONTEÚDO DA FRASE</th>
+                                <th class="px-8 py-5 w-48">ORIGEM</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y text-sm">
+                        <tbody class="divide-y divide-slate-100">
         `;
 
-        data.slice(0, 50).forEach((f, i) => {
+        data.forEach((f, i) => {
             const rank = i + 1;
-            const bgRank = rank === 1 ? 'bg-amber-100 text-amber-600' : (rank === 2 ? 'bg-slate-100 text-slate-500' : (rank === 3 ? 'bg-orange-100 text-orange-600' : 'bg-slate-50 text-slate-400'));
+            const isTop3 = rank <= 3;
+            // Cores específicas para o pódio
+            const rankStyle = rank === 1 ? 'bg-amber-100 text-amber-600 border-amber-200' : 
+                             (rank === 2 ? 'bg-slate-100 text-slate-500 border-slate-200' : 
+                             (rank === 3 ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-slate-50 text-slate-400 border-slate-100'));
             
+            const rowClass = isTop3 ? 'bg-indigo-50/10' : '';
+
             html += `
-                <tr class="hover:bg-slate-50 transition">
-                    <td class="px-6 py-4 text-center">
-                        <span class="w-8 h-8 rounded-full flex items-center justify-center font-black ${bgRank}">${rank}</span>
+                <tr class="hover:bg-indigo-50/30 transition-colors group ${rowClass}">
+                    <td class="px-8 py-6 text-center">
+                        <div class="w-10 h-10 mx-auto rounded-xl flex items-center justify-center font-black text-base border-2 ${rankStyle} shadow-sm group-hover:scale-110 transition-transform">
+                            ${rank}
+                        </div>
                     </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-lg">${f.usos || 0}</span>
+                    <td class="px-6 py-6 text-center">
+                        <span class="inline-block font-mono font-black text-xl text-indigo-600">${f.usos || 0}</span>
+                        <span class="block text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-1">vezes</span>
                     </td>
-                    <td class="px-6 py-4">
-                        <div class="font-bold text-slate-700 mb-1">${f.motivo || 'Sem Motivo'}</div>
-                        <div class="text-xs text-slate-500 line-clamp-2 italic">"${f.conteudo}"</div>
+                    <td class="px-6 py-6">
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[10px] font-black text-indigo-500 uppercase tracking-widest">${f.motivo || 'Motivo Geral'}</span>
+                            <div class="text-sm text-slate-700 font-medium leading-relaxed italic border-l-4 border-slate-200 pl-4 py-1 group-hover:border-indigo-300 transition-colors">
+                                "${f.conteudo}"
+                            </div>
+                        </div>
                     </td>
-                    <td class="px-6 py-4">
-                        <div class="flex flex-col gap-1">
-                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">${f.empresa || 'GERAL'}</span>
-                            <span class="text-[10px] font-bold text-indigo-500">${f.documento || 'GERAL'}</span>
+                    <td class="px-8 py-6">
+                        <div class="flex flex-col gap-1 text-right">
+                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">${f.empresa || 'Empresa Geral'}</span>
+                            <div class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded inline-block self-end">${f.documento || 'Documento Único'}</div>
                         </div>
                     </td>
                 </tr>
@@ -823,10 +852,41 @@ MinhaArea.Relatorios = {
         html += `
                         </tbody>
                     </table>
+                    </div>
+
+                    ${!showAll && total > 10 ? `
+                        <div class="p-8 bg-slate-50 border-t border-slate-100 text-center">
+                            <button onclick="MinhaArea.Relatorios.renderizarRankingFrases(true)" 
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-3 mx-auto">
+                                <i class="fas fa-plus"></i> VER TODAS AS ${total} FRASES
+                            </button>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase mt-4 tracking-widest">Exibindo inicialmente as 10 mais relevantes</p>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
 
         container.innerHTML = html;
+        container.scrollIntoView({ behavior: 'smooth' });
+    },
+
+    copiarRanking: function() {
+        if (!this._rawRankingData) return;
+        
+        let text = "RANKING DE USO DE FRASES - GUPYMESA\n\n";
+        this._rawRankingData.forEach((f, i) => {
+            text += `[#${i + 1}] USOS: ${f.usos || 0} | ${f.motivo || ''} | ${f.empresa || ''} - ${f.documento || ''}\n`;
+            text += `"${f.conteudo}"\n\n`;
+        });
+
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+
+        alert("Ranking copiado para a área de transferência!");
     }
 };
