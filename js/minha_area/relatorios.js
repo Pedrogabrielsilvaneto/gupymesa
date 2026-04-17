@@ -340,7 +340,7 @@ MinhaArea.Relatorios = {
                 const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
                 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
                 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                const { data, error } = await client.from('frases').select('conteudo, empresa, motivo, documento, usos');
+                const { data, error } = await client.from('frases').select('id, conteudo, empresa, motivo, documento, usos');
                 if (error) throw error;
                 // Ordena por usos por padrão
                 return (data || []).sort((a, b) => (b.usos || 0) - (a.usos || 0));
@@ -840,7 +840,7 @@ MinhaArea.Relatorios = {
             const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
             
             html += `
-                <tr class="${rowBg} hover:bg-indigo-50/30 transition-colors divide-x divide-slate-200">
+                <tr class="${rowBg} hover:bg-indigo-50/30 transition-colors divide-x divide-slate-200 cursor-pointer" onclick="MinhaArea.Relatorios.abrirDetalheFrase(${i})">
                     <td class="px-3 py-2 text-center font-black text-slate-400 bg-slate-50/30">${rank}</td>
                     <td class="px-3 py-2 text-center font-mono font-black text-indigo-600">${f.usos || 0}</td>
                     <td class="px-4 py-2">
@@ -894,5 +894,76 @@ MinhaArea.Relatorios = {
         document.body.removeChild(el);
 
         alert("Ranking copiado para a área de transferência!");
+    },
+
+    abrirDetalheFrase: function(index) {
+        if (!this._rawRankingData || !this._rawRankingData[index]) return;
+        const f = this._rawRankingData[index];
+
+        document.getElementById('ranking-edit-id').value = f.id || '';
+        document.getElementById('ranking-edit-empresa').value = f.empresa || '';
+        document.getElementById('ranking-edit-doc').value = f.documento || '';
+        document.getElementById('ranking-edit-motivo').value = f.motivo || '';
+        document.getElementById('ranking-edit-conteudo').value = f.conteudo || '';
+        document.getElementById('ranking-edit-usos').innerText = f.usos || 0;
+
+        document.getElementById('modal-ranking-detalhe').classList.remove('hidden');
+    },
+
+    salvarFrase: async function() {
+        const id = document.getElementById('ranking-edit-id').value;
+        const payload = {
+            empresa: document.getElementById('ranking-edit-empresa').value,
+            documento: document.getElementById('ranking-edit-doc').value,
+            motivo: document.getElementById('ranking-edit-motivo').value,
+            conteudo: document.getElementById('ranking-edit-conteudo').value
+        };
+
+        try {
+            const response = await fetch('/api/biblioteca', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update', table: 'frases', id, data: payload })
+            });
+            const res = await response.json();
+            if (res.error) throw new Error(res.error);
+
+            Swal.fire({ icon: 'success', title: 'Frase atualizada!', timer: 1500, showConfirmButton: false });
+            document.getElementById('modal-ranking-detalhe').classList.add('hidden');
+            this.carregarRankingFrases();
+        } catch (e) {
+            Swal.fire('Erro ao salvar', e.message, 'error');
+        }
+    },
+
+    excluirFrase: async function() {
+        const id = document.getElementById('ranking-edit-id').value;
+        const confirm = await Swal.fire({
+            title: 'Excluir esta frase?',
+            text: "Esta ação não pode ser desfeita na Biblioteca.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e11d48',
+            confirmButtonText: 'Sim, excluir',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (confirm.isConfirmed) {
+            try {
+                const response = await fetch('/api/biblioteca', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', table: 'frases', id })
+                });
+                const res = await response.json();
+                if (res.error) throw new Error(res.error);
+
+                Swal.fire({ icon: 'success', title: 'Frase excluída!', timer: 1500, showConfirmButton: false });
+                document.getElementById('modal-ranking-detalhe').classList.add('hidden');
+                this.carregarRankingFrases();
+            } catch (e) {
+                Swal.fire('Erro ao excluir', e.message, 'error');
+            }
+        }
     }
 };
