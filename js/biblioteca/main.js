@@ -514,6 +514,114 @@ window.GupyBiblioteca = {
             </div>`;
     },
 
+    init: async function () {
+        try {
+            if (window.Sistema) {
+                this.usuario = Sistema.lerSessao();
+            }
+
+            // [FIX] Agora usamos um Proxy para evitar bloqueios de Tracking Prevention no Edge/Chrome
+            console.log("🚀 Biblioteca: Inicializando com modo Proxy Server-Side.");
+
+            const btnNova = document.getElementById('btn-nova-frase');
+            if (btnNova && this.isAdmin()) {
+                btnNova.classList.remove('hidden');
+            }
+
+            this.carregarFavoritos();
+            await this.carregarFrases();
+            this.atualizarSugestoesModal();
+            this.setupEventListeners();
+        } catch (e) {
+            console.error("Erro no init da biblioteca:", e);
+            this.mostrarErroUI("Erro ao inicializar biblioteca: " + e.message);
+        }
+    },
+
+    // [NEW] Helper para chamadas ao Proxy Server-Side
+    callAPI: async function (action, table, payload) {
+        try {
+            const response = await fetch('/api/biblioteca', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action,
+                    table,
+                    ...payload
+                })
+            });
+            return await response.json();
+        } catch (e) {
+            return { data: null, error: e };
+        }
+    },
+
+    mostrarErroUI: function(msg) {
+        const grid = document.getElementById('grid-frases');
+        if (grid) {
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-4"></i>
+                    <h3 class="text-slate-800 font-black text-xl mb-2">Ops! Algo deu errado</h3>
+                    <p class="text-slate-500 font-medium max-w-md mx-auto mb-6 px-4">${msg}</p>
+                    <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-8 py-3 rounded-xl transition shadow-lg active:scale-95">
+                        <i class="fas fa-sync-alt mr-2"></i> Tentar Novamente
+                    </button>
+                    <p class="mt-4 text-[10px] text-slate-400 uppercase tracking-widest text-blue-400 font-bold">Modo de Segurança Ativado (Proxy Server-Side)</p>
+                </div>
+            `;
+        }
+    },
+
+    carregarFrases: async function () {
+        try {
+            const grid = document.getElementById('grid-frases');
+            if (grid) grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10"><i class="fas fa-circle-notch fa-spin mr-2"></i>Carregando biblioteca...</div>';
+
+            // Busca frases via Proxy
+            const { data: frases, error } = await this.callAPI('select', 'frases', { 
+                queryParams: { select: '*' }
+            });
+
+            if (error) throw error;
+
+            let meusUsosMap = {};
+            if (this.usuario) {
+                console.log("Buscando usos para usuário (Server Proxy):", this.usuario.id);
+                const { data: stats, error: errorStats } = await this.callAPI('select', 'view_usos_pessoais', {
+                    queryParams: { select: '*', usuario: `eq.${this.usuario.id}` }
+                });
+
+                if (errorStats) {
+                    console.warn("Erro ao buscar usos pessoais:", errorStats);
+                } else if (stats) {
+                    stats.forEach(s => meusUsosMap[s.frase_id] = s.qtd_uso);
+                }
+            }
+
+            this.cacheFrases = (frases || []).map(f => ({
+                ...f,
+                meus_usos: meusUsosMap[f.id] || 0,
+                _busca: this.normalizar((f.conteudo || '') + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
+            }));
+
+            if (this.isAdmin()) {
+                this.cacheFrases.sort((a, b) => (b.usos || 0) - (a.usos || 0));
+            } else {
+                this.cacheFrases.sort((a, b) => {
+                    if (b.meus_usos !== a.meus_usos) return b.meus_usos - a.meus_usos;
+                    return (b.usos || 0) - (a.usos || 0);
+                });
+            }
+
+            this.atualizarFiltrosSelects();
+            this.aplicarFiltros();
+        } catch (e) {
+            console.error("Erro ao carregar frases:", e);
+            this.mostrarErroUI("Houve um problema ao carregar as frases. Certifique-se de estar logado. Detalhes: " + (e.message || ""));
+        }
+    },
+
     copiarTexto: async function (id) {
         const f = this.cacheFrases.find(i => i.id == id);
         if (!f) return;
@@ -541,12 +649,14 @@ window.GupyBiblioteca = {
     registrarLog: async function (acao, desc) {
         try {
             if (!this.usuario) return;
-            await this.supabaseFrases.from('logs').insert([{
-                usuario: this.usuario.id,
-                acao: acao,
-                descricao: desc,
-                perfil: this.isAdmin() ? 'admin' : 'user'
-            }]);
+            await this.callAPI('insert', 'logs', {
+                data: {
+                    usuario: this.usuario.id,
+                    acao: acao,
+                    descricao: desc,
+                    perfil: this.isAdmin() ? 'admin' : 'user'
+                }
+            });
         } catch (e) { }
     },
 
@@ -590,9 +700,13 @@ window.GupyBiblioteca = {
                 revisado_por: this.usuario ? this.usuario.id : null,
                 data_revisao: new Date().toISOString()
             };
+            
             let res;
-            if (id) res = await this.supabaseFrases.from('frases').update(payload).eq('id', id);
-            else res = await this.supabaseFrases.from('frases').insert([payload]);
+            if (id) {
+                res = await this.callAPI('update', 'frases', { id, data: payload });
+            } else {
+                res = await this.callAPI('insert', 'frases', { data: [payload] });
+            }
 
             if (res.error) throw res.error;
 
@@ -630,8 +744,8 @@ window.GupyBiblioteca = {
 
         if (confirm.isConfirmed) {
             try {
-                // Remove do banco
-                const { error } = await this.supabaseFrases.from('frases').delete().eq('id', id);
+                // Remove via Proxy
+                const { error } = await this.callAPI('delete', 'frases', { id });
                 if (error) throw error;
 
                 // Remove do cache e atualiza tela
@@ -653,10 +767,8 @@ window.GupyBiblioteca = {
                 }).then(async (result) => {
                     if (result.isConfirmed) {
                         try {
-                            // Prepara os dados para re-inserção (removendo id original se necessário, ou tentando manter)
                             const { id: oldId, _busca, meus_usos, ...dadosOriginais } = frase;
-                            
-                            const resRestore = await this.supabaseFrases.from('frases').insert([dadosOriginais]);
+                            const resRestore = await this.callAPI('insert', 'frases', { data: [dadosOriginais] });
                             if (resRestore.error) throw resRestore.error;
 
                             await this.carregarFrases();
