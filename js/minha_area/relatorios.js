@@ -15,6 +15,12 @@ MinhaArea.Relatorios = {
         if (MinhaArea.isAdmin()) {
             const btnGap = document.getElementById('btn-rel-gap');
             if (btnGap) btnGap.classList.remove('hidden');
+
+            const btnRanking = document.getElementById('btn-rel-ranking');
+            if (btnRanking) btnRanking.classList.remove('hidden');
+
+            const btnExpRanking = document.getElementById('btn-export-ranking-frases');
+            if (btnExpRanking) btnExpRanking.classList.remove('hidden');
             
             const btnExport = document.getElementById('container-exportacao-gestao');
             if (btnExport) btnExport.classList.remove('hidden');
@@ -751,10 +757,12 @@ MinhaArea.Relatorios = {
 
     carregarRankingFrases: async function() {
         try {
-            const data = await this.fetchFrasesSupabase();
+            const data = await this.Exportar.fetchFrasesSupabase();
             if (!data) return;
             this.renderizarRankingFrases(data);
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("Erro ao carregar ranking de frases:", e); 
+        }
     },
 
     renderizarRankingFrases: function(data) {
