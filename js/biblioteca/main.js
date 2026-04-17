@@ -13,25 +13,53 @@ window.GupyBiblioteca = {
     verFavoritos: false,
 
     init: async function () {
-        if (window.Sistema) {
-            this.usuario = Sistema.lerSessao();
-        }
+        try {
+            if (window.Sistema) {
+                this.usuario = Sistema.lerSessao();
+            }
 
-        if (!this.supabaseFrases) {
-            const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
-            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
-            this.supabaseFrases = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        }
+            if (!window.supabase) {
+                console.error("Erro: Biblioteca Supabase não encontrada.");
+                this.mostrarErroUI("Biblioteca Supabase (CDN) não foi carregada. Verifique sua conexão ou extensões do navegador.");
+                return;
+            }
 
-        const btnNova = document.getElementById('btn-nova-frase');
-        if (btnNova && this.isAdmin()) {
-            btnNova.classList.remove('hidden');
-        }
+            if (!this.supabaseFrases) {
+                const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
+                const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
+                this.supabaseFrases = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
 
-        this.carregarFavoritos();
-        await this.carregarFrases();
-        this.atualizarSugestoesModal();
-        this.setupEventListeners();
+            const btnNova = document.getElementById('btn-nova-frase');
+            if (btnNova && this.isAdmin()) {
+                btnNova.classList.remove('hidden');
+            }
+
+            this.carregarFavoritos();
+            await this.carregarFrases();
+            this.atualizarSugestoesModal();
+            this.setupEventListeners();
+        } catch (e) {
+            console.error("Erro no init da biblioteca:", e);
+            this.mostrarErroUI("Erro ao inicializar biblioteca: " + e.message);
+        }
+    },
+
+    mostrarErroUI: function(msg) {
+        const grid = document.getElementById('grid-frases');
+        if (grid) {
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-4"></i>
+                    <h3 class="text-slate-800 font-black text-xl mb-2">Ops! Algo deu errado</h3>
+                    <p class="text-slate-500 font-medium max-w-md mx-auto mb-6 px-4">${msg}</p>
+                    <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-8 py-3 rounded-xl transition shadow-lg active:scale-95">
+                        <i class="fas fa-sync-alt mr-2"></i> Tentar Novamente
+                    </button>
+                    <p class="mt-4 text-[10px] text-slate-400 uppercase tracking-widest">Dica: Se o problema persistir, tente usar o Google Chrome.</p>
+                </div>
+            `;
+        }
     },
 
     setupEventListeners: function() {
@@ -111,8 +139,13 @@ window.GupyBiblioteca = {
         try {
             const saved = localStorage.getItem(key);
             if (saved) {
-                // Força todos a serem strings para evitar problemas de comparação
-                this.cacheFavoritos = JSON.parse(saved).map(id => String(id));
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    // Força todos a serem strings para evitar problemas de comparação
+                    this.cacheFavoritos = parsed.map(id => String(id));
+                } else {
+                    this.cacheFavoritos = [];
+                }
             } else {
                 this.cacheFavoritos = [];
             }
@@ -229,6 +262,10 @@ window.GupyBiblioteca = {
             const grid = document.getElementById('grid-frases');
             if (grid) grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10"><i class="fas fa-circle-notch fa-spin mr-2"></i>Carregando biblioteca...</div>';
 
+            if (!this.supabaseFrases) {
+                throw new Error("Conexão com banco de frases não inicializada.");
+            }
+
             const { data: frases, error } = await this.supabaseFrases
                 .from('frases')
                 .select('*');
@@ -237,12 +274,15 @@ window.GupyBiblioteca = {
 
             let meusUsosMap = {};
             if (this.usuario) {
-                const { data: stats } = await this.supabaseFrases
+                console.log("Buscando usos para usuário:", this.usuario.id);
+                const { data: stats, error: errorStats } = await this.supabaseFrases
                     .from('view_usos_pessoais')
                     .select('frase_id, qtd_uso')
                     .eq('usuario', this.usuario.id);
 
-                if (stats) {
+                if (errorStats) {
+                    console.warn("Erro ao buscar usos pessoais (pode ser ausência de dados):", errorStats);
+                } else if (stats) {
                     stats.forEach(s => meusUsosMap[s.frase_id] = s.qtd_uso);
                 }
             }
@@ -250,7 +290,7 @@ window.GupyBiblioteca = {
             this.cacheFrases = (frases || []).map(f => ({
                 ...f,
                 meus_usos: meusUsosMap[f.id] || 0,
-                _busca: this.normalizar(f.conteudo + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
+                _busca: this.normalizar((f.conteudo || '') + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
             }));
 
             if (this.isAdmin()) {
@@ -266,6 +306,7 @@ window.GupyBiblioteca = {
             this.aplicarFiltros();
         } catch (e) {
             console.error("Erro ao carregar frases:", e);
+            this.mostrarErroUI("Houve um problema ao carregar as frases do banco de dados. " + (e.message || ""));
         }
     },
 
