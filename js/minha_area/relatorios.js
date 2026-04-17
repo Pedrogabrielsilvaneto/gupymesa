@@ -22,18 +22,35 @@ MinhaArea.Relatorios = {
             const btnExport = document.getElementById('container-exportacao-gestao');
             if (btnExport) btnExport.classList.remove('hidden');
         }
+
+        // Inicia com o primeiro relatório por padrão
+        this.mudarRelatorio('metas_okr');
     },
 
     mudarRelatorio: function(id) {
         const container = document.getElementById('relatorio-ativo-content');
         if (!container) return;
         
-        // Se clicar no relatório já ativo, fecha. Exceto se for exportação.
-        if (this.relatorioAtivo === id) { 
-            this.relatorioAtivo = null; 
-            container.innerHTML = `<div class="text-center py-20 text-slate-300 italic"><i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>Selecione um relatório acima para visualizar os dados.</div>`; 
-            return; 
-        }
+        // Atualiza visual das ABAS
+        const tabs = {
+            'metas_okr': document.getElementById('tab-rel-metas'),
+            'gap': document.getElementById('btn-rel-gap'),
+            'ranking_frases': document.getElementById('btn-rel-ranking')
+        };
+
+        Object.keys(tabs).forEach(k => {
+            const btn = tabs[k];
+            if (!btn) return;
+            if (k === id) {
+                btn.classList.add('border-blue-600', 'text-blue-600');
+                btn.classList.remove('border-transparent', 'text-slate-400');
+            } else {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-slate-400');
+            }
+        });
+        
+        if (this.relatorioAtivo === id) return; // Se clicar na mesma, não faz nada
         
         this.relatorioAtivo = id;
         container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
