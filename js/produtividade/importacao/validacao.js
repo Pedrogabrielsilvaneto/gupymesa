@@ -139,31 +139,67 @@ window.Produtividade.Importacao.Validacao = {
 
     verificarDuplicidadeMassa: async function (datas) {
         if (datas.length === 0) return [];
-        // [FIX] Usa DATE(data_referencia) para garantir compatibilidade se houver hora no banco
-        const placeholders = datas.map(() => '?').join(',');
-        const sql = `SELECT DISTINCT DATE(data_referencia) as data_ref FROM producao WHERE DATE(data_referencia) IN (${placeholders})`;
-        try {
-            const res = await Sistema.query(sql, datas);
-            return res ? res.map(r => r.data_ref) : [];
-        } catch (e) {
-            console.error("Erro check duplicidade massa:", e);
-            return [];
+        
+        let datasEncontradas = new Set();
+        for (const dataRef of datas) {
+            // [REDAÇÃO AGRESSIVA] Procura por múltiplos formatos possíveis no DB
+            const [ano, mes, dia] = dataRef.split('-');
+            const brFormat = `${dia}/${mes}/${ano}`;
+            
+            const sql = `
+                SELECT DISTINCT data_referencia 
+                FROM producao 
+                WHERE data_referencia = ? 
+                   OR data_referencia LIKE ? 
+                   OR data_referencia LIKE ?
+                   OR data_referencia LIKE ?
+                LIMIT 5
+            `;
+            const params = [dataRef, `${dataRef}%`, `${brFormat}%`, `%${ano}-${mes}-${dia}%`];
+            
+            try {
+                const res = await Sistema.query(sql, params);
+                if (res && res.length > 0) {
+                    res.forEach(r => datasEncontradas.add(r.data_referencia));
+                }
+            } catch (e) {
+                console.error("Erro check duplicidade item:", e);
+            }
         }
+        return Array.from(datasEncontradas);
     },
 
     excluirDadosMassa: async function (datas) {
         if (datas.length === 0) return;
-        const placeholders = datas.map(() => '?').join(',');
-        // [FIX] Usa DATE(data_referencia) para garantir que remova mesmo que o campo seja DATETIME
-        const sql = `DELETE FROM producao WHERE DATE(data_referencia) IN (${placeholders})`;
-        try {
-            console.log("🗑️ Executando delete para substituição:", sql, datas);
-            const res = await Sistema.query(sql, datas);
-            console.log("✅ Resultado exclusão:", res);
-        } catch (e) {
-            console.error("Erro auto-delete:", e);
-            alert("Erro ao excluir dados antigos: " + e.message);
-            throw e; 
+        
+        for (const dataRaw of datas) {
+            // Tenta extrair a parte YYYY-MM-DD para criar variações de busca
+            let base = dataRaw;
+            if (dataRaw.includes('T')) base = dataRaw.split('T')[0];
+            if (dataRaw.includes(' ')) base = dataRaw.split(' ')[0];
+            
+            let sql = `DELETE FROM producao WHERE data_referencia = ? OR data_referencia LIKE ?`;
+            let params = [dataRaw, `${base}%`];
+
+            // Se for formato BR (DD/MM/YYYY)
+            if (base.includes('/') && base.split('/').length === 3) {
+                const [d, m, a] = base.split('/');
+                const iso = `${a}-${m}-${d}`;
+                sql += ` OR data_referencia LIKE ?`;
+                params.push(`${iso}%`);
+            } else if (base.includes('-') && base.split('-').length === 3) {
+                const [a, m, d] = base.split('-');
+                const br = `${d}/${m}/${a}`;
+                sql += ` OR data_referencia LIKE ?`;
+                params.push(`${br}%`);
+            }
+
+            try {
+                console.log(`🗑️ Deletando agressivamente: ${base} (${dataRaw})`);
+                await Sistema.query(sql, params);
+            } catch (e) {
+                console.error("Erro delete agressivo:", e);
+            }
         }
     },
 
