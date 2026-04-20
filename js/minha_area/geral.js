@@ -504,11 +504,29 @@ MinhaArea.Geral = {
         const businessDays = this.getBusinessDaysList(range.inicio, range.fim);
         
         const assertMap = {};
-        this.state.dadosAssertividadeDiaria.forEach(a => assertMap[a.data_referencia] = a);
+        this.state.dadosAssertividadeDiaria.filter(a => String(a.usuario_id) === String(uid)).forEach(a => {
+            const dataAgrupada = this.agruparDataFDS(a.data_referencia);
+            if (!assertMap[dataAgrupada]) {
+                assertMap[dataAgrupada] = { ...a, soma_assertividade: 0, qtd_colab: 0 };
+            }
+            // Note: Since this is individual view, each 'a' is for one assistant. 
+            // We sum the media_assertividade if there are multiple records (one for Fri, one for Sat, etc)
+            assertMap[dataAgrupada].soma_assertividade += Number(a.media_assertividade);
+            assertMap[dataAgrupada].qtd_colab += 1;
+            assertMap[dataAgrupada].media_final = assertMap[dataAgrupada].soma_assertividade / assertMap[dataAgrupada].qtd_colab;
+        });
         
         const producaoMap = {};
         this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).forEach(d => {
-            producaoMap[d.data_referencia.split('T')[0]] = d;
+            const dataAgrupada = this.agruparDataFDS(d.data_referencia.split('T')[0]);
+            if (!producaoMap[dataAgrupada]) {
+                producaoMap[dataAgrupada] = { ...d, quantidade: 0, fator: 1.0 };
+            }
+            producaoMap[dataAgrupada].quantidade += Number(d.quantidade) || 0;
+            // Para o fator em dias agrupados, usamos o menor fator do período (se um dia foi abono, o 'bloco' considera o abono)
+            if (d.fator !== null && Number(d.fator) < producaoMap[dataAgrupada].fator) {
+                producaoMap[dataAgrupada].fator = Number(d.fator);
+            }
         });
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = businessDays.length;
@@ -525,8 +543,9 @@ MinhaArea.Geral = {
 
             let assertHtml = '<span class="text-slate-300">-</span>';
             if (assertDia && assertDia.qtd_auditorias > 0) {
-                const cor = assertDia.media_assertividade >= (item?.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
-                assertHtml = `<span class="${cor} font-bold">${Number(assertDia.media_assertividade).toFixed(2)}%</span>`;
+                const val = assertDia.media_final || assertDia.media_assertividade;
+                const cor = val >= (item?.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
+                assertHtml = `<span class="${cor} font-bold">${Number(val).toFixed(2)}%</span>`;
             }
 
             // Lógica de Observação e Status de Abono
@@ -624,6 +643,24 @@ MinhaArea.Geral = {
             }
         }).join('');
     },
+
+    agruparDataFDS: function (dataStr) {
+        if (!dataStr) return dataStr;
+        const d = new Date(dataStr + 'T12:00:00');
+        const day = d.getDay();
+        const date = d.getDate();
+
+        if (day === 6) { // Sábado
+            if (date === 1) d.setDate(date + 2);
+            else d.setDate(date - 1);
+        } else if (day === 0) { // Domingo
+            if (date === 1 || date === 2) d.setDate(date + 1);
+            else d.setDate(date - 2);
+        }
+        return d.toISOString().split('T')[0];
+    },
+
+
 
     calcularKpisGlobal: function () {
         let totalProd = 0;
@@ -900,28 +937,26 @@ MinhaArea.Geral = {
             if (this.ehGestao(d.usuario_id)) return;
             if (!uidsEquipe.has(String(d.usuario_id))) return;
 
-            if (!diarioAgregado[d.data_referencia]) {
-                diarioAgregado[d.data_referencia] = {
-                    data: d.data_referencia,
+            const dataAgrupada = this.agruparDataFDS(d.data_referencia);
+            if (!diarioAgregado[dataAgrupada]) {
+                diarioAgregado[dataAgrupada] = {
+                    data: dataAgrupada,
                     prod: 0,
                     fator: 0,
                     somaAssert: 0,
                     countAssert: 0
                 };
             }
-            diarioAgregado[d.data_referencia].prod += Number(d.quantidade) || 0;
-            diarioAgregado[d.data_referencia].fator += (d.fator !== null ? Number(d.fator) : 1.0);
+            diarioAgregado[dataAgrupada].prod += Number(d.quantidade) || 0;
+            diarioAgregado[dataAgrupada].fator += (d.fator !== null ? Number(d.fator) : 1.0);
         });
 
         // Agrega Assertividade Diária (média SIMPLES da equipe por dia - conforme regra de negócio)
         this.state.dadosAssertividadeDiaria.forEach(a => {
-            const dataRef = a.data_referencia;
-            // Só considera se houver produção/registro naquele dia (ou se quisermos considerar assertividade mesmo sem produção, mas o diário é guiado pela produção)
-            // A lógica anterior ligava ao diarioAgregado que é montado via produção.
-            if (diarioAgregado[dataRef] && a.qtd_auditorias > 0) {
-                // Média Simples: Soma as médias dos assistentes e divide pelo número de assistentes
-                diarioAgregado[dataRef].somaAssert += Number(a.media_assertividade);
-                diarioAgregado[dataRef].countAssert += 1; // Conta +1 colaborador
+            const dataAgrupada = this.agruparDataFDS(a.data_referencia);
+            if (diarioAgregado[dataAgrupada] && a.qtd_auditorias > 0) {
+                diarioAgregado[dataAgrupada].somaAssert += Number(a.media_assertividade);
+                diarioAgregado[dataAgrupada].countAssert += 1;
             }
         });
 
@@ -1420,22 +1455,8 @@ MinhaArea.Geral = {
 
         console.log(`[CHECKIN DEBUG] Hoje: ${hoje.toLocaleDateString()} (Dia ${diaSemanaHoje})`);
 
-        // Se hoje for Sábado (6) ou Domingo (0), não pede checkin
-        if (diaSemanaHoje === 0 || diaSemanaHoje === 6) {
-            console.log("[CHECKIN DEBUG] Fim de semana. Check-in dispensado.");
-            return;
-        }
-
         let dataAlvo = new Date(hoje);
-
-        // Se hoje for Segunda (1), o "ontem" útil foi Sexta (-3 dias)
-        // [FIX] User Request: Checking referente a sexta-feira na segunda.
-        if (diaSemanaHoje === 1) {
-            dataAlvo.setDate(hoje.getDate() - 3);
-        } else {
-            // Dias normais (Ter-Sex), cobra o dia anterior (-1)
-            dataAlvo.setDate(hoje.getDate() - 1);
-        }
+        dataAlvo.setDate(hoje.getDate() - 1);
 
         const dataRef = dataAlvo.toISOString().split('T')[0];
 

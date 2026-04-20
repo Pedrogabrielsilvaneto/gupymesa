@@ -37,6 +37,18 @@ MinhaArea.Metas = {
         if (isMacro) {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         } else {
+            // [REQ] Fim de semana agrupado na sexta-feira
+            const day = d.getDay();
+            const date = d.getDate();
+
+            if (day === 6) { // Sábado
+                if (date === 1) d.setDate(date + 2);
+                else d.setDate(date - 1);
+            } else if (day === 0) { // Domingo
+                if (date === 1 || date === 2) d.setDate(date + 1);
+                else d.setDate(date - 2);
+            }
+
             const ano = d.getFullYear();
             const mes = String(d.getMonth() + 1).padStart(2, '0');
             const dia = String(d.getDate()).padStart(2, '0');
@@ -347,7 +359,7 @@ MinhaArea.Metas = {
             } else {
                 while (curr <= end) {
                     const diaSemana = curr.getDay();
-                    if (diaSemana !== 0 && diaSemana !== 6) {
+                    if (true) {
                         const key = this.getKeyFromDate(curr, false);
                         const label = String(curr.getDate()).padStart(2, '0');
                         this.cacheColunas.push({ key, label });
