@@ -139,12 +139,12 @@ window.Produtividade.Importacao.Validacao = {
 
     verificarDuplicidadeMassa: async function (datas) {
         if (datas.length === 0) return [];
-        // Constrói query dinâmica: SELECT DISTINCT data_referencia WHERE data_referencia IN (?, ?, ?)
+        // [FIX] Usa DATE(data_referencia) para garantir compatibilidade se houver hora no banco
         const placeholders = datas.map(() => '?').join(',');
-        const sql = `SELECT DISTINCT data_referencia FROM producao WHERE data_referencia IN (${placeholders})`;
+        const sql = `SELECT DISTINCT DATE(data_referencia) as data_ref FROM producao WHERE DATE(data_referencia) IN (${placeholders})`;
         try {
             const res = await Sistema.query(sql, datas);
-            return res ? res.map(r => r.data_referencia) : [];
+            return res ? res.map(r => r.data_ref) : [];
         } catch (e) {
             console.error("Erro check duplicidade massa:", e);
             return [];
@@ -154,14 +154,16 @@ window.Produtividade.Importacao.Validacao = {
     excluirDadosMassa: async function (datas) {
         if (datas.length === 0) return;
         const placeholders = datas.map(() => '?').join(',');
-        const sql = `DELETE FROM producao WHERE data_referencia IN (${placeholders})`;
+        // [FIX] Usa DATE(data_referencia) para garantir que remova mesmo que o campo seja DATETIME
+        const sql = `DELETE FROM producao WHERE DATE(data_referencia) IN (${placeholders})`;
         try {
-            await Sistema.query(sql, datas);
-            console.log("✅ Dados antigos excluídos para:", datas);
+            console.log("🗑️ Executando delete para substituição:", sql, datas);
+            const res = await Sistema.query(sql, datas);
+            console.log("✅ Resultado exclusão:", res);
         } catch (e) {
             console.error("Erro auto-delete:", e);
             alert("Erro ao excluir dados antigos: " + e.message);
-            throw e; // Interrompe fluxo
+            throw e; 
         }
     },
 

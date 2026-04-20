@@ -944,9 +944,14 @@ Produtividade.Geral = {
             ? window.Produtividade.Filtros.preFiltrar(listaOriginal)
             : listaOriginal;
 
-        // [FIX] A produção da gestão/auditoria sempre soma no acumulado global, mas sem duplicar a agregação
+        // [FIX] A produção da gestão/auditoria sempre soma no acumulado global, mesmo que eles não apareçam no grid.
         let totalProd = 0;
-        listaExibicao.forEach(i => {
+        listaOriginal.forEach(i => {
+            // Ignora usuários de teste e administradores master
+            if (VISITANTE_IDS.has(String(i.uid)) || VISITANTE_IDS.has(Number(i.uid))) return;
+            if (i.uid == 1 || i.uid == 1000) return;
+
+            // Se for o item de agregação, usamos apenas a produção própria (ownProd) dele para não duplicar a soma da equipe
             const prodReal = i.isAggregatedManager ? (i._ownProd !== undefined ? i._ownProd : Number(i.producao)) : Number(i.producao);
             totalProd += prodReal || 0;
         });
