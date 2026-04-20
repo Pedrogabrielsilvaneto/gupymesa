@@ -86,7 +86,8 @@ window.Produtividade.Importacao.Validacao = {
 
             // 3. Auto-Delete (Se confirmado)
             if (statusEl) statusEl.innerHTML = `<span class="text-rose-500"><i class="fas fa-trash"></i> Removendo dados antigos...</span>`;
-            await this.excluirDadosMassa(datasExistentes);
+            // IMPORTANTE: Passar a data pura (YYYY-MM-DD) do arquivo para garantir que a exclusão abranja tudo daquele dia
+            await this.excluirDadosMassa(datasArray);
         }
 
         // 4. Processamento Normal
@@ -141,65 +142,49 @@ window.Produtividade.Importacao.Validacao = {
         if (datas.length === 0) return [];
         
         let datasEncontradas = new Set();
-        for (const dataRef of datas) {
-            // [REDAÇÃO AGRESSIVA] Procura por múltiplos formatos possíveis no DB
-            const [ano, mes, dia] = dataRef.split('-');
-            const brFormat = `${dia}/${mes}/${ano}`;
-            
-            const sql = `
-                SELECT DISTINCT data_referencia 
-                FROM producao 
-                WHERE data_referencia = ? 
-                   OR data_referencia LIKE ? 
-                   OR data_referencia LIKE ?
-                   OR data_referencia LIKE ?
-                LIMIT 5
-            `;
-            const params = [dataRef, `${dataRef}%`, `${brFormat}%`, `%${ano}-${mes}-${dia}%`];
-            
-            try {
-                const res = await Sistema.query(sql, params);
-                if (res && res.length > 0) {
-                    res.forEach(r => datasEncontradas.add(r.data_referencia));
-                }
-            } catch (e) {
-                console.error("Erro check duplicidade item:", e);
+        // Converte ['2026-04-06'] para formato suportado
+        const placeholders = datas.map(() => '?').join(',');
+        
+        // Testa com DATE e SUBSTRING para abraçar qualquer formato que esteja no banco (DATETIME, VARCHAR, etc)
+        const sql = `
+            SELECT DISTINCT data_referencia 
+            FROM producao 
+            WHERE DATE(data_referencia) IN (${placeholders})
+               OR SUBSTRING(data_referencia, 1, 10) IN (${placeholders})
+        `;
+        
+        try {
+            const params = [...datas, ...datas];
+            const res = await Sistema.query(sql, params);
+            if (res && res.length > 0) {
+                res.forEach(r => datasEncontradas.add(r.data_referencia));
             }
+        } catch (e) {
+            console.error("Erro check duplicidade item:", e);
         }
         return Array.from(datasEncontradas);
     },
 
-    excluirDadosMassa: async function (datas) {
-        if (datas.length === 0) return;
+    excluirDadosMassa: async function (datasReferencia) {
+        if (datasReferencia.length === 0) return;
         
-        for (const dataRaw of datas) {
-            // Tenta extrair a parte YYYY-MM-DD para criar variações de busca
-            let base = dataRaw;
-            if (dataRaw.includes('T')) base = dataRaw.split('T')[0];
-            if (dataRaw.includes(' ')) base = dataRaw.split(' ')[0];
-            
-            let sql = `DELETE FROM producao WHERE data_referencia = ? OR data_referencia LIKE ?`;
-            let params = [dataRaw, `${base}%`];
-
-            // Se for formato BR (DD/MM/YYYY)
-            if (base.includes('/') && base.split('/').length === 3) {
-                const [d, m, a] = base.split('/');
-                const iso = `${a}-${m}-${d}`;
-                sql += ` OR data_referencia LIKE ?`;
-                params.push(`${iso}%`);
-            } else if (base.includes('-') && base.split('-').length === 3) {
-                const [a, m, d] = base.split('-');
-                const br = `${d}/${m}/${a}`;
-                sql += ` OR data_referencia LIKE ?`;
-                params.push(`${br}%`);
-            }
-
-            try {
-                console.log(`🗑️ Deletando agressivamente: ${base} (${dataRaw})`);
-                await Sistema.query(sql, params);
-            } catch (e) {
-                console.error("Erro delete agressivo:", e);
-            }
+        // Aqui recebemos ['2026-04-06'] direto do arquivo
+        const placeholders = datasReferencia.map(() => '?').join(',');
+        
+        const sql = `
+            DELETE FROM producao 
+            WHERE DATE(data_referencia) IN (${placeholders}) 
+               OR SUBSTRING(data_referencia, 1, 10) IN (${placeholders})
+        `;
+        
+        try {
+            const params = [...datasReferencia, ...datasReferencia];
+            console.log("🗑️ Deletando agressivamente por lote:", sql, params);
+            await Sistema.query(sql, params);
+            console.log("✅ Dados da data excluídos com sucesso.");
+        } catch (e) {
+            console.error("Erro delete agressivo:", e);
+            alert("Erro ao remover dados antigos no banco: " + e.message);
         }
     },
 
