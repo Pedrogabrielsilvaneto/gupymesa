@@ -766,22 +766,25 @@ Produtividade.Geral = {
             if (this.els.selectionHeader) this.els.selectionHeader.classList.add('hidden');
         }
         this.els.tabela.innerHTML = '';
+        const isPeriodo = this.state.range.inicio !== this.state.range.fim;
+
+        // Determina se o filtro é exatamente de um dia de fim de semana
+        const dataRefLocal = new Date(this.state.range.inicio + 'T12:00:00');
+        const diaSemanaLocal = dataRefLocal.getDay();
+        const filtroFimDeSemana = (!isPeriodo && (diaSemanaLocal === 0 || diaSemanaLocal === 6));
 
         // Empty State Festivo
         const apenasGestora = listaExibicao.length === 1 && listaExibicao[0].isAggregatedManager;
         const listaVazia = listaExibicao.length === 0;
 
-        if (apenasGestora || listaVazia) {
-            const dataRef = new Date(this.state.range.fim);
-            const diaSemana = dataRef.getDay(); // 0 = Domingo, 6 = Sábado
-            const isFimDeSemana = (diaSemana === 0 || diaSemana === 6);
-
+        // Se a lista estiver vazia, ou se for um dia explícito de fds, mostramos a tela vazia.
+        if (apenasGestora || listaVazia || filtroFimDeSemana) {
             let titulo = "";
             let msg = "";
             let icone = "";
             let cor = "";
 
-            if (isFimDeSemana) {
+            if (filtroFimDeSemana || diaSemanaLocal === 0 || diaSemanaLocal === 6) {
                 titulo = "Bom descanso! 🏖️";
                 msg = "Aproveite o final de semana para recarregar as energias. Nada de trabalho por hoje!";
                 icone = "fa-umbrella-beach";
@@ -811,7 +814,6 @@ Produtividade.Geral = {
 
         if (this.els.totalFooter) this.els.totalFooter.textContent = listaExibicao.length;
 
-        const isPeriodo = this.state.range.inicio !== this.state.range.fim;
         const html = listaExibicao.map(row => {
             const u = this.state.mapaUsuarios[row.uid] || {};
             const contrato = (u.contrato || '').toUpperCase();

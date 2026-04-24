@@ -9,7 +9,7 @@ window.GupyBiblioteca = {
     cacheFrases: [],
     modoCalculadora: 'intervalo',
     usuario: null,
-    cacheFavoritos: [],
+    cacheFavoritos: [], // IDs das frases favoritas (strings)
     verFavoritos: false,
 
     init: async function () {
@@ -105,48 +105,84 @@ window.GupyBiblioteca = {
         return criadorId === meuId || criadorId === meuNome;
     },
 
-    carregarFavoritos: function () {
+    carregarFavoritos: async function () {
         if (!this.usuario) return;
-        const key = `gupy_favs_${this.usuario.id}`;
         try {
-            const saved = localStorage.getItem(key);
-            if (saved) {
-                // Força todos a serem strings para evitar problemas de comparação
-                this.cacheFavoritos = JSON.parse(saved).map(id => String(id));
-            } else {
-                this.cacheFavoritos = [];
+            // Primeiro, tenta carregar do Supabase
+            const { data, error } = await this.supabaseFrases
+                .from('frases_favoritas')
+                .select('frase_id')
+                .eq('usuario_id', String(this.usuario.id));
+
+            if (error) {
+                console.warn("Erro ao carregar favoritos do DB, usando localStorage:", error);
+                // Fallback para localStorage em caso de erro (ex: tabela não existe ainda)
+                const key = `gupy_favs_${this.usuario.id}`;
+                const saved = localStorage.getItem(key);
+                if (saved) {
+                    this.cacheFavoritos = JSON.parse(saved).map(id => String(id));
+                }
+                return;
+            }
+
+            if (data) {
+                this.cacheFavoritos = data.map(f => String(f.frase_id));
+                // Sincroniza o localStorage para consistência rápida
+                const key = `gupy_favs_${this.usuario.id}`;
+                localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
             }
         } catch (e) {
-            console.error("Erro ao carregar favoritos:", e);
-            this.cacheFavoritos = [];
+            console.error("Erro crítico ao carregar favoritos:", e);
         }
     },
 
-    salvarFavoritos: function () {
+    salvarFavoritos: async function () {
+        // Agora o salvamento é feito via toggle direto no banco para evitar inconsistências
         if (!this.usuario) return;
         const key = `gupy_favs_${this.usuario.id}`;
-        // Limpar duplicatas e salvar somente strings
-        const listaUnica = [...new Set(this.cacheFavoritos.map(id => String(id)))];
-        localStorage.setItem(key, JSON.stringify(listaUnica));
-        this.cacheFavoritos = listaUnica;
+        localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
     },
 
-    toggleFavorito: function (id) {
-        if (!id) return;
+    toggleFavorito: async function (id) {
+        if (!id || !this.usuario) return;
         id = String(id);
         const index = this.cacheFavoritos.indexOf(id);
-        
-        if (index > -1) {
-            this.cacheFavoritos.splice(index, 1);
-        } else {
-            this.cacheFavoritos.push(id);
+        const isAdding = index === -1;
+
+        try {
+            if (isAdding) {
+                this.cacheFavoritos.push(id);
+                await this.supabaseFrases.from('frases_favoritas').insert([{
+                    usuario_id: String(this.usuario.id),
+                    frase_id: id
+                }]);
+            } else {
+                this.cacheFavoritos.splice(index, 1);
+                await this.supabaseFrases.from('frases_favoritas')
+                    .delete()
+                    .eq('usuario_id', String(this.usuario.id))
+                    .eq('frase_id', id);
+            }
+
+            this.salvarFavoritos();
+            this.aplicarFiltros(false);
+            
+            // Feedback visual rápido
+            const icon = isAdding ? 'success' : 'info';
+            const msg = isAdding ? 'Adicionado aos favoritos!' : 'Removido dos favoritos';
+            
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: icon, title: msg,
+                    showConfirmButton: false, timer: 1000
+                });
+            }
+        } catch (e) {
+            console.error("Erro ao alternar favorito no DB:", e);
+            // Se falhar no DB, ainda mantemos no cache/localStorage para não quebrar a UX
+            this.salvarFavoritos();
+            this.aplicarFiltros(false);
         }
-        
-        this.salvarFavoritos();
-        
-        // Se estiver na aba de favoritos, re-aplica filtros para remover o card da tela
-        // Se estiver em outra aba, apenas re-renderiza para atualizar o ícone do coração
-        this.aplicarFiltros(false);
     },
 
     isFavorito: function (id) {
@@ -328,7 +364,7 @@ window.GupyBiblioteca = {
         }
 
         if (!temFiltroAtivo && !this.verFavoritos) {
-            filtrados = filtrados.slice(0, 4);
+            filtrados = filtrados.slice(0, 20); // Aumentado de 4 para 20 para mostrar mais "Mais Usadas"
         } else {
             if (termo) filtrados = filtrados.filter(f => f._busca.includes(termo));
             if (termo2) filtrados = filtrados.filter(f => f._busca.includes(termo2));
@@ -489,9 +525,29 @@ window.GupyBiblioteca = {
                     timerProgressBar: true
                 });
             }
+
+            // 1. Registra no Log (para a view_usos_pessoais e ranking individual)
             await this.registrarLog('COPIAR', String(id));
-            f.usos = (f.usos || 0) + 1;
+
+            // 2. Incrementa contador global na tabela 'frases'
+            try {
+                const novoUso = (f.usos || 0) + 1;
+                await this.supabaseFrases
+                    .from('frases')
+                    .update({ 
+                        usos: novoUso,
+                        ultimo_uso: new Date().toISOString() 
+                    })
+                    .eq('id', id);
+                
+                f.usos = novoUso;
+            } catch (err) {
+                console.warn("Erro ao atualizar contador global:", err);
+            }
+
+            // 3. Atualiza cache local para UI
             f.meus_usos = (f.meus_usos || 0) + 1;
+            
             // Atualiza sem rolar ao topo
             this.aplicarFiltros(false);
         });
@@ -500,13 +556,16 @@ window.GupyBiblioteca = {
     registrarLog: async function (acao, desc) {
         try {
             if (!this.usuario) return;
+            // Ajustado para colunas reais: usuario, acao, detalhe
             await this.supabaseFrases.from('logs').insert([{
-                usuario: this.usuario.id,
+                usuario: String(this.usuario.id),
                 acao: acao,
-                descricao: desc,
-                perfil: this.isAdmin() ? 'admin' : 'user'
+                detalhe: desc,
+                data_hora: new Date().toISOString()
             }]);
-        } catch (e) { }
+        } catch (e) {
+            console.error("Erro ao registrar log:", e);
+        }
     },
 
     prepararEdicao: function (id) {

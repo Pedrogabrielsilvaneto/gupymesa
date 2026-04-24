@@ -274,9 +274,13 @@ Produtividade.Consolidado = {
         if (t === 'dia') {
             let curr = new Date(dataInicio + 'T12:00:00'); const end = new Date(dataFim + 'T12:00:00'); let idx = 1;
             while (curr <= end) {
-                cols.push(String(curr.getDate()).padStart(2, '0'));
-                datesMap[idx] = { ini: curr.toISOString().split('T')[0], fim: curr.toISOString().split('T')[0] };
-                curr.setDate(curr.getDate() + 1); idx++;
+                const dayOfWeek = curr.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    cols.push(String(curr.getDate()).padStart(2, '0'));
+                    datesMap[idx] = { ini: curr.toISOString().split('T')[0], fim: curr.toISOString().split('T')[0] };
+                    idx++;
+                }
+                curr.setDate(curr.getDate() + 1); 
             }
         } else if (t === 'mes') {
             this.getSemanasDoMes(currentYear, currentMonth).forEach((s, i) => { cols.push(`Sem ${i + 1}`); datesMap[i + 1] = { ini: s.inicio, fim: s.fim }; });

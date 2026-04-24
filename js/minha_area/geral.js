@@ -646,7 +646,8 @@ MinhaArea.Geral = {
 
     agruparDataFDS: function (dataStr) {
         if (!dataStr) return dataStr;
-        const d = new Date(dataStr + 'T12:00:00');
+        const cleanStr = dataStr.includes('T') ? dataStr.split('T')[0] : dataStr;
+        const d = new Date(cleanStr + 'T12:00:00');
         const day = d.getDay();
         const date = d.getDate();
 
