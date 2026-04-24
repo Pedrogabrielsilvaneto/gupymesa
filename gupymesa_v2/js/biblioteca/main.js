@@ -13,6 +13,7 @@ window.GupyBiblioteca = {
     verFavoritos: false,
 
     init: async function () {
+        console.log("📚 Biblioteca: Inicializando Versão V.1.0.0");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -28,7 +29,8 @@ window.GupyBiblioteca = {
             btnNova.classList.remove('hidden');
         }
 
-        this.carregarFavoritos();
+        this.atualizarRodape();
+        await this.carregarFavoritos();
         await this.carregarFrases();
         this.atualizarSugestoesModal();
         this.setupEventListeners();
@@ -555,7 +557,10 @@ window.GupyBiblioteca = {
 
     registrarLog: async function (acao, desc) {
         try {
-            if (!this.usuario) return;
+            if (!this.usuario) {
+                console.warn("RegistrarLog abortado: Usuário não identificado.");
+                return;
+            }
             // Ajustado para colunas reais: usuario, acao, detalhe
             await this.supabaseFrases.from('logs').insert([{
                 usuario: String(this.usuario.id),
@@ -565,6 +570,14 @@ window.GupyBiblioteca = {
             }]);
         } catch (e) {
             console.error("Erro ao registrar log:", e);
+        }
+    },
+
+    atualizarRodape: function () {
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.0.0';
+        const footer = document.getElementById('lib-footer-version');
+        if (footer) {
+            footer.innerText = ver;
         }
     },
 
