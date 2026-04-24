@@ -9,57 +9,31 @@ window.GupyBiblioteca = {
     cacheFrases: [],
     modoCalculadora: 'intervalo',
     usuario: null,
-    cacheFavoritos: [],
+    cacheFavoritos: [], // IDs das frases favoritas (strings)
     verFavoritos: false,
 
     init: async function () {
-        try {
-            if (window.Sistema) {
-                this.usuario = Sistema.lerSessao();
-            }
-
-            if (!window.supabase) {
-                console.error("Erro: Biblioteca Supabase não encontrada.");
-                this.mostrarErroUI("Biblioteca Supabase (CDN) não foi carregada. Verifique sua conexão ou extensões do navegador.");
-                return;
-            }
-
-            if (!this.supabaseFrases) {
-                const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
-                const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
-                this.supabaseFrases = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            }
-
-            const btnNova = document.getElementById('btn-nova-frase');
-            if (btnNova && this.isAdmin()) {
-                btnNova.classList.remove('hidden');
-            }
-
-            this.carregarFavoritos();
-            await this.carregarFrases();
-            this.atualizarSugestoesModal();
-            this.setupEventListeners();
-        } catch (e) {
-            console.error("Erro no init da biblioteca:", e);
-            this.mostrarErroUI("Erro ao inicializar biblioteca: " + e.message);
+        console.log("📚 Biblioteca: Inicializando Versão V.1.0.0");
+        if (window.Sistema) {
+            this.usuario = Sistema.lerSessao();
         }
-    },
 
-    mostrarErroUI: function(msg) {
-        const grid = document.getElementById('grid-frases');
-        if (grid) {
-            grid.innerHTML = `
-                <div class="col-span-full text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                    <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-4"></i>
-                    <h3 class="text-slate-800 font-black text-xl mb-2">Ops! Algo deu errado</h3>
-                    <p class="text-slate-500 font-medium max-w-md mx-auto mb-6 px-4">${msg}</p>
-                    <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-8 py-3 rounded-xl transition shadow-lg active:scale-95">
-                        <i class="fas fa-sync-alt mr-2"></i> Tentar Novamente
-                    </button>
-                    <p class="mt-4 text-[10px] text-slate-400 uppercase tracking-widest">Dica: Se o problema persistir, tente usar o Google Chrome.</p>
-                </div>
-            `;
+        if (!this.supabaseFrases) {
+            const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
+            this.supabaseFrases = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         }
+
+        const btnNova = document.getElementById('btn-nova-frase');
+        if (btnNova && this.isAdmin()) {
+            btnNova.classList.remove('hidden');
+        }
+
+        this.atualizarRodape();
+        await this.carregarFavoritos();
+        await this.carregarFrases();
+        this.atualizarSugestoesModal();
+        this.setupEventListeners();
     },
 
     setupEventListeners: function() {
@@ -133,53 +107,84 @@ window.GupyBiblioteca = {
         return criadorId === meuId || criadorId === meuNome;
     },
 
-    carregarFavoritos: function () {
+    carregarFavoritos: async function () {
         if (!this.usuario) return;
-        const key = `gupy_favs_${this.usuario.id}`;
         try {
-            const saved = localStorage.getItem(key);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    // Força todos a serem strings para evitar problemas de comparação
-                    this.cacheFavoritos = parsed.map(id => String(id));
-                } else {
-                    this.cacheFavoritos = [];
+            // Primeiro, tenta carregar do Supabase
+            const { data, error } = await this.supabaseFrases
+                .from('frases_favoritas')
+                .select('frase_id')
+                .eq('usuario_id', String(this.usuario.id));
+
+            if (error) {
+                console.warn("Erro ao carregar favoritos do DB, usando localStorage:", error);
+                // Fallback para localStorage em caso de erro (ex: tabela não existe ainda)
+                const key = `gupy_favs_${this.usuario.id}`;
+                const saved = localStorage.getItem(key);
+                if (saved) {
+                    this.cacheFavoritos = JSON.parse(saved).map(id => String(id));
                 }
-            } else {
-                this.cacheFavoritos = [];
+                return;
+            }
+
+            if (data) {
+                this.cacheFavoritos = data.map(f => String(f.frase_id));
+                // Sincroniza o localStorage para consistência rápida
+                const key = `gupy_favs_${this.usuario.id}`;
+                localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
             }
         } catch (e) {
-            console.error("Erro ao carregar favoritos:", e);
-            this.cacheFavoritos = [];
+            console.error("Erro crítico ao carregar favoritos:", e);
         }
     },
 
-    salvarFavoritos: function () {
+    salvarFavoritos: async function () {
+        // Agora o salvamento é feito via toggle direto no banco para evitar inconsistências
         if (!this.usuario) return;
         const key = `gupy_favs_${this.usuario.id}`;
-        // Limpar duplicatas e salvar somente strings
-        const listaUnica = [...new Set(this.cacheFavoritos.map(id => String(id)))];
-        localStorage.setItem(key, JSON.stringify(listaUnica));
-        this.cacheFavoritos = listaUnica;
+        localStorage.setItem(key, JSON.stringify(this.cacheFavoritos));
     },
 
-    toggleFavorito: function (id) {
-        if (!id) return;
+    toggleFavorito: async function (id) {
+        if (!id || !this.usuario) return;
         id = String(id);
         const index = this.cacheFavoritos.indexOf(id);
-        
-        if (index > -1) {
-            this.cacheFavoritos.splice(index, 1);
-        } else {
-            this.cacheFavoritos.push(id);
+        const isAdding = index === -1;
+
+        try {
+            if (isAdding) {
+                this.cacheFavoritos.push(id);
+                await this.supabaseFrases.from('frases_favoritas').insert([{
+                    usuario_id: String(this.usuario.id),
+                    frase_id: id
+                }]);
+            } else {
+                this.cacheFavoritos.splice(index, 1);
+                await this.supabaseFrases.from('frases_favoritas')
+                    .delete()
+                    .eq('usuario_id', String(this.usuario.id))
+                    .eq('frase_id', id);
+            }
+
+            this.salvarFavoritos();
+            this.aplicarFiltros(false);
+            
+            // Feedback visual rápido
+            const icon = isAdding ? 'success' : 'info';
+            const msg = isAdding ? 'Adicionado aos favoritos!' : 'Removido dos favoritos';
+            
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: icon, title: msg,
+                    showConfirmButton: false, timer: 1000
+                });
+            }
+        } catch (e) {
+            console.error("Erro ao alternar favorito no DB:", e);
+            // Se falhar no DB, ainda mantemos no cache/localStorage para não quebrar a UX
+            this.salvarFavoritos();
+            this.aplicarFiltros(false);
         }
-        
-        this.salvarFavoritos();
-        
-        // Se estiver na aba de favoritos, re-aplica filtros para remover o card da tela
-        // Se estiver em outra aba, apenas re-renderiza para atualizar o ícone do coração
-        this.aplicarFiltros(false);
     },
 
     isFavorito: function (id) {
@@ -262,10 +267,6 @@ window.GupyBiblioteca = {
             const grid = document.getElementById('grid-frases');
             if (grid) grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10"><i class="fas fa-circle-notch fa-spin mr-2"></i>Carregando biblioteca...</div>';
 
-            if (!this.supabaseFrases) {
-                throw new Error("Conexão com banco de frases não inicializada.");
-            }
-
             const { data: frases, error } = await this.supabaseFrases
                 .from('frases')
                 .select('*');
@@ -274,15 +275,12 @@ window.GupyBiblioteca = {
 
             let meusUsosMap = {};
             if (this.usuario) {
-                console.log("Buscando usos para usuário:", this.usuario.id);
-                const { data: stats, error: errorStats } = await this.supabaseFrases
+                const { data: stats } = await this.supabaseFrases
                     .from('view_usos_pessoais')
                     .select('frase_id, qtd_uso')
                     .eq('usuario', this.usuario.id);
 
-                if (errorStats) {
-                    console.warn("Erro ao buscar usos pessoais (pode ser ausência de dados):", errorStats);
-                } else if (stats) {
+                if (stats) {
                     stats.forEach(s => meusUsosMap[s.frase_id] = s.qtd_uso);
                 }
             }
@@ -290,7 +288,7 @@ window.GupyBiblioteca = {
             this.cacheFrases = (frases || []).map(f => ({
                 ...f,
                 meus_usos: meusUsosMap[f.id] || 0,
-                _busca: this.normalizar((f.conteudo || '') + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
+                _busca: this.normalizar(f.conteudo + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
             }));
 
             if (this.isAdmin()) {
@@ -306,7 +304,6 @@ window.GupyBiblioteca = {
             this.aplicarFiltros();
         } catch (e) {
             console.error("Erro ao carregar frases:", e);
-            this.mostrarErroUI("Houve um problema ao carregar as frases do banco de dados. " + (e.message || ""));
         }
     },
 
@@ -369,7 +366,7 @@ window.GupyBiblioteca = {
         }
 
         if (!temFiltroAtivo && !this.verFavoritos) {
-            filtrados = filtrados.slice(0, 4);
+            filtrados = filtrados.slice(0, 20); // Aumentado de 4 para 20 para mostrar mais "Mais Usadas"
         } else {
             if (termo) filtrados = filtrados.filter(f => f._busca.includes(termo));
             if (termo2) filtrados = filtrados.filter(f => f._busca.includes(termo2));
@@ -514,114 +511,6 @@ window.GupyBiblioteca = {
             </div>`;
     },
 
-    init: async function () {
-        try {
-            if (window.Sistema) {
-                this.usuario = Sistema.lerSessao();
-            }
-
-            // [FIX] Agora usamos um Proxy para evitar bloqueios de Tracking Prevention no Edge/Chrome
-            console.log("🚀 Biblioteca: Inicializando com modo Proxy Server-Side.");
-
-            const btnNova = document.getElementById('btn-nova-frase');
-            if (btnNova && this.isAdmin()) {
-                btnNova.classList.remove('hidden');
-            }
-
-            this.carregarFavoritos();
-            await this.carregarFrases();
-            this.atualizarSugestoesModal();
-            this.setupEventListeners();
-        } catch (e) {
-            console.error("Erro no init da biblioteca:", e);
-            this.mostrarErroUI("Erro ao inicializar biblioteca: " + e.message);
-        }
-    },
-
-    // [NEW] Helper para chamadas ao Proxy Server-Side
-    callAPI: async function (action, table, payload) {
-        try {
-            const response = await fetch('/api/biblioteca', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action,
-                    table,
-                    ...payload
-                })
-            });
-            return await response.json();
-        } catch (e) {
-            return { data: null, error: e };
-        }
-    },
-
-    mostrarErroUI: function(msg) {
-        const grid = document.getElementById('grid-frases');
-        if (grid) {
-            grid.innerHTML = `
-                <div class="col-span-full text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                    <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-4"></i>
-                    <h3 class="text-slate-800 font-black text-xl mb-2">Ops! Algo deu errado</h3>
-                    <p class="text-slate-500 font-medium max-w-md mx-auto mb-6 px-4">${msg}</p>
-                    <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-8 py-3 rounded-xl transition shadow-lg active:scale-95">
-                        <i class="fas fa-sync-alt mr-2"></i> Tentar Novamente
-                    </button>
-                    <p class="mt-4 text-[10px] text-slate-400 uppercase tracking-widest text-blue-400 font-bold">Modo de Segurança Ativado (Proxy Server-Side)</p>
-                </div>
-            `;
-        }
-    },
-
-    carregarFrases: async function () {
-        try {
-            const grid = document.getElementById('grid-frases');
-            if (grid) grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10"><i class="fas fa-circle-notch fa-spin mr-2"></i>Carregando biblioteca...</div>';
-
-            // Busca frases via Proxy
-            const { data: frases, error } = await this.callAPI('select', 'frases', { 
-                queryParams: { select: '*' }
-            });
-
-            if (error) throw error;
-
-            let meusUsosMap = {};
-            if (this.usuario) {
-                console.log("Buscando usos para usuário (Server Proxy):", this.usuario.id);
-                const { data: stats, error: errorStats } = await this.callAPI('select', 'view_usos_pessoais', {
-                    queryParams: { select: '*', usuario: `eq.${this.usuario.id}` }
-                });
-
-                if (errorStats) {
-                    console.warn("Erro ao buscar usos pessoais:", errorStats);
-                } else if (stats) {
-                    stats.forEach(s => meusUsosMap[s.frase_id] = s.qtd_uso);
-                }
-            }
-
-            this.cacheFrases = (frases || []).map(f => ({
-                ...f,
-                meus_usos: meusUsosMap[f.id] || 0,
-                _busca: this.normalizar((f.conteudo || '') + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
-            }));
-
-            if (this.isAdmin()) {
-                this.cacheFrases.sort((a, b) => (b.usos || 0) - (a.usos || 0));
-            } else {
-                this.cacheFrases.sort((a, b) => {
-                    if (b.meus_usos !== a.meus_usos) return b.meus_usos - a.meus_usos;
-                    return (b.usos || 0) - (a.usos || 0);
-                });
-            }
-
-            this.atualizarFiltrosSelects();
-            this.aplicarFiltros();
-        } catch (e) {
-            console.error("Erro ao carregar frases:", e);
-            this.mostrarErroUI("Houve um problema ao carregar as frases. Certifique-se de estar logado. Detalhes: " + (e.message || ""));
-        }
-    },
-
     copiarTexto: async function (id) {
         const f = this.cacheFrases.find(i => i.id == id);
         if (!f) return;
@@ -638,13 +527,27 @@ window.GupyBiblioteca = {
                     timerProgressBar: true
                 });
             }
+
+            // 1. Registra no Log (para a view_usos_pessoais e ranking individual)
             await this.registrarLog('COPIAR', String(id));
-            
-            // Persiste o incremento no Banco de Dados
-            const novosUsos = (f.usos || 0) + 1;
-            await this.callAPI('update', 'frases', { id, data: { usos: novosUsos } });
-            
-            f.usos = novosUsos;
+
+            // 2. Incrementa contador global na tabela 'frases'
+            try {
+                const novoUso = (f.usos || 0) + 1;
+                await this.supabaseFrases
+                    .from('frases')
+                    .update({ 
+                        usos: novoUso,
+                        ultimo_uso: new Date().toISOString() 
+                    })
+                    .eq('id', id);
+                
+                f.usos = novoUso;
+            } catch (err) {
+                console.warn("Erro ao atualizar contador global:", err);
+            }
+
+            // 3. Atualiza cache local para UI
             f.meus_usos = (f.meus_usos || 0) + 1;
             
             // Atualiza sem rolar ao topo
@@ -654,16 +557,28 @@ window.GupyBiblioteca = {
 
     registrarLog: async function (acao, desc) {
         try {
-            if (!this.usuario) return;
-            await this.callAPI('insert', 'logs', {
-                data: {
-                    usuario: this.usuario.id,
-                    acao: acao,
-                    descricao: desc,
-                    perfil: this.isAdmin() ? 'admin' : 'user'
-                }
-            });
-        } catch (e) { }
+            if (!this.usuario) {
+                console.warn("RegistrarLog abortado: Usuário não identificado.");
+                return;
+            }
+            // Ajustado para colunas reais: usuario, acao, detalhe
+            await this.supabaseFrases.from('logs').insert([{
+                usuario: String(this.usuario.id),
+                acao: acao,
+                detalhe: desc,
+                data_hora: new Date().toISOString()
+            }]);
+        } catch (e) {
+            console.error("Erro ao registrar log:", e);
+        }
+    },
+
+    atualizarRodape: function () {
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.0.0';
+        const footer = document.getElementById('lib-footer-version');
+        if (footer) {
+            footer.innerText = ver;
+        }
     },
 
     prepararEdicao: function (id) {
@@ -706,13 +621,9 @@ window.GupyBiblioteca = {
                 revisado_por: this.usuario ? this.usuario.id : null,
                 data_revisao: new Date().toISOString()
             };
-            
             let res;
-            if (id) {
-                res = await this.callAPI('update', 'frases', { id, data: payload });
-            } else {
-                res = await this.callAPI('insert', 'frases', { data: [payload] });
-            }
+            if (id) res = await this.supabaseFrases.from('frases').update(payload).eq('id', id);
+            else res = await this.supabaseFrases.from('frases').insert([payload]);
 
             if (res.error) throw res.error;
 
@@ -750,8 +661,8 @@ window.GupyBiblioteca = {
 
         if (confirm.isConfirmed) {
             try {
-                // Remove via Proxy
-                const { error } = await this.callAPI('delete', 'frases', { id });
+                // Remove do banco
+                const { error } = await this.supabaseFrases.from('frases').delete().eq('id', id);
                 if (error) throw error;
 
                 // Remove do cache e atualiza tela
@@ -773,8 +684,10 @@ window.GupyBiblioteca = {
                 }).then(async (result) => {
                     if (result.isConfirmed) {
                         try {
+                            // Prepara os dados para re-inserção (removendo id original se necessário, ou tentando manter)
                             const { id: oldId, _busca, meus_usos, ...dadosOriginais } = frase;
-                            const resRestore = await this.callAPI('insert', 'frases', { data: [dadosOriginais] });
+                            
+                            const resRestore = await this.supabaseFrases.from('frases').insert([dadosOriginais]);
                             if (resRestore.error) throw resRestore.error;
 
                             await this.carregarFrases();
@@ -885,258 +798,100 @@ window.GupyBiblioteca = {
         'ITEP': 'Instituto Técnico-Científico de Perícia', 'IGP': 'Instituto-Geral de Perícias', 'SESP': 'Secretaria de Estado de Segurança Pública',
         'SSPDS': 'Secretaria da Segurança Pública e Defesa Social', 'SDS': 'Secretaria de Defesa Social',
         'SEJUSP': 'Secretaria de Estado de Justiça e Segurança Pública', 'SEGUP': 'Secretaria de Estado de Segurança Pública e Defesa Social',
-        'SJTC': 'Secretaria da Justiça, do Trabalho e da Cidadania', 'SJS': 'Secretaria da Justiça e da Segurança',
-        'MAER': 'Ministério da Aeronáutica', 'MEX': 'Ministério do Exército', 'MINDEF': 'Ministério da Defesa',
-        'MM': 'Ministério da Marinha', 'POM': 'Polícia Militar', 'POF': 'Polícia Federal', 'MJ': 'Ministério da Justiça',
-        'CRECI': 'Conselho Regional de Corretores de Imóveis', 'COREN': 'Conselho Regional de Enfermagem',
-        'CRA': 'Conselho Regional de Administração', 'CRAS': 'Centro de Referência de Assistência Social',
-        'CRB': 'Conselho Regional de Biblioteconomia', 'CRC': 'Conselho Regional de Contabilidade',
-        'CRE': 'Conselho Regional de Economia', 'CREF': 'Conselho Regional de Educação Física',
-        'CREFITO': 'Conselho Regional de Fisioterapia e Terapia Ocupacional', 'CRMV': 'Conselho Regional de Medicina Veterinária',
-        'CRO': 'Conselho Regional de Odontologia', 'CRP': 'Conselho Regional de Psicologia',
-        'CRQ': 'Conselho Regional de Química', 'CRT': 'Conselho Regional dos Técnicos Industriais',
-        'CRV': 'Conselho Regional de Medicina Veterinária', 'SNJ': 'Secretaria Nacional de Justiça',
-        'SECC': 'Secretaria de Estado da Casa Civil', 'SRTE': 'Superintendência Regional do Trabalho e Emprego',
-        'CEEE': 'Companhia Estadual de Energia Elétrica', 'DPU': 'Defensoria Pública da União',
-        'DPE': 'Defensoria Pública do Estado', 'PGE': 'Procuradoria-Geral do Estado',
-        'PGJ': 'Procuradoria-Geral de Justiça', 'TRE': 'Tribunal Regional Eleitoral',
-        'TRF': 'Tribunal Regional Federal', 'TRT': 'Tribunal Regional do Trabalho',
-        'TSE': 'Tribunal Superior Eleitoral', 'TST': 'Tribunal Superior do Trabalho',
-        'STF': 'Supremo Tribunal Federal', 'STJ': 'Superior Tribunal de Justiça',
-        'CNIG': 'Conselho Nacional de Imigração', 'CGPI': 'Coordenação Geral de Privilégios e Imunidades',
-        'CGPMAF': 'Coordenação Geral de Polícia de Imigração', 'CGPI/DAP': 'Coordenação Geral de Privilégios e Imunidades',
-        'CBM': 'Corpo de Bombeiros Militar', 'CFM': 'Conselho Federal de Medicina',
-        'CME': 'Conselho Ministerial de Educação', 'CNEN': 'Comissão Nacional de Energia Nuclear',
-        'CNP': 'Conselho Nacional de Petróleo', 'CONRE': 'Conselho Regional de Estatística',
-        'CORECON': 'Conselho Regional de Economia', 'COREMP': 'Conselho Regional de Enfermagem e Obstetrícia'
+        'SESED': 'Secretaria de Estado da Segurança Pública e da Defesa Social', 'SJSPS': 'Secretaria de Justiça, Sistemas Penais e Socioeducativos',
+        'SJDS': 'Secretaria de Justiça e Direitos Sociais', 'SJCDH': 'Secretaria de Justiça, Cidadania e Direitos Humanos'
     },
 
     buscarSigla: function () {
         const input = document.getElementById('lib-sigla-input');
         const query = input.value.trim().toUpperCase();
+        if (query.length < 2) return;
         const resBox = document.getElementById('lib-sigla-resultado');
-        
-        const desc = this.CommonSiglas[query];
-        if (desc) {
-            document.getElementById('lib-sigla-display-code').innerText = query;
-            document.getElementById('lib-sigla-descricao').innerText = desc;
+        const descEl = document.getElementById('lib-sigla-descricao');
+        const codeEl = document.getElementById('lib-sigla-display-code');
+
+        const found = this.CommonSiglas[query];
+        if (found) {
+            codeEl.innerText = query;
+            descEl.innerText = found;
             resBox.classList.remove('hidden');
         } else {
-            Swal.fire('Não encontrada', 'Sigla não localizada', 'info');
+            Swal.fire('Não encontrado', 'Sigla de órgão emissor não está no cache local.', 'info');
         }
     },
 
-    abrirCalculadora: function () { document.getElementById('modal-lib-calculadora').classList.remove('hidden'); },
-    fecharCalculadora: function () { document.getElementById('modal-lib-calculadora').classList.add('hidden'); },
-    
-    toggleCalcOperation: function() {
-        const btn = document.getElementById('lib-calc-operation-btn');
-        const val = document.getElementById('lib-calc-operation-val');
-        if (!btn || !val) return;
-        
-        if (val.value === 'somar') {
-            val.value = 'subtrair';
-            btn.innerText = '-';
-            btn.classList.add('text-rose-600');
-            btn.classList.remove('text-blue-600');
-        } else {
-            val.value = 'somar';
-            btn.innerText = '+';
-            btn.classList.add('text-blue-600');
-            btn.classList.remove('text-rose-600');
-        }
-        
-        // Auto-calcular ao alternar sinal
-        const valData = document.getElementById('lib-calc-data-input')?.value;
-        if (valData && valData.length === 10) {
-            this.processarCalculadora();
-        }
+    mascararCEP: function (el) {
+        let v = el.value.replace(/\D/g, '');
+        if (v.length > 8) v = v.substring(0, 8);
+        if (v.length > 5) v = v.replace(/^(\d{5})(\d)/, '$1-$2');
+        el.value = v;
+        if (v.length === 9) this.buscarCEP();
     },
 
-    mudarModoCalculadora: function (modo) {
-        this.modoCalculadora = modo;
-        const btnInt = document.getElementById('lib-calc-btn-intervalo');
-        const btnSom = document.getElementById('lib-calc-btn-soma');
-        const contSoma = document.getElementById('lib-calc-container-soma');
-        const labelInput = document.getElementById('lib-calc-label-input');
-        const iconInput = document.getElementById('lib-calc-icon-input');
-        const resBox = document.getElementById('lib-calc-resultados');
-        
-        // Esconder resultados ao mudar de modo
-        if (resBox) resBox.classList.add('hidden');
-
-        if (modo === 'intervalo') {
-            btnInt.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
-            btnInt.classList.remove('text-slate-500');
-            btnSom.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
-            btnSom.classList.add('text-slate-500');
-            if (contSoma) contSoma.classList.add('hidden');
-            if (labelInput) labelInput.innerText = 'Data Inicial / Nascimento';
-            if (iconInput) {
-                iconInput.className = 'far fa-calendar-alt absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors text-lg';
-            }
-        } else {
-            btnSom.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
-            btnSom.classList.remove('text-slate-500');
-            btnInt.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
-            btnInt.classList.add('text-slate-500');
-            if (contSoma) contSoma.classList.remove('hidden');
-            if (labelInput) labelInput.innerText = 'Data de Referência';
-            if (iconInput) {
-                iconInput.className = 'fas fa-calendar-day absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors text-lg';
-            }
-        }
+    mascararData: function (el) {
+        let v = el.value.replace(/\D/g, '');
+        if (v.length > 8) v = v.substring(0, 8);
+        if (v.length > 4) v = v.replace(/^(\d{2})(\d{2})(\d)/, '$1/$2/$3');
+        else if (v.length > 2) v = v.replace(/^(\d{2})(\d)/, '$1/$2');
+        el.value = v;
     },
 
     processarCalculadora: function () {
-        const valData = document.getElementById('lib-calc-data-input').value;
-        if (valData.length !== 10) return;
-        const parts = valData.split('/');
-        const dataBase = new Date(parts[2], parts[1] - 1, parts[0]);
-        if (isNaN(dataBase.getTime())) return;
+        const dataStr = document.getElementById('lib-calc-data-input').value;
+        const dias = parseInt(document.getElementById('lib-calc-dias-input').value) || 0;
+        const meses = parseInt(document.getElementById('lib-calc-meses-input').value) || 0;
+        const anos = parseInt(document.getElementById('lib-calc-anos-input').value) || 0;
 
-        const resBox = document.getElementById('lib-calc-resultados');
-        const displayPrincipal = document.getElementById('lib-res-principal');
-        const displayDataInserida = document.getElementById('lib-res-data-inserida');
-        const labelPrimaria = document.getElementById('lib-res-label-primaria');
-        const labelSecundaria = document.getElementById('lib-res-label-secundaria');
-        const unidadePrincipal = document.getElementById('lib-res-unidade');
-        
-        const gridDetalhado = document.getElementById('lib-calc-grid-detalhado');
-        const dividerDetalhado = document.getElementById('lib-calc-divider');
+        if (dataStr.length < 10) return;
+        const parts = dataStr.split('/');
+        let d = new Date(parts[2], parts[1] - 1, parts[0]);
 
         if (this.modoCalculadora === 'intervalo') {
-            const hoje = new Date();
-            hoje.setHours(0, 0, 0, 0);
-            dataBase.setHours(0, 0, 0, 0);
-
-            const diffTime = Math.abs(hoje - dataBase);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
-            displayPrincipal.innerText = diffDays.toLocaleString('pt-BR');
-            displayDataInserida.innerText = valData;
-            labelPrimaria.innerText = 'Total Dias Corridos';
-            labelSecundaria.innerText = 'Data Inserida';
-            unidadePrincipal.innerText = 'dias';
-
-            // Cálculo detalhado
-            let d1 = dataBase < hoje ? dataBase : hoje;
-            let d2 = dataBase < hoje ? hoje : dataBase;
-
-            let anos = d2.getFullYear() - d1.getFullYear();
-            let meses = d2.getMonth() - d1.getMonth();
-            let dias = d2.getDate() - d1.getDate();
-
-            if (dias < 0) {
-                meses--;
-                const ultimoDiaMesAnterior = new Date(d2.getFullYear(), d2.getMonth(), 0).getDate();
-                dias += ultimoDiaMesAnterior;
-            }
-            if (meses < 0) {
-                anos--;
-                meses += 12;
-            }
-
-            const semanas = Math.floor(dias / 7);
-            const diasRestantes = dias % 7;
-
-            document.getElementById('lib-res-anos').innerText = anos;
-            document.getElementById('lib-res-meses').innerText = meses;
-            document.getElementById('lib-res-semanas').innerText = semanas;
-            document.getElementById('lib-res-dias').innerText = diasRestantes;
-
-            if (gridDetalhado) gridDetalhado.classList.remove('hidden');
-            if (dividerDetalhado) dividerDetalhado.classList.remove('hidden');
-            resBox.classList.remove('hidden');
+            d.setDate(d.getDate() + dias);
+            d.setMonth(d.getMonth() + meses);
+            d.setFullYear(d.getFullYear() + anos);
         } else {
-            // Modo Soma/Subtração
-            const op = document.getElementById('lib-calc-operation-val').value;
-            const anos = parseInt(document.getElementById('lib-calc-anos-input').value) || 0;
-            const meses = parseInt(document.getElementById('lib-calc-meses-input').value) || 0;
-            const dias = parseInt(document.getElementById('lib-calc-dias-input').value) || 0;
-            
-            const mult = op === 'somar' ? 1 : -1;
-            
-            const dataResult = new Date(dataBase);
-            dataResult.setFullYear(dataResult.getFullYear() + (anos * mult));
-            dataResult.setMonth(dataResult.getMonth() + (meses * mult));
-            dataResult.setDate(dataResult.getDate() + (dias * mult));
-            
-            const diaStr = String(dataResult.getDate()).padStart(2, '0');
-            const mesStr = String(dataResult.getMonth() + 1).padStart(2, '0');
-            const anoStr = dataResult.getFullYear();
-            const dataFormatada = `${diaStr}/${mesStr}/${anoStr}`;
-
-            displayPrincipal.innerText = dataFormatada;
-            displayDataInserida.innerText = valData;
-            labelPrimaria.innerText = 'Data Resultante';
-            labelSecundaria.innerText = 'Data Referência';
-            unidadePrincipal.innerText = '';
-            
-            if (gridDetalhado) gridDetalhado.classList.add('hidden');
-            if (dividerDetalhado) dividerDetalhado.classList.add('hidden');
-            resBox.classList.remove('hidden');
+            d.setDate(d.getDate() - dias);
+            d.setMonth(d.getMonth() - meses);
+            d.setFullYear(d.getFullYear() - anos);
         }
+
+        const res = d.toLocaleDateString('pt-BR');
+        document.getElementById('lib-calc-resultado-val').innerText = res;
+        document.getElementById('lib-calc-resultado').classList.remove('hidden');
     },
 
-    mascararData: function (input) {
-        let v = input.value.replace(/\D/g, '').slice(0, 8);
-        if (v.length >= 5) input.value = `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
-        else if (v.length >= 3) input.value = `${v.slice(0, 2)}/${v.slice(2)}`;
-        else input.value = v;
+    setModoCalculadora: function (modo) {
+        this.modoCalculadora = modo;
+        const btnInt = document.getElementById('btn-calc-intervalo');
+        const btnVen = document.getElementById('btn-calc-vencimento');
+        if (modo === 'intervalo') {
+            btnInt.classList.add('bg-blue-600', 'text-white');
+            btnInt.classList.remove('bg-slate-100', 'text-slate-600');
+            btnVen.classList.remove('bg-blue-600', 'text-white');
+            btnVen.classList.add('bg-slate-100', 'text-slate-600');
+        } else {
+            btnVen.classList.add('bg-blue-600', 'text-white');
+            btnVen.classList.remove('bg-slate-100', 'text-slate-600');
+            btnInt.classList.remove('bg-blue-600', 'text-white');
+            btnInt.classList.add('bg-slate-100', 'text-slate-600');
+        }
+        this.processarCalculadora();
     },
 
-    copiarTextoSimples: function (texto) {
-        if (!texto || texto === '-') return;
-        navigator.clipboard.writeText(texto).then(() => {
-            if (window.Swal) {
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: 'Copiado!',
-                    showConfirmButton: false,
-                    timer: 1500,
-                    timerProgressBar: true
-                });
-            }
-        });
-    },
-
-    mascararCEP: function (input) {
-        let v = input.value.replace(/\D/g, '').slice(0, 8);
-        if (v.length >= 6) input.value = `${v.slice(0, 5)}-${v.slice(5)}`;
-        else input.value = v;
-    },
-
-    atualizarSugestoesModal: function() {
-        if (!this.cacheFrases.length) return;
-        
+    atualizarSugestoesModal: function () {
         const empresas = [...new Set(this.cacheFrases.map(f => f.empresa).filter(Boolean))].sort();
-        const docs = [...new Set(this.cacheFrases.map(f => f.documento).filter(Boolean))].sort();
         const motivos = [...new Set(this.cacheFrases.map(f => f.motivo).filter(Boolean))].sort();
+        const docs = [...new Set(this.cacheFrases.map(f => f.documento).filter(Boolean))].sort();
 
-        const updateList = (id, items) => {
-            let dl = document.getElementById(id);
-            if (!dl) {
-                dl = document.createElement('datalist');
-                dl.id = id;
-                document.body.appendChild(dl);
-            }
-            dl.innerHTML = items.map(item => `<option value="${item}">`).join('');
-        };
+        this.encherDatalist('list-empresas', empresas);
+        this.encherDatalist('list-motivos', motivos);
+        this.encherDatalist('list-docs', docs);
+    },
 
-        updateList('list-empresas', empresas);
-        updateList('list-documentos', docs);
-        updateList('list-motivos', motivos);
-
-        // Vincula aos inputs se existirem
-        const inpEmp = document.getElementById('lib-form-empresa');
-        const inpDoc = document.getElementById('lib-form-doc');
-        const inpMot = document.getElementById('lib-form-motivo');
-
-        if (inpEmp) inpEmp.setAttribute('list', 'list-empresas');
-        if (inpDoc) inpDoc.setAttribute('list', 'list-documentos');
-        if (inpMot) inpMot.setAttribute('list', 'list-motivos');
+    encherDatalist: function (id, lista) {
+        const dl = document.getElementById(id);
+        if (!dl) return;
+        dl.innerHTML = lista.map(v => `<option value="${v}">`).join('');
     }
 };
