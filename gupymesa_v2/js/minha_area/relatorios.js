@@ -445,6 +445,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarMetasOKR: function(producao, ano, mesIni, mesFim) {
+        if (this.relatorioAtivo !== 'metas_okr') return;
         const container = document.getElementById('relatorio-ativo-content');
         const mS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
@@ -634,6 +635,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarGAP: function() {
+        if (this.relatorioAtivo !== 'gap') return;
         const container = document.getElementById('relatorio-ativo-content');
         if (!container || !this._gapData) return;
         const { roadmap, mesIni, mesFim } = this._gapData;
@@ -1058,6 +1060,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarRankingFrases: function(showAll = false) {
+        if (this.relatorioAtivo !== 'ranking_frases') return;
         const container = document.getElementById('relatorio-ativo-content');
         if (!container || !this._rawRankingData) return;
 
