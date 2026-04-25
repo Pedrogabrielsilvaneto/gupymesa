@@ -789,21 +789,23 @@ MinhaArea.Relatorios = {
                 labels.push('Mês ' + m);
             }
 
+            const isSingle = labels.length === 1;
             const colors = ['#3b82f6', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a'];
             const datasets = usersToDraw.map((u, i) => ({
                 label: u.nome,
                 data: meses.map(m => u.meses[m] || 0),
-                backgroundColor: colors[i % colors.length] + '20',
+                backgroundColor: isSingle ? colors[i % colors.length] + 'CC' : colors[i % colors.length] + '20',
                 borderColor: colors[i % colors.length],
-                borderWidth: 2,
+                borderWidth: isSingle ? 0 : 2,
+                borderRadius: isSingle ? 8 : 0,
                 tension: 0.3,
-                fill: true,
-                pointRadius: 4,
+                fill: !isSingle,
+                pointRadius: isSingle ? 0 : 4,
                 pointBackgroundColor: colors[i % colors.length]
             }));
 
             this._gapChartInstance = new Chart(ctx, {
-                type: 'line',
+                type: isSingle ? 'bar' : 'line',
                 data: { labels, datasets },
                 options: {
                     responsive: true,
@@ -860,16 +862,35 @@ MinhaArea.Relatorios = {
                 labels.push('Mês ' + m);
             }
 
+            const isSingle = labels.length === 1;
             const userData = meses.map(m => user.meses[m] || 0);
             const refData = meses.map(m => benchmark.meses[m] || 0);
 
             this._gapChartInstance = new Chart(ctx, {
-                type: 'bar',
+                type: isSingle ? 'bar' : 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: user.nome, data: userData, backgroundColor: '#3b82f6', borderRadius: 6 },
-                        { label: "Referência", data: refData, backgroundColor: '#f43f5e', borderRadius: 6 }
+                        { 
+                            label: user.nome, 
+                            data: userData, 
+                            backgroundColor: isSingle ? '#3b82f6' : '#3b82f620', 
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            borderRadius: isSingle ? 8 : 0,
+                            fill: !isSingle,
+                            tension: 0.3
+                        },
+                        { 
+                            label: "Referência", 
+                            data: refData, 
+                            backgroundColor: isSingle ? '#f43f5e' : '#f43f5e20', 
+                            borderColor: '#f43f5e',
+                            borderWidth: 2,
+                            borderRadius: isSingle ? 8 : 0,
+                            fill: !isSingle,
+                            tension: 0.3
+                        }
                     ]
                 },
                 options: {
@@ -877,7 +898,7 @@ MinhaArea.Relatorios = {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12 } },
-                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
+                        tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
                     },
                     scales: {
                         y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
