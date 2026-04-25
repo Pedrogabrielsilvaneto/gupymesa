@@ -756,7 +756,13 @@ MinhaArea.Relatorios = {
         
         const { roadmap, mesIni, mesFim } = this._gapData;
         const selectedIds = Array.from(this._selectedGapUsers);
-        const usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : Object.values(roadmap);
+        let usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : Object.values(roadmap);
+        
+        // [NOVO] Garante que o Benchmark (Top Performer) sempre esteja no gráfico
+        if (this._gapBenchmarkId && !usersToDraw.some(u => u.id == this._gapBenchmarkId)) {
+            const bench = roadmap[this._gapBenchmarkId];
+            if (bench) usersToDraw.unshift(bench);
+        }
 
         const container = document.getElementById('gap-chart-container');
         if (container) container.classList.remove('hidden');
@@ -791,18 +797,21 @@ MinhaArea.Relatorios = {
 
             const isSingle = labels.length === 1;
             const colors = ['#3b82f6', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a'];
-            const datasets = usersToDraw.map((u, i) => ({
-                label: u.nome,
-                data: meses.map(m => u.meses[m] || 0),
-                backgroundColor: isSingle ? colors[i % colors.length] + 'CC' : colors[i % colors.length] + '20',
-                borderColor: colors[i % colors.length],
-                borderWidth: isSingle ? 0 : 2,
-                borderRadius: isSingle ? 8 : 0,
-                tension: 0.3,
-                fill: !isSingle,
-                pointRadius: isSingle ? 0 : 4,
-                pointBackgroundColor: colors[i % colors.length]
-            }));
+            const datasets = usersToDraw.map((u, i) => {
+                const isBench = u.id == this._gapBenchmarkId;
+                return {
+                    label: isBench ? u.nome + " (Referência)" : u.nome,
+                    data: meses.map(m => u.meses[m] || 0),
+                    backgroundColor: isSingle ? (isBench ? '#f43f5eCC' : colors[i % colors.length] + 'CC') : colors[i % colors.length] + '20',
+                    borderColor: isBench ? '#f43f5e' : colors[i % colors.length],
+                    borderWidth: isSingle ? 0 : 2,
+                    borderRadius: isSingle ? 8 : 0,
+                    tension: 0.3,
+                    fill: !isSingle,
+                    pointRadius: isSingle ? 0 : 4,
+                    pointBackgroundColor: isBench ? '#f43f5e' : colors[i % colors.length]
+                };
+            });
 
             this._gapChartInstance = new Chart(ctx, {
                 type: isSingle ? 'bar' : 'line',
