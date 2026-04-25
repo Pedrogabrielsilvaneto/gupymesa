@@ -111,9 +111,9 @@ MinhaArea.Relatorios = {
                     else if (aba === 'meta_okr') { await this.exportarMatrizGrade(datas, "MA_Meta_OKR"); return; }
                 } 
                 else if (modulo === 'biblioteca') {
-                    if (aba === 'frases') data = await this.fetchFrasesSupabase();
+                    if (aba === 'frases') data = await this.fetchFrases();
                     else if (aba === 'ranking_frases') {
-                        data = await this.fetchFrasesSupabase();
+                        data = await this.fetchFrases();
                         if (data) {
                             data = data.sort((a, b) => (b.usos || 0) - (a.usos || 0))
                                        .map((f, i) => ({ 
@@ -166,7 +166,7 @@ MinhaArea.Relatorios = {
                 if (matrixData) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(matrixData), "PRD_MA_Matriz_Grade");
 
                 // 3. BIBLIOTECA
-                const frases = await this.fetchFrasesSupabase();
+                const frases = await this.fetchFrases();
                 if (frases) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(frases), "BIB_Frases_Geral");
 
                 XLSX.writeFile(wb, `BACKUP_GERAL_GUPYMESA_${datas.inicio}.xlsx`);
@@ -345,16 +345,15 @@ MinhaArea.Relatorios = {
             XLSX.writeFile(wb, `${fileName}_${datas.inicio}.xlsx`);
         },
 
-        async fetchFrasesSupabase() {
+        async fetchFrases() {
             try {
-                const SUPABASE_URL = 'https://urmwvabkikftsefztadb.supabase.co';
-                const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXd2YWJraWtmdHNlZnp0YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNjU1NjQsImV4cCI6MjA4MDc0MTU2NH0.SXR6EG3fIE4Ya5ncUec9U2as1B7iykWZhZWN1V5b--E';
-                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                const { data, error } = await client.from('frases').select('id, conteudo, empresa, motivo, documento, usos');
-                if (error) throw error;
-                // Ordena por usos por padrão
-                return (data || []).sort((a, b) => (b.usos || 0) - (a.usos || 0));
-            } catch (e) { return null; }
+                // Migrado de Supabase para TiDB local
+                const data = await Sistema.query("SELECT id, conteudo, empresa, motivo, documento, usos FROM frases ORDER BY usos DESC");
+                return data || [];
+            } catch (e) { 
+                console.error("Erro fetchFrases:", e);
+                return null; 
+            }
         }
     },
 
@@ -805,7 +804,7 @@ MinhaArea.Relatorios = {
 
     carregarRankingFrases: async function() {
         try {
-            const data = await this.Exportar.fetchFrasesSupabase();
+            const data = await this.Exportar.fetchFrases();
             if (!data) return;
             this._rawRankingData = data;
             this.atualizarSugestoesRanking();
