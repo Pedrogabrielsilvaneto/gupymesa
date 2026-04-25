@@ -827,7 +827,23 @@ MinhaArea.Relatorios = {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12, usePointStyle: true } },
-                        tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
+                        tooltip: { 
+                            mode: 'index', 
+                            intersect: false, 
+                            callbacks: { 
+                                label: (ctx) => {
+                                    const val = Math.round(ctx.raw);
+                                    const isBench = ctx.dataset.label.includes('Referência');
+                                    if (isBench) return `${ctx.dataset.label}: ${val} metas/dia`;
+                                    
+                                    const benchDs = ctx.chart.data.datasets.find(d => d.label.includes('Referência'));
+                                    const benchVal = benchDs ? Math.round(benchDs.data[ctx.dataIndex]) : 0;
+                                    const diff = val - benchVal;
+                                    const perc = benchVal > 0 ? (diff / benchVal) * 100 : 0;
+                                    return `${ctx.dataset.label}: ${val} m/d (GAP: ${diff > 0 ? '+' : ''}${diff} | ${Math.round(perc)}%)`;
+                                } 
+                            } 
+                        }
                     },
                     scales: {
                         y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
@@ -850,21 +866,31 @@ MinhaArea.Relatorios = {
                     const perc = benchAvg > 0 ? (diff / benchAvg) * 100 : 0;
                     
                     html += `
-                        <div class="flex items-center gap-3 p-3 rounded-xl ${isBench ? 'bg-rose-50 border border-rose-100' : 'bg-slate-50 border border-slate-100'}">
-                            <div class="w-8 h-8 rounded-lg ${isBench ? 'bg-rose-500' : 'bg-blue-500'} text-white flex items-center justify-center text-[10px] font-bold">
-                                ${isBench ? '<i class="fas fa-crown"></i>' : u.nome.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-[10px] font-black text-slate-700 truncate">${u.nome}${isBench ? ' (REF)' : ''}</p>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[10px] font-bold text-slate-500">${Math.round(uAvg)} m/d</span>
-                                    ${!isBench ? `
-                                        <span class="text-[9px] font-black ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
-                                            ${diff >= 0 ? '+' : ''}${Math.round(diff)} (${Math.round(perc)}%)
-                                        </span>
-                                    ` : ''}
+                        <div class="flex flex-col gap-2 p-3 rounded-2xl ${isBench ? 'bg-rose-50 border border-rose-100' : 'bg-slate-50 border border-slate-100 shadow-sm'}">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg ${isBench ? 'bg-rose-500' : 'bg-blue-500'} text-white flex items-center justify-center text-[10px] font-bold">
+                                    ${isBench ? '<i class="fas fa-crown"></i>' : u.nome.substring(0, 2).toUpperCase()}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[10px] font-black text-slate-700 truncate">${u.nome}${isBench ? ' (REF)' : ''}</p>
+                                    <span class="text-[10px] font-bold text-slate-500">${Math.round(uAvg)} metas/dia</span>
                                 </div>
                             </div>
+                            ${!isBench ? `
+                                <div class="pt-2 border-t border-slate-200 mt-1">
+                                    <p class="text-[9px] font-black uppercase ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'} leading-tight">
+                                        ${diff >= 0 ? 'ACIMA' : 'ABAIXO'} DA REFERÊNCIA
+                                    </p>
+                                    <p class="text-[11px] font-black text-slate-800">
+                                        ${diff >= 0 ? '+' : ''}${Math.round(diff)} metas/dia (${Math.round(perc)}%)
+                                    </p>
+                                </div>
+                            ` : `
+                                <div class="pt-2 border-t border-rose-200 mt-1 opacity-60 italic">
+                                    <p class="text-[9px] font-black text-rose-800 uppercase tracking-tighter">Padrão de Performance</p>
+                                    <p class="text-[11px] font-black text-rose-900 leading-tight">Meta de Referência</p>
+                                </div>
+                            `}
                         </div>
                     `;
                 });
