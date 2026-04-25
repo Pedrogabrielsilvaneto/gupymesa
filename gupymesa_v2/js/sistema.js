@@ -168,7 +168,7 @@ const Sistema = {
     },
 
     atualizarVersaoGlobal() {
-        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.3';
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.?.?.?';
         const ids = ['lib-footer-version', 'global-footer-version'];
         ids.forEach(id => {
             const el = document.getElementById(id);
