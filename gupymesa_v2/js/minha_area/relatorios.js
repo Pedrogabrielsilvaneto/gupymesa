@@ -796,20 +796,24 @@ MinhaArea.Relatorios = {
             }
 
             const isSingle = labels.length === 1;
-            const colors = ['#3b82f6', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a'];
+            const userColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a', '#0f172a'];
+            const benchColor = '#f43f5e'; // Rose fixo para Benchmark
+
             const datasets = usersToDraw.map((u, i) => {
                 const isBench = u.id == this._gapBenchmarkId;
+                const baseColor = isBench ? benchColor : userColors[i % userColors.length];
+                
                 return {
                     label: isBench ? u.nome + " (Referência)" : u.nome,
                     data: meses.map(m => u.meses[m] || 0),
-                    backgroundColor: isSingle ? (isBench ? '#f43f5eCC' : colors[i % colors.length] + 'CC') : colors[i % colors.length] + '20',
-                    borderColor: isBench ? '#f43f5e' : colors[i % colors.length],
+                    backgroundColor: isSingle ? baseColor + 'CC' : baseColor + '20',
+                    borderColor: baseColor,
                     borderWidth: isSingle ? 0 : 2,
                     borderRadius: isSingle ? 8 : 0,
                     tension: 0.3,
                     fill: !isSingle,
                     pointRadius: isSingle ? 0 : 4,
-                    pointBackgroundColor: isBench ? '#f43f5e' : colors[i % colors.length]
+                    pointBackgroundColor: baseColor
                 };
             });
 
@@ -874,6 +878,8 @@ MinhaArea.Relatorios = {
             const isSingle = labels.length === 1;
             const userData = meses.map(m => user.meses[m] || 0);
             const refData = meses.map(m => benchmark.meses[m] || 0);
+            const userBaseColor = '#3b82f6'; // Azul fixo para usuário
+            const refBaseColor = '#f43f5e';  // Rose fixo para referência
 
             this._gapChartInstance = new Chart(ctx, {
                 type: isSingle ? 'bar' : 'line',
@@ -883,8 +889,8 @@ MinhaArea.Relatorios = {
                         { 
                             label: user.nome, 
                             data: userData, 
-                            backgroundColor: isSingle ? '#3b82f6' : '#3b82f620', 
-                            borderColor: '#3b82f6',
+                            backgroundColor: isSingle ? userBaseColor : userBaseColor + '20', 
+                            borderColor: userBaseColor,
                             borderWidth: 2,
                             borderRadius: isSingle ? 8 : 0,
                             fill: !isSingle,
@@ -893,8 +899,8 @@ MinhaArea.Relatorios = {
                         { 
                             label: "Referência", 
                             data: refData, 
-                            backgroundColor: isSingle ? '#f43f5e' : '#f43f5e20', 
-                            borderColor: '#f43f5e',
+                            backgroundColor: isSingle ? refBaseColor : refBaseColor + '20', 
+                            borderColor: refBaseColor,
                             borderWidth: 2,
                             borderRadius: isSingle ? 8 : 0,
                             fill: !isSingle,
