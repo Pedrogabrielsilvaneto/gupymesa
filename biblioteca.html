@@ -60,10 +60,6 @@
 
 <body class="bg-slate-50">
 
-    <script src="js/config.js"></script>
-    <script src="js/sistema.js?v=20260424_v1.1"></script>
-    <script src="js/biblioteca/main.js?v=20260424_v1.1"></script>
-
     <div class="max-w-[1500px] mx-auto px-4 pb-12">
 
         <!-- Header Fixo (Search Bar) -->
@@ -419,9 +415,16 @@
         </div>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/sistema.js"></script>
-    <script src="js/menu/global.js?v=20260313_v1"></script>
+    <script src="js/config.js?v=1.1.6"></script>
+    <script src="js/sistema.js?v=1.1.6"></script>
+    <script src="js/biblioteca/main.js?v=1.1.6"></script>
+    <script src="js/menu/global.js?v=1.1.6"></script>
+
+    <!-- Datalists para Autocomplete na Modal -->
+    <datalist id="list-empresas"></datalist>
+    <datalist id="list-motivos"></datalist>
+    <datalist id="list-docs"></datalist>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (window.GupyBiblioteca) {

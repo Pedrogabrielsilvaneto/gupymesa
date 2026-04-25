@@ -4,7 +4,7 @@
  * Removido: Dependência do Supabase (Abril/2026)
  */
 
-const Sistema = {
+window.Sistema = window.Sistema || {
     usuarioLogado: null,
 
     // --- INICIALIZAÇÃO CENTRALIZADA ---

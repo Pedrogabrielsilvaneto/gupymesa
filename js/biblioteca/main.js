@@ -1,7 +1,7 @@
 /**
  * ARQUIVO: js/biblioteca/main.js
  * DESCRIÇÃO: Controlador da página Biblioteca (TiDB / Vercel Edition)
- * VERSÃO: V.1.1.5
+ * VERSÃO: V.1.1.6
  */
 
 window.GupyBiblioteca = {
@@ -11,6 +11,7 @@ window.GupyBiblioteca = {
     usuario: null,
     cacheFavoritos: [], 
     verFavoritos: false,
+    abaAtiva: 'todas',
 
     // Mapeamentos de cores dinâmicos
     mapaCoresEmpresas: {},
@@ -33,7 +34,7 @@ window.GupyBiblioteca = {
     ],
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.1.5 (Colors Sync)");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.1.6");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -72,6 +73,19 @@ window.GupyBiblioteca = {
             inputCep.addEventListener('input', () => this.mascararCEP(inputCep));
             inputCep.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.buscarCEP(); });
         }
+        const inputCid = document.getElementById('lib-cid-input');
+        if (inputCid) {
+            inputCid.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.buscarCID(); });
+        }
+        const inputSigla = document.getElementById('lib-sigla-input');
+        if (inputSigla) {
+            inputSigla.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.buscarSigla(); });
+        }
+        const inputCalc = document.getElementById('lib-calc-data-input');
+        if (inputCalc) {
+            inputCalc.addEventListener('input', (e) => this.mascararData(e.target));
+            inputCalc.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.processarCalculadora(); });
+        }
     },
 
     isAdmin: function () {
@@ -98,16 +112,12 @@ window.GupyBiblioteca = {
             const grid = document.getElementById('grid-frases');
             if (grid) grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10"><i class="fas fa-circle-notch fa-spin mr-2"></i>Sincronizando Sistema...</div>';
 
-            // 1. Carregar Empresas cadastradas no sistema
             const empresas = await this.callAPI({ action: 'select', table: 'empresas' });
             this.cacheEmpresas = empresas || [];
-            this.gerarMapaCoresEmpresas();
-
-            // 2. Carregar Frases
+            
             const frases = await this.callAPI({ action: 'select', table: 'frases' });
             if (!frases) throw new Error("Falha ao carregar frases");
 
-            // 3. Carregar Usos
             let meusUsosMap = {};
             if (this.usuario) {
                 const stats = await this.callAPI({ action: 'select', table: 'view_usos_pessoais', queryParams: { usuario: String(this.usuario.id) } });
@@ -120,11 +130,10 @@ window.GupyBiblioteca = {
                 _busca: this.normalizar(f.conteudo + (f.empresa || '') + (f.motivo || '') + (f.documento || ''))
             }));
 
-            // 4. Gerar mapas de cores para Motivos e Documentos
+            this.gerarMapaCoresEmpresas();
             this.gerarMapaCoresDocs();
             this.gerarMapaCoresMotivos();
 
-            // Ordenação: Meus Usos > Usos Equipe
             this.cacheFrases.sort((a, b) => {
                 if (b.meus_usos !== a.meus_usos) return b.meus_usos - a.meus_usos;
                 return (b.usos || 0) - (a.usos || 0);
@@ -138,13 +147,11 @@ window.GupyBiblioteca = {
     },
 
     gerarMapaCoresEmpresas: function() {
-        const nomes = this.cacheEmpresas.map(e => e.nome.toUpperCase());
-        // Adiciona "GERAL" e outras que podem estar nas frases mas não na tabela empresas
+        const nomes = this.cacheEmpresas.map(e => (e.nome || '').toUpperCase());
         const extras = [...new Set(this.cacheFrases.map(f => (f.empresa || 'GERAL').toUpperCase()))];
         const todos = [...new Set([...nomes, ...extras])].sort();
         
         todos.forEach((nome, i) => {
-            // Regras especiais para marcas conhecidas
             if (nome.includes('CLARO')) this.mapaCoresEmpresas[nome] = 'bg-red-600 text-white border-red-700';
             else if (nome.includes('TIM')) this.mapaCoresEmpresas[nome] = 'bg-blue-600 text-white border-blue-700';
             else if (nome.includes('VIVO')) this.mapaCoresEmpresas[nome] = 'bg-indigo-600 text-white border-indigo-700';
@@ -167,11 +174,10 @@ window.GupyBiblioteca = {
     gerarMapaCoresMotivos: function() {
         const motivos = [...new Set(this.cacheFrases.map(f => (f.motivo || 'SEM MOTIVO').toUpperCase()))].sort();
         motivos.forEach((mot, i) => {
-            // Prioridade para motivos críticos
-            if (mot.includes('NITIDEZ')) this.mapaCoresMotivos[mot] = this.palette[3]; // Rose
-            else if (mot.includes('VISIBILIDADE')) this.mapaCoresMotivos[mot] = this.palette[9]; // Orange
-            else if (mot.includes('INVALIDO')) this.mapaCoresMotivos[mot] = this.palette[3]; // Reddish
-            else if (mot.includes('QUALIDADE')) this.mapaCoresMotivos[mot] = this.palette[1]; // Emerald
+            if (mot.includes('NITIDEZ')) this.mapaCoresMotivos[mot] = this.palette[3]; 
+            else if (mot.includes('VISIBILIDADE')) this.mapaCoresMotivos[mot] = this.palette[9];
+            else if (mot.includes('INVALIDO')) this.mapaCoresMotivos[mot] = this.palette[3];
+            else if (mot.includes('QUALIDADE')) this.mapaCoresMotivos[mot] = this.palette[1];
             else this.mapaCoresMotivos[mot] = this.palette[(i + 5) % this.palette.length];
         });
     },
@@ -259,21 +265,32 @@ window.GupyBiblioteca = {
         } catch (e) { console.error(e); }
     },
 
-    aplicarFiltros: function (scrollToTop) {
+    aplicarFiltros: function (scrollToTop, clearBtn) {
         const termo = this.normalizar(document.getElementById('lib-search')?.value || '');
+        const termo2 = this.normalizar(document.getElementById('lib-search-2')?.value || '');
         const valEmpresa = document.getElementById('lib-filtro-empresa')?.value || '';
         const valMotivo = document.getElementById('lib-filtro-motivo')?.value || '';
         const valDoc = document.getElementById('lib-filtro-doc')?.value || '';
 
+        const btnLimpar = document.getElementById('btn-limpar-busca');
+        if (btnLimpar) {
+            if (termo || termo2) btnLimpar.classList.remove('hidden');
+            else btnLimpar.classList.add('hidden');
+        }
+
         let filtrados = this.cacheFrases;
-        if (this.verFavoritos) filtrados = filtrados.filter(f => this.cacheFavoritos.includes(String(f.id)));
+        if (this.abaAtiva === 'favoritas') {
+            filtrados = filtrados.filter(f => this.cacheFavoritos.includes(String(f.id)));
+        }
 
         if (termo) filtrados = filtrados.filter(f => f._busca.includes(termo));
+        if (termo2) filtrados = filtrados.filter(f => f._busca.includes(termo2));
         if (valEmpresa) filtrados = filtrados.filter(f => f.empresa === valEmpresa);
         if (valMotivo) filtrados = filtrados.filter(f => f.motivo === valMotivo);
         if (valDoc) filtrados = filtrados.filter(f => f.documento === valDoc);
 
-        if (!termo && !valEmpresa && !valMotivo && !valDoc && !this.verFavoritos) {
+        const isFiltered = termo || termo2 || valEmpresa || valMotivo || valDoc || this.abaAtiva === 'favoritas';
+        if (!isFiltered) {
             filtrados = filtrados.slice(0, 6); 
         }
 
@@ -281,6 +298,127 @@ window.GupyBiblioteca = {
         if (scrollToTop) window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
+    setAba: function(aba) {
+        this.abaAtiva = aba;
+        document.getElementById('aba-todas').classList.toggle('active', aba === 'todas');
+        document.getElementById('aba-favoritas').classList.toggle('active', aba === 'favoritas');
+        this.aplicarFiltros(true);
+    },
+
+    limparBusca: function() {
+        document.getElementById('lib-search').value = '';
+        document.getElementById('lib-search-2').value = '';
+        this.aplicarFiltros(true);
+    },
+
+    toggleOpcoes: function() {
+        const d = document.getElementById('dropdown-opcoes');
+        if (d) d.classList.toggle('hidden');
+    },
+
+    toggleFiltrosDropdown: function() {
+        const sub = document.getElementById('submenu-filtros');
+        const icon = document.getElementById('icon-filtros-chevron');
+        if (sub) {
+            sub.classList.toggle('hidden');
+            if (icon) icon.classList.toggle('rotate-180', !sub.classList.contains('hidden'));
+        }
+    },
+
+    limparFiltros: function() {
+        document.getElementById('lib-filtro-empresa').value = '';
+        document.getElementById('lib-filtro-motivo').value = '';
+        document.getElementById('lib-filtro-doc').value = '';
+        this.aplicarFiltros(true);
+    },
+
+    // --- CEP ---
+    mascararCEP: function(el) {
+        let v = el.value.replace(/\D/g, "");
+        if (v.length > 5) v = v.substring(0, 5) + "-" + v.substring(5, 8);
+        el.value = v;
+    },
+    buscarCEP: async function() {
+        const cep = document.getElementById('lib-cep-input').value.replace(/\D/g, "");
+        if (cep.length !== 8) return;
+        const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await res.json();
+        if (data.erro) return;
+        document.getElementById('lib-cep-display-num').innerText = data.cep;
+        document.getElementById('lib-cep-logradouro').innerText = data.logradouro;
+        document.getElementById('lib-cep-bairro').innerText = data.bairro;
+        document.getElementById('lib-cep-localidade').innerText = `${data.localidade} - ${data.uf}`;
+        document.getElementById('lib-cep-resultado').classList.remove('hidden');
+    },
+    copiarTextoSimples: function(t) {
+        navigator.clipboard.writeText(t);
+        if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Copiado!', showConfirmButton: false, timer: 1000 });
+    },
+
+    // --- CID ---
+    buscarCID: async function() {
+        const termo = document.getElementById('lib-cid-input').value.trim();
+        if (!termo) return;
+        // Simulação ou chamada real se houver API. Por enquanto busca básica em cache ou alerta.
+        Swal.fire({ title: 'Buscando CID...', text: 'Integração com base WHO em andamento.', icon: 'info', timer: 2000 });
+    },
+
+    // --- Siglas ---
+    buscarSigla: function() {
+        const s = document.getElementById('lib-sigla-input').value.toUpperCase().trim();
+        const base = { 'SSP': 'Secretaria de Segurança Pública', 'DETRAN': 'Departamento Estadual de Trânsito', 'DIC': 'Diretoria de Identificação Civil' };
+        const res = base[s];
+        if (res) {
+            document.getElementById('lib-sigla-display-code').innerText = s;
+            document.getElementById('lib-sigla-descricao').innerText = res;
+            document.getElementById('lib-sigla-resultado').classList.remove('hidden');
+        }
+    },
+
+    // --- Calculadora ---
+    abrirCalculadora: function() { document.getElementById('modal-lib-calculadora').classList.remove('hidden'); },
+    fecharCalculadora: function() { document.getElementById('modal-lib-calculadora').classList.add('hidden'); },
+    mudarModoCalculadora: function(modo) {
+        this.modoCalculadora = modo;
+        document.getElementById('lib-calc-btn-intervalo').classList.toggle('bg-white', modo === 'intervalo');
+        document.getElementById('lib-calc-btn-soma').classList.toggle('bg-white', modo === 'soma');
+        document.getElementById('lib-calc-container-soma').classList.toggle('hidden', modo === 'intervalo');
+        document.getElementById('lib-calc-label-input').innerText = modo === 'intervalo' ? 'Data Inicial / Nascimento' : 'Data Base';
+    },
+    mascararData: function(el) {
+        let v = el.value.replace(/\D/g, "");
+        if (v.length > 2) v = v.substring(0, 2) + "/" + v.substring(2);
+        if (v.length > 5) v = v.substring(0, 5) + "/" + v.substring(5, 9);
+        el.value = v;
+    },
+    processarCalculadora: function() {
+        const val = document.getElementById('lib-calc-data-input').value;
+        const [d, m, y] = val.split('/').map(Number);
+        if (!d || !m || !y) return;
+        const dataIn = new Date(y, m - 1, d);
+        const hoje = new Date();
+        const diffTime = Math.abs(hoje - dataIn);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        document.getElementById('lib-res-data-inserida').innerText = val;
+        document.getElementById('lib-res-principal').innerText = diffDays;
+        
+        // Detalhado
+        let years = hoje.getFullYear() - dataIn.getFullYear();
+        let months = hoje.getMonth() - dataIn.getMonth();
+        let days = hoje.getDate() - dataIn.getDate();
+        if (days < 0) { months--; days += 30; }
+        if (months < 0) { years--; months += 12; }
+        
+        document.getElementById('lib-res-anos').innerText = years;
+        document.getElementById('lib-res-meses').innerText = months;
+        document.getElementById('lib-res-semanas').innerText = Math.floor(diffDays / 7);
+        document.getElementById('lib-res-dias').innerText = days;
+        
+        document.getElementById('lib-calc-resultados').classList.remove('hidden');
+    },
+
+    // --- Outros ---
     atualizarFiltrosSelects: function() {
         const getLista = (prop) => [...new Set(this.cacheFrases.map(f => f[prop] || 'Geral'))].sort();
         this.encherSelect('lib-filtro-empresa', getLista('empresa'), 'Empresa');
@@ -297,25 +435,23 @@ window.GupyBiblioteca = {
     normalizar: t => (t || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
     
     atualizarRodape: function () {
-        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.5';
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.6';
         const footer = document.getElementById('lib-footer-version');
         if (footer) footer.innerText = ver;
+        if (window.Sistema) Sistema.atualizarVersaoGlobal();
     },
 
-    abrirCalculadora: () => { const m = document.getElementById('modal-lib-calc'); if(m) m.classList.remove('hidden'); },
-
-    filtrarPorEmpresa: function(e) { document.getElementById('lib-filtro-empresa').value = e; this.aplicarFiltros(); },
-    filtrarPorDocumento: function(d) { document.getElementById('lib-filtro-doc').value = d; this.aplicarFiltros(); },
-    filtrarPorMotivo: function(m) { document.getElementById('lib-filtro-motivo').value = m; this.aplicarFiltros(); },
+    filtrarPorEmpresa: function(e) { document.getElementById('lib-filtro-empresa').value = e; this.aplicarFiltros(true); },
+    filtrarPorDocumento: function(d) { document.getElementById('lib-filtro-doc').value = d; this.aplicarFiltros(true); },
+    filtrarPorMotivo: function(m) { document.getElementById('lib-filtro-motivo').value = m; this.aplicarFiltros(true); },
 
     prepararEdicao: function (id) {
         const f = this.cacheFrases.find(i => i.id == id);
-        if (!f) return;
-        document.getElementById('lib-form-id').value = f.id;
-        document.getElementById('lib-form-conteudo').value = f.conteudo;
-        document.getElementById('lib-form-empresa').value = f.empresa || "";
-        document.getElementById('lib-form-doc').value = f.documento || "";
-        document.getElementById('lib-form-motivo').value = f.motivo || "";
+        document.getElementById('lib-form-id').value = f ? f.id : '';
+        document.getElementById('lib-form-conteudo').value = f ? f.conteudo : '';
+        document.getElementById('lib-form-empresa').value = f ? (f.empresa || "") : '';
+        document.getElementById('lib-form-doc').value = f ? (f.documento || "") : '';
+        document.getElementById('lib-form-motivo').value = f ? (f.motivo || "") : '';
         document.getElementById('modal-lib-frase').classList.remove('hidden');
     },
 
