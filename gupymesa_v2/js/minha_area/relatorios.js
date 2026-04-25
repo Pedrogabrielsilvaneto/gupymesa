@@ -833,6 +833,41 @@ MinhaArea.Relatorios = {
                     }
                 }
             });
+
+            // [NOVO] Renderiza o resumo de GAP fixo abaixo do gráfico
+            const summaryContainer = document.getElementById('gap-summary-container');
+            if (summaryContainer) {
+                const bench = roadmap[this._gapBenchmarkId];
+                const benchAvg = meses.reduce((acc, m) => acc + (bench.meses[m] || 0), 0) / meses.length;
+                
+                let html = '';
+                usersToDraw.forEach(u => {
+                    const isBench = u.id == this._gapBenchmarkId;
+                    const uAvg = meses.reduce((acc, m) => acc + (u.meses[m] || 0), 0) / meses.length;
+                    const diff = uAvg - benchAvg;
+                    const perc = benchAvg > 0 ? (diff / benchAvg) * 100 : 0;
+                    
+                    html += `
+                        <div class="flex items-center gap-3 p-3 rounded-xl ${isBench ? 'bg-rose-50 border border-rose-100' : 'bg-slate-50 border border-slate-100'}">
+                            <div class="w-8 h-8 rounded-lg ${isBench ? 'bg-rose-500' : 'bg-blue-500'} text-white flex items-center justify-center text-[10px] font-bold">
+                                ${isBench ? '<i class="fas fa-crown"></i>' : u.nome.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[10px] font-black text-slate-700 truncate">${u.nome}${isBench ? ' (REF)' : ''}</p>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-slate-500">${Math.round(uAvg)} m/d</span>
+                                    ${!isBench ? `
+                                        <span class="text-[9px] font-black ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                                            ${diff >= 0 ? '+' : ''}${Math.round(diff)} (${Math.round(perc)}%)
+                                        </span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                summaryContainer.innerHTML = html;
+            }
         }, 150);
     },
 
@@ -921,6 +956,42 @@ MinhaArea.Relatorios = {
                     }
                 }
             });
+
+            // [NOVO] Resumo individual
+            const summaryContainer = document.getElementById('gap-summary-container');
+            if (summaryContainer) {
+                const uAvg = userData.reduce((a, b) => a + b, 0) / labels.length;
+                const bAvg = refData.reduce((a, b) => a + b, 0) / labels.length;
+                const diff = uAvg - bAvg;
+                const perc = bAvg > 0 ? (diff / bAvg) * 100 : 0;
+
+                summaryContainer.innerHTML = `
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center text-[10px] font-bold">
+                            ${user.nome.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-black text-slate-700 truncate">${user.nome}</p>
+                            <span class="text-[10px] font-bold text-slate-500">${Math.round(uAvg)} m/d</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-rose-50 border border-rose-100">
+                        <div class="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-black text-slate-700 truncate">${benchmark.nome} (REF)</p>
+                            <span class="text-[10px] font-bold text-slate-500">${Math.round(bAvg)} m/d</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-center px-4 bg-slate-900 rounded-xl text-white">
+                        <p class="text-[9px] font-bold uppercase opacity-60">Diferença Final (GAP)</p>
+                        <p class="text-xs font-black ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${diff >= 0 ? '+' : ''}${Math.round(diff)} metas/dia (${Math.round(perc)}%)
+                        </p>
+                    </div>
+                `;
+            }
         }, 150);
     },
 
@@ -959,8 +1030,11 @@ MinhaArea.Relatorios = {
                     </button>
                 </div>
                 <div class="p-8">
-                    <div class="h-[400px] w-full relative">
+                    <div class="h-[350px] w-full relative">
                         <canvas id="gap-chart"></canvas>
+                    </div>
+                    <!-- [NOVO] Container para o Resumo de GAP Fixo -->
+                    <div id="gap-summary-container" class="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto max-h-[150px]">
                     </div>
                 </div>
             </div>
