@@ -12,6 +12,7 @@ window.GupyBiblioteca = {
     cacheFavoritos: [], 
     verFavoritos: false,
     abaAtiva: 'todas',
+    cacheCID: null,
 
     // Mapeamentos de cores dinâmicos
     mapaCoresEmpresas: {},
@@ -358,9 +359,43 @@ window.GupyBiblioteca = {
     // --- CID ---
     buscarCID: async function() {
         const termo = document.getElementById('lib-cid-input').value.trim();
+        const resDiv = document.getElementById('lib-cid-resultado');
+        const resCode = document.getElementById('lib-cid-display-code');
+        const resDesc = document.getElementById('lib-cid-descricao');
+
         if (!termo) return;
-        // Simulação ou chamada real se houver API. Por enquanto busca básica em cache ou alerta.
-        Swal.fire({ title: 'Buscando CID...', text: 'Integração com base WHO em andamento.', icon: 'info', timer: 2000 });
+
+        resCode.innerText = "BUSCANDO...";
+        resDesc.innerText = "Pesquisando nas bases CID-10 e CID-11...";
+        resDiv.classList.remove('hidden');
+
+        try {
+            if (!this.cacheCID) {
+                const response = await fetch(`https://raw.githubusercontent.com/Atiladanvi/cid10-api-php/master/cid10.json`);
+                this.cacheCID = await response.json();
+            }
+            
+            const busca = this.normalizar(termo);
+            const encontrado = this.cacheCID.find(c => 
+                this.normalizar(c.codigo).includes(busca) || 
+                this.normalizar(c.nome).includes(busca)
+            );
+
+            if (encontrado) {
+                resCode.innerText = "CID-10: " + encontrado.codigo;
+                resDesc.innerText = encontrado.nome;
+            } else {
+                resCode.innerText = "NÃO ENCONTRADO NO CID-10";
+                resDesc.innerHTML = `Não encontramos o termo "${termo}" na base local CID-10.<br><br>
+                <a href="https://icd.who.int/browse11/l-m/pt#/http%3a%2f%2fid.who.int%2ficd%2fentity%2f${termo}" target="_blank" class="text-rose-600 font-black underline flex items-center gap-2">
+                    <i class="fas fa-external-link-alt"></i> Tentar Busca Oficial na CID-11 (WHO)
+                </a>`;
+            }
+        } catch (e) {
+            console.error("Erro busca CID:", e);
+            resCode.innerText = "ERRO NA BUSCA";
+            resDesc.innerText = "Não foi possível conectar à base de dados. Tente novamente mais tarde.";
+        }
     },
 
     // --- Siglas ---
