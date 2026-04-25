@@ -763,7 +763,10 @@ MinhaArea.Relatorios = {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 const ctx = document.getElementById('gap-chart');
-                if (!ctx || typeof Chart === 'undefined') return;
+                if (!ctx || typeof Chart === 'undefined') {
+                    console.error("Canvas 'gap-chart' não encontrado ou Chart.js não carregado.");
+                    return;
+                }
                 if (this._gapChartInstance) this._gapChartInstance.destroy();
 
                 const meses = [];
@@ -820,7 +823,10 @@ MinhaArea.Relatorios = {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 const ctx = document.getElementById('gap-chart');
-                if (!ctx || typeof Chart === 'undefined') return;
+                if (!ctx || typeof Chart === 'undefined') {
+                    console.error("Canvas 'gap-chart' não encontrado ou Chart.js não carregado.");
+                    return;
+                }
                 if (this._gapChartInstance) this._gapChartInstance.destroy();
 
                 const meses = [];
