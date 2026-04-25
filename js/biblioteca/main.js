@@ -35,7 +35,7 @@ window.GupyBiblioteca = {
     ],
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.1.6");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.1.8");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -371,19 +371,20 @@ window.GupyBiblioteca = {
 
         try {
             if (!this.cacheCID) {
-                const response = await fetch(`https://raw.githubusercontent.com/Atiladanvi/cid10-api-php/master/cid10.json`);
+                // Fonte estável verificada via subagente
+                const response = await fetch(`https://raw.githubusercontent.com/N1nh4/api-cid-10/master/api/cid10.json`);
                 this.cacheCID = await response.json();
             }
             
             const busca = this.normalizar(termo);
             const encontrado = this.cacheCID.find(c => 
                 this.normalizar(c.codigo).includes(busca) || 
-                this.normalizar(c.nome).includes(busca)
+                this.normalizar(c.descricao).includes(busca)
             );
 
             if (encontrado) {
                 resCode.innerText = "CID-10: " + encontrado.codigo;
-                resDesc.innerText = encontrado.nome;
+                resDesc.innerText = encontrado.descricao;
             } else {
                 resCode.innerText = "NÃO ENCONTRADO NO CID-10";
                 resDesc.innerHTML = `Não encontramos o termo "${termo}" na base local CID-10.<br><br>
