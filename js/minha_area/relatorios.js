@@ -895,8 +895,13 @@ MinhaArea.Relatorios = {
     },
 
     verificarEInjetarModalGrafico: function() {
-        if (document.getElementById('gap-chart-container')) return;
-        console.warn("Modal de gráfico não encontrado no HTML. Injetando dinamicamente...");
+        const canvas = document.getElementById('gap-chart');
+        if (canvas && canvas.tagName === 'CANVAS') return;
+        
+        const old = document.getElementById('gap-chart-container');
+        if (old) old.remove();
+
+        console.warn("Modal de gráfico não encontrado ou incompleto. Injetando...");
         
         const modal = document.createElement('div');
         modal.id = 'gap-chart-container';
