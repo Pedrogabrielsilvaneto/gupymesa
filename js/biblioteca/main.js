@@ -50,7 +50,7 @@ window.GupyBiblioteca = {
     ],
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.2.0");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.2.1");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -479,6 +479,9 @@ window.GupyBiblioteca = {
         document.getElementById('lib-calc-btn-soma').classList.toggle('bg-white', modo === 'soma');
         document.getElementById('lib-calc-container-soma').classList.toggle('hidden', modo === 'intervalo');
         document.getElementById('lib-calc-label-input').innerText = modo === 'intervalo' ? 'Data Inicial / Nascimento' : 'Data Base';
+        
+        // Recalcular imediatamente ao trocar o modo
+        this.processarCalculadora();
     },
     mascararData: function(el) {
         let v = el.value.replace(/\D/g, "");
@@ -516,6 +519,7 @@ window.GupyBiblioteca = {
         const resDataInserida = document.getElementById('lib-res-data-inserida');
         const resLabelSecundaria = document.getElementById('lib-res-label-secundaria');
         const resContainerDetalhes = document.getElementById('lib-res-detalhes');
+        const resUnidade = document.getElementById('lib-res-unidade');
 
         if (this.modoCalculadora === 'intervalo') {
             // MODO INTERVALO (Tempo Decorrido)
@@ -527,6 +531,7 @@ window.GupyBiblioteca = {
             resPrincipal.innerText = diffDays;
             resLabelPrincipal.innerText = "Total Dias Corridos";
             resContainerDetalhes.classList.remove('hidden');
+            if (resUnidade) resUnidade.classList.remove('hidden');
 
             // Detalhado
             let years = hoje.getFullYear() - dataIn.getFullYear();
@@ -558,6 +563,7 @@ window.GupyBiblioteca = {
             resPrincipal.innerText = dataResult.toLocaleDateString('pt-BR');
             resLabelPrincipal.innerText = op === 'somar' ? "Data no Futuro" : "Data no Passado";
             resContainerDetalhes.classList.add('hidden');
+            if (resUnidade) resUnidade.classList.add('hidden');
         }
         
         document.getElementById('lib-calc-resultados').classList.remove('hidden');
