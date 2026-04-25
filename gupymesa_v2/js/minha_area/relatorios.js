@@ -760,53 +760,62 @@ MinhaArea.Relatorios = {
         container.classList.remove('hidden');
         document.getElementById('chart-user-name').textContent = "Comparativo Geral de Performance";
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                const ctx = document.getElementById('gap-chart');
-                if (!ctx || typeof Chart === 'undefined') {
-                    console.error("Canvas 'gap-chart' não encontrado ou Chart.js não carregado.");
-                    return;
-                }
-                if (this._gapChartInstance) this._gapChartInstance.destroy();
+        setTimeout(() => {
+            const canvas = document.getElementById('gap-chart');
+            if (!canvas || canvas.tagName !== 'CANVAS') {
+                console.error("Canvas 'gap-chart' não encontrado ou inválido.");
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error("Não foi possível obter o contexto 2D do canvas.");
+                return;
+            }
 
-                const meses = [];
-                const labels = [];
-                for (let m = mesIni; m <= mesFim; m++) {
-                    meses.push(m);
-                    labels.push('Mês ' + m);
-                }
+            if (typeof Chart === 'undefined') {
+                console.error("Chart.js não carregado.");
+                return;
+            }
+            
+            if (this._gapChartInstance) this._gapChartInstance.destroy();
 
-                const colors = ['#3b82f6', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a'];
-                const datasets = usersToDraw.map((u, i) => ({
-                    label: u.nome,
-                    data: meses.map(m => u.meses[m] || 0),
-                    backgroundColor: colors[i % colors.length] + '20',
-                    borderColor: colors[i % colors.length],
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 4,
-                    pointBackgroundColor: colors[i % colors.length]
-                }));
+            const meses = [];
+            const labels = [];
+            for (let m = mesIni; m <= mesFim; m++) {
+                meses.push(m);
+                labels.push('Mês ' + m);
+            }
 
-                this._gapChartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels, datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12, usePointStyle: true } },
-                            tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
-                            x: { grid: { display: false } }
-                        }
+            const colors = ['#3b82f6', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a'];
+            const datasets = usersToDraw.map((u, i) => ({
+                label: u.nome,
+                data: meses.map(m => u.meses[m] || 0),
+                backgroundColor: colors[i % colors.length] + '20',
+                borderColor: colors[i % colors.length],
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 4,
+                pointBackgroundColor: colors[i % colors.length]
+            }));
+
+            this._gapChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12, usePointStyle: true } },
+                        tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
+                        x: { grid: { display: false } }
                     }
-                });
+                }
             });
-        });
+        }, 150);
     },
 
     abrirGrafico: function(userId) {
@@ -820,49 +829,58 @@ MinhaArea.Relatorios = {
         container.classList.remove('hidden');
         document.getElementById('chart-user-name').textContent = user.nome + " vs Benchmark";
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                const ctx = document.getElementById('gap-chart');
-                if (!ctx || typeof Chart === 'undefined') {
-                    console.error("Canvas 'gap-chart' não encontrado ou Chart.js não carregado.");
-                    return;
-                }
-                if (this._gapChartInstance) this._gapChartInstance.destroy();
+        setTimeout(() => {
+            const canvas = document.getElementById('gap-chart');
+            if (!canvas || canvas.tagName !== 'CANVAS') {
+                console.error("Canvas 'gap-chart' não encontrado ou inválido.");
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error("Não foi possível obter o contexto 2D do canvas.");
+                return;
+            }
 
-                const meses = [];
-                const labels = [];
-                for (let m = mesIni; m <= mesFim; m++) {
-                    meses.push(m);
-                    labels.push('Mês ' + m);
-                }
+            if (typeof Chart === 'undefined') {
+                console.error("Chart.js não carregado.");
+                return;
+            }
+            
+            if (this._gapChartInstance) this._gapChartInstance.destroy();
 
-                const userData = meses.map(m => user.meses[m] || 0);
-                const refData = meses.map(m => benchmark.meses[m] || 0);
+            const meses = [];
+            const labels = [];
+            for (let m = mesIni; m <= mesFim; m++) {
+                meses.push(m);
+                labels.push('Mês ' + m);
+            }
 
-                this._gapChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            { label: user.nome, data: userData, backgroundColor: '#3b82f6', borderRadius: 6 },
-                            { label: "Referência", data: refData, backgroundColor: '#f43f5e', borderRadius: 6 }
-                        ]
+            const userData = meses.map(m => user.meses[m] || 0);
+            const refData = meses.map(m => benchmark.meses[m] || 0);
+
+            this._gapChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: user.nome, data: userData, backgroundColor: '#3b82f6', borderRadius: 6 },
+                        { label: "Referência", data: refData, backgroundColor: '#f43f5e', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12 } },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12 } },
-                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
-                            x: { grid: { display: false } }
-                        }
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
+                        x: { grid: { display: false } }
                     }
-                });
+                }
             });
-        });
+        }, 150);
     },
 
     fecharGrafico: function() {
