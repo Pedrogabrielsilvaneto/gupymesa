@@ -672,19 +672,24 @@ MinhaArea.Relatorios = {
             </div>
             
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-[10px] font-black text-slate-400 uppercase mr-2">Exibir:</span>
-                    <button onclick="MinhaArea.Relatorios.toggleAllGap(true)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition text-slate-600">Todos</button>
-                    <button onclick="MinhaArea.Relatorios.toggleAllGap(false)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition text-slate-600">Nenhum</button>
-                    <div class="h-4 w-px bg-slate-200 mx-2"></div>
-                    <div class="flex flex-wrap gap-1.5">`;
+                <div class="flex flex-wrap gap-2 items-center justify-between">
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <span class="text-[10px] font-black text-slate-400 uppercase mr-2">Exibir:</span>
+                        <button onclick="MinhaArea.Relatorios.toggleAllGap(true)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition text-slate-600">Todos</button>
+                        <button onclick="MinhaArea.Relatorios.toggleAllGap(false)" class="px-2 py-1 rounded bg-slate-100 text-[9px] font-bold hover:bg-slate-200 transition text-slate-600">Nenhum</button>
+                        <div class="h-4 w-px bg-slate-200 mx-2"></div>
+                        <div class="flex flex-wrap gap-1.5">`;
         
         lista.forEach(as => {
             const isSel = this._selectedGapUsers.has(as.id) || this._selectedGapUsers.size === 0;
             html += `<button onclick="MinhaArea.Relatorios.toggleUserGap('${as.id}')" class="px-2 py-1 rounded-full border text-[9px] font-bold transition ${isSel ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-rose-300'}">${as.nome}</button>`;
         });
         
-        html += `</div></div></div>
+        html += `</div></div>
+                    <button onclick="MinhaArea.Relatorios.abrirGraficoComparativo()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest transition shadow-lg shadow-blue-100 flex items-center gap-2">
+                        <i class="fas fa-chart-line"></i> Ver Gráfico Comparativo
+                    </button>
+                </div>
             </div>
             
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
@@ -745,6 +750,62 @@ MinhaArea.Relatorios = {
         this.renderizarGAP();
     },
 
+    abrirGraficoComparativo: function() {
+        if (!this._gapData) return;
+        const { roadmap, mesIni, mesFim } = this._gapData;
+        const selectedIds = Array.from(this._selectedGapUsers);
+        const usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : Object.values(roadmap);
+
+        const container = document.getElementById('gap-chart-container');
+        container.classList.remove('hidden');
+        document.getElementById('chart-user-name').textContent = "Comparativo Geral de Performance";
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const ctx = document.getElementById('gap-chart');
+                if (!ctx || typeof Chart === 'undefined') return;
+                if (this._gapChartInstance) this._gapChartInstance.destroy();
+
+                const meses = [];
+                const labels = [];
+                for (let m = mesIni; m <= mesFim; m++) {
+                    meses.push(m);
+                    labels.push('Mês ' + m);
+                }
+
+                const colors = ['#3b82f6', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#71717a'];
+                const datasets = usersToDraw.map((u, i) => ({
+                    label: u.nome,
+                    data: meses.map(m => u.meses[m] || 0),
+                    backgroundColor: colors[i % colors.length] + '20',
+                    borderColor: colors[i % colors.length],
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: colors[i % colors.length]
+                }));
+
+                this._gapChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12, usePointStyle: true } },
+                            tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            });
+        });
+    },
+
     abrirGrafico: function(userId) {
         if (!this._gapData || !userId) return;
         const { roadmap, mesIni, mesFim } = this._gapData;
@@ -754,7 +815,7 @@ MinhaArea.Relatorios = {
 
         const container = document.getElementById('gap-chart-container');
         container.classList.remove('hidden');
-        document.getElementById('chart-user-name').textContent = user.nome;
+        document.getElementById('chart-user-name').textContent = user.nome + " vs Benchmark";
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -762,40 +823,41 @@ MinhaArea.Relatorios = {
                 if (!ctx || typeof Chart === 'undefined') return;
                 if (this._gapChartInstance) this._gapChartInstance.destroy();
 
-            const meses = [];
-            const labels = [];
-            for (let m = mesIni; m <= mesFim; m++) {
-                meses.push(m);
-                labels.push('Mês ' + m);
-            }
-
-            const userData = meses.map(m => user.meses[m] || 0);
-            const refData = meses.map(m => benchmark.meses[m] || 0);
-
-            this._gapChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: user.nome, data: userData, backgroundColor: '#3b82f6', borderRadius: 4 },
-                        { label: benchmark.nome, data: refData, backgroundColor: '#f43f5e', borderRadius: 4 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, title: { display: true, text: 'Metas/Dia' } }
-                    }
+                const meses = [];
+                const labels = [];
+                for (let m = mesIni; m <= mesFim; m++) {
+                    meses.push(m);
+                    labels.push('Mês ' + m);
                 }
+
+                const userData = meses.map(m => user.meses[m] || 0);
+                const refData = meses.map(m => benchmark.meses[m] || 0);
+
+                this._gapChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: user.nome, data: userData, backgroundColor: '#3b82f6', borderRadius: 6 },
+                            { label: "Referência", data: refData, backgroundColor: '#f43f5e', borderRadius: 6 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, boxWidth: 12 } },
+                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)} metas/dia` } }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: 'Metas/Dia', font: { size: 10, weight: 'bold' } } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
             });
         });
-    });
-},
+    },
 
     fecharGrafico: function() {
         document.getElementById('gap-chart-container').classList.add('hidden');
