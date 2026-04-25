@@ -1,7 +1,7 @@
 /**
  * ARQUIVO: js/biblioteca/main.js
  * DESCRIÇÃO: Controlador da página Biblioteca (TiDB / Vercel Edition)
- * VERSÃO: V.1.1.2
+ * VERSÃO: V.1.1.4
  */
 
 window.GupyBiblioteca = {
@@ -12,7 +12,7 @@ window.GupyBiblioteca = {
     verFavoritos: false,
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.1.2 (TiDB)");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.1.4 (TiDB)");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -225,6 +225,7 @@ window.GupyBiblioteca = {
         const textoContador = (f.meus_usos > 0 ? `${f.meus_usos} VEZES USADO POR MIM` : `${f.usos || 0} VEZES USADO PELA EQUIPE`);
         const iconeContador = (f.meus_usos > 0 ? "fa-user-check text-blue-500" : "fa-globe text-slate-400");
         const empColor = this.getEmpresaColor(f.empresa);
+        const motColor = this.getMotivoColor(f.motivo);
 
         return `
             <div id="card-frase-${f.id}" class="flex flex-col bg-white rounded-2xl shadow-sm border border-slate-100 border-l-4 ${colors.card} hover:shadow-md transition-all duration-300 group overflow-hidden">
@@ -243,7 +244,7 @@ window.GupyBiblioteca = {
                     </div>
                 </div>
                 <div class="px-5 py-6 flex-grow">
-                    <h4 onclick="GupyBiblioteca.filtrarPorMotivo('${f.motivo || 'Sem Motivo'}')" class="font-black text-slate-800 text-lg leading-tight mb-4 cursor-pointer hover:text-blue-600 transition-colors inline-block border-b-2 border-transparent hover:border-blue-200">${f.motivo || 'Sem Motivo'}</h4>
+                    <h4 onclick="GupyBiblioteca.filtrarPorMotivo('${f.motivo || 'Sem Motivo'}')" class="font-black ${motColor.text} text-lg leading-tight mb-4 cursor-pointer hover:underline transition-all inline-block">${f.motivo || 'Sem Motivo'}</h4>
                     <p class="text-[15px] text-slate-600 font-medium whitespace-pre-wrap leading-relaxed select-all">${f.conteudo}</p>
                 </div>
                 <div class="px-5 py-3 bg-slate-50/50 border-t border-slate-50">
@@ -364,7 +365,7 @@ window.GupyBiblioteca = {
     normalizar: t => (t || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
     
     atualizarRodape: function () {
-        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.1';
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.4';
         const footer = document.getElementById('lib-footer-version');
         if (footer) footer.innerText = ver;
     },
@@ -426,6 +427,7 @@ window.GupyBiblioteca = {
         if (d.includes('CNH')) return { tag: 'bg-emerald-100 text-emerald-700 border-emerald-200', card: 'border-l-emerald-500' };
         if (d.includes('CERTIDAO')) return { tag: 'bg-rose-100 text-rose-700 border-rose-200', card: 'border-l-rose-500' };
         if (d.includes('COMPROVANTE')) return { tag: 'bg-cyan-100 text-cyan-700 border-cyan-200', card: 'border-l-cyan-500' };
+        if (d.includes('CONTRATO')) return { tag: 'bg-teal-100 text-teal-700 border-teal-200', card: 'border-l-teal-500' };
         return { tag: 'bg-slate-100 text-slate-700 border-slate-200', card: 'border-l-slate-500' };
     },
 
@@ -435,7 +437,20 @@ window.GupyBiblioteca = {
         if (e.includes('TIM')) return 'bg-blue-600 text-white border-blue-700';
         if (e.includes('VIVO')) return 'bg-indigo-600 text-white border-indigo-700';
         if (e.includes('OI')) return 'bg-amber-500 text-white border-amber-600';
+        if (e.includes('NEXTEL')) return 'bg-yellow-500 text-slate-900 border-yellow-600';
         return 'bg-slate-800 text-white border-slate-700';
+    },
+
+    getMotivoColor: function (mot) {
+        const m = (mot || '').toUpperCase();
+        if (m.includes('NITIDEZ')) return { text: 'text-rose-600', tag: 'bg-rose-50 border-rose-100' };
+        if (m.includes('VISIBILIDADE')) return { text: 'text-orange-600', tag: 'bg-orange-50 border-orange-100' };
+        if (m.includes('ASSINATURA')) return { text: 'text-blue-600', tag: 'bg-blue-50 border-blue-100' };
+        if (m.includes('INVALIDO')) return { text: 'text-red-700', tag: 'bg-red-50 border-red-100' };
+        if (m.includes('DIVERGENTE')) return { text: 'text-indigo-600', tag: 'bg-indigo-50 border-indigo-100' };
+        if (m.includes('QUALIDADE')) return { text: 'text-emerald-600', tag: 'bg-emerald-50 border-emerald-100' };
+        if (m.includes('FALTA')) return { text: 'text-slate-500', tag: 'bg-slate-50 border-slate-100' };
+        return { text: 'text-slate-800', tag: 'bg-slate-50 border-slate-100' };
     },
 
     limparBusca: function () {

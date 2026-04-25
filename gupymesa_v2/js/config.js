@@ -1,3 +1,3 @@
 const CONFIG = {
-    VERSION: "V.1.1.3"
+    VERSION: "V.1.1.4"
 };
