@@ -13,6 +13,21 @@ window.GupyBiblioteca = {
     verFavoritos: false,
     abaAtiva: 'todas',
     cacheCID: null,
+    mapaCapitulosCID: {
+        'A': 'Capítulo I: Algumas doenças infecciosas e parasitárias', 'B': 'Capítulo I: Algumas doenças infecciosas e parasitárias',
+        'C': 'Capítulo II: Neoplasias [tumores]', 'D': 'Capítulo II/III: Neoplasias / Doenças do sangue',
+        'E': 'Capítulo IV: Doenças endócrinas, nutricionais e metabólicas', 'F': 'Capítulo V: Transtornos mentais e comportamentais',
+        'G': 'Capítulo VI: Doenças do sistema nervoso', 'H': 'Capítulo VII/VIII: Doenças do olho e ouvido',
+        'I': 'Capítulo IX: Doenças do aparelho circulatório', 'J': 'Capítulo X: Doenças do aparelho respiratório',
+        'K': 'Capítulo XI: Doenças do aparelho digestivo', 'L': 'Capítulo XII: Doenças da pele e do tecido subcutâneo',
+        'M': 'Capítulo XIII: Doenças do sistema osteomuscular', 'N': 'Capítulo XIV: Doenças do aparelho geniturinário',
+        'O': 'Capítulo XV: Gravidez, parto e puerpério', 'P': 'Capítulo XVI: Afecções originadas no período perinatal',
+        'Q': 'Capítulo XVII: Malformações congênitas e anomalias cromossômicas', 'R': 'Capítulo XVIII: Sintomas e achados anormais',
+        'S': 'Capítulo XIX: Lesões e envenenamentos', 'T': 'Capítulo XIX: Lesões e envenenamentos',
+        'V': 'Capítulo XX: Causas externas de morbidade', 'W': 'Capítulo XX: Causas externas de morbidade',
+        'X': 'Capítulo XX: Causas externas de morbidade', 'Y': 'Capítulo XX: Causas externas de morbidade',
+        'Z': 'Capítulo XXI: Fatores que influenciam o estado de saúde', 'U': 'Capítulo XXII: Códigos para propósitos especiais'
+    },
 
     // Mapeamentos de cores dinâmicos
     mapaCoresEmpresas: {},
@@ -35,7 +50,7 @@ window.GupyBiblioteca = {
     ],
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.1.8");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.1.9");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -365,13 +380,12 @@ window.GupyBiblioteca = {
 
         if (!termo) return;
 
-        resCode.innerText = "BUSCANDO...";
-        resDesc.innerText = "Pesquisando nas bases CID-10 e CID-11...";
+        resCode.innerHTML = `<i class="fas fa-circle-notch fa-spin mr-2"></i> BUSCANDO...`;
+        resDesc.innerText = "Pesquisando nas bases oficiais...";
         resDiv.classList.remove('hidden');
 
         try {
             if (!this.cacheCID) {
-                // Fonte estável verificada via subagente
                 const response = await fetch(`https://raw.githubusercontent.com/N1nh4/api-cid-10/master/api/cid10.json`);
                 this.cacheCID = await response.json();
             }
@@ -383,20 +397,44 @@ window.GupyBiblioteca = {
             );
 
             if (encontrado) {
+                const prim = (encontrado.codigo || "").charAt(0).toUpperCase();
+                const capitulo = this.mapaCapitulosCID[prim] || "Capítulo não identificado";
+                
                 resCode.innerText = "CID-10: " + encontrado.codigo;
-                resDesc.innerText = encontrado.descricao;
+                resDesc.innerHTML = `
+                    <div class="space-y-2">
+                        <p class="text-xs font-black text-rose-500 uppercase tracking-widest">${capitulo}</p>
+                        <p class="text-base font-black text-slate-800 leading-tight">${encontrado.descricao}</p>
+                        <div class="flex gap-2 pt-3">
+                            <button onclick="GupyBiblioteca.copiarCID('${encontrado.codigo}', '${encontrado.descricao}')" class="flex-1 bg-white border border-rose-200 text-rose-600 font-black py-2 rounded-lg text-[10px] uppercase tracking-wider hover:bg-rose-50 transition flex items-center justify-center gap-2">
+                                <i class="far fa-copy"></i> Copiar Tudo
+                            </button>
+                            <a href="https://icd.who.int/browse11/l-m/pt#/http%3a%2f%2fid.who.int%2ficd%2fentity%2f${encontrado.codigo}" target="_blank" class="flex-1 bg-rose-600 text-white font-black py-2 rounded-lg text-[10px] uppercase tracking-wider hover:bg-rose-700 transition flex items-center justify-center gap-2 shadow-sm">
+                                <i class="fas fa-external-link-alt"></i> Ver na OMS
+                            </a>
+                        </div>
+                    </div>`;
             } else {
                 resCode.innerText = "NÃO ENCONTRADO NO CID-10";
-                resDesc.innerHTML = `Não encontramos o termo "${termo}" na base local CID-10.<br><br>
-                <a href="https://icd.who.int/browse11/l-m/pt#/http%3a%2f%2fid.who.int%2ficd%2fentity%2f${termo}" target="_blank" class="text-rose-600 font-black underline flex items-center gap-2">
-                    <i class="fas fa-external-link-alt"></i> Tentar Busca Oficial na CID-11 (WHO)
-                </a>`;
+                resDesc.innerHTML = `
+                    <div class="space-y-3">
+                        <p class="text-sm font-medium text-slate-600">Não encontramos o termo "${termo}" na base local CID-10.</p>
+                        <a href="https://icd.who.int/browse11/l-m/pt#/search?q=${termo}" target="_blank" class="block w-full bg-slate-800 text-white text-center font-black py-3 rounded-xl text-[10px] uppercase tracking-widest hover:bg-slate-900 transition shadow-lg">
+                            <i class="fas fa-search-plus mr-2 text-rose-400"></i> Buscar na Base Global CID-11 (WHO)
+                        </a>
+                    </div>`;
             }
         } catch (e) {
             console.error("Erro busca CID:", e);
-            resCode.innerText = "ERRO NA BUSCA";
-            resDesc.innerText = "Não foi possível conectar à base de dados. Tente novamente mais tarde.";
+            resCode.innerText = "ERRO NA CONEXÃO";
+            resDesc.innerText = "Falha ao carregar base de dados. Verifique sua internet.";
         }
+    },
+
+    copiarCID: function(codigo, desc) {
+        const txt = `CID-10: ${codigo} - ${desc}`;
+        navigator.clipboard.writeText(txt);
+        if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'CID Copiado!', showConfirmButton: false, timer: 1500 });
     },
 
     // --- Siglas ---
