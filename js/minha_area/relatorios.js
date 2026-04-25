@@ -752,13 +752,16 @@ MinhaArea.Relatorios = {
 
     abrirGraficoComparativo: function() {
         if (!this._gapData) return;
+        this.verificarEInjetarModalGrafico(); // [NOVO] Garante que o modal existe
+        
         const { roadmap, mesIni, mesFim } = this._gapData;
         const selectedIds = Array.from(this._selectedGapUsers);
         const usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : Object.values(roadmap);
 
         const container = document.getElementById('gap-chart-container');
-        container.classList.remove('hidden');
-        document.getElementById('chart-user-name').textContent = "Comparativo Geral de Performance";
+        if (container) container.classList.remove('hidden');
+        const titleEl = document.getElementById('chart-user-name');
+        if (titleEl) titleEl.textContent = "Comparativo Geral de Performance";
 
         setTimeout(() => {
             const canvas = document.getElementById('gap-chart');
@@ -820,6 +823,8 @@ MinhaArea.Relatorios = {
 
     abrirGrafico: function(userId) {
         if (!this._gapData || !userId) return;
+        this.verificarEInjetarModalGrafico();
+        
         const { roadmap, mesIni, mesFim } = this._gapData;
         const user = roadmap[userId];
         const benchmark = roadmap[this._gapBenchmarkId];
@@ -884,8 +889,42 @@ MinhaArea.Relatorios = {
     },
 
     fecharGrafico: function() {
-        document.getElementById('gap-chart-container').classList.add('hidden');
+        const container = document.getElementById('gap-chart-container');
+        if (container) container.classList.add('hidden');
         if (this._gapChartInstance) { this._gapChartInstance.destroy(); this._gapChartInstance = null; }
+    },
+
+    verificarEInjetarModalGrafico: function() {
+        if (document.getElementById('gap-chart-container')) return;
+        console.warn("Modal de gráfico não encontrado no HTML. Injetando dinamicamente...");
+        
+        const modal = document.createElement('div');
+        modal.id = 'gap-chart-container';
+        modal.className = 'fixed inset-0 z-[120] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-100">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-slate-800 text-xs uppercase tracking-widest leading-tight">Análise de Tendência</h3>
+                            <p id="chart-user-name" class="text-[10px] text-slate-400 font-bold">Visualização Comparativa</p>
+                        </div>
+                    </div>
+                    <button onclick="MinhaArea.Relatorios.fecharGrafico()" class="text-slate-400 hover:text-rose-500 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-8">
+                    <div class="h-[400px] w-full relative">
+                        <canvas id="gap-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     },
 
     carregarRankingFrases: async function() {
