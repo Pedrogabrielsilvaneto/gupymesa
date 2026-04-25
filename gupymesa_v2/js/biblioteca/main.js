@@ -1,7 +1,7 @@
 /**
  * ARQUIVO: js/biblioteca/main.js
  * DESCRIÇÃO: Controlador da página Biblioteca (TiDB / Vercel Edition)
- * VERSÃO: V.1.1.1
+ * VERSÃO: V.1.1.2
  */
 
 window.GupyBiblioteca = {
@@ -12,7 +12,7 @@ window.GupyBiblioteca = {
     verFavoritos: false,
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.1.1 (TiDB)");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.1.2 (TiDB)");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -27,6 +27,11 @@ window.GupyBiblioteca = {
         await this.carregarFrases();
         this.atualizarSugestoesModal();
         this.setupEventListeners();
+    },
+
+    abrirCalculadora: function() {
+        const modal = document.getElementById('modal-lib-calc');
+        if (modal) modal.classList.remove('hidden');
     },
 
     // Helper para chamar a API Proxy do Vercel

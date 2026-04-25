@@ -26,6 +26,7 @@ const Sistema = {
                 auth: { persistSession: true }
             });
             console.log("✅ Sistema: Supabase Inicializado com Sucesso.");
+            this.atualizarVersaoGlobal();
         } catch (e) {
             console.error("Erro ao inicializar Supabase:", e);
         }
@@ -195,6 +196,16 @@ const Sistema = {
     Datas: {
         feriadosFixos: ['01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'],
         ehFeriado: function (data) { return false; } // Simplificado
+    },
+
+    atualizarVersaoGlobal() {
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.2';
+        // Procura por IDs de versão (tanto o da biblioteca quanto o global)
+        const ids = ['lib-footer-version', 'global-footer-version'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = ver;
+        });
     }
 };
 
