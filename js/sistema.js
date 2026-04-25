@@ -1,35 +1,16 @@
 /**
- * SISTEMA: GupyMesa - TiDB Adapter (Versão 2.1 - Login Fixed)
+ * SISTEMA: GupyMesa - TiDB Unified (Versão 3.0)
  * Arquitetura: Frontend -> Vercel API -> TiDB Cloud
+ * Removido: Dependência do Supabase (Abril/2026)
  */
 
 const Sistema = {
     usuarioLogado: null,
-    supabase: null, // Cliente Supabase Global
 
     // --- INICIALIZAÇÃO CENTRALIZADA ---
     async inicializar() {
-        if (this.supabase) return; // Já inicializado
-
-        if (typeof CONFIG === 'undefined' || !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
-            console.error("Configuração do Supabase (CONFIG) não encontrada ou incompleta.");
-            return;
-        }
-
-        if (typeof supabase === 'undefined') {
-            console.error("Biblioteca Supabase (supabase-js) não carregada.");
-            return;
-        }
-
-        try {
-            this.supabase = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
-                auth: { persistSession: true }
-            });
-            console.log("✅ Sistema: Supabase Inicializado com Sucesso.");
-            this.atualizarVersaoGlobal();
-        } catch (e) {
-            console.error("Erro ao inicializar Supabase:", e);
-        }
+        console.log("🚀 Sistema GupyMesa: Inicializando...");
+        this.atualizarVersaoGlobal();
     },
 
     // --- NÚCLEO: Conexão com a API ---
@@ -55,7 +36,7 @@ const Sistema = {
         }
     },
 
-    // --- CRIPTOGRAFIA (ESSENCIAL PARA O LOGIN) ---
+    // --- CRIPTOGRAFIA ---
     gerarHash: async function (texto) {
         if (!texto) return '';
         const msgBuffer = new TextEncoder().encode(texto);
@@ -87,7 +68,6 @@ const Sistema = {
             const dados = localStorage.getItem('usuario_logado');
             if (!dados) return null;
 
-            // [FIX] Força logout de todos os usuários para atualizar permissões da Minha Área (Março/2026)
             const versaoSessao = localStorage.getItem('sessao_v_2026_03_24');
             if (versaoSessao !== 'v1') {
                 this.limparSessao();
@@ -103,8 +83,7 @@ const Sistema = {
 
     salvarSessao(dadosUsuario) {
         localStorage.setItem('usuario_logado', JSON.stringify(dadosUsuario));
-        localStorage.setItem('sessao_v_2026_03_24', 'v1'); // Nova versão de sessão
-        // Registra acesso simples (opcional)
+        localStorage.setItem('sessao_v_2026_03_24', 'v1');
         localStorage.setItem('ultimo_acesso', new Date().toISOString());
     },
 
@@ -157,7 +136,6 @@ const Sistema = {
             const result = await this.query(sql, [hash, usuario.id]);
 
             if (result !== null) {
-                // Atualiza a sessão local
                 usuario.senha = hash;
                 usuario.trocar_senha = 0;
                 this.salvarSessao(usuario);
@@ -167,13 +145,6 @@ const Sistema = {
         } catch (e) {
             return { success: false, error: e.message };
         }
-    },
-
-    atualizarTodasAbas() {
-        if (typeof atualizarGeral === 'function') atualizarGeral();
-        if (typeof atualizarPerformance === 'function') atualizarPerformance();
-        if (typeof atualizarMatriz === 'function') atualizarMatriz();
-        if (typeof atualizarConsolidado === 'function') atualizarConsolidado();
     },
 
     notificar(msg, tipo = 'info') {
@@ -187,20 +158,17 @@ const Sistema = {
                 timer: 3000,
                 timerProgressBar: true
             });
-        } else {
-            console.log(`[NOTIFICAR] ${tipo.toUpperCase()}: ${msg}`);
         }
     },
 
     // --- DATA MODULE ---
     Datas: {
         feriadosFixos: ['01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'],
-        ehFeriado: function (data) { return false; } // Simplificado
+        ehFeriado: function (data) { return false; }
     },
 
     atualizarVersaoGlobal() {
-        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.2';
-        // Procura por IDs de versão (tanto o da biblioteca quanto o global)
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.3';
         const ids = ['lib-footer-version', 'global-footer-version'];
         ids.forEach(id => {
             const el = document.getElementById(id);

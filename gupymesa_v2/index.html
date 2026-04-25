@@ -65,29 +65,23 @@
                 </button>
             </div>
 
-            <div class="mt-8 text-center space-y-2">
-                <p class="text-xs">
-                    <a href="javascript:void(0)" onclick="document.getElementById('modal-esqueci').classList.remove('hidden');" class="font-bold text-indigo-600 hover:text-indigo-500">Esqueci minha senha</a>
+            <div class="mt-8 text-center">
+                <p class="text-xs text-slate-400">
+                    Problemas de acesso? <a href="#" class="font-bold text-indigo-600 hover:text-indigo-500">Contate a Gestão</a>
                 </p>
-                <p class="text-[10px] text-slate-300">v2.1.0 • Gupy Hub Productivity (Staging v2)</p>
+                <p class="text-[10px] text-slate-300 mt-4 italic opacity-0">v2.0.5 • Gupy Hub Productivity</p>
             </div>
         </div>
     </div>
 
-    <!-- Modal Esqueci Minha Senha -->
-    <div id="modal-esqueci" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8">
-            <h3 class="text-lg font-bold text-slate-800 mb-2">Recuperar Acesso</h3>
-            <p class="text-xs text-slate-500 mb-6">Informe seu ID para solicitar o reset de senha à gestão.</p>
-            
-            <input type="number" id="esqueci-id" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mb-4 focus:border-indigo-500 outline-none" placeholder="Seu ID (Ex: 1185327)">
-            
-            <button onclick="Login.solicitarReset()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition">Solicitar Reset</button>
-            <button onclick="document.getElementById('modal-esqueci').classList.add('hidden')" class="w-full text-slate-400 text-xs font-bold py-3 mt-2">Fechar</button>
+    <!-- Rodapé de Versão Global -->
+    <div class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 py-1.5 flex justify-between items-center z-50">
+        <span class="text-[10px] font-bold text-slate-400">GupyMesa System &copy; 2026</span>
+        <span id="global-footer-version" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">V.1.1.2</span>
+    </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <script src="js/config.js"></script>
 

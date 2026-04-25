@@ -1,31 +1,28 @@
 /**
- * SISTEMA: GupyMesa - TiDB Adapter (Versão 3.0 - SECURE)
- * Arquitetura: Frontend -> Vercel API (JWT Secured) -> TiDB Cloud
+ * SISTEMA: GupyMesa - TiDB Unified (Versão 3.0)
+ * Arquitetura: Frontend -> Vercel API -> TiDB Cloud
+ * Removido: Dependência do Supabase (Abril/2026)
  */
 
 const Sistema = {
     usuarioLogado: null,
-    
+
+    // --- INICIALIZAÇÃO CENTRALIZADA ---
+    async inicializar() {
+        console.log("🚀 Sistema GupyMesa: Inicializando...");
+        this.atualizarVersaoGlobal();
+    },
+
     // --- NÚCLEO: Conexão com a API ---
     async query(sql, params = []) {
         try {
-            const token = this.lerToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = token;
-
             const response = await fetch('/api/banco', {
                 method: 'POST',
-                headers: headers,
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query: sql, values: params })
             });
 
             const result = await response.json();
-
-            if (response.status === 401 || response.status === 403) {
-                console.warn("Sessão expirada ou não autorizada.");
-                this.limparSessao();
-                return null;
-            }
 
             if (result.error) {
                 console.error("Erro SQL:", result.error);
@@ -35,27 +32,6 @@ const Sistema = {
             return result.data;
         } catch (erro) {
             console.error("Falha na comunicação com API:", erro);
-            return null;
-        }
-    },
-
-    // --- NOVO: Chamada para Chat com Token ---
-    async chat(messages) {
-        try {
-            const token = this.lerToken();
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': token 
-                },
-                body: JSON.stringify({ messages })
-            });
-
-            if (!response.ok) throw new Error("Erro no chat: " + response.statusText);
-            return response.body; // Retorna o stream
-        } catch (e) {
-            console.error("Erro Chat API:", e);
             return null;
         }
     },
@@ -86,33 +62,34 @@ const Sistema = {
         return str.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     },
 
-    // --- SESSÃO E LOGIN (JWT) ---
+    // --- SESSÃO E LOGIN ---
     lerSessao() {
         try {
             const dados = localStorage.getItem('usuario_logado');
-            return dados ? JSON.parse(dados) : null;
+            if (!dados) return null;
+
+            const versaoSessao = localStorage.getItem('sessao_v_2026_03_24');
+            if (versaoSessao !== 'v1') {
+                this.limparSessao();
+                return null;
+            }
+
+            return JSON.parse(dados);
         } catch (e) {
             this.limparSessao();
             return null;
         }
     },
 
-    lerToken() {
-        return localStorage.getItem('auth_token');
-    },
-
-    salvarSessao(dadosUsuario, token = null) {
+    salvarSessao(dadosUsuario) {
         localStorage.setItem('usuario_logado', JSON.stringify(dadosUsuario));
-        if (token) localStorage.setItem('auth_token', token);
+        localStorage.setItem('sessao_v_2026_03_24', 'v1');
         localStorage.setItem('ultimo_acesso', new Date().toISOString());
     },
 
     limparSessao() {
         localStorage.removeItem('usuario_logado');
-        localStorage.removeItem('auth_token');
-        if (window.location.pathname.indexOf('index.html') === -1 && window.location.pathname !== '/') {
-            window.location.href = 'index.html';
-        }
+        window.location.href = 'index.html';
     },
 
     verificarSessaoGlobal() {
@@ -123,10 +100,8 @@ const Sistema = {
         if (paginasPublicas.includes(paginaAtual)) return;
 
         const usuario = this.lerSessao();
-        const token = this.lerToken();
-
-        if (!usuario || !token) {
-            this.limparSessao();
+        if (!usuario) {
+            window.location.href = 'index.html';
         } else {
             const elNome = document.getElementById('usuario-nome-top');
             if (elNome) elNome.innerText = usuario.nome.split(' ')[0];
@@ -151,41 +126,19 @@ const Sistema = {
         ]);
     },
 
-    async atualizarSenha(novaSenhaHash, senhaAtualHash = null) {
+    async atualizarSenha(novaSenha) {
         const usuario = this.lerSessao();
         if (!usuario || !usuario.id) return { success: false, error: 'Sessão não encontrada' };
 
         try {
-            // Se informou a senha atual, usa a API específica e segura
-            if (senhaAtualHash) {
-                const response = await fetch('/api/auth/change-password', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': this.lerToken()
-                    },
-                    body: JSON.stringify({ 
-                        senhaAtual: senhaAtualHash, 
-                        novaSenha: novaSenhaHash 
-                    })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    usuario.trocar_senha = 0;
-                    this.salvarSessao(usuario, this.lerToken());
-                    return { success: true };
-                }
-                return { success: false, error: result.error };
-            }
-
-            // Fallback para admin/troca obrigatória inicial (via query segura)
-            // Nota: O api/banco vai verificar se o usuário está alterando a SI MESMO.
+            const hash = await this.gerarHash(novaSenha);
             const sql = `UPDATE usuarios SET senha = ?, trocar_senha = 0 WHERE id = ?`;
-            const result = await this.query(sql, [novaSenhaHash, usuario.id]);
+            const result = await this.query(sql, [hash, usuario.id]);
 
             if (result !== null) {
+                usuario.senha = hash;
                 usuario.trocar_senha = 0;
-                this.salvarSessao(usuario, this.lerToken());
+                this.salvarSessao(usuario);
                 return { success: true };
             }
             return { success: false, error: 'Erro ao salvar no banco' };
@@ -194,8 +147,33 @@ const Sistema = {
         }
     },
 
-    inicializar() {
-        console.log("🚀 Sistema V3 Iniciado");
+    notificar(msg, tipo = 'info') {
+        if (window.Swal) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: tipo,
+                title: msg,
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        }
+    },
+
+    // --- DATA MODULE ---
+    Datas: {
+        feriadosFixos: ['01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'],
+        ehFeriado: function (data) { return false; }
+    },
+
+    atualizarVersaoGlobal() {
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.1.1.3';
+        const ids = ['lib-footer-version', 'global-footer-version'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = ver;
+        });
     }
 };
 

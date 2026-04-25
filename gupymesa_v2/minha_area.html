@@ -9,7 +9,6 @@
     <link rel="shortcut icon" href="img/favicon.png" type="image/png">
 
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -162,11 +161,11 @@
 </head>
 
 <body class="bg-slate-50">
-    <script src="js/config.js?v=20260302_1725"></script>
-    <script src="js/sistema.js?v=20260302_1725"></script>
-    <script src="js/gestao/config_mes.js?v=20260302_1725"></script>
+    <script src="js/config.js?v=20260406_1005"></script>
+    <script src="js/sistema.js?v=20260406_1005"></script>
+    <script src="js/gestao/config_mes.js?v=20260406_1005"></script>
 
-    <script src="js/menu/global.js?v=20260302_1725"></script>
+    <script src="js/menu/global.js?v=20260406_1005"></script>
     <div id="global-menu"></div>
 
     <div class="bg-white border-b border-slate-200 sticky top-12 left-0 w-full z-40 h-14 flex items-center shadow-sm">
@@ -185,6 +184,10 @@
                 <button onclick="MinhaArea.mudarAba('feedback')" id="btn-ma-feedback"
                     class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
                         class="fas fa-comments text-xs"></i> Feedback</button>
+
+                <button onclick="MinhaArea.mudarAba('relatorios')" id="btn-ma-relatorios"
+                    class="tab-btn px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap"><i
+                        class="fas fa-file-contract text-xs"></i> Relatórios</button>
             </div>
 
             <div class="flex items-center gap-4">
@@ -304,6 +307,16 @@
                     <div class="kpi-footer"><span class="font-bold">Percentual Atingido</span><span id="pct-assert"
                             class="font-black text-emerald-600">--%</span></div>
                 </div>
+            </div>
+
+            <div class="mb-2 flex justify-between items-center">
+                <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fas fa-calendar-check text-blue-500"></i> Diário de Produção
+                </h3>
+                <button id="btn-solicitar-abono" onclick="MinhaArea.Geral.abrirModalAbono()" 
+                        class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition active:scale-95">
+                    <i class="fas fa-calendar-plus"></i> Solicitar Abono
+                </button>
             </div>
 
             <div
@@ -686,6 +699,168 @@
             </div>
         </div>
 
+        <!-- ABA: RELATÓRIOS -->
+        <div id="ma-tab-relatorios" class="ma-view hidden flex-1 flex flex-col p-4 animate-enter overflow-y-auto">
+            <div id="relatorios-container" class="mx-auto w-full space-y-6 pb-20">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div id="relatorio-menu-header" class="mb-8">
+                        <h2 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                            <i class="fas fa-file-invoice text-blue-600"></i> Relatórios Dinâmicos
+                        </h2>
+                        <p class="text-xs text-slate-500">Selecione uma opção para visualizar o detalhamento mensal.</p>
+                    </div>
+                    
+                    <!-- Menu de Relatórios (Sub-ibas) -->
+                    <div id="relatorios-sub-tabs" class="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-6">
+                        <button id="tab-rel-metas" onclick="MinhaArea.Relatorios.mudarRelatorio('metas_okr')" 
+                                class="px-6 py-3 border-b-2 border-blue-600 text-blue-600 font-bold text-xs uppercase tracking-widest transition-all">
+                            <i class="fas fa-bullseye mr-2"></i> Metas / OKR
+                        </button>
+
+                        <!-- EXCLUSIVO GESTORA: ANALISE DE GAP -->
+                        <button id="btn-rel-gap" onclick="MinhaArea.Relatorios.mudarRelatorio('gap')" 
+                                class="hidden px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all">
+                            <i class="fas fa-chart-line mr-2"></i> Análise de GAP
+                        </button>
+
+                        <!-- EXCLUSIVO GESTORA: RANKING DE FRASES -->
+                        <button id="btn-rel-ranking" onclick="MinhaArea.Relatorios.mudarRelatorio('ranking_frases')" 
+                                class="hidden px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all">
+                            <i class="fas fa-crown mr-2"></i> Ranking Frases
+                        </button>
+
+                        <!-- EXCLUSIVO GESTORA: EXPORTAR EXCEL -->
+                        <button id="btn-rel-exportar" onclick="MinhaArea.Relatorios.mudarRelatorio('excel_export')" 
+                                class="hidden px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all">
+                            <i class="fas fa-file-excel mr-2 text-emerald-500"></i> Exportar Excel
+                        </button>
+                    </div>
+
+                    <div id="relatorio-ativo-content" class="animate-enter mb-10">
+                        <div class="text-center py-20 text-slate-300 italic">
+                            <i class="fas fa-chart-line mb-3 text-4xl opacity-20"></i><br>
+                            Selecione um relatório acima para visualizar os dados.
+                        </div>
+                    </div>
+
+                    <!-- ABA: EXPORTAR EXCEL (EXCLUSIVO GESTÃO) -->
+                    <div id="container-exportacao-gestao" class="hidden space-y-6 mb-10 animate-enter">
+                        <div class="bg-white border-2 border-slate-100 p-6 rounded-2xl shadow-md relative overflow-hidden">
+                            <div class="absolute -right-10 -top-10 opacity-[0.03] rotate-12">
+                                <i class="fas fa-file-excel text-[200px] text-emerald-600"></i>
+                            </div>
+
+                            <div class="flex items-center justify-between mb-8 relative z-10">
+                                <h3 class="text-base font-black text-slate-800 uppercase tracking-widest flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
+                                        <i class="fas fa-file-excel"></i>
+                                    </div>
+                                    Painel de Relatórios Excel
+                                </h3>
+                                <div class="text-right">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-tighter">Acesso Restrito</span>
+                                    <span class="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 italic">Gestão & Auditoria</span>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                                <!-- GESTÃO -->
+                                <div class="space-y-4">
+                                    <h4 class="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 border-b-2 border-slate-100 pb-2">
+                                        <i class="fas fa-sliders-h text-blue-500"></i> Gestão
+                                    </h4>
+                                    <div class="flex flex-col gap-2">
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('gestao', 'usuarios')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-blue-600 hover:border-blue-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">USUÁRIOS</span>
+                                            <i class="fas fa-users text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('gestao', 'empresas')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-blue-600 hover:border-blue-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">EMPRESAS</span>
+                                            <i class="fas fa-building text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('gestao', 'metas')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-blue-600 hover:border-blue-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">METAS (SETUP)</span>
+                                            <i class="fas fa-bullseye text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- PRODUTIVIDADE -->
+                                <div class="space-y-4">
+                                    <h4 class="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 border-b-2 border-slate-100 pb-2">
+                                        <i class="fas fa-chart-line text-amber-500"></i> Produtividade
+                                    </h4>
+                                    <div class="flex flex-col gap-2">
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('produtividade', 'validacao')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-amber-600 hover:border-amber-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">VALIDAÇÃO</span>
+                                            <i class="fas fa-check-double text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('produtividade', 'consolidado')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-amber-600 hover:border-amber-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">CONSOLIDADO</span>
+                                            <i class="fas fa-boxes text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('produtividade', 'matriz')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-amber-600 hover:border-amber-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">MATRIZ PERFORMANCE</span>
+                                            <i class="fas fa-th-large text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- MINHA ÁREA -->
+                                <div class="space-y-4">
+                                    <h4 class="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 border-b-2 border-slate-100 pb-2">
+                                        <i class="fas fa-user-circle text-emerald-500"></i> Minha Área
+                                    </h4>
+                                    <div class="flex flex-col gap-2">
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('minha_area', 'dia_a_dia')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-emerald-600 hover:border-emerald-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">DIA A DIA (EXTRATO)</span>
+                                            <i class="fas fa-calendar-day text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('minha_area', 'meta_okr')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-emerald-600 hover:border-emerald-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">META / OKR</span>
+                                            <i class="fas fa-bullseye text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- BIBLIOTECA -->
+                                <div class="space-y-4">
+                                    <h4 class="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 border-b-2 border-slate-100 pb-2">
+                                        <i class="fas fa-book text-indigo-500"></i> Biblioteca
+                                    </h4>
+                                    <div class="flex flex-col gap-2">
+                                        <button onclick="MinhaArea.Relatorios.Exportar.modulo('biblioteca', 'frases')" class="group flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-indigo-600 hover:border-indigo-700 transition-all">
+                                            <span class="text-[10px] font-black text-slate-600 group-hover:text-white">FRASES GERAL</span>
+                                            <i class="fas fa-comment-dots text-[10px] text-slate-400 group-hover:text-white/50"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-10 pt-8 border-t border-slate-100 flex flex-col items-center gap-3 relative z-10">
+                                <button onclick="MinhaArea.Relatorios.Exportar.relatorioGeral()" 
+                                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-12 py-3.5 rounded-2xl font-black shadow-[0_10px_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_15px_25px_-5px_rgba(16,185,129,0.4)] transition-all active:scale-95 flex items-center gap-3">
+                                    <i class="fas fa-cloud-download-alt text-xl"></i> RELATÓRIO GERAL (GERAR BACKUP TODAS AS ABAS)
+                                </button>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">GupyMesa Performance System - Export Engine</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+                    
+                    <!-- Container do Gráfico GAP (fora do relatório ativo) -->
+                    <div id="gap-chart-container" class="hidden bg-white p-4 rounded-xl border border-slate-200 shadow-lg mt-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-xs font-black text-slate-700 uppercase">Comparativo: <span id="chart-user-name"></span> vs Referência</h4>
+                            <button onclick="MinhaArea.Relatorios.fecharGrafico()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="h-64" id="gap-chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     </div>
 
@@ -743,6 +918,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- [NEW] Modal de Evolução Individual (Bar Chart) -->
@@ -858,7 +1034,89 @@
         </div>
     </div>
 
+    <div id="modal-solicitar-abono"
+        class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/50 backdrop-blur-sm transition-opacity opacity-0 pointer-events-none"
+        style="transition: opacity 0.3s;">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="bg-amber-50 border-b border-amber-100 px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-amber-800 text-lg flex items-center gap-2">
+                    <i class="fas fa-user-clock text-amber-600"></i> Solicitar Abono
+                </h3>
+                <button onclick="MinhaArea.Geral.fecharModalAbono()" class="text-amber-400 hover:text-amber-700 transition outline-none">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Data Início</label>
+                        <input type="date" id="abono-data-inicio" 
+                            class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-500 transition">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Data Fim</label>
+                        <input type="date" id="abono-data-fim" 
+                            class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-500 transition">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                        <i class="fas fa-clock"></i> Tipo de Abono
+                    </label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="abono-tipo" value="0.0" class="peer hidden" checked>
+                            <div class="peer-checked:bg-amber-100 peer-checked:border-amber-500 bg-white border border-slate-200 p-3 rounded-lg text-center transition hover:border-amber-300">
+                                <div class="text-xs font-bold text-slate-700">DIA INTEIRO</div>
+                                <div class="text-[10px] text-slate-400">Fator 0.0</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="abono-tipo" value="0.5" class="peer hidden">
+                            <div class="peer-checked:bg-amber-100 peer-checked:border-amber-500 bg-white border border-slate-200 p-3 rounded-lg text-center transition hover:border-amber-300">
+                                <div class="text-xs font-bold text-slate-700">MEIO DIA</div>
+                                <div class="text-[10px] text-slate-400">Fator 0.5</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                        <i class="fas fa-comment-dots"></i> Justificativa
+                    </label>
+                    <textarea id="abono-justificativa-text" rows="4"
+                        class="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none transition resize-none placeholder:text-slate-300"
+                        placeholder="Descreva o motivo da solicitação de abono..."></textarea>
+                </div>
+                <p class="text-[10px] text-slate-400 italic font-medium">
+                    * Sua solicitação será enviada para aprovação da gestora e só será validada após a confirmação.
+                </p>
+            </div>
+            <div class="bg-slate-50 border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
+                <button id="btn-cancelar-abono" onclick="MinhaArea.Geral.cancelarSolicitacaoAbono()" 
+                    class="hidden px-4 py-2 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition mr-auto">
+                    <i class="fas fa-trash-alt"></i> Cancelar Pedido
+                </button>
+                <button onclick="MinhaArea.Geral.fecharModalAbono()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">Sair</button>
+                <button id="btn-salvar-abono" onclick="MinhaArea.Geral.salvarSolicitacaoAbono()"
+                    class="px-4 py-2 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Enviar Solicitação
+                </button>
+            </div>
+        </div>
+    </div>
+
     <style>
+        #modal-solicitar-abono.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #modal-solicitar-abono.active>div {
+            transform: scale(100%);
+        }
+
         #modal-obs-assistente.active {
             opacity: 1;
             pointer-events: auto;
@@ -887,13 +1145,69 @@
         }
     </style>
 
-    <script src="js/minha_area/main.js?v=20260318_1548"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="js/minha_area/main.js?v=20260416_0230"></script>
     <script src="js/minha_area/assertividade.js?v=20260417_1430"></script>
-    <script src="js/minha_area/geral.js?v=20260420_1930"></script>
-    <script src="js/minha_area/metas.js?v=20260420_1930"></script>
-    <script src="js/minha_area/auditoria.js?v=20260311_0920"></script>
-    <script src="js/minha_area/comparativo.js?v=20260311_0920"></script>
-    <script src="js/minha_area/feedback.js?v=20260311_0920"></script>
+    <script src="js/minha_area/geral.js?v=20260416_0230"></script>
+    <script src="js/minha_area/metas.js?v=20260406_1005"></script>
+    <script src="js/minha_area/auditoria.js?v=20260406_1005"></script>
+    <script src="js/minha_area/comparativo.js?v=20260406_1005"></script>
+    <script src="js/minha_area/feedback.js?v=20260406_1005"></script>
+    <script src="js/minha_area/relatorios.js?v=20260417_1343"></script>
+    <!-- Modal Detalhe/Edição de Frase -->
+    <div id="modal-ranking-detalhe" class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-enter">
+            <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+                <h3 class="font-black text-slate-800 text-sm uppercase tracking-widest flex items-center gap-2">
+                    <i class="fas fa-edit text-indigo-500"></i> Gestão da Frase
+                </h3>
+                <button onclick="document.getElementById('modal-ranking-detalhe').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="ranking-edit-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase">Empresa</label>
+                        <input type="text" id="ranking-edit-empresa" list="list-empresas-ranking" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:border-indigo-500 outline-none">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase">Documento</label>
+                        <input type="text" id="ranking-edit-doc" list="list-documentos-ranking" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:border-indigo-500 outline-none">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase">Motivo</label>
+                    <input type="text" id="ranking-edit-motivo" list="list-motivos-ranking" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:border-indigo-500 outline-none">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase">Conteúdo da Frase</label>
+                    <textarea id="ranking-edit-conteudo" rows="6" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium focus:border-indigo-500 outline-none resize-none"></textarea>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-2xl border border-indigo-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs"><i class="fas fa-chart-line"></i></div>
+                        <span class="text-xs font-black text-indigo-800 uppercase">Total de Usos: <span id="ranking-edit-usos" class="text-indigo-600">0</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-5 flex items-center justify-between gap-3 border-t border-slate-100">
+                <button onclick="MinhaArea.Relatorios.excluirFrase()" class="px-6 py-3 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-black text-[10px] uppercase tracking-widest transition-all">
+                    <i class="fas fa-trash-alt mr-2"></i> Excluir
+                </button>
+                <button onclick="MinhaArea.Relatorios.salvarFrase()" class="flex-1 px-6 py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all">
+                    <i class="fas fa-save mr-2"></i> Salvar Alterações
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Rodapé de Versão Global -->
+    <div class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 py-1.5 flex justify-between items-center z-50">
+        <span class="text-[10px] font-bold text-slate-400">GupyMesa System &copy; 2026</span>
+        <span id="global-footer-version" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">V.1.1.2</span>
+    </div>
 </body>
 
 </html>

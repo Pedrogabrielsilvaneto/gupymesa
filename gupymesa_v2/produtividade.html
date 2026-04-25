@@ -12,7 +12,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -151,11 +150,11 @@
 </head>
 
 <body class="bg-slate-50">
-    <script src="js/config.js?v=20260311_1506"></script>
-    <script src="js/sistema.js?v=20260311_1640"></script>
-    <script src="js/sistema/assertividade.js?v=20260311_1640"></script>
+    <script src="js/config.js?v=20260406_1005"></script>
+    <script src="js/sistema.js?v=20260406_1005"></script>
+    <script src="js/sistema/assertividade.js?v=20260406_1005"></script>
 
-    <script src="js/menu/global.js?v=20260311_1640"></script>
+    <script src="js/menu/global.js?v=20260406_1005"></script>
     <div id="global-menu"></div>
 
     <div
@@ -251,14 +250,21 @@
                             class="fas fa-file-csv"></i> <span class="hidden sm:inline">Importar</span></button>
 
                     <button onclick="Produtividade.Geral.excluirDadosDia()"
-                        class="bg-white hover:bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition border border-rose-200 hover:border-rose-300 active:scale-95"><i
-                            class="fas fa-trash-alt"></i></button>
+                        class="bg-white hover:bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition border border-rose-200 hover:border-rose-300 active:scale-95"
+                        title="Excluir dados de um dia específico"><i class="fas fa-trash-alt"></i></button>
+
+                    <button onclick="Produtividade.Geral.limparDuplicatasProducao()"
+                        class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition border border-amber-300 active:scale-95"
+                        title="Limpar registros duplicados"><i class="fas fa-broom"></i></button>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28">
+        
+        <!-- [NEW] Alerta de Abonos Pendentes -->
+        <div id="container-notificacao-abono" class="hidden mb-4"></div>
 
         <!-- HUD de Filtros Dinâmicos (Padrão Gestão) -->
         <div id="container-filtros-hud"
@@ -460,11 +466,6 @@
                         <thead
                             class="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-wide sticky top-0 z-10 shadow-sm">
                             <tr class="divide-x divide-slate-200 border-b border-slate-300">
-                                <th class="px-2 py-3 text-center w-8 bg-slate-50"><input type="checkbox"
-                                        id="check-all-master" onchange="Produtividade.Geral.toggleAll(this.checked)"
-                                        class="cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500">
-                                </th>
-                                <th class="px-2 py-3 text-center w-24 bg-slate-50">Abono</th>
                                 <th class="px-3 py-3 w-[20%]">Assistente</th>
                                 <th class="px-2 py-3 text-center w-[6%] bg-slate-50">Dias Trab.</th>
                                 <th class="px-2 py-3 text-center w-[6%] bg-slate-50">Dias Abon.</th>
@@ -587,15 +588,15 @@
         </div>
     </div>
 
-    <script src="js/produtividade/assertividade.js?v=20260311_1506"></script>
-    <script src="js/produtividade/main.js?v=20260311_1506"></script>
-    <script src="js/produtividade/filtros.js?v=20260311_1506"></script>
-    <script src="js/produtividade/geral.js?v=20260420_1945"></script>
-    <script src="js/produtividade/consolidado.js?v=20260311_1506"></script>
-    <!-- <script src="js/produtividade/detalhes.js?v=20260311_1506"></script> -->
-    <script src="js/produtividade/performance.js?v=20260311_1506"></script>
-    <script src="js/produtividade/matriz.js?v=20260311_1506"></script>
-    <script src="js/produtividade/importacao/validacao.js?v=20260420_1945"></script>
+    <script src="js/produtividade/assertividade.js?v=20260406_1005"></script>
+    <script src="js/produtividade/main.js?v=20260406_1005"></script>
+    <script src="js/produtividade/filtros.js?v=20260406_1005"></script>
+    <script src="js/produtividade/geral.js?v=20260416_0230"></script>
+    <script src="js/produtividade/consolidado.js?v=20260416_0230"></script>
+    <!-- <script src="js/produtividade/detalhes.js?v=20260406_1005"></script> -->
+    <script src="js/produtividade/performance.js?v=20260406_1005"></script>
+    <script src="js/produtividade/matriz.js?v=20260409_0800"></script>
+    <script src="js/produtividade/importacao/validacao.js?v=20260406_1005"></script>
 
 
 
@@ -608,6 +609,11 @@
             if (!document.getElementById('tab-matriz').classList.contains('hidden') && Produtividade.Matriz) Produtividade.Matriz.carregar();
         }
     </script>
+    <!-- Rodapé de Versão Global -->
+    <div class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 py-1.5 flex justify-between items-center z-50">
+        <span class="text-[10px] font-bold text-slate-400">GupyMesa System &copy; 2026</span>
+        <span id="global-footer-version" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">V.1.1.2</span>
+    </div>
 </body>
 
 </html>
