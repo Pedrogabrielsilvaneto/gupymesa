@@ -50,7 +50,7 @@ window.GupyBiblioteca = {
     ],
 
     init: async function () {
-        console.log("📚 Biblioteca: Inicializando Versão V.1.1.9");
+        console.log("📚 Biblioteca: Inicializando Versão V.1.2.0");
         if (window.Sistema) {
             this.usuario = Sistema.lerSessao();
         }
@@ -84,24 +84,45 @@ window.GupyBiblioteca = {
     },
 
     setupEventListeners: function() {
+        // Busca Principal e Secundária (já estão no HTML com oninput, mas reforçamos)
+        
+        // CEP - Live (8 dígitos)
         const inputCep = document.getElementById('lib-cep-input');
         if (inputCep) {
-            inputCep.addEventListener('input', () => this.mascararCEP(inputCep));
-            inputCep.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.buscarCEP(); });
+            inputCep.addEventListener('input', () => {
+                this.mascararCEP(inputCep);
+                const cep = inputCep.value.replace(/\D/g, "");
+                if (cep.length === 8) this.buscarCEP();
+            });
         }
+
+        // CID - Live
         const inputCid = document.getElementById('lib-cid-input');
         if (inputCid) {
-            inputCid.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.buscarCID(); });
+            inputCid.addEventListener('input', () => {
+                if (inputCid.value.trim().length >= 2) this.buscarCID();
+            });
         }
+
+        // Siglas - Live
         const inputSigla = document.getElementById('lib-sigla-input');
         if (inputSigla) {
-            inputSigla.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.buscarSigla(); });
+            inputSigla.addEventListener('input', () => {
+                if (inputSigla.value.trim().length >= 2) this.buscarSigla();
+            });
         }
-        const inputCalc = document.getElementById('lib-calc-data-input');
-        if (inputCalc) {
-            inputCalc.addEventListener('input', (e) => this.mascararData(e.target));
-            inputCalc.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.processarCalculadora(); });
-        }
+
+        // Calculadora - Live
+        const idsCalc = ['lib-calc-data-input', 'lib-calc-anos-input', 'lib-calc-meses-input', 'lib-calc-dias-input'];
+        idsCalc.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', (e) => {
+                    if (id === 'lib-calc-data-input') this.mascararData(e.target);
+                    this.processarCalculadora();
+                });
+            }
+        });
     },
 
     isAdmin: function () {
@@ -465,29 +486,79 @@ window.GupyBiblioteca = {
         if (v.length > 5) v = v.substring(0, 5) + "/" + v.substring(5, 9);
         el.value = v;
     },
+    toggleCalcOperation: function() {
+        const btn = document.getElementById('lib-calc-operation-btn');
+        const val = document.getElementById('lib-calc-operation-val');
+        if (val.value === 'somar') {
+            val.value = 'subtrair';
+            btn.innerText = '-';
+            btn.classList.replace('text-blue-600', 'text-rose-600');
+        } else {
+            val.value = 'somar';
+            btn.innerText = '+';
+            btn.classList.replace('text-rose-600', 'text-blue-600');
+        }
+        this.processarCalculadora();
+    },
+
     processarCalculadora: function() {
         const val = document.getElementById('lib-calc-data-input').value;
         const [d, m, y] = val.split('/').map(Number);
-        if (!d || !m || !y) return;
-        const dataIn = new Date(y, m - 1, d);
+        if (!d || !m || !y || val.length < 10) return;
+        
+        let dataIn = new Date(y, m - 1, d);
         const hoje = new Date();
-        const diffTime = Math.abs(hoje - dataIn);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        document.getElementById('lib-res-data-inserida').innerText = val;
-        document.getElementById('lib-res-principal').innerText = diffDays;
-        
-        // Detalhado
-        let years = hoje.getFullYear() - dataIn.getFullYear();
-        let months = hoje.getMonth() - dataIn.getMonth();
-        let days = hoje.getDate() - dataIn.getDate();
-        if (days < 0) { months--; days += 30; }
-        if (months < 0) { years--; months += 12; }
-        
-        document.getElementById('lib-res-anos').innerText = years;
-        document.getElementById('lib-res-meses').innerText = months;
-        document.getElementById('lib-res-semanas').innerText = Math.floor(diffDays / 7);
-        document.getElementById('lib-res-dias').innerText = days;
+        hoje.setHours(0, 0, 0, 0);
+        dataIn.setHours(0, 0, 0, 0);
+
+        const resPrincipal = document.getElementById('lib-res-principal');
+        const resLabelPrincipal = document.getElementById('lib-res-label-primaria');
+        const resDataInserida = document.getElementById('lib-res-data-inserida');
+        const resLabelSecundaria = document.getElementById('lib-res-label-secundaria');
+        const resContainerDetalhes = document.getElementById('lib-res-detalhes');
+
+        if (this.modoCalculadora === 'intervalo') {
+            // MODO INTERVALO (Tempo Decorrido)
+            const diffTime = Math.abs(hoje - dataIn);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            resDataInserida.innerText = val;
+            resLabelSecundaria.innerText = "Data Inserida";
+            resPrincipal.innerText = diffDays;
+            resLabelPrincipal.innerText = "Total Dias Corridos";
+            resContainerDetalhes.classList.remove('hidden');
+
+            // Detalhado
+            let years = hoje.getFullYear() - dataIn.getFullYear();
+            let months = hoje.getMonth() - dataIn.getMonth();
+            let days = hoje.getDate() - dataIn.getDate();
+            if (days < 0) { months--; days += 30; }
+            if (months < 0) { years--; months += 12; }
+            
+            document.getElementById('lib-res-anos').innerText = Math.abs(years);
+            document.getElementById('lib-res-meses').innerText = Math.abs(months);
+            document.getElementById('lib-res-semanas').innerText = Math.floor(diffDays / 7);
+            document.getElementById('lib-res-dias').innerText = Math.abs(days);
+        } else {
+            // MODO SOMA/SUBTRAÇÃO (Future/Past)
+            const op = document.getElementById('lib-calc-operation-val').value;
+            const anos = Number(document.getElementById('lib-calc-anos-input').value) || 0;
+            const meses = Number(document.getElementById('lib-calc-meses-input').value) || 0;
+            const dias = Number(document.getElementById('lib-calc-dias-input').value) || 0;
+
+            let dataResult = new Date(dataIn);
+            const mult = (op === 'somar' ? 1 : -1);
+
+            dataResult.setFullYear(dataResult.getFullYear() + (anos * mult));
+            dataResult.setMonth(dataResult.getMonth() + (meses * mult));
+            dataResult.setDate(dataResult.getDate() + (dias * mult));
+
+            resDataInserida.innerText = val;
+            resLabelSecundaria.innerText = "Data Base";
+            resPrincipal.innerText = dataResult.toLocaleDateString('pt-BR');
+            resLabelPrincipal.innerText = op === 'somar' ? "Data no Futuro" : "Data no Passado";
+            resContainerDetalhes.classList.add('hidden');
+        }
         
         document.getElementById('lib-calc-resultados').classList.remove('hidden');
     },
