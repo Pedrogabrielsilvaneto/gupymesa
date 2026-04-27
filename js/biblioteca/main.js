@@ -422,16 +422,41 @@ window.GupyBiblioteca = {
         el.value = v;
     },
     buscarCEP: async function() {
-        const cep = document.getElementById('lib-cep-input').value.replace(/\D/g, "");
-        if (cep.length !== 8) return;
-        const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-        const data = await res.json();
-        if (data.erro) return;
-        document.getElementById('lib-cep-display-num').innerText = data.cep;
-        document.getElementById('lib-cep-logradouro').innerText = data.logradouro;
-        document.getElementById('lib-cep-bairro').innerText = data.bairro;
-        document.getElementById('lib-cep-localidade').innerText = `${data.localidade} - ${data.uf}`;
-        document.getElementById('lib-cep-resultado').classList.remove('hidden');
+        const input = document.getElementById('lib-cep-input');
+        const resDiv = document.getElementById('lib-cep-resultado');
+        const cep = input.value.replace(/\D/g, "");
+        
+        if (cep.length !== 8) {
+            if (resDiv) resDiv.classList.add('hidden');
+            return;
+        }
+
+        // Limpa campos anteriores e mostra que está buscando
+        document.getElementById('lib-cep-display-num').innerText = "Buscando...";
+        document.getElementById('lib-cep-logradouro').innerText = "...";
+        document.getElementById('lib-cep-bairro').innerText = "";
+        document.getElementById('lib-cep-localidade').innerText = "";
+        if (resDiv) resDiv.classList.remove('hidden');
+
+        try {
+            const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            const data = await res.json();
+            
+            if (data.erro) {
+                if (resDiv) resDiv.classList.add('hidden');
+                if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'CEP não encontrado!', showConfirmButton: false, timer: 2000 });
+                return;
+            }
+
+            document.getElementById('lib-cep-display-num').innerText = data.cep;
+            document.getElementById('lib-cep-logradouro').innerText = data.logradouro || "Logradouro não disponível";
+            document.getElementById('lib-cep-bairro').innerText = data.bairro || "Bairro não disponível";
+            document.getElementById('lib-cep-localidade').innerText = `${data.localidade} - ${data.uf}`;
+            if (resDiv) resDiv.classList.remove('hidden');
+        } catch (e) {
+            console.error("Erro busca CEP:", e);
+            if (resDiv) resDiv.classList.add('hidden');
+        }
     },
     copiarTextoSimples: function(t) {
         navigator.clipboard.writeText(t);
