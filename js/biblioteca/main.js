@@ -127,9 +127,16 @@ window.GupyBiblioteca = {
 
     isAdmin: function () {
         if (!this.usuario) return false;
+        const n = (this.usuario.nome || '').toUpperCase();
         const f = (this.usuario.funcao || '').toUpperCase();
         const p = (this.usuario.perfil || '').toUpperCase();
-        return p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || f.includes('COORDENADOR') || String(this.usuario.id) === '1' || String(this.usuario.id) === '1000';
+        
+        // Verifica por Nomes Master, Perfis de Admin, Funções de Gestão ou IDs específicos
+        const isMaster = n.includes('PEDRO') || n.includes('THAYLA') || n.includes('GUPY') || n.includes('HUPERT');
+        const hasRole = p === 'ADMIN' || p === 'ADMINISTRADOR' || f.includes('GESTOR') || f.includes('AUDITOR') || f.includes('COORDENADOR') || f.includes('DIRETOR') || f.includes('GERENTE');
+        const hasId = ['1', '1000', '14', '7'].includes(String(this.usuario.id));
+        
+        return isMaster || hasRole || hasId;
     },
 
     carregarFavoritos: async function () {
