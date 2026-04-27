@@ -1855,17 +1855,19 @@ MinhaArea.Geral = {
                             </div>
                         ` : ''}
                         ${isPendente ? `
-                            <div class="flex gap-2 mt-3">
-                                <input type="text" id="resp-contest-${c.id}" placeholder="Responder contestação..." 
-                                    class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-400">
-                                <button onclick="MinhaArea.Geral.responderContestacao(${c.id}, 'ACEITA')" 
-                                    class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-3 py-2 rounded-lg transition" title="Aceitar">
-                                    <i class="fas fa-check"></i> Aceitar
-                                </button>
-                                <button onclick="MinhaArea.Geral.responderContestacao(${c.id}, 'REJEITADA')" 
-                                    class="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black px-3 py-2 rounded-lg transition" title="Rejeitar">
-                                    <i class="fas fa-times"></i> Rejeitar
-                                </button>
+                            <div class="space-y-2 mt-3">
+                                <textarea id="contest-resp-${c.id}" placeholder="Explique aqui o motivo da decisão..." 
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium outline-none focus:border-amber-400 focus:bg-white transition resize-none h-20 shadow-inner"></textarea>
+                                <div class="flex gap-2 justify-end">
+                                    <button onclick="MinhaArea.Geral.responderContestacao(${c.id}, 'REJEITADA')" 
+                                        class="px-5 py-2 bg-rose-50 text-rose-600 text-[10px] font-black rounded-xl border border-rose-100 hover:bg-rose-100 transition active:scale-95">
+                                        <i class="fas fa-times mr-1"></i> REJEITAR
+                                    </button>
+                                    <button onclick="MinhaArea.Geral.responderContestacao(${c.id}, 'ACEITA')" 
+                                        class="px-5 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-xl shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition active:scale-95">
+                                        <i class="fas fa-check mr-1"></i> ACEITAR
+                                    </button>
+                                </div>
                             </div>
                         ` : ''}
                     </div>`;
@@ -1880,21 +1882,106 @@ MinhaArea.Geral = {
      * Responde uma contestação (aceitar ou rejeitar)
      */
     responderContestacao: async function(id, status) {
-        const resposta = (document.getElementById(`resp-contest-${id}`)?.value || '').trim();
+        const input = document.getElementById(`contest-resp-${id}`);
+        const resposta = (input?.value || '').trim() || (status === 'ACEITA' ? 'Aprovado conforme solicitado.' : 'Recusado após análise.');
         
         try {
             await Sistema.query(
                 `UPDATE contestacoes_assertividade SET status = ?, resposta_auditora = ?, respondido_em = NOW() WHERE id = ?`,
-                [status, resposta || (status === 'ACEITA' ? 'Contestação aceita.' : 'Contestação rejeitada.'), id]
+                [status, resposta, id]
             );
             
             if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Contestação ${status.toLowerCase()}!`, showConfirmButton: false, timer: 2000 });
             
-            // Recarrega a lista e atualiza o badge
-            this.abrirListaContestacoes();
-            this.verificarContestacoesPendentes();
+            this.abrirListaContestacoes(); // Atualiza lista
+            this.verificarContestacoesPendentes(); // Atualiza badge
         } catch (e) {
             console.error('Erro ao responder contestação:', e);
+        }
+    },
+
+    /**
+     * Abre o histórico de contestações do próprio assistente
+     */
+    abrirMinhasContestacoes: async function() {
+        const usuario = window.MinhaArea?.usuario;
+        if (!usuario) return;
+
+        const modal = document.getElementById('modal-minhas-contestacoes');
+        const body = document.getElementById('minhas-contestacoes-body');
+        if (!modal || !body) return;
+
+        modal.classList.remove('hidden');
+        body.innerHTML = '<p class="text-center text-slate-400 py-8"><i class="fas fa-circle-notch fa-spin mr-2"></i>Carregando seu histórico...</p>';
+
+        try {
+            const data = await Sistema.query(
+                `SELECT * FROM contestacoes_assertividade WHERE usuario_id = ? ORDER BY criado_em DESC`,
+                [usuario.id]
+            );
+
+            if (!data || data.length === 0) {
+                body.innerHTML = `
+                    <div class="text-center py-10">
+                        <i class="fas fa-history text-4xl text-slate-100 mb-4"></i>
+                        <p class="text-slate-400 italic">Você ainda não enviou nenhuma contestação.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            body.innerHTML = data.map(c => {
+                const dataRef = new Date(c.data_referencia + 'T12:00:00').toLocaleDateString('pt-BR');
+                const enviadoEm = new Date(c.criado_em).toLocaleString('pt-BR');
+                const statusClass = c.status === 'PENDENTE' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
+                                  (c.status === 'ACEITA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200');
+
+                return `
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 transition-all hover:bg-white hover:shadow-sm group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Data Referência</p>
+                                <p class="font-black text-slate-700 text-base">${dataRef}</p>
+                            </div>
+                            <span class="px-3 py-1 rounded-full text-[9px] font-black border uppercase ${statusClass}">${c.status}</span>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5">
+                                <i class="fas fa-comment-dots text-slate-300"></i> Sua Mensagem:
+                            </p>
+                            <div class="text-xs text-slate-600 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm leading-relaxed">${c.mensagem}</div>
+                        </div>
+
+                        ${c.resposta_auditora ? `
+                            <div class="pt-4 border-t border-slate-200">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-5 h-5 bg-blue-100 text-blue-600 rounded-md flex items-center justify-center text-[10px]">
+                                        <i class="fas fa-reply"></i>
+                                    </div>
+                                    <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest">Resposta da Auditora:</p>
+                                </div>
+                                <div class="text-xs text-slate-700 font-medium bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 italic leading-relaxed">
+                                    ${c.resposta_auditora}
+                                </div>
+                                <p class="text-[9px] text-slate-400 text-right mt-2 font-bold uppercase">Respondido em: ${new Date(c.respondido_em).toLocaleString('pt-BR')}</p>
+                            </div>
+                        ` : `
+                            <div class="pt-4 border-t border-slate-100 flex items-center gap-2 text-amber-600">
+                                <i class="fas fa-clock text-[10px] animate-pulse"></i>
+                                <p class="text-[10px] font-bold uppercase tracking-tighter">Aguardando análise da auditora...</p>
+                            </div>
+                        `}
+                        
+                        <div class="mt-4 text-right">
+                            <span class="text-[8px] text-slate-300 font-bold uppercase">Enviado em: ${enviadoEm}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {
+            console.error('Erro ao listar minhas contestações:', e);
+            body.innerHTML = '<p class="text-center text-rose-500 py-8">Erro ao carregar histórico.</p>';
         }
     }
 };

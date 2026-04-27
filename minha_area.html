@@ -313,10 +313,15 @@
                 <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <i class="fas fa-calendar-check text-blue-500"></i> Diário de Produção
                 </h3>
-                <button id="btn-solicitar-abono" onclick="MinhaArea.Geral.abrirModalAbono()" 
-                        class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition active:scale-95">
-                    <i class="fas fa-calendar-plus"></i> Solicitar Abono
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="MinhaArea.Geral.abrirMinhasContestacoes()" class="px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg text-[10px] font-black hover:bg-amber-100 transition flex items-center gap-1.5">
+                        <i class="fas fa-history"></i> Minhas Contestações
+                    </button>
+                    <button id="btn-solicitar-abono" onclick="MinhaArea.Geral.abrirModalAbono()" 
+                            class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition active:scale-95">
+                        <i class="fas fa-calendar-plus"></i> Solicitar Abono
+                    </button>
+                </div>
             </div>
 
             <div
@@ -721,6 +726,12 @@
                         <button id="btn-rel-gap" onclick="MinhaArea.Relatorios.mudarRelatorio('gap')" 
                                 class="hidden px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all">
                             <i class="fas fa-chart-line mr-2"></i> Análise de GAP
+                        </button>
+
+                        <!-- EXCLUSIVO AUDITORA: CONTESTACOES -->
+                        <button id="btn-rel-contestacoes" onclick="MinhaArea.Relatorios.mudarRelatorio('contestacoes')" 
+                                class="hidden px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all">
+                            <i class="fas fa-gavel mr-2"></i> Contestações
                         </button>
 
                         <!-- EXCLUSIVO GESTORA: RANKING DE FRASES -->
@@ -1306,7 +1317,23 @@
     <!-- Rodapé de Versão Global -->
     <div class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 py-1.5 flex justify-between items-center z-50">
         <span class="text-[10px] font-bold text-slate-400">GupyMesa System &copy; 2026</span>
-        <span id="global-footer-version" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">V.1.2.5</span>
+        <span id="global-footer-version" class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">V.1.4.2</span>
+    </div>
+    <!-- Modal Minhas Contestações (Assistente) -->
+    <div id="modal-minhas-contestacoes" class="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-enter max-h-[80vh] flex flex-col">
+            <div class="bg-slate-800 px-6 py-4 flex justify-between items-center shrink-0">
+                <h3 class="font-black text-white text-sm uppercase tracking-widest flex items-center gap-2">
+                    <i class="fas fa-history"></i> Histórico de Contestações
+                </h3>
+                <button onclick="document.getElementById('modal-minhas-contestacoes').classList.add('hidden')" class="text-white/70 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="minhas-contestacoes-body" class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                <p class="text-center text-slate-400 py-8 italic">Carregando histórico...</p>
+            </div>
+        </div>
     </div>
 </body>
 

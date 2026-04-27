@@ -21,6 +21,10 @@ MinhaArea.Relatorios = {
                 const btnGap = document.getElementById('btn-rel-gap');
                 if (btnGap) btnGap.classList.remove('hidden');
 
+                const btnContest = document.getElementById('btn-rel-contestacoes');
+                const isAuditor = (MinhaArea.usuario?.funcao || '').toLowerCase().includes('audito');
+                if (btnContest && (isAuditor || isAdmin)) btnContest.classList.remove('hidden');
+
                 const btnExportTab = document.getElementById('btn-rel-exportar');
                 if (btnExportTab) btnExportTab.classList.remove('hidden');
                 
@@ -48,6 +52,7 @@ MinhaArea.Relatorios = {
         const tabs = {
             'metas_okr': document.getElementById('tab-rel-metas'),
             'gap': document.getElementById('btn-rel-gap'),
+            'contestacoes': document.getElementById('btn-rel-contestacoes'),
             'ranking_frases': document.getElementById('btn-rel-ranking'),
             'excel_export': document.getElementById('btn-rel-exportar')
         };
@@ -81,6 +86,7 @@ MinhaArea.Relatorios = {
             container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
             if (id === 'metas_okr') this.carregarMetasOKR();
             else if (id === 'gap') this.carregarGAP();
+            else if (id === 'contestacoes') this.carregarContestacoesReport();
             else if (id === 'ranking_frases') this.carregarRankingFrases();
         }
     },
@@ -355,6 +361,98 @@ MinhaArea.Relatorios = {
                 return null; 
             }
         }
+    },
+
+    carregarContestacoesReport: async function() {
+        try {
+            const container = document.getElementById('relatorio-ativo-content');
+            const datas = MinhaArea.getDatasFiltro();
+            const { inicio, fim } = datas;
+
+            const sql = `
+                SELECT c.*, u.nome as usuario_nome 
+                FROM contestacoes_assertividade c 
+                JOIN usuarios u ON c.usuario_id = u.id 
+                WHERE c.data_referencia >= ? AND c.data_referencia <= ?
+                ORDER BY c.criado_em DESC
+            `;
+            const contestacoes = await Sistema.query(sql, [inicio, fim]);
+
+            let html = `
+                <div class="space-y-6 animate-enter">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div>
+                            <h3 class="text-sm font-black text-slate-700 uppercase tracking-widest">Relatório de Contestações</h3>
+                            <p class="text-[10px] text-slate-400 font-bold">Período: ${inicio.split('-').reverse().join('/')} até ${fim.split('-').reverse().join('/')}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="filtro-contest-nome" placeholder="Filtrar por nome..." 
+                                class="px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-400 w-48 shadow-sm"
+                                oninput="MinhaArea.Relatorios.filtrarContestacoesReport()">
+                        </div>
+                    </div>
+
+                    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <table class="w-full text-sm text-left border-collapse">
+                            <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b">
+                                <tr>
+                                    <th class="px-4 py-3">Data Ref.</th>
+                                    <th class="px-4 py-3">Assistente</th>
+                                    <th class="px-4 py-3">Mensagem</th>
+                                    <th class="px-4 py-3 text-center">Status</th>
+                                    <th class="px-4 py-3">Resposta Auditora</th>
+                                    <th class="px-4 py-3 text-right">Data Envio</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-contestacoes-report" class="divide-y divide-slate-100">
+            `;
+
+            if (contestacoes.length === 0) {
+                html += `<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400 italic">Nenhuma contestação encontrada no período.</td></tr>`;
+            } else {
+                contestacoes.forEach(c => {
+                    const statusClass = c.status === 'PENDENTE' ? 'bg-amber-100 text-amber-700' : 
+                                      (c.status === 'ACEITO' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700');
+                    const dataRef = new Date(c.data_referencia + 'T12:00:00').toLocaleDateString('pt-BR');
+                    const dataEnvio = new Date(c.criado_em).toLocaleString('pt-BR');
+
+                    html += `
+                        <tr class="contest-report-row hover:bg-slate-50 transition" data-nome="${c.usuario_nome.toLowerCase()}">
+                            <td class="px-4 py-3 font-bold text-slate-700">${dataRef}</td>
+                            <td class="px-4 py-3 font-black text-blue-600">${c.usuario_nome}</td>
+                            <td class="px-4 py-3 text-xs text-slate-600 max-w-xs truncate" title="${c.mensagem}">${c.mensagem}</td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${statusClass}">${c.status}</span>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-500 italic">${c.resposta_auditora || '--'}</td>
+                            <td class="px-4 py-3 text-right text-[10px] text-slate-400 font-bold">${dataEnvio}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            Sistema.notificar("Erro ao carregar relatório de contestações", "erro");
+        }
+    },
+
+    filtrarContestacoesReport: function() {
+        const query = document.getElementById('filtro-contest-nome').value.toLowerCase();
+        const rows = document.querySelectorAll('.contest-report-row');
+        rows.forEach(row => {
+            const nome = row.getAttribute('data-nome');
+            if (nome.includes(query)) row.classList.remove('hidden');
+            else row.classList.add('hidden');
+        });
     },
 
     carregarMetasOKR: async function() {
