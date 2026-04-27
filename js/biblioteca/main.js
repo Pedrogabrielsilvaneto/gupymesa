@@ -84,7 +84,21 @@ window.GupyBiblioteca = {
     },
 
     setupEventListeners: function() {
-        // Busca Principal e Secundária (já estão no HTML com oninput, mas reforçamos)
+        // Busca: Limpar campos ao clicar (focus)
+        const inputBusca1 = document.getElementById('lib-search');
+        const inputBusca2 = document.getElementById('lib-search-2');
+        if (inputBusca1) {
+            inputBusca1.addEventListener('focus', () => {
+                inputBusca1.value = '';
+                inputBusca2.value = '';
+                this.aplicarFiltros(false, true);
+            });
+        }
+        if (inputBusca2) {
+            inputBusca2.addEventListener('focus', () => {
+                inputBusca2.value = '';
+            });
+        }
         
         // CEP - Live (8 dígitos)
         const inputCep = document.getElementById('lib-cep-input');
@@ -496,7 +510,10 @@ window.GupyBiblioteca = {
     },
 
     // --- Calculadora ---
-    abrirCalculadora: function() { document.getElementById('modal-lib-calculadora').classList.remove('hidden'); },
+    abrirCalculadora: function() {
+        document.getElementById('modal-lib-calculadora').classList.remove('hidden');
+        setTimeout(() => { const el = document.getElementById('lib-calc-data-input'); if (el) el.focus(); }, 100);
+    },
     fecharCalculadora: function() { document.getElementById('modal-lib-calculadora').classList.add('hidden'); },
     mudarModoCalculadora: function(modo) {
         this.modoCalculadora = modo;

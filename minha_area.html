@@ -161,11 +161,11 @@
 </head>
 
 <body class="bg-slate-50">
-    <script src="js/config.js?v=1.3.5"></script>
-    <script src="js/sistema.js?v=1.3.5"></script>
-    <script src="js/gestao/config_mes.js?v=1.3.5"></script>
+    <script src="js/config.js?v=1.4.0"></script>
+    <script src="js/sistema.js?v=1.4.0"></script>
+    <script src="js/gestao/config_mes.js?v=1.4.0"></script>
 
-    <script src="js/menu/global.js?v=1.3.5"></script>
+    <script src="js/menu/global.js?v=1.4.0"></script>
     <div id="global-menu"></div>
 
     <div class="bg-white border-b border-slate-200 sticky top-12 left-0 w-full z-40 h-14 flex items-center shadow-sm">
@@ -1145,19 +1145,19 @@
         }
     </style>
 
-    <script src="js/config.js?v=1.3.5"></script>
-    <script src="js/sistema.js?v=1.3.5"></script>
-    <script src="js/menu/global.js?v=1.3.5"></script>
+    <script src="js/config.js?v=1.4.0"></script>
+    <script src="js/sistema.js?v=1.4.0"></script>
+    <script src="js/menu/global.js?v=1.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script src="js/minha_area/main.js?v=1.3.5"></script>
-    <script src="js/minha_area/assertividade.js?v=1.3.5"></script>
-    <script src="js/minha_area/geral.js?v=1.3.5"></script>
-    <script src="js/minha_area/metas.js?v=1.3.5"></script>
-    <script src="js/minha_area/auditoria.js?v=1.3.5"></script>
-    <script src="js/minha_area/comparativo.js?v=1.3.5"></script>
-    <script src="js/minha_area/feedback.js?v=1.3.5"></script>
-    <script src="js/minha_area/relatorios.js?v=1.3.5"></script>
+    <script src="js/minha_area/main.js?v=1.4.0"></script>
+    <script src="js/minha_area/assertividade.js?v=1.4.0"></script>
+    <script src="js/minha_area/geral.js?v=1.4.0"></script>
+    <script src="js/minha_area/metas.js?v=1.4.0"></script>
+    <script src="js/minha_area/auditoria.js?v=1.4.0"></script>
+    <script src="js/minha_area/comparativo.js?v=1.4.0"></script>
+    <script src="js/minha_area/feedback.js?v=1.4.0"></script>
+    <script src="js/minha_area/relatorios.js?v=1.4.0"></script>
     <!-- Modal Detalhe/Edição de Frase -->
     <div id="modal-ranking-detalhe" class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-enter">
@@ -1229,6 +1229,76 @@
                 </div>
                 <div id="gap-summary-container" class="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto max-h-[150px]">
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Contestar Assertividade -->
+    <div id="modal-contestar-assert" class="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-enter">
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex justify-between items-center">
+                <h3 class="font-black text-white text-sm uppercase tracking-widest flex items-center gap-2">
+                    <i class="fas fa-exclamation-triangle"></i> Contestar Assertividade
+                </h3>
+                <button onclick="document.getElementById('modal-contestar-assert').classList.add('hidden')" class="text-white/70 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                    <p class="text-xs font-bold text-amber-700 flex items-center gap-2 mb-1">
+                        <i class="fas fa-info-circle"></i> Informações da Contestação
+                    </p>
+                    <p class="text-[11px] text-amber-600">
+                        Semana: <span id="contest-semana-label" class="font-black">--</span>
+                    </p>
+                    <p class="text-[11px] text-amber-600">
+                        Data Assertividade: <span id="contest-data-label" class="font-black">--</span>
+                    </p>
+                    <p class="text-[10px] text-amber-500 mt-2 italic">
+                        <i class="fas fa-clock mr-1"></i> Contestações disponíveis apenas na terça e quarta-feira, referentes à semana anterior.
+                    </p>
+                </div>
+                <input type="hidden" id="contest-data-ref">
+                <input type="hidden" id="contest-semana-inicio">
+                <input type="hidden" id="contest-semana-fim">
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mensagem para a Auditora Keila</label>
+                    <textarea id="contest-mensagem" rows="4" placeholder="Descreva o motivo da contestação e o erro encontrado..." 
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-amber-400 focus:bg-white transition resize-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button onclick="document.getElementById('modal-contestar-assert').classList.add('hidden')" 
+                        class="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition text-sm">Cancelar</button>
+                    <button onclick="MinhaArea.Geral.enviarContestacao()" 
+                        class="bg-amber-600 hover:bg-amber-700 text-white font-black px-6 py-2.5 rounded-xl transition shadow-lg active:scale-95 text-sm flex items-center gap-2">
+                        <i class="fas fa-paper-plane"></i> Enviar Contestação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificação de Contestações para Auditora -->
+    <div id="badge-contestacoes-auditora" class="hidden fixed top-16 right-4 z-[90] bg-amber-500 text-white px-4 py-2 rounded-xl shadow-lg cursor-pointer hover:bg-amber-600 transition animate-enter flex items-center gap-2"
+         onclick="MinhaArea.Geral.abrirListaContestacoes()">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="text-xs font-black"><span id="badge-contest-count">0</span> Contestações Pendentes</span>
+    </div>
+
+    <!-- Modal Lista de Contestações (Auditora) -->
+    <div id="modal-lista-contestacoes" class="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-enter max-h-[80vh] flex flex-col">
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex justify-between items-center shrink-0">
+                <h3 class="font-black text-white text-sm uppercase tracking-widest flex items-center gap-2">
+                    <i class="fas fa-inbox"></i> Contestações Recebidas
+                </h3>
+                <button onclick="document.getElementById('modal-lista-contestacoes').classList.add('hidden')" class="text-white/70 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="lista-contestacoes-body" class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                <p class="text-center text-slate-400 py-8 italic">Carregando...</p>
             </div>
         </div>
     </div>

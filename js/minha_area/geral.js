@@ -105,6 +105,9 @@ MinhaArea.Geral = {
                 this.els.tabela.innerHTML = `<tr><td colspan="12" class="text-center py-4 text-rose-500">Erro: ${error.message}</td></tr>`;
             }
         }
+
+        // Verificar contestações pendentes (para a auditora Keila)
+        this.verificarContestacoesPendentes();
     },
 
     buscarUsuarios: async function () {
@@ -546,6 +549,14 @@ MinhaArea.Geral = {
                 const val = assertDia.media_final || assertDia.media_assertividade;
                 const cor = val >= (item?.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
                 assertHtml = `<span class="${cor} font-bold">${Number(val).toFixed(2)}%</span>`;
+                
+                // Botão Contestar: só disponível na terça e quarta, para assertividade da semana anterior
+                const podeContestar = this.podeContestarAssertividade(dia);
+                if (podeContestar) {
+                    assertHtml += ` <button onclick="event.stopPropagation(); MinhaArea.Geral.abrirModalContestacao('${dia}')" 
+                        class="ml-1 text-[9px] font-black text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 transition active:scale-95" 
+                        title="Contestar assertividade"><i class="fas fa-gavel"></i></button>`;
+                }
             }
 
             // Lógica de Observação e Status de Abono
@@ -1617,6 +1628,244 @@ MinhaArea.Geral = {
                 </div>
             </div>`;
         this.els.containerAlert.classList.remove('hidden');
+    },
+
+    // ============================================
+    // CONTESTAÇÃO DE ASSERTIVIDADE
+    // ============================================
+
+    /**
+     * Verifica se o dia atual (terça ou quarta) permite contestar a assertividade da data informada (semana anterior).
+     */
+    podeContestarAssertividade: function(dataStr) {
+        // Não permite contestação para admins/gestores
+        if (window.MinhaArea && window.MinhaArea.isAdmin()) return false;
+
+        const hoje = new Date();
+        const diaSemanaHoje = hoje.getDay(); // 0=dom, 1=seg, 2=ter, 3=qua, 4=qui, 5=sex, 6=sab
+
+        // Só terça (2) e quarta (3)
+        if (diaSemanaHoje !== 2 && diaSemanaHoje !== 3) return false;
+
+        // Calcula a semana anterior (segunda a sexta da semana passada)
+        const segundaPassada = new Date(hoje);
+        segundaPassada.setDate(hoje.getDate() - hoje.getDay() - 6); // Segunda da semana passada
+        segundaPassada.setHours(0, 0, 0, 0);
+        
+        const sextaPassada = new Date(segundaPassada);
+        sextaPassada.setDate(segundaPassada.getDate() + 4);
+        sextaPassada.setHours(23, 59, 59, 999);
+
+        const dataRef = new Date(dataStr + 'T12:00:00');
+        
+        return dataRef >= segundaPassada && dataRef <= sextaPassada;
+    },
+
+    /**
+     * Calcula segunda e sexta da semana anterior (para identificar a semana de referência)
+     */
+    getSemanaAnterior: function() {
+        const hoje = new Date();
+        const segundaPassada = new Date(hoje);
+        segundaPassada.setDate(hoje.getDate() - hoje.getDay() - 6);
+        const sextaPassada = new Date(segundaPassada);
+        sextaPassada.setDate(segundaPassada.getDate() + 4);
+        
+        const fmt = d => d.toISOString().split('T')[0];
+        const fmtBr = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        
+        return {
+            inicio: fmt(segundaPassada),
+            fim: fmt(sextaPassada),
+            label: `${fmtBr(segundaPassada)} a ${fmtBr(sextaPassada)}`
+        };
+    },
+
+    /**
+     * Abre o modal de contestação com os dados preenchidos
+     */
+    abrirModalContestacao: function(dataStr) {
+        const semana = this.getSemanaAnterior();
+        const dataRefFormatada = new Date(dataStr + 'T12:00:00').toLocaleDateString('pt-BR');
+        
+        document.getElementById('contest-semana-label').textContent = semana.label;
+        document.getElementById('contest-data-label').textContent = dataRefFormatada;
+        document.getElementById('contest-data-ref').value = dataStr;
+        document.getElementById('contest-semana-inicio').value = semana.inicio;
+        document.getElementById('contest-semana-fim').value = semana.fim;
+        document.getElementById('contest-mensagem').value = '';
+        document.getElementById('modal-contestar-assert').classList.remove('hidden');
+        
+        setTimeout(() => {
+            const textarea = document.getElementById('contest-mensagem');
+            if (textarea) textarea.focus();
+        }, 150);
+    },
+
+    /**
+     * Envia a contestação para o banco de dados
+     */
+    enviarContestacao: async function() {
+        const mensagem = (document.getElementById('contest-mensagem').value || '').trim();
+        if (!mensagem) {
+            if (window.Swal) Swal.fire({ icon: 'warning', title: 'Mensagem obrigatória', text: 'Descreva o motivo da contestação.', confirmButtonColor: '#f59e0b' });
+            return;
+        }
+
+        const usuario = window.MinhaArea?.usuario;
+        if (!usuario) return;
+
+        const dataRef = document.getElementById('contest-data-ref').value;
+        const semanaInicio = document.getElementById('contest-semana-inicio').value;
+        const semanaFim = document.getElementById('contest-semana-fim').value;
+
+        try {
+            await Sistema.query(
+                `INSERT INTO contestacoes_assertividade (usuario_id, usuario_nome, data_referencia, semana_inicio, semana_fim, mensagem, status, criado_em) 
+                 VALUES (?, ?, ?, ?, ?, ?, 'PENDENTE', NOW())`,
+                [usuario.id, usuario.nome, dataRef, semanaInicio, semanaFim, mensagem]
+            );
+
+            document.getElementById('modal-contestar-assert').classList.add('hidden');
+            
+            if (window.Swal) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Contestação Enviada!',
+                    text: 'A auditora Keila será notificada e analisará sua contestação.',
+                    confirmButtonColor: '#f59e0b',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+            }
+        } catch (e) {
+            console.error('Erro ao enviar contestação:', e);
+            if (window.Swal) Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao enviar. Tente novamente.' });
+        }
+    },
+
+    /**
+     * Verifica se a auditora Keila tem contestações pendentes e exibe o badge
+     */
+    verificarContestacoesPendentes: async function() {
+        const usuario = window.MinhaArea?.usuario;
+        if (!usuario) return;
+        
+        // Verifica se o usuário é a auditora Keila (pelo nome)
+        const nome = (usuario.nome || '').toUpperCase();
+        const funcao = (usuario.funcao || '').toUpperCase();
+        const ehAuditora = nome.includes('KEILA') || funcao.includes('AUDITOR');
+        
+        if (!ehAuditora) return;
+
+        try {
+            const data = await Sistema.query(
+                `SELECT COUNT(*) as total FROM contestacoes_assertividade WHERE status = 'PENDENTE'`
+            );
+            const total = data && data[0] ? data[0].total : 0;
+            const badge = document.getElementById('badge-contestacoes-auditora');
+            const countEl = document.getElementById('badge-contest-count');
+            
+            if (badge && total > 0) {
+                countEl.textContent = total;
+                badge.classList.remove('hidden');
+            } else if (badge) {
+                badge.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Erro ao verificar contestações:', e);
+        }
+    },
+
+    /**
+     * Abre a lista de contestações pendentes (para a auditora)
+     */
+    abrirListaContestacoes: async function() {
+        const modal = document.getElementById('modal-lista-contestacoes');
+        const body = document.getElementById('lista-contestacoes-body');
+        if (!modal || !body) return;
+        
+        modal.classList.remove('hidden');
+        body.innerHTML = '<p class="text-center text-slate-400 py-8"><i class="fas fa-circle-notch fa-spin mr-2"></i>Carregando...</p>';
+
+        try {
+            const data = await Sistema.query(
+                `SELECT * FROM contestacoes_assertividade ORDER BY criado_em DESC LIMIT 50`
+            );
+
+            if (!data || data.length === 0) {
+                body.innerHTML = '<p class="text-center text-slate-400 py-8 italic">Nenhuma contestação encontrada.</p>';
+                return;
+            }
+
+            body.innerHTML = data.map(c => {
+                const dataRef = new Date(c.data_referencia).toLocaleDateString('pt-BR');
+                const criadoEm = new Date(c.criado_em).toLocaleString('pt-BR');
+                const isPendente = c.status === 'PENDENTE';
+                const statusBadge = isPendente 
+                    ? '<span class="bg-amber-100 text-amber-700 text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-200">PENDENTE</span>'
+                    : `<span class="bg-emerald-100 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-200">${c.status}</span>`;
+
+                return `
+                    <div class="bg-white border ${isPendente ? 'border-amber-200' : 'border-slate-200'} rounded-xl p-4 ${isPendente ? 'shadow-sm' : ''} transition">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <p class="font-black text-slate-800 text-sm">${c.usuario_nome}</p>
+                                <p class="text-[10px] text-slate-400">Ref: ${dataRef} | Enviado: ${criadoEm}</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3 mb-3">
+                            <p class="text-xs text-slate-700 whitespace-pre-wrap">${c.mensagem}</p>
+                        </div>
+                        ${c.resposta_auditora ? `
+                            <div class="bg-emerald-50 rounded-lg p-3 mb-3">
+                                <p class="text-[10px] font-black text-emerald-600 uppercase mb-1"><i class="fas fa-reply mr-1"></i> Resposta</p>
+                                <p class="text-xs text-slate-700">${c.resposta_auditora}</p>
+                            </div>
+                        ` : ''}
+                        ${isPendente ? `
+                            <div class="flex gap-2 mt-3">
+                                <input type="text" id="resp-contest-${c.id}" placeholder="Responder contestação..." 
+                                    class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-400">
+                                <button onclick="MinhaArea.Geral.responderContestacao(${c.id}, 'ACEITA')" 
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-3 py-2 rounded-lg transition" title="Aceitar">
+                                    <i class="fas fa-check"></i> Aceitar
+                                </button>
+                                <button onclick="MinhaArea.Geral.responderContestacao(${c.id}, 'REJEITADA')" 
+                                    class="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black px-3 py-2 rounded-lg transition" title="Rejeitar">
+                                    <i class="fas fa-times"></i> Rejeitar
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>`;
+            }).join('');
+        } catch (e) {
+            console.error('Erro ao carregar contestações:', e);
+            body.innerHTML = '<p class="text-center text-rose-500 py-8">Erro ao carregar dados.</p>';
+        }
+    },
+
+    /**
+     * Responde uma contestação (aceitar ou rejeitar)
+     */
+    responderContestacao: async function(id, status) {
+        const resposta = (document.getElementById(`resp-contest-${id}`)?.value || '').trim();
+        
+        try {
+            await Sistema.query(
+                `UPDATE contestacoes_assertividade SET status = ?, resposta_auditora = ?, respondido_em = NOW() WHERE id = ?`,
+                [status, resposta || (status === 'ACEITA' ? 'Contestação aceita.' : 'Contestação rejeitada.'), id]
+            );
+            
+            if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Contestação ${status.toLowerCase()}!`, showConfirmButton: false, timer: 2000 });
+            
+            // Recarrega a lista e atualiza o badge
+            this.abrirListaContestacoes();
+            this.verificarContestacoesPendentes();
+        } catch (e) {
+            console.error('Erro ao responder contestação:', e);
+        }
     }
 };
 
@@ -1626,4 +1875,4 @@ if (document.readyState === 'loading') {
     });
 } else {
     if (window.MinhaArea && window.MinhaArea.Geral) MinhaArea.Geral.init();
-}
+}
