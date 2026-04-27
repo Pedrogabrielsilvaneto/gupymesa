@@ -1638,25 +1638,26 @@ MinhaArea.Geral = {
      * Verifica se o dia atual (terça ou quarta) permite contestar a assertividade da data informada (semana anterior).
      */
     podeContestarAssertividade: function(dataStr) {
-        // Não permite contestação para admins/gestores
-        if (window.MinhaArea && window.MinhaArea.isAdmin()) return false;
-
         const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
         const diaSemanaHoje = hoje.getDay(); // 0=dom, 1=seg, 2=ter, 3=qua, 4=qui, 5=sex, 6=sab
 
         // Só segunda (1), terça (2) e quarta (3)
         if (diaSemanaHoje !== 1 && diaSemanaHoje !== 2 && diaSemanaHoje !== 3) return false;
 
-        // Calcula a semana anterior (segunda a sexta da semana passada)
+        // Calcula a semana anterior (segunda a domingo da semana passada)
+        // Para segunda-feira: semana passada é 7 dias atrás (seg) a 1 dia atrás (dom)
+        // Para terça: semana passada é 8 dias atrás (seg) a 2 dias atrás (dom)
+        // Fórmula genérica: segunda da semana passada = hoje - diaSemana - 6 (se seg=1, ter=2, qua=3)
+        const diasDesdeSegunda = diaSemanaHoje; // 1=seg, 2=ter, 3=qua
         const segundaPassada = new Date(hoje);
-        segundaPassada.setDate(hoje.getDate() - hoje.getDay() - 6); // Segunda da semana passada
-        segundaPassada.setHours(0, 0, 0, 0);
+        segundaPassada.setDate(hoje.getDate() - diasDesdeSegunda - 6); // Vai para segunda da semana anterior
         
         const sextaPassada = new Date(segundaPassada);
-        sextaPassada.setDate(segundaPassada.getDate() + 4);
-        sextaPassada.setHours(23, 59, 59, 999);
+        sextaPassada.setDate(segundaPassada.getDate() + 4); // Sexta da semana anterior
 
         const dataRef = new Date(dataStr + 'T12:00:00');
+        dataRef.setHours(0, 0, 0, 0);
         
         return dataRef >= segundaPassada && dataRef <= sextaPassada;
     },
