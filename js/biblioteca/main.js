@@ -260,7 +260,7 @@ window.GupyBiblioteca = {
                     <div class="flex items-center gap-3">
                         <button onclick="GupyBiblioteca.toggleFavorito('${f.id}')" class="transition-all active:scale-75 ${fav ? 'text-rose-500' : 'text-slate-300 hover:text-rose-400'}"><i class="${fav ? 'fas' : 'far'} fa-heart"></i></button>
                         <button onclick="GupyBiblioteca.copiarTexto('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-black px-4 py-2 rounded-xl shadow-md transition active:scale-95 flex items-center gap-2"><i class="far fa-copy"></i> Copiar</button>
-                        ${isAdmin ? `
+                        ${(isAdmin || String(f.revisado_por) === String(this.usuario?.id)) ? `
                             <button onclick="GupyBiblioteca.prepararEdicao('${f.id}')" class="text-slate-300 hover:text-amber-500 p-1.5 transition"><i class="fas fa-pen text-sm"></i></button>
                             <button onclick="GupyBiblioteca.deletar('${f.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 transition"><i class="fas fa-trash-alt text-sm"></i></button>
                         ` : ''}
