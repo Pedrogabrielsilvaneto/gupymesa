@@ -80,7 +80,8 @@ MinhaArea.Geral = {
             await Promise.all([
                 this.buscarProducao(filtro, alvoReal),
                 this.buscarAssertividadeDiariaSQL(filtro, alvoReal),
-                this.buscarMetas(filtro, alvoReal)
+                this.buscarMetas(filtro, alvoReal),
+                this.buscarContestacoesProprias(filtro, alvoReal)
             ]);
 
             await this.processarDadosUnificados();
@@ -165,6 +166,17 @@ MinhaArea.Geral = {
             console.error("Erro Assertividade SQL:", error);
             this.state.dadosAssertividadeDiaria = [];
         }
+    },
+
+    buscarContestacoesProprias: async function(filtro, uid) {
+        if (!uid || isNaN(uid)) return;
+        try {
+            const data = await Sistema.query(
+                `SELECT * FROM contestacoes_assertividade WHERE usuario_id = ? AND data_referencia >= ? AND data_referencia <= ?`,
+                [uid, filtro.inicio, filtro.fim]
+            );
+            this.state.minhasContestacoes = data || [];
+        } catch (e) { console.error("Erro buscarContestacoesProprias:", e); }
     },
 
     buscarMetas: async function (range, uid) {
@@ -522,6 +534,12 @@ MinhaArea.Geral = {
         // Calcula as datas contestáveis: última semana inserida pela auditora
         const datasContestaveis = this.calcularDatasContestaveis(assertMap);
         
+        // Mapa de contestações já feitas por esse usuário no período
+        const mapaContestacoes = {};
+        (this.state.minhasContestacoes || []).forEach(c => {
+            mapaContestacoes[c.data_referencia] = c;
+        });
+        
         const producaoMap = {};
         this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).forEach(d => {
             const dataAgrupada = this.agruparDataFDS(d.data_referencia.split('T')[0]);
@@ -555,9 +573,20 @@ MinhaArea.Geral = {
                 
                 // Botão Contestar: só nas datas da última semana inserida pela auditora, e somente seg/ter/qua
                 if (datasContestaveis.has(dia)) {
-                    assertHtml += ` <button onclick="event.stopPropagation(); MinhaArea.Geral.abrirModalContestacao('${dia}')" 
-                        class="ml-1 text-[9px] font-black text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 transition active:scale-95" 
-                        title="Contestar assertividade"><i class="fas fa-gavel"></i></button>`;
+                    const contestExistente = mapaContestacoes[dia];
+                    if (contestExistente) {
+                        const icon = contestExistente.status === 'PENDENTE' ? 'fa-edit' : 'fa-check-double';
+                        const color = contestExistente.status === 'PENDENTE' ? 'text-blue-600 bg-blue-50 border-blue-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200';
+                        const label = contestExistente.status === 'PENDENTE' ? 'Ver/Editar' : 'Contestado';
+                        
+                        assertHtml += ` <button onclick="event.stopPropagation(); MinhaArea.Geral.abrirMinhasContestacoes()" 
+                            class="ml-1 text-[9px] font-black ${color} px-1.5 py-0.5 rounded border transition active:scale-95" 
+                            title="${label} contestação"><i class="fas ${icon}"></i> ${label}</button>`;
+                    } else {
+                        assertHtml += ` <button onclick="event.stopPropagation(); MinhaArea.Geral.abrirModalContestacao('${dia}')" 
+                            class="ml-1 text-[9px] font-black text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 transition active:scale-95" 
+                            title="Contestar assertividade"><i class="fas fa-gavel"></i> Contestar</button>`;
+                    }
                 }
             }
 
@@ -1718,6 +1747,7 @@ MinhaArea.Geral = {
         const semanaLabel = `${fmtBr(inicio)} a ${fmtBr(fim)}`;
         const dataRefFormatada = new Date(dataStr + 'T12:00:00').toLocaleDateString('pt-BR');
         
+        document.getElementById('contest-id').value = '';
         document.getElementById('contest-semana-label').textContent = semanaLabel;
         document.getElementById('contest-data-label').textContent = dataRefFormatada;
         document.getElementById('contest-data-ref').value = dataStr;
@@ -1748,21 +1778,32 @@ MinhaArea.Geral = {
         const dataRef = document.getElementById('contest-data-ref').value;
         const semanaInicio = document.getElementById('contest-semana-inicio').value;
         const semanaFim = document.getElementById('contest-semana-fim').value;
+        const contestId = document.getElementById('contest-id').value;
 
         try {
-            await Sistema.query(
-                `INSERT INTO contestacoes_assertividade (usuario_id, usuario_nome, data_referencia, semana_inicio, semana_fim, mensagem, status, criado_em) 
-                 VALUES (?, ?, ?, ?, ?, ?, 'PENDENTE', NOW())`,
-                [usuario.id, usuario.nome, dataRef, semanaInicio, semanaFim, mensagem]
-            );
+            if (contestId) {
+                // Modo Edição
+                await Sistema.query(
+                    `UPDATE contestacoes_assertividade SET mensagem = ?, criado_em = NOW() WHERE id = ? AND usuario_id = ?`,
+                    [mensagem, contestId, usuario.id]
+                );
+            } else {
+                // Modo Inserção
+                await Sistema.query(
+                    `INSERT INTO contestacoes_assertividade (usuario_id, usuario_nome, data_referencia, semana_inicio, semana_fim, mensagem, status, criado_em) 
+                     VALUES (?, ?, ?, ?, ?, ?, 'PENDENTE', NOW())`,
+                    [usuario.id, usuario.nome, dataRef, semanaInicio, semanaFim, mensagem]
+                );
+            }
 
             document.getElementById('modal-contestar-assert').classList.add('hidden');
+            this.carregar(); // Recarrega para atualizar botões no grid
             
             if (window.Swal) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Contestação Enviada!',
-                    text: 'A auditora Keila será notificada e analisará sua contestação.',
+                    title: contestId ? 'Contestação Atualizada!' : 'Contestação Enviada!',
+                    text: 'A auditora Keila analisará sua solicitação.',
                     confirmButtonColor: '#f59e0b',
                     timer: 3000,
                     timerProgressBar: true
@@ -1967,9 +2008,21 @@ MinhaArea.Geral = {
                                 <p class="text-[9px] text-slate-400 text-right mt-2 font-bold uppercase">Respondido em: ${new Date(c.respondido_em).toLocaleString('pt-BR')}</p>
                             </div>
                         ` : `
-                            <div class="pt-4 border-t border-slate-100 flex items-center gap-2 text-amber-600">
-                                <i class="fas fa-clock text-[10px] animate-pulse"></i>
-                                <p class="text-[10px] font-bold uppercase tracking-tighter">Aguardando análise da auditora...</p>
+                            <div class="pt-4 border-t border-slate-100 flex flex-col gap-3">
+                                <div class="flex items-center gap-2 text-amber-600">
+                                    <i class="fas fa-clock text-[10px] animate-pulse"></i>
+                                    <p class="text-[10px] font-bold uppercase tracking-tighter">Aguardando análise da auditora...</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="MinhaArea.Geral.prepararEdicaoContestacao(${c.id}, \`${c.mensagem.replace(/`/g, '\\`')}\`, '${c.data_referencia}', '${c.semana_inicio}', '${c.semana_fim}')" 
+                                        class="flex-1 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black border border-blue-100 hover:bg-blue-100 transition flex items-center justify-center gap-1.5">
+                                        <i class="fas fa-edit"></i> EDITAR
+                                    </button>
+                                    <button onclick="MinhaArea.Geral.excluirContestacao(${c.id})" 
+                                        class="flex-1 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-black border border-rose-100 hover:bg-rose-100 transition flex items-center justify-center gap-1.5">
+                                        <i class="fas fa-trash-alt"></i> EXCLUIR
+                                    </button>
+                                </div>
                             </div>
                         `}
                         
@@ -1982,6 +2035,43 @@ MinhaArea.Geral = {
         } catch (e) {
             console.error('Erro ao listar minhas contestações:', e);
             body.innerHTML = '<p class="text-center text-rose-500 py-8">Erro ao carregar histórico.</p>';
+        }
+    },
+
+    prepararEdicaoContestacao: function(id, mensagem, dataRef, semanaInicio, semanaFim) {
+        document.getElementById('modal-minhas-contestacoes').classList.add('hidden');
+        
+        // Usa o abrirModalContestacao para preencher a base
+        this.abrirModalContestacao(dataRef);
+        
+        // Sobrescreve com os dados da edição
+        document.getElementById('contest-id').value = id;
+        document.getElementById('contest-mensagem').value = mensagem;
+        document.getElementById('contest-semana-inicio').value = semanaInicio;
+        document.getElementById('contest-semana-fim').value = semanaFim;
+    },
+
+    excluirContestacao: async function(id) {
+        const confirm = window.Swal ? await Swal.fire({
+            title: 'Excluir Contestação?',
+            text: "Esta ação não pode ser desfeita.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e11d48',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sim, excluir',
+            cancelButtonText: 'Cancelar'
+        }) : { isConfirmed: window.confirm("Excluir esta contestação?") };
+
+        if (!confirm.isConfirmed) return;
+
+        try {
+            await Sistema.query("DELETE FROM contestacoes_assertividade WHERE id = ? AND status = 'PENDENTE'", [id]);
+            Sistema.notificar("Contestação excluída com sucesso!");
+            this.carregar(); // Atualiza tudo
+            this.abrirMinhasContestacoes(); // Reabre o histórico atualizado
+        } catch (e) {
+            console.error("Erro ao excluir contestação:", e);
         }
     }
 };
