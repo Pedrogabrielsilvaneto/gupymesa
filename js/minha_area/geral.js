@@ -1285,16 +1285,28 @@ MinhaArea.Geral = {
 
     formatarDataSegura: function (dataRaw) {
         if (!dataRaw) return '-';
-        // Se já for DD/MM/YYYY
-        if (dataRaw.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dataRaw;
-
-        // Tenta processar YYYY-MM-DD
-        const partes = dataRaw.split('T')[0].split('-');
-        if (partes.length === 3) {
-            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        
+        // Se for objeto Date
+        if (dataRaw instanceof Date) {
+            if (isNaN(dataRaw.getTime())) return 'Data Inválida';
+            const day = String(dataRaw.getDate()).padStart(2, '0');
+            const month = String(dataRaw.getMonth() + 1).padStart(2, '0');
+            const year = dataRaw.getFullYear();
+            return `${day}/${month}/${year}`;
         }
 
-        return dataRaw; // Fallback
+        // Se já for DD/MM/YYYY
+        if (typeof dataRaw === 'string' && dataRaw.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dataRaw;
+
+        // Tenta processar YYYY-MM-DD
+        if (typeof dataRaw === 'string') {
+            const partes = dataRaw.split('T')[0].split('-');
+            if (partes.length === 3) {
+                return `${partes[2]}/${partes[1]}/${partes[0]}`;
+            }
+        }
+
+        return String(dataRaw); // Fallback
     },
 
     fecharModalObs: function () {
@@ -1741,11 +1753,11 @@ MinhaArea.Geral = {
      * Abre o modal de contestação com os dados preenchidos
      */
     abrirModalContestacao: function(dataStr) {
-        const fmtBr = d => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const fmtBr = d => this.formatarDataSegura(d);
         const inicio = this._contestSemanaInicio || dataStr;
         const fim = this._contestSemanaFim || dataStr;
         const semanaLabel = `${fmtBr(inicio)} a ${fmtBr(fim)}`;
-        const dataRefFormatada = new Date(dataStr + 'T12:00:00').toLocaleDateString('pt-BR');
+        const dataRefFormatada = fmtBr(dataStr);
         
         document.getElementById('contest-id').value = '';
         document.getElementById('contest-semana-label').textContent = semanaLabel;
@@ -1972,17 +1984,28 @@ MinhaArea.Geral = {
             }
 
             body.innerHTML = data.map(c => {
-                const dataRef = new Date(c.data_referencia + 'T12:00:00').toLocaleDateString('pt-BR');
+                const dataRefDisplay = this.formatarDataSegura(c.data_referencia);
                 const enviadoEm = new Date(c.criado_em).toLocaleString('pt-BR');
                 const statusClass = c.status === 'PENDENTE' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
                                   (c.status === 'ACEITA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200');
+
+                // Garante que as datas para edição estejam no formato YYYY-MM-DD string
+                const toISO = (d) => {
+                    if (d instanceof Date) return d.toISOString().split('T')[0];
+                    if (typeof d === 'string') return d.split('T')[0];
+                    return d;
+                };
+
+                const dataRefISO = toISO(c.data_referencia);
+                const semanaInicioISO = toISO(c.semana_inicio);
+                const semanaFimISO = toISO(c.semana_fim);
 
                 return `
                     <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 transition-all hover:bg-white hover:shadow-sm group">
                         <div class="flex justify-between items-start mb-4">
                             <div>
                                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Data Referência</p>
-                                <p class="font-black text-slate-700 text-base">${dataRef}</p>
+                                <p class="font-black text-slate-700 text-base">${dataRefDisplay}</p>
                             </div>
                             <span class="px-3 py-1 rounded-full text-[9px] font-black border uppercase ${statusClass}">${c.status}</span>
                         </div>
@@ -2014,7 +2037,7 @@ MinhaArea.Geral = {
                                     <p class="text-[10px] font-bold uppercase tracking-tighter">Aguardando análise da auditora...</p>
                                 </div>
                                 <div class="flex gap-2">
-                                    <button onclick="MinhaArea.Geral.prepararEdicaoContestacao(${c.id}, \`${c.mensagem.replace(/`/g, '\\`')}\`, '${c.data_referencia}', '${c.semana_inicio}', '${c.semana_fim}')" 
+                                    <button onclick="MinhaArea.Geral.prepararEdicaoContestacao(${c.id}, \`${c.mensagem.replace(/`/g, '\\`')}\`, '${dataRefISO}', '${semanaInicioISO}', '${semanaFimISO}')" 
                                         class="flex-1 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black border border-blue-100 hover:bg-blue-100 transition flex items-center justify-center gap-1.5">
                                         <i class="fas fa-edit"></i> EDITAR
                                     </button>
