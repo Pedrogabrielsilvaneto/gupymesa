@@ -288,6 +288,13 @@ window.GupyBiblioteca = {
             await this.callAPI({ action: 'update', table: 'frases', id: f.id, data: { usos: novoUso, ultimo_uso: new Date().toISOString().slice(0, 19).replace('T', ' ') } });
             f.usos = novoUso;
             f.meus_usos = (f.meus_usos || 0) + 1;
+
+            // Re-ordenar cache para refletir mudança de ranking imediatamente
+            this.cacheFrases.sort((a, b) => {
+                if (b.meus_usos !== a.meus_usos) return b.meus_usos - a.meus_usos;
+                return (b.usos || 0) - (a.usos || 0);
+            });
+
             this.aplicarFiltros(false);
         });
     },
