@@ -1644,8 +1644,8 @@ MinhaArea.Geral = {
         const hoje = new Date();
         const diaSemanaHoje = hoje.getDay(); // 0=dom, 1=seg, 2=ter, 3=qua, 4=qui, 5=sex, 6=sab
 
-        // Só terça (2) e quarta (3)
-        if (diaSemanaHoje !== 2 && diaSemanaHoje !== 3) return false;
+        // Só segunda (1), terça (2) e quarta (3)
+        if (diaSemanaHoje !== 1 && diaSemanaHoje !== 2 && diaSemanaHoje !== 3) return false;
 
         // Calcula a semana anterior (segunda a sexta da semana passada)
         const segundaPassada = new Date(hoje);

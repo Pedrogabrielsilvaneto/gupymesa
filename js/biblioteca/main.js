@@ -90,7 +90,14 @@ window.GupyBiblioteca = {
         if (inputBusca1) {
             inputBusca1.addEventListener('focus', () => {
                 inputBusca1.value = '';
-                inputBusca2.value = '';
+                if (inputBusca2) inputBusca2.value = '';
+                // Limpar filtros dropdown
+                const filtroEmpresa = document.getElementById('lib-filtro-empresa');
+                const filtroMotivo = document.getElementById('lib-filtro-motivo');
+                const filtroDoc = document.getElementById('lib-filtro-doc');
+                if (filtroEmpresa) filtroEmpresa.value = '';
+                if (filtroMotivo) filtroMotivo.value = '';
+                if (filtroDoc) filtroDoc.value = '';
                 this.aplicarFiltros(false, true);
             });
         }
