@@ -9,7 +9,8 @@ window.MinhaArea = {
     filtroPeriodo: 'ano', // Alterado de 'mes' para 'ano' para iniciar no modo semestral
 
     init: async function () {
-        if (!Sistema.supabase) await Sistema.inicializar(false);
+        // Inicializa o sistema (TiDB API)
+        await Sistema.inicializar();
 
         const storedUser = localStorage.getItem('usuario_logado');
         if (!storedUser) { window.location.href = 'index.html'; return; }
@@ -334,12 +335,13 @@ window.MinhaArea = {
         if (!select || select.options.length > 1) return;
 
         try {
-            const { data, error } = await Sistema.supabase
-                .from('usuarios')
-                .select('id, nome, funcao, perfil, ativo')
-                .order('nome');
+            const data = await Sistema.query(`
+                SELECT id, nome, funcao, perfil, ativo 
+                FROM usuarios 
+                ORDER BY nome
+            `);
 
-            if (!error) {
+            if (data) {
                 let options = `<option value="">👥 Geral (Todos)</option>`;
                 options += `<option value="GRUPO_CLT">👥 Equipe CLT</option>`;
                 options += `<option value="GRUPO_TERCEIROS">👥 Equipe Terceiros</option>`;

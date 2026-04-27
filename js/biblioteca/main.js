@@ -311,7 +311,8 @@ window.GupyBiblioteca = {
 
         const btnLimpar = document.getElementById('btn-limpar-busca');
         if (btnLimpar) {
-            if (termo || termo2) btnLimpar.classList.remove('hidden');
+            const hasFilter = termo || termo2 || valEmpresa || valMotivo || valDoc;
+            if (hasFilter) btnLimpar.classList.remove('hidden');
             else btnLimpar.classList.add('hidden');
         }
 
@@ -345,6 +346,16 @@ window.GupyBiblioteca = {
     limparBusca: function() {
         document.getElementById('lib-search').value = '';
         document.getElementById('lib-search-2').value = '';
+        
+        // Também limpar filtros ao limpar busca no "X"
+        const fEmp = document.getElementById('lib-filtro-empresa');
+        const fMot = document.getElementById('lib-filtro-motivo');
+        const fDoc = document.getElementById('lib-filtro-doc');
+        
+        if (fEmp) fEmp.value = '';
+        if (fMot) fMot.value = '';
+        if (fDoc) fDoc.value = '';
+
         this.aplicarFiltros(true);
     },
 

@@ -41,19 +41,19 @@ Object.assign(window.Produtividade, {
     },
 
     verificarStatusPresenca: async function () {
-        if (!Sistema || !Sistema.supabase) return;
+        if (!Sistema) return;
         const hoje = new Date().toISOString().split('T')[0];
         try {
-            const { data } = await Sistema.supabase
-                .from('acessos_diarios')
-                .select('id')
-                .eq('usuario_id', this.usuario.id)
-                .eq('data_referencia', hoje)
-                .maybeSingle();
+            const data = await Sistema.query(`
+                SELECT id 
+                FROM acessos_diarios 
+                WHERE usuario_id = ? AND data_referencia = ? 
+                LIMIT 1
+            `, [this.usuario.id, hoje]);
 
             const statusEl = document.getElementById('status-presenca-hoje');
             if (statusEl) {
-                statusEl.innerHTML = data
+                statusEl.innerHTML = (data && data.length > 0)
                     ? '<span class="text-green-500 font-bold"><i class="fas fa-check-circle"></i> CHECKING ATIVO</span>'
                     : '<span class="text-amber-500 font-bold"><i class="fas fa-clock"></i> AGUARDANDO REGISTRO</span>';
             }

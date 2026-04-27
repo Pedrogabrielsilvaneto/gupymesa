@@ -362,40 +362,40 @@ MinhaArea.Comparativo = {
     },
 
     buscarTudoPaginado: async function (uid, inicio, fim) {
-        let queryCount = Sistema.supabase.from('assertividade').select('*', { count: 'exact', head: true }).gte('data_referencia', inicio).lte('data_referencia', fim).neq('auditora_nome', null);
-        if (uid && uid !== 'GRUPO_CLT' && uid !== 'GRUPO_TERCEIROS') queryCount = queryCount.eq('usuario_id', uid);
-        const { count, error: errCount } = await queryCount;
-        if (errCount) throw errCount;
-        if (count === 0) return [];
+        try {
+            let sql = `
+                SELECT id, id_ppc, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok 
+                FROM assertividade 
+                WHERE data_referencia >= ? AND data_referencia <= ? AND auditora_nome IS NOT NULL
+            `;
+            let params = [inicio, fim];
 
-        const PAGE_SIZE = 1000;
-        const totalPages = Math.ceil(count / PAGE_SIZE);
-        const promises = [];
-        // ADICIONADO: id_ppc na query
-        const colunas = 'id, id_ppc, data_referencia, auditora_nome, tipo_documento, doc_name, observacao, status, empresa_nome, assistente_nome, qtd_nok';
-        const MAX_PAGES = 300;
-        const pagesToFetch = Math.min(totalPages, MAX_PAGES);
+            if (uid && uid !== 'EQUIPE' && uid !== 'GRUPO_CLT' && uid !== 'GRUPO_TERCEIROS') {
+                sql += ` AND usuario_id = ?`;
+                params.push(uid);
+            }
 
-        for (let i = 0; i < pagesToFetch; i++) {
-            let query = Sistema.supabase.from('assertividade').select(colunas).gte('data_referencia', inicio).lte('data_referencia', fim).neq('auditora_nome', null).range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
-            if (uid && uid !== 'GRUPO_CLT' && uid !== 'GRUPO_TERCEIROS') query = query.eq('usuario_id', uid);
-            promises.push(query);
+            sql += ` ORDER BY data_referencia DESC LIMIT 300000`;
+
+            const data = await Sistema.query(sql, params);
+            if (!data) return [];
+            
+            let todos = data;
+
+            if (uid === 'GRUPO_CLT' || uid === 'GRUPO_TERCEIROS') {
+                const mapa = (window.MinhaArea && MinhaArea.Geral && MinhaArea.Geral.state) ? MinhaArea.Geral.state.mapaUsuarios : {};
+                todos = todos.filter(d => {
+                    const uInfo = mapa[d.usuario_id];
+                    if (!uInfo) return false;
+                    const c = (uInfo.contrato || '').toUpperCase();
+                    if (uid === 'GRUPO_CLT') return c.includes('CLT');
+                    return c.includes('TERCEI') || c.includes('PJ') || c.includes('PREST');
+                });
+            }
+            return todos;
+        } catch (e) {
+            console.error("Erro buscarTudoPaginado:", e);
+            return [];
         }
-
-        const responses = await Promise.all(promises);
-        let todos = [];
-        responses.forEach(({ data, error }) => { if (!error && data) todos = todos.concat(data); });
-
-        if (uid === 'GRUPO_CLT' || uid === 'GRUPO_TERCEIROS') {
-            const mapa = (window.MinhaArea && MinhaArea.Geral && MinhaArea.Geral.state) ? MinhaArea.Geral.state.mapaUsuarios : {};
-            todos = todos.filter(d => {
-                const uInfo = mapa[d.usuario_id];
-                if (!uInfo) return false;
-                const c = (uInfo.contrato || '').toUpperCase();
-                if (uid === 'GRUPO_CLT') return c.includes('CLT');
-                return c.includes('TERCEI') || c.includes('PJ') || c.includes('PREST');
-            });
-        }
-        return todos;
     }
 };
