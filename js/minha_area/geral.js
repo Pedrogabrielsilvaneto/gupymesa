@@ -518,6 +518,9 @@ MinhaArea.Geral = {
             assertMap[dataAgrupada].qtd_colab += 1;
             assertMap[dataAgrupada].media_final = assertMap[dataAgrupada].soma_assertividade / assertMap[dataAgrupada].qtd_colab;
         });
+
+        // Calcula as datas contestáveis: última semana inserida pela auditora
+        const datasContestaveis = this.calcularDatasContestaveis(assertMap);
         
         const producaoMap = {};
         this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid)).forEach(d => {
@@ -550,9 +553,8 @@ MinhaArea.Geral = {
                 const cor = val >= (item?.meta_assert || 97) ? 'text-emerald-600' : 'text-rose-600';
                 assertHtml = `<span class="${cor} font-bold">${Number(val).toFixed(2)}%</span>`;
                 
-                // Botão Contestar: só disponível na terça e quarta, para assertividade da semana anterior
-                const podeContestar = this.podeContestarAssertividade(dia);
-                if (podeContestar) {
+                // Botão Contestar: só nas datas da última semana inserida pela auditora, e somente seg/ter/qua
+                if (datasContestaveis.has(dia)) {
                     assertHtml += ` <button onclick="event.stopPropagation(); MinhaArea.Geral.abrirModalContestacao('${dia}')" 
                         class="ml-1 text-[9px] font-black text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 transition active:scale-95" 
                         title="Contestar assertividade"><i class="fas fa-gavel"></i></button>`;
@@ -1637,63 +1639,90 @@ MinhaArea.Geral = {
     /**
      * Verifica se o dia atual (terça ou quarta) permite contestar a assertividade da data informada (semana anterior).
      */
-    podeContestarAssertividade: function(dataStr) {
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-        const diaSemanaHoje = hoje.getDay(); // 0=dom, 1=seg, 2=ter, 3=qua, 4=qui, 5=sex, 6=sab
-
-        // Só segunda (1), terça (2) e quarta (3)
-        if (diaSemanaHoje !== 1 && diaSemanaHoje !== 2 && diaSemanaHoje !== 3) return false;
-
-        // Calcula a semana anterior (segunda a domingo da semana passada)
-        // Para segunda-feira: semana passada é 7 dias atrás (seg) a 1 dia atrás (dom)
-        // Para terça: semana passada é 8 dias atrás (seg) a 2 dias atrás (dom)
-        // Fórmula genérica: segunda da semana passada = hoje - diaSemana - 6 (se seg=1, ter=2, qua=3)
-        const diasDesdeSegunda = diaSemanaHoje; // 1=seg, 2=ter, 3=qua
-        const segundaPassada = new Date(hoje);
-        segundaPassada.setDate(hoje.getDate() - diasDesdeSegunda - 6); // Vai para segunda da semana anterior
-        
-        const sextaPassada = new Date(segundaPassada);
-        sextaPassada.setDate(segundaPassada.getDate() + 4); // Sexta da semana anterior
-
-        const dataRef = new Date(dataStr + 'T12:00:00');
-        dataRef.setHours(0, 0, 0, 0);
-        
-        return dataRef >= segundaPassada && dataRef <= sextaPassada;
-    },
-
     /**
-     * Calcula segunda e sexta da semana anterior (para identificar a semana de referência)
+     * Calcula quais datas de assertividade podem ser contestadas.
+     * Lógica: Pega a última semana (grupo de datas) que a auditora inseriu.
+     * Só permite contestar na segunda, terça ou quarta-feira.
+     * @param {Object} assertMap - mapa de datas com assertividade do usuário
+     * @returns {Set} conjunto de datas (YYYY-MM-DD) que podem ser contestadas
      */
-    getSemanaAnterior: function() {
+    calcularDatasContestaveis: function(assertMap) {
+        const resultado = new Set();
+        
+        // Verifica se hoje é segunda (1), terça (2) ou quarta (3)
         const hoje = new Date();
-        const segundaPassada = new Date(hoje);
-        segundaPassada.setDate(hoje.getDate() - hoje.getDay() - 6);
-        const sextaPassada = new Date(segundaPassada);
-        sextaPassada.setDate(segundaPassada.getDate() + 4);
-        
-        const fmt = d => d.toISOString().split('T')[0];
-        const fmtBr = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        
-        return {
-            inicio: fmt(segundaPassada),
-            fim: fmt(sextaPassada),
-            label: `${fmtBr(segundaPassada)} a ${fmtBr(sextaPassada)}`
+        const diaSemanaHoje = hoje.getDay();
+        if (diaSemanaHoje !== 1 && diaSemanaHoje !== 2 && diaSemanaHoje !== 3) return resultado;
+
+        // Pega todas as datas que têm assertividade
+        const datasComAssert = Object.keys(assertMap).filter(d => assertMap[d] && assertMap[d].qtd_auditorias > 0).sort();
+        if (datasComAssert.length === 0) return resultado;
+
+        // Agrupa por semana ISO (segunda a domingo)
+        const getISOWeekKey = (dateStr) => {
+            const d = new Date(dateStr + 'T12:00:00');
+            const day = d.getDay();
+            // Calcula segunda-feira da semana
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const segunda = new Date(d);
+            segunda.setDate(diff);
+            return segunda.toISOString().split('T')[0]; // Chave = segunda-feira da semana
         };
+
+        const semanas = {};
+        datasComAssert.forEach(d => {
+            const semanaKey = getISOWeekKey(d);
+            if (!semanas[semanaKey]) semanas[semanaKey] = [];
+            semanas[semanaKey].push(d);
+        });
+
+        // Ordena as semanas e pega a última (mais recente)
+        const semanasOrdenadas = Object.keys(semanas).sort();
+        if (semanasOrdenadas.length === 0) return resultado;
+
+        const ultimaSemanaKey = semanasOrdenadas[semanasOrdenadas.length - 1];
+        const datasUltimaSemana = semanas[ultimaSemanaKey];
+
+        // Só permite contestar se a última semana NÃO é a semana atual
+        const hojeStr = hoje.toISOString().split('T')[0];
+        const semanaAtualKey = getISOWeekKey(hojeStr);
+        
+        if (ultimaSemanaKey === semanaAtualKey) {
+            // Se a última semana é a atual, contestamos a penúltima (se existir)
+            if (semanasOrdenadas.length >= 2) {
+                const penultimaSemanaKey = semanasOrdenadas[semanasOrdenadas.length - 2];
+                semanas[penultimaSemanaKey].forEach(d => resultado.add(d));
+            }
+        } else {
+            // A última semana inserida é anterior à atual, então contestamos essa
+            datasUltimaSemana.forEach(d => resultado.add(d));
+        }
+
+        // Salva info para o modal
+        if (resultado.size > 0) {
+            const datas = Array.from(resultado).sort();
+            this._contestSemanaInicio = datas[0];
+            this._contestSemanaFim = datas[datas.length - 1];
+        }
+
+        return resultado;
     },
 
     /**
      * Abre o modal de contestação com os dados preenchidos
      */
     abrirModalContestacao: function(dataStr) {
-        const semana = this.getSemanaAnterior();
+        const fmtBr = d => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const inicio = this._contestSemanaInicio || dataStr;
+        const fim = this._contestSemanaFim || dataStr;
+        const semanaLabel = `${fmtBr(inicio)} a ${fmtBr(fim)}`;
         const dataRefFormatada = new Date(dataStr + 'T12:00:00').toLocaleDateString('pt-BR');
         
-        document.getElementById('contest-semana-label').textContent = semana.label;
+        document.getElementById('contest-semana-label').textContent = semanaLabel;
         document.getElementById('contest-data-label').textContent = dataRefFormatada;
         document.getElementById('contest-data-ref').value = dataStr;
-        document.getElementById('contest-semana-inicio').value = semana.inicio;
-        document.getElementById('contest-semana-fim').value = semana.fim;
+        document.getElementById('contest-semana-inicio').value = inicio;
+        document.getElementById('contest-semana-fim').value = fim;
         document.getElementById('contest-mensagem').value = '';
         document.getElementById('modal-contestar-assert').classList.remove('hidden');
         
