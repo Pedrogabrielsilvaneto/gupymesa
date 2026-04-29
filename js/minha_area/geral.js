@@ -1264,8 +1264,12 @@ MinhaArea.Geral = {
     },
 
     abrirModalObs: function (uid, dataRef) {
-        const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia === dataRef);
+        const registrosDia = this.state.dadosProducao.filter(d => String(d.usuario_id) === String(uid) && this.agruparDataFDS(d.data_referencia.split('T')[0]) === dataRef);
         
+        // Prioriza encontrar o registro que representa o abono, se existir mais de um no mesmo dia agrupado
+        let dadoDia = registrosDia.find(d => d.status === 'PENDENTE_ABONO' || (parseFloat(d.fator) < 1.0 && (!d.status || d.status === 'OK' || d.status === '')));
+        if (!dadoDia) dadoDia = registrosDia[0];
+
         const isAbonoPendente = dadoDia && dadoDia.status === 'PENDENTE_ABONO';
         const statusOK = dadoDia && (!dadoDia.status || dadoDia.status === 'OK' || dadoDia.status === '');
         const isAbonoAprovado = dadoDia && parseFloat(dadoDia.fator) < 1.0 && statusOK;
