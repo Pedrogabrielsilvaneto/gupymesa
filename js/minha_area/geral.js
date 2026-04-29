@@ -1265,6 +1265,16 @@ MinhaArea.Geral = {
 
     abrirModalObs: function (uid, dataRef) {
         const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia === dataRef);
+        
+        const isAbonoPendente = dadoDia && dadoDia.status === 'PENDENTE_ABONO';
+        const isAbonoAprovado = dadoDia && parseFloat(dadoDia.fator) < 1.0 && dadoDia.status === 'OK';
+
+        // Se for um registro relacionado a abono, redireciona para a interface de abono
+        if (isAbonoPendente || isAbonoAprovado) {
+            this.abrirModalAbonoEdicao(uid, dataRef, dadoDia, isAbonoPendente, isAbonoAprovado);
+            return;
+        }
+
         this.state.editando = { uid: uid, data: dataRef };
         const elData = document.getElementById('obs-data-ref');
         const elGestao = document.getElementById('obs-gestao-view');
@@ -1273,7 +1283,6 @@ MinhaArea.Geral = {
 
         if (elData) elData.innerText = this.formatarDataSegura(dataRef);
         const justGestao = dadoDia ? dadoDia.justificativa : '';
-        const fator = dadoDia ? parseFloat(dadoDia.fator) : 1.0;
         if (elGestao) {
             elGestao.innerHTML = justGestao
                 ? `<div class="bg-amber-50 border border-amber-200 p-2 rounded text-xs text-amber-800 mb-2"><strong>[Gestão]:</strong> ${justGestao}</div>`
@@ -1283,10 +1292,66 @@ MinhaArea.Geral = {
         if (modal) { modal.classList.remove('hidden', 'pointer-events-none'); setTimeout(() => modal.classList.add('active'), 10); }
     },
 
+    abrirModalAbonoEdicao: function(uid, dataRef, dadoDia, isPendente, isAprovado) {
+        this.state.abonoEditando = { uid: uid, data: dataRef };
+        
+        const elInicio = document.getElementById('abono-data-inicio');
+        const elFim = document.getElementById('abono-data-fim');
+        const elJust = document.getElementById('abono-justificativa-text');
+        const modal = document.getElementById('modal-solicitar-abono');
+        const btnCancel = document.getElementById('btn-cancelar-abono');
+        const btnSalvar = document.getElementById('btn-salvar-abono');
+        const radios = document.getElementsByName('abono-tipo');
+
+        const dataFormatada = dataRef.split('T')[0];
+        
+        if (elInicio) {
+            elInicio.value = dataFormatada;
+            elInicio.disabled = true;
+        }
+        if (elFim) {
+            elFim.value = dataFormatada;
+            elFim.disabled = true;
+        }
+        if (elJust) {
+            elJust.value = dadoDia.observacao_assistente || '';
+            elJust.disabled = isAprovado;
+        }
+
+        if (radios) {
+            const fatorStr = (dadoDia.fator !== null && dadoDia.fator !== undefined) ? Number(dadoDia.fator).toFixed(1) : "0.0";
+            radios.forEach(r => {
+                r.checked = (r.value === fatorStr);
+                r.disabled = isAprovado;
+            });
+        }
+
+        if (btnCancel) {
+            if (isPendente) {
+                btnCancel.classList.remove('hidden');
+                btnCancel.innerHTML = '<i class="fas fa-trash-alt"></i> Excluir Pedido';
+            } else {
+                btnCancel.classList.add('hidden');
+            }
+        }
+
+        if (btnSalvar) {
+            if (isAprovado) {
+                btnSalvar.classList.add('hidden');
+            } else {
+                btnSalvar.classList.remove('hidden');
+                btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
+            }
+        }
+
+        if (modal) { 
+            modal.classList.remove('hidden', 'pointer-events-none'); 
+            setTimeout(() => modal.classList.add('active'), 10); 
+        }
+    },
+
     formatarDataSegura: function (dataRaw) {
         if (!dataRaw) return '-';
-        
-        // Se for objeto Date
         if (dataRaw instanceof Date) {
             if (isNaN(dataRaw.getTime())) return 'Data Inválida';
             const day = String(dataRaw.getDate()).padStart(2, '0');
@@ -1294,19 +1359,12 @@ MinhaArea.Geral = {
             const year = dataRaw.getFullYear();
             return `${day}/${month}/${year}`;
         }
-
-        // Se já for DD/MM/YYYY
         if (typeof dataRaw === 'string' && dataRaw.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dataRaw;
-
-        // Tenta processar YYYY-MM-DD
         if (typeof dataRaw === 'string') {
             const partes = dataRaw.split('T')[0].split('-');
-            if (partes.length === 3) {
-                return `${partes[2]}/${partes[1]}/${partes[0]}`;
-            }
+            if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
-
-        return String(dataRaw); // Fallback
+        return String(dataRaw);
     },
 
     fecharModalObs: function () {
@@ -1322,17 +1380,32 @@ MinhaArea.Geral = {
         const elJust = document.getElementById('abono-justificativa-text');
         const modal = document.getElementById('modal-solicitar-abono');
         const btnCancel = document.getElementById('btn-cancelar-abono');
+        const btnSalvar = document.getElementById('btn-salvar-abono');
 
-        // Se passar dataInicio, preenche. Senão limpa (novo fluxo centralizado)
-        if (elInicio) elInicio.value = dataInicio ? dataInicio.split('T')[0] : '';
-        if (elFim) elFim.value = dataInicio ? dataInicio.split('T')[0] : '';
-        if (elJust) elJust.value = '';
+        if (elInicio) {
+            elInicio.value = dataInicio ? dataInicio.split('T')[0] : '';
+            elInicio.disabled = false;
+        }
+        if (elFim) {
+            elFim.value = dataInicio ? dataInicio.split('T')[0] : '';
+            elFim.disabled = false;
+        }
+        if (elJust) {
+            elJust.value = '';
+            elJust.disabled = false;
+        }
         
-        if (btnCancel) btnCancel.classList.add('hidden'); // Oculto no novo fluxo de período
+        if (btnCancel) btnCancel.classList.add('hidden');
+        if (btnSalvar) {
+            btnSalvar.classList.remove('hidden');
+            btnSalvar.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Solicitação';
+        }
 
-        // Resetar rádios para Dia Inteiro por padrão
         const radios = document.getElementsByName('abono-tipo');
-        radios.forEach(r => r.checked = (r.value === "0.0"));
+        radios.forEach(r => {
+            r.checked = (r.value === "0.0");
+            r.disabled = false;
+        });
         
         if (modal) { 
             modal.classList.remove('hidden', 'pointer-events-none'); 
