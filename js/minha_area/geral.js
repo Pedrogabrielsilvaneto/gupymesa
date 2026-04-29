@@ -107,7 +107,7 @@ MinhaArea.Geral = {
             }
         }
 
-        // Verificar contestações pendentes (para a auditora Keila)
+        // Verificar contestações pendentes (para a auditoria)
         this.verificarContestacoesPendentes();
     },
 
@@ -1815,7 +1815,7 @@ MinhaArea.Geral = {
                 Swal.fire({
                     icon: 'success',
                     title: contestId ? 'Contestação Atualizada!' : 'Contestação Enviada!',
-                    text: 'A auditora Keila analisará sua solicitação.',
+                    text: 'A auditora analisará sua solicitação.',
                     confirmButtonColor: '#f59e0b',
                     timer: 3000,
                     timerProgressBar: true
@@ -1828,16 +1828,16 @@ MinhaArea.Geral = {
     },
 
     /**
-     * Verifica se a auditora Keila tem contestações pendentes e exibe o badge
+     * Verifica se há contestações pendentes e exibe o badge
      */
     verificarContestacoesPendentes: async function() {
         const usuario = window.MinhaArea?.usuario;
         if (!usuario) return;
         
-        // Verifica se o usuário é a auditora Keila (pelo nome)
+        // Verifica se o usuário é auditora
         const nome = (usuario.nome || '').toUpperCase();
         const funcao = (usuario.funcao || '').toUpperCase();
-        const ehAuditora = nome.includes('KEILA') || funcao.includes('AUDITOR');
+        const ehAuditora = funcao.includes('AUDITOR');
         
         if (!ehAuditora) return;
 

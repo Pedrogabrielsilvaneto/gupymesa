@@ -247,7 +247,7 @@ Gestao.Assertividade = {
                 (data || []).map(u => `<option value="${u.id}">${u.nome} (ID: ${u.id})</option>`).join('');
 
             selectAuditora.innerHTML = '<option value="">Qualquer Auditora (Preenchida)</option>';
-            ['Keila', 'Vanessa', 'Samaria', 'Qualidade', 'Auditoria', 'Brenda'].forEach(nome => {
+            ['Vanessa', 'Samaria', 'Qualidade', 'Auditoria', 'Brenda'].forEach(nome => {
                 selectAuditora.innerHTML += `<option value="${nome}">${nome}</option>`;
             });
         } catch (e) {
