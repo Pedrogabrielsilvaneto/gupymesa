@@ -828,7 +828,7 @@ MinhaArea.Relatorios = {
 
         const getMetrics = (d) => {
             const v = d.total_prod / d.dias_trab;
-            const a = d.media_assert || 0;
+            const a = Number(d.media_assert) || 0;
             return { vel: Math.round(v), ass: a.toFixed(1) };
         };
 
