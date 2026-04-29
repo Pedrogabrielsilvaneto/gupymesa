@@ -1673,13 +1673,151 @@ Produtividade.Geral = {
             const obsHtml = `
     <div class="flex flex-col gap-1">
         ${d.justificativa ? `<span class="text-amber-800 bg-amber-50 px-1 rounded border border-amber-100">[Gestão]: ${d.justificativa}</span>` : ''}
-                    ${d.observacao_assistente ? `<span class="text-blue-800 bg-blue-50 px-1 rounded border border-blue-100">[Eu]: ${d.observacao_assistente}</span>` : ''}
-                    ${!d.justificativa && !d.observacao_assistente ? '-' : ''}
-                </div>
+        ${d.observacao_assistente ? `<span class="text-blue-800 bg-blue-50 px-1 rounded border border-blue-100">[Eu]: ${d.observacao_assistente}</span>` : ''}
+        ${!d.justificativa && !d.observacao_assistente ? '-' : ''}
+    </div>
     `;
-            return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px]" title="${d.justificativa || ''} | ${d.observacao_assistente || ''}">${obsHtml}</td></tr>`;
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100 text-xs ${fator < 1.0 ? 'bg-amber-50/30' : ''}"><td class="px-4 py-3 font-bold text-slate-700">${dateObj.toLocaleDateString('pt-BR')}</td><td class="px-4 py-3 text-center uppercase text-[10px] text-slate-400 font-bold">${dateObj.toLocaleDateString('pt-BR', { weekday: 'short' })}</td><td class="px-4 py-3 text-center font-mono text-slate-500">${metaDia}</td><td class="px-4 py-3 text-center font-black text-blue-600">${d.quantidade}</td><td class="px-4 py-3 text-center"><span class="${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'} font-bold">${pct}%</span></td><td class="px-4 py-3 text-center text-slate-500">${fator.toFixed(1)}</td><td class="px-4 py-3 text-slate-500 italic truncate max-w-[300px] cursor-pointer hover:bg-slate-100 transition group" onclick="Produtividade.Geral.abrirModalAbonoMensagem('${d.id}')" title="Clique para ver os detalhes da observação/abono">${obsHtml}</td></tr>`;
         }).join('');
     },
+
+    injetarModalAbonoMensagem: function () {
+        if (document.getElementById('modal-gestora-ver-abono')) return;
+        const html = `
+            <div id="modal-gestora-ver-abono" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3 text-white">
+                            <i class="fas fa-comment-dots text-xl"></i>
+                            <h3 class="font-black text-lg" id="modal-gestora-ver-titulo">Detalhes</h3>
+                        </div>
+                        <button onclick="Produtividade.Geral.fecharModalAbonoMensagem()" class="text-white/80 hover:text-white transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+                            <div>
+                                <h4 class="font-bold text-slate-700 text-sm" id="modal-gestora-ver-nome">Nome</h4>
+                                <p class="text-xs text-slate-500" id="modal-gestora-ver-data">Data</p>
+                            </div>
+                            <div id="modal-gestora-ver-status"></div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Observação do Assistente</label>
+                            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 min-h-[60px] italic" id="modal-gestora-ver-obs"></div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Resposta / Justificativa da Gestão</label>
+                            <textarea id="modal-gestora-ver-resp" 
+                                placeholder="Escreva sua resposta..." 
+                                class="w-full bg-white border border-slate-300 rounded-xl p-3 text-sm font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition resize-none h-24 shadow-sm"></textarea>
+                        </div>
+                        
+                        <div id="modal-gestora-ver-actions" class="flex gap-2 mt-6"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
+
+    abrirModalAbonoMensagem: function(id) {
+        this.injetarModalAbonoMensagem();
+        const d = this.state.dadosProducao.find(x => String(x.id) === String(id));
+        if (!d) return;
+
+        const nomeObj = this.state.listaTabela.find(i => String(i.uid) === String(d.usuario_id));
+        const nome = nomeObj ? nomeObj.nome : 'Assistente';
+        
+        document.getElementById('modal-gestora-ver-nome').textContent = nome;
+        document.getElementById('modal-gestora-ver-data').textContent = this.formatarDataSegura(d.data_referencia.split('T')[0]);
+        document.getElementById('modal-gestora-ver-obs').textContent = d.observacao_assistente || 'Sem observação informada.';
+        
+        const respEl = document.getElementById('modal-gestora-ver-resp');
+        respEl.value = d.justificativa || '';
+
+        let statusHtml = '';
+        let actionsHtml = '';
+
+        if (d.status === 'PENDENTE_ABONO') {
+            document.getElementById('modal-gestora-ver-titulo').textContent = 'Solicitação de Abono';
+            statusHtml = `<span class="px-2 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200"><i class="fas fa-clock mr-1"></i> PENDENTE</span>`;
+            respEl.disabled = false;
+            actionsHtml = `
+                <button onclick="Produtividade.Geral.salvarAbonoMensagemIndividual('${id}', 'rejeitar')" class="flex-1 bg-rose-50 text-rose-600 py-2.5 rounded-xl text-xs font-black border border-rose-100 hover:bg-rose-100 transition active:scale-95">REJEITAR</button>
+                <button onclick="Produtividade.Geral.salvarAbonoMensagemIndividual('${id}', 'aprovar')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-black shadow-md transition active:scale-95">APROVAR ABONO</button>
+            `;
+        } else if ((d.status === 'OK' || !d.status || d.status === '') && parseFloat(d.fator) < 1.0) {
+            document.getElementById('modal-gestora-ver-titulo').textContent = 'Abono Aprovado / Fator Aplicado';
+            statusHtml = `<span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200"><i class="fas fa-check-double mr-1"></i> APROVADO</span>`;
+            respEl.disabled = true;
+            actionsHtml = `
+                <button onclick="Produtividade.Geral.fecharModalAbonoMensagem()" class="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 py-2.5 rounded-xl text-xs font-black transition active:scale-95">FECHAR VISUALIZAÇÃO</button>
+            `;
+        } else {
+            document.getElementById('modal-gestora-ver-titulo').textContent = 'Observação / Feedback';
+            statusHtml = `<span class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full border border-blue-200"><i class="fas fa-info-circle mr-1"></i> REGISTRO NORMAL</span>`;
+            respEl.disabled = false;
+            actionsHtml = `
+                <button onclick="Produtividade.Geral.fecharModalAbonoMensagem()" class="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 py-2.5 rounded-xl text-xs font-black transition active:scale-95">CANCELAR</button>
+                <button onclick="Produtividade.Geral.salvarAbonoMensagemIndividual('${id}', 'salvar_obs')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-black shadow-md transition active:scale-95">SALVAR RESPOSTA</button>
+            `;
+        }
+
+        document.getElementById('modal-gestora-ver-status').innerHTML = statusHtml;
+        document.getElementById('modal-gestora-ver-actions').innerHTML = actionsHtml;
+
+        const modal = document.getElementById('modal-gestora-ver-abono');
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.firstElementChild.classList.add('scale-100', 'opacity-100'), 10);
+    },
+
+    fecharModalAbonoMensagem: function() {
+        const modal = document.getElementById('modal-gestora-ver-abono');
+        if (modal) {
+            modal.firstElementChild.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+    },
+
+    salvarAbonoMensagemIndividual: async function(id, acao) {
+        const just = document.getElementById('modal-gestora-ver-resp').value.trim();
+        
+        if (acao === 'rejeitar') {
+            if (!just) {
+                alert("⚠️ Informe o motivo da rejeição no campo de resposta.");
+                return;
+            }
+            if (!confirm("Deseja realmente REJEITAR esta solicitação?")) return;
+            try {
+                await Sistema.query("UPDATE producao SET status = 'REJEITADO', justificativa = ?, fator = 1.0 WHERE id = ?", [just, id]);
+                Sistema.notificar("❌ Solicitação rejeitada.", "info");
+            } catch (e) { alert("Erro: " + e.message); return; }
+        } else if (acao === 'aprovar') {
+            if (!confirm("Deseja aprovar esta solicitação?")) return;
+            try {
+                if (just) {
+                    await Sistema.query("UPDATE producao SET status = 'OK', justificativa = ? WHERE id = ?", [just, id]);
+                } else {
+                    await Sistema.query("UPDATE producao SET status = 'OK' WHERE id = ?", [id]);
+                }
+                Sistema.notificar("✅ Abono aprovado com sucesso!", "success");
+            } catch (e) { alert("Erro: " + e.message); return; }
+        } else if (acao === 'salvar_obs') {
+            try {
+                await Sistema.query("UPDATE producao SET justificativa = ? WHERE id = ?", [just, id]);
+                Sistema.notificar("✅ Resposta salva com sucesso!", "success");
+            } catch (e) { alert("Erro: " + e.message); return; }
+        }
+
+        this.fecharModalAbonoMensagem();
+        this.renderLoading();
+        this.atualizarDados();
+    },
+    
     aprovarAbono: async function (id) {
         const msgGestora = document.getElementById(`resp-gestora-${id}`)?.value || '';
         const confirmMsg = msgGestora ? "Deseja aprovar esta solicitação com a mensagem informada?" : "Deseja aprovar esta solicitação de abono?";
