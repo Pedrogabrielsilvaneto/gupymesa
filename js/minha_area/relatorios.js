@@ -36,11 +36,16 @@ MinhaArea.Relatorios = {
             if (btnRanking) btnRanking.classList.remove('hidden');
         }
 
-        // Inicia com o primeiro relatório por padrão (se não tiver acesso a metas, vai pro ranking)
+        // Inicia com o primeiro relatório por padrão
         if (isAdmin) {
             this.mudarRelatorio('metas_okr');
         } else if (isThayla) {
             this.mudarRelatorio('ranking_frases');
+        }
+
+        if (isAdmin) {
+            const btnGapAnalise = document.getElementById('btn-rel-gap-analise');
+            if (btnGapAnalise) btnGapAnalise.classList.remove('hidden');
         }
     },
 
@@ -52,6 +57,7 @@ MinhaArea.Relatorios = {
         const tabs = {
             'metas_okr': document.getElementById('tab-rel-metas'),
             'gap': document.getElementById('btn-rel-gap'),
+            'gap_analise': document.getElementById('btn-rel-gap-analise'),
             'contestacoes': document.getElementById('btn-rel-contestacoes'),
             'ranking_frases': document.getElementById('btn-rel-ranking'),
             'excel_export': document.getElementById('btn-rel-exportar')
@@ -85,7 +91,8 @@ MinhaArea.Relatorios = {
         if (id !== 'excel_export') {
             container.innerHTML = `<div class="flex items-center justify-center py-20 text-blue-600"><i class="fas fa-spinner fa-spin text-3xl"></i></div>`;
             if (id === 'metas_okr') this.carregarMetasOKR();
-            else if (id === 'gap') this.carregarGAP();
+            else if (id === 'gap') this.carregarGAP11();
+            else if (id === 'gap_analise') this.carregarAnaliseGAP();
             else if (id === 'contestacoes') this.carregarContestacoesReport();
             else if (id === 'ranking_frases') this.carregarRankingFrases();
         }
@@ -713,7 +720,7 @@ MinhaArea.Relatorios = {
     _gapMesAtivo: new Date().getMonth() + 1,
     _gapPiorIdPorMes: {},
 
-    carregarGAP: async function() {
+    carregarGAP11: async function() {
         try {
             if (!MinhaArea.isAdmin()) return;
             const datas = MinhaArea.getDatasFiltro();
@@ -741,11 +748,11 @@ MinhaArea.Relatorios = {
             `;
             const data = await Sistema.query(sql, [inicioAno, fimAno]);
             this._gapDataFull = data;
-            this.renderizarGAP();
+            this.renderizarGAP11();
         } catch (e) { console.error(e); }
     },
 
-    renderizarGAP: function() {
+    renderizarGAP11: function() {
         if (this.relatorioAtivo !== 'gap') return;
         const container = document.getElementById('relatorio-ativo-content');
         if (!container || !this._gapDataFull) return;
@@ -762,7 +769,7 @@ MinhaArea.Relatorios = {
                         const ativo = this._gapMesAtivo === m;
                         const temDados = this._gapDataFull.some(d => d.mes === m);
                         return `
-                            <button onclick="MinhaArea.Relatorios.mudarMesGap(${m})" 
+                            <button onclick="MinhaArea.Relatorios.mudarMesGap11(${m})" 
                                 class="shrink-0 md:shrink md:w-full text-center md:text-left px-4 py-3 rounded-xl font-bold text-xs transition-all ${temDados ? '' : 'opacity-40'} ${ativo ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'hover:bg-white text-slate-600'}">
                                 ${nome}
                             </button>
@@ -787,7 +794,7 @@ MinhaArea.Relatorios = {
                         </div>
 
                         <div class="p-6 flex-1 overflow-y-auto custom-scrollbar">
-                            ${this.renderizarConteudoMesGap()}
+                            ${this.renderizarConteudoMesGap11()}
                         </div>
                     </div>
                 </div>
@@ -797,17 +804,17 @@ MinhaArea.Relatorios = {
         container.innerHTML = html;
     },
 
-    mudarMesGap: function(m) {
+    mudarMesGap11: function(m) {
         this._gapMesAtivo = m;
-        this.renderizarGAP();
+        this.renderizarGAP11();
     },
 
-    setGapPior: function(m, id) {
+    setGapPior11: function(m, id) {
         this._gapPiorIdPorMes[m] = id;
-        this.renderizarGAP();
+        this.renderizarGAP11();
     },
 
-    renderizarConteudoMesGap: function() {
+    renderizarConteudoMesGap11: function() {
         const m = this._gapMesAtivo;
         const dadosMes = this._gapDataFull.filter(d => d.mes === m);
         
@@ -835,95 +842,153 @@ MinhaArea.Relatorios = {
         const mt = getMetrics(top);
         const mp = getMetrics(pior);
 
-        return `
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <!-- Coluna: Melhor do Mês -->
-                <div class="flex flex-col gap-4">
-                    <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
-                                <i class="fas fa-crown"></i>
-                            </div>
-                            <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Melhor do Mês</h4>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
-                        <div class="absolute -right-6 -top-6 text-emerald-500/5 text-8xl rotate-12"><i class="fas fa-award"></i></div>
-                        
-                        <div class="w-24 h-24 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
-                            ${top.nome.substring(0,2).toUpperCase()}
-                        </div>
-                        <div>
-                            <h5 class="font-black text-slate-800 text-xl leading-tight">${top.nome}</h5>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${top.funcao || 'Assistente'}</p>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
-                                <p class="text-2xl font-black text-slate-800">${mt.vel}<span class="text-[10px] text-slate-400 ml-1">metas/dia</span></p>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
-                                <p class="text-2xl font-black text-slate-800">${mt.ass}%</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Coluna: Pior do Mês -->
-                <div class="flex flex-col gap-4">
-                    <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-100">
-                                <i class="fas fa-user-minus"></i>
-                            </div>
-                            <h4 class="font-black text-rose-900 text-xs uppercase tracking-widest">Pior do Mês</h4>
-                        </div>
-                        <select onchange="MinhaArea.Relatorios.setGapPior(${m}, this.value)" class="bg-white border border-rose-200 rounded-lg text-[10px] font-black px-2 py-1 outline-none shadow-sm cursor-pointer">
+                    <div class="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                        <select onchange="MinhaArea.Relatorios.setGapPior11(${m}, this.value)" 
+                                class="w-full text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition">
+                            <option value="">Trocar Colaborador...</option>
                             ${dadosMes.sort((a,b) => a.nome.localeCompare(b.nome)).map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(pior.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
                         </select>
                     </div>
+                </div>
+            </div>
 
-                    <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
-                        <div class="absolute -right-6 -top-6 text-rose-500/5 text-8xl rotate-12"><i class="fas fa-chart-line"></i></div>
-                        
-                        <div class="w-24 h-24 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
-                            ${pior.nome.substring(0,2).toUpperCase()}
-                        </div>
-                        <div>
-                            <h5 class="font-black text-slate-800 text-xl leading-tight">${pior.nome}</h5>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${pior.funcao || 'Assistente'}</p>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
-                                <p class="text-2xl font-black text-slate-800">${mp.vel}<span class="text-[10px] text-slate-400 ml-1">metas/dia</span></p>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
-                                <p class="text-2xl font-black text-slate-800">${mp.ass}%</p>
-                            </div>
-                        </div>
-
-                        <!-- Comparativo GAP -->
-                        <div class="w-full mt-6 p-5 bg-slate-900 rounded-2xl text-white text-left relative overflow-hidden">
-                            <div class="absolute -right-4 -bottom-4 opacity-10 text-6xl"><i class="fas fa-bolt"></i></div>
-                            <div class="flex justify-between items-center relative z-10">
-                                <p class="text-[10px] font-black uppercase tracking-widest opacity-60">GAP de Performance</p>
-                                <span class="text-[11px] font-black bg-rose-600 px-3 py-1 rounded-full shadow-lg">-${Math.round((1 - (mp.vel/mt.vel))*100)}%</span>
-                            </div>
-                            <div class="mt-2 relative z-10">
-                                <p class="text-3xl font-black">-${mt.vel - mp.vel} <span class="text-xs opacity-50 font-bold ml-1">metas/dia de diferença</span></p>
-                                <p class="text-[10px] font-medium text-slate-400 mt-1 italic">* Diferença de impacto direto na produtividade da mesa.</p>
-                            </div>
-                        </div>
+            <!-- Dashboard de GAP -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <!-- Card GAP Central -->
+                <div class="md:col-span-1 bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group hover:shadow-xl transition-all duration-500">
+                    <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-rose-50 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
+                    <i class="fas fa-chart-area text-rose-200 text-5xl absolute left-6 top-6 opacity-30"></i>
+                    
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">Déficit de Performance</span>
+                    <h2 class="text-5xl font-black text-rose-600 mb-2 relative z-10">-${Math.round((1 - (mp.vel/mt.vel))*100)}%</h2>
+                    <div class="px-4 py-1.5 bg-rose-100 text-rose-700 rounded-full text-[11px] font-black relative z-10">
+                        ${mt.vel - mp.vel} metas/dia de GAP
                     </div>
+                </div>
+
+                <div class="md:col-span-2 bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-center">
+                    <div class="absolute top-0 right-0 p-8 opacity-10">
+                        <i class="fas fa-quote-right text-8xl"></i>
+                    </div>
+                    <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                        <i class="fas fa-lightbulb text-amber-400"></i> Insight de Gestão
+                    </h4>
+                    <p class="text-base text-slate-300 leading-relaxed font-medium italic">
+                        "Para atingir o nível de performance do <b>${top.nome}</b>, o colaborador <b>${pior.nome}</b> precisa aumentar sua produção diária em <b>${mt.vel - mp.vel} metas</b>, mantendo a assertividade acima de 97%."
+                    </p>
                 </div>
             </div>
         `;
+    },
+
+    // --- ANÁLISE DE GAP (TABELA ORIGINAL) ---
+    carregarAnaliseGAP: async function() {
+        const container = document.getElementById('relatorio-ativo-content');
+        container.innerHTML = `<div class="flex flex-col items-center justify-center py-20"><i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i><p class="text-slate-500 font-bold">Calculando Roadmap de Performance...</p></div>`;
+        
+        try {
+            const ano = document.getElementById('sel-ano').value;
+            const sub = document.getElementById('sel-subperiodo-ano').value;
+            let inicio, fim;
+            if (sub === 'full') { inicio = `${ano}-01-01`; fim = `${ano}-12-31`; }
+            else if (sub.startsWith('S')) { 
+                inicio = sub === 'S1' ? `${ano}-01-01` : `${ano}-07-01`; 
+                fim = sub === 'S1' ? `${ano}-06-30` : `${ano}-12-31`; 
+            } else {
+                const t = parseInt(sub.substring(1));
+                inicio = `${ano}-0${(t-1)*3 + 1}-01`.replace('-010-', '-10-');
+                fim = `${ano}-0${t*3}-30`.replace('-03-30', '-03-31').replace('-06-30', '-06-30').replace('-09-30', '-09-30').replace('-012-30', '-12-31');
+            }
+
+            const filtroGrupo = window._filtroGrupo ? `AND u.contrato = '${window._filtroGrupo}'` : '';
+            const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia BETWEEN ? AND ? AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') ${filtroGrupo} GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, mes ORDER BY u.nome, mes`;
+            const data = await Sistema.query(sql, [inicio, fim]);
+            const roadmap = {};
+            data.forEach(row => {
+                const uid = String(row.usuario_id);
+                if (!roadmap[uid]) roadmap[uid] = { id: uid, nome: row.nome, meses: {} };
+                roadmap[uid].meses[row.mes] = row.dias_trab > 0 ? (row.total_prod / row.dias_trab) : 0;
+            });
+            this._gapData = { roadmap, mesIni: new Date(inicio+'T12:00:00').getMonth() + 1, mesFim: new Date(fim+'T12:00:00').getMonth() + 1 };
+            this._gapBenchmarkId = null; 
+            this.renderizarAnaliseGAP();
+        } catch (e) { console.error(e); }
+    },
+
+    renderizarAnaliseGAP: function() {
+        if (this.relatorioAtivo !== 'gap_analise') return;
+        const container = document.getElementById('relatorio-ativo-content');
+        const roadmap = Object.values(this._gapData.roadmap);
+        if (roadmap.length === 0) {
+            container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o período.</div>`;
+            return;
+        }
+
+        if (!this._gapBenchmarkId) {
+            let maxTotal = -1;
+            roadmap.forEach(u => {
+                let sum = 0;
+                Object.values(u.meses).forEach(v => sum += v);
+                if (sum > maxTotal) { maxTotal = sum; this._gapBenchmarkId = u.id; }
+            });
+        }
+
+        let ths = '';
+        const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
+            ths += `<th class="px-4 py-4 text-center border-r border-slate-200 bg-slate-100/50">${mesesNomes[m-1]}</th>`;
+        }
+
+        let html = `
+            <div class="space-y-6 animate-enter">
+                <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-100"><i class="fas fa-info-circle"></i></div>
+                        <div>
+                            <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">Roadmap de Performance</h4>
+                            <p class="text-[10px] text-blue-600 font-bold uppercase">Comparativo de Média Diária por Mês</p>
+                        </div>
+                    </div>
+                    <button onclick="MinhaArea.Relatorios.mudarRelatorio('gap_analise')" class="text-[10px] font-black text-blue-700 bg-white px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition uppercase tracking-tighter">
+                        <i class="fas fa-sync-alt mr-1"></i> Atualizar Dados
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-sm text-left border-collapse">
+                            <thead class="bg-slate-50 text-slate-600 font-black uppercase text-[10px] tracking-widest border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-5 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 min-w-[200px]">Nome do Assistente</th>
+                                    ${ths}
+                                    <th class="px-6 py-5 text-center bg-slate-100">Evolução</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+        `;
+
+        roadmap.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(as => {
+            const isRef = as.id == this._gapBenchmarkId;
+            let onclick = isRef ? '' : `onclick="MinhaArea.Relatorios.abrirGrafico('${as.id}')" style="cursor:pointer"`;
+            html += `<tr ${onclick} class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/10' : ''}"><td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">${as.nome} ${isRef ? '⭐' : ''}</td>`;
+            
+            let pVal = null, lVal = null;
+            for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
+                const val = as.meses[m] || 0;
+                if (val > 0) { if (pVal === null) pVal = val; lVal = val; }
+                html += `<td class="px-4 py-4 text-center border-r font-mono font-bold text-slate-500">${val > 0 ? Math.round(val) : '--'}</td>`;
+            }
+            
+            let ev = (pVal > 0 && lVal > 0) ? ((lVal / pVal) - 1) * 100 : 0;
+            html += `
+                <td class="px-6 py-4 text-center bg-slate-50/50 font-black text-[11px] ${ev >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                    ${ev > 0 ? '+' : ''}${ev.toFixed(1)}%
+                </td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div></div></div>`;
+        container.innerHTML = html;
     },
 
     toggleAllGap: function(sel) {
