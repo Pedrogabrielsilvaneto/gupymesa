@@ -1267,7 +1267,8 @@ MinhaArea.Geral = {
         const dadoDia = this.state.dadosProducao.find(d => String(d.usuario_id) === String(uid) && d.data_referencia === dataRef);
         
         const isAbonoPendente = dadoDia && dadoDia.status === 'PENDENTE_ABONO';
-        const isAbonoAprovado = dadoDia && parseFloat(dadoDia.fator) < 1.0 && dadoDia.status === 'OK';
+        const statusOK = dadoDia && (!dadoDia.status || dadoDia.status === 'OK' || dadoDia.status === '');
+        const isAbonoAprovado = dadoDia && parseFloat(dadoDia.fator) < 1.0 && statusOK;
 
         // Se for um registro relacionado a abono, redireciona para a interface de abono
         if (isAbonoPendente || isAbonoAprovado) {
