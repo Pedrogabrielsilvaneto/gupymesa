@@ -1356,14 +1356,18 @@ Produtividade.Geral = {
     },
 
     // --- LÓGICA DE ABONO REVISADA E CORRIGIDA ---
-    abrirModalAbono: function (alvo) {
+    abrirAbonoIndividual: function (uid, data) {
+        this.abrirModalAbono(uid, data);
+    },
+
+    abrirModalAbono: function (alvo, dataRef = null) {
         this.state.abonoAlvo = alvo;
         const modal = document.getElementById('modal-abono-geral');
         const msg = document.getElementById('modal-abono-msg');
         const just = document.getElementById('modal-abono-just');
         
-        document.getElementById('modal-abono-dt-ini').value = this.state.range.inicio;
-        document.getElementById('modal-abono-dt-fim').value = this.state.range.fim;
+        document.getElementById('modal-abono-dt-ini').value = dataRef || this.state.range.inicio;
+        document.getElementById('modal-abono-dt-fim').value = dataRef || this.state.range.fim;
         
         just.value = '';
         document.getElementById('modal-abono-fator').value = '0.0';
@@ -1677,10 +1681,21 @@ Produtividade.Geral = {
         }).join('');
     },
     aprovarAbono: async function (id) {
-        if (!confirm("Deseja aprovar esta solicitação de abono?")) return;
+        const msgGestora = document.getElementById(`resp-gestora-${id}`)?.value || '';
+        const confirmMsg = msgGestora ? "Deseja aprovar esta solicitação com a mensagem informada?" : "Deseja aprovar esta solicitação de abono?";
+        
+        if (!confirm(confirmMsg)) return;
+        
         try {
-            await Sistema.query("UPDATE producao SET status = 'OK' WHERE id = ?", [id]);
-            alert("Abono aprovado com sucesso!");
+            // Se houver mensagem da gestora, salvamos em justificativa. 
+            // O status passa para OK, o que efetiva o fator no cálculo.
+            if (msgGestora) {
+                await Sistema.query("UPDATE producao SET status = 'OK', justificativa = ? WHERE id = ?", [msgGestora, id]);
+            } else {
+                await Sistema.query("UPDATE producao SET status = 'OK' WHERE id = ?", [id]);
+            }
+            
+            Sistema.notificar("✅ Abono aprovado com sucesso!", "success");
             this.atualizarDados();
         } catch (e) {
             console.error(e);
@@ -1689,12 +1704,20 @@ Produtividade.Geral = {
     },
 
     rejeitarAbono: async function (id) {
-        const justificativa = prompt("Informe o motivo da rejeição:");
-        if (justificativa === null) return;
+        const msgGestora = document.getElementById(`resp-gestora-${id}`)?.value || '';
+        
+        if (!msgGestora) {
+            alert("⚠️ Informe o motivo da rejeição no campo de mensagem da gestora.");
+            document.getElementById(`resp-gestora-${id}`)?.focus();
+            return;
+        }
+        
+        if (!confirm("Deseja realmente REJEITAR esta solicitação?")) return;
         
         try {
-            await Sistema.query("UPDATE producao SET status = 'REJEITADO', justificativa = ?, fator = 1.0 WHERE id = ?", [justificativa, id]);
-            alert("Solicitação rejeitada.");
+            // Rejeição volta o fator para 1.0 e define o status como REJEITADO
+            await Sistema.query("UPDATE producao SET status = 'REJEITADO', justificativa = ?, fator = 1.0 WHERE id = ?", [msgGestora, id]);
+            Sistema.notificar("❌ Solicitação rejeitada.", "info");
             this.atualizarDados();
         } catch (e) {
             console.error(e);
@@ -1709,33 +1732,62 @@ Produtividade.Geral = {
 
         const abonos = this.state.abonosPendentes || [];
         if (abonos.length === 0) {
-            corpo.innerHTML = '<div class="text-center py-8 text-slate-400">Nenhum abono pendente.</div>';
+            corpo.innerHTML = '<div class="text-center py-8 text-slate-400">Nenhum abono pendente no momento.</div>';
         } else {
-            corpo.innerHTML = abonos.map(a => `
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors group">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-blue-600 font-bold border border-slate-100 shadow-sm">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <div class="font-bold text-slate-700">${a.nome}</div>
-                            <div class="text-[10px] text-slate-500 font-medium">Data: ${this.formatarDataSegura(a.data_referencia)}</div>
-                            <div class="flex flex-wrap gap-1 mt-1">
-                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${parseFloat(a.fator) === 0 ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}">
-                                    <i class="fas ${parseFloat(a.fator) === 0 ? 'fa-user-clock' : 'fa-clock'} mr-1"></i>
-                                    ${parseFloat(a.fator) === 0 ? 'Dia Todo' : 'Meio Dia'}
-                                </span>
-                                <span class="text-[9px] text-slate-600 italic bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                    "${a.justificativa || 'Sem justificativa'}"
-                                </span>
+            corpo.innerHTML = abonos.map(a => {
+                const msgAssis = a.observacao_assistente || a.justificativa || 'Sem mensagem informada.';
+                const isDiaTodo = parseFloat(a.fator) === 0;
+                
+                return `
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mb-4 transition-all hover:shadow-md">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black border border-blue-100">
+                                ${a.nome.substring(0, 1).toUpperCase()}
+                            </div>
+                            <div>
+                                <h4 class="font-black text-slate-800 text-sm leading-tight">${a.nome}</h4>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Data: ${this.formatarDataSegura(a.data_referencia)}</p>
                             </div>
                         </div>
+                        <span class="px-3 py-1 rounded-full text-[9px] font-black border uppercase ${isDiaTodo ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}">
+                            <i class="fas ${isDiaTodo ? 'fa-user-clock' : 'fa-clock'} mr-1"></i>
+                            ${isDiaTodo ? 'Dia Todo' : 'Meio Período'}
+                        </span>
                     </div>
-                    <button onclick="Produtividade.Geral.irParaAbonoPendente('${a.usuario_id}', '${a.data_referencia.split('T')[0]}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition active:scale-95 flex items-center gap-2">
-                        Ver na Grade <i class="fas fa-external-link-alt"></i>
-                    </button>
+
+                    <div class="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100 relative">
+                        <i class="fas fa-quote-left absolute -top-2 -left-1 text-slate-200 text-xl"></i>
+                        <p class="text-xs text-slate-600 italic leading-relaxed">"${msgAssis}"</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block ml-1">Mensagem da Gestora (Opcional)</label>
+                            <textarea id="resp-gestora-${a.id}" 
+                                placeholder="Escreva aqui sua resposta ou observação para o assistente..." 
+                                class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium outline-none focus:border-blue-400 focus:bg-white transition resize-none h-20 shadow-inner"></textarea>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="Produtividade.Geral.aprovarAbono('${a.id}')" 
+                                class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-[10px] font-black shadow-lg shadow-emerald-100 transition active:scale-95 flex items-center justify-center gap-2">
+                                <i class="fas fa-check-circle"></i> APROVAR
+                            </button>
+                            <button onclick="Produtividade.Geral.rejeitarAbono('${a.id}')" 
+                                class="flex-1 bg-rose-50 text-rose-600 py-2.5 rounded-xl text-[10px] font-black border border-rose-100 hover:bg-rose-100 transition active:scale-95 flex items-center justify-center gap-2">
+                                <i class="fas fa-times-circle"></i> REJEITAR
+                            </button>
+                            <button onclick="Produtividade.Geral.irParaAbonoPendente('${a.usuario_id}', '${a.data_referencia.split('T')[0]}')" 
+                                class="w-12 bg-slate-100 text-slate-400 hover:bg-slate-200 py-2.5 rounded-xl flex items-center justify-center transition active:scale-95" 
+                                title="Ver detalhe na grade">
+                                <i class="fas fa-external-link-alt"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            `).join('<div class="h-2"></div>');
+                `;
+            }).join('');
         }
 
         modal.classList.remove('hidden');

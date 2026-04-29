@@ -1389,11 +1389,11 @@ MinhaArea.Geral = {
                 const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
 
                 if (existente) {
-                    await Sistema.query('UPDATE producao SET status = ?, justificativa = ?, fator = ? WHERE id = ?', ['PENDENTE_ABONO', texto, fator, existente.id]);
+                    await Sistema.query('UPDATE producao SET status = ?, observacao_assistente = ?, justificativa = NULL, fator = ? WHERE id = ?', ['PENDENTE_ABONO', texto, fator, existente.id]);
                 } else {
                     const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
                     await Sistema.query(
-                        'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, justificativa, status) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
+                        'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, observacao_assistente, status) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
                         [uuid, uid, dRef, mes, ano, fator, texto, 'PENDENTE_ABONO']
                     );
                 }
