@@ -864,7 +864,7 @@ MinhaArea.Relatorios = {
     abrirSelecaoContrasteGlobal: function() {
         const todosUsuarios = [...new Set(this._gapDataFull.map(d => JSON.stringify({id: d.usuario_id, nome: d.nome})))].map(s => JSON.parse(s)).sort((a,b) => a.nome.localeCompare(b.nome));
         
-        const options = todosUsuarios.map(r => `<option value="${r.id}" ${String(this._gapContrasteIdGlobal) === String(r.id) ? 'selected' : ''}>${r.nome}</option>').join('');
+        const options = todosUsuarios.map(r => `<option value="${r.id}" ${String(this._gapContrasteIdGlobal) === String(r.id) ? 'selected' : ''}>${r.nome}</option>`).join('');
 
         Swal.fire({
             title: 'Contraste Global',
@@ -956,7 +956,6 @@ MinhaArea.Relatorios = {
             const vWorst = worst.vel;
             const gap = vTop - vWorst;
 
-            labels.push(mesesNomes[m-1]);
             gapData.push(gap);
             historyDetails.push({ m, top, worst, vTop, vWorst, gap });
         }
