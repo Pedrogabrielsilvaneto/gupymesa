@@ -826,9 +826,13 @@ MinhaArea.Relatorios = {
             
             let totalProd = 0, totalDays = 0, sumAss = 0, countMonths = 0;
             history.forEach(d => {
-                totalProd += (d.total_prod || 0);
-                totalDays += (d.dias_trab || 0);
-                sumAss += (d.media_assert || 0);
+                const prod = parseFloat(d.total_prod) || 0;
+                const days = parseFloat(d.dias_trab) || 0;
+                const ass = parseFloat(d.media_assert) || 0;
+                
+                totalProd += prod;
+                totalDays += days;
+                sumAss += ass;
                 countMonths++;
             });
             
