@@ -325,11 +325,9 @@ window.MinhaArea = {
                     if (r.relatorioAtivo === 'metas_okr') {
                         r.carregarMetasOKR();
                     } else if (r.relatorioAtivo === 'gap') {
-                        r.carregarGAP();
+                        r.carregarGAP11();
                     } else if (r.relatorioAtivo === 'gap_analise') {
                         r.carregarAnaliseGAP();
-                    } else if (r.relatorioAtivo === 'gap11') {
-                        r.carregarGAP11();
                     }
                 }
             }
