@@ -894,7 +894,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarGraficoEvolucaoGAP: function() {
-        console.log(`📊 Renderizando Gráfico GAP v1.8.4...`);
+        console.log(`📊 Renderizando Gráfico GAP v1.8.7...`);
         const ctx = document.getElementById('canvas-gap-evolution')?.getContext('2d');
         if (!ctx) return;
 
@@ -967,7 +967,15 @@ MinhaArea.Relatorios = {
         const tbody = document.getElementById('gap-history-table-body');
         if (tbody) {
             tbody.innerHTML = historyDetails.map((h, i) => {
-                const prevGap = i > 0 ? historyDetails[i-1].gap : null;
+                if (h.empty) {
+                    return `
+                        <tr class="bg-slate-50/20">
+                            <td class="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">${mesesNomes[h.m-1]}</td>
+                            <td colspan="4" class="px-6 py-4 text-center text-[10px] font-bold text-slate-400 italic uppercase">Sem dados produtivos neste período</td>
+                        </tr>
+                    `;
+                }
+                const prevGap = (i > 0 && !historyDetails[i-1].empty) ? historyDetails[i-1].gap : null;
                 const diff = prevGap !== null ? h.gap - prevGap : null;
                 const colorClass = diff <= 0 ? 'text-emerald-500' : 'text-rose-500';
                 const icon = diff <= 0 ? 'fa-arrow-down' : 'fa-arrow-up';
@@ -1090,6 +1098,7 @@ MinhaArea.Relatorios = {
                         callbacks: {
                             afterLabel: (context) => {
                                 const h = historyDetails[context.dataIndex];
+                                if (h.empty) return ['', 'Sem dados para este mês'];
                                 return [
                                     '',
                                     `REFERÊNCIA (TOP): ${h.top.nome}`,
