@@ -320,10 +320,15 @@ window.MinhaArea = {
             } else if (!document.getElementById('ma-tab-metas').classList.contains('hidden')) {
                 MinhaArea.Metas.carregar();
             } else if (!document.getElementById('ma-tab-relatorios').classList.contains('hidden')) {
-                if (MinhaArea.Relatorios && MinhaArea.Relatorios.relatorioAtivo === 'metas_okr') {
-                    MinhaArea.Relatorios.carregarMetasOKR();
-                } else if (MinhaArea.Relatorios && MinhaArea.Relatorios.relatorioAtivo === 'gap') {
-                    MinhaArea.Relatorios.carregarGAP();
+                if (MinhaArea.Relatorios) {
+                    const r = MinhaArea.Relatorios;
+                    if (r.relatorioAtivo === 'metas_okr') {
+                        r.carregarMetasOKR();
+                    } else if (r.relatorioAtivo === 'gap') {
+                        r.carregarGAP();
+                    } else if (r.relatorioAtivo === 'gap_analise') {
+                        r.carregarAnaliseGAP();
+                    }
                 }
             }
         }

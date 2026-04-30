@@ -957,18 +957,7 @@ MinhaArea.Relatorios = {
         container.innerHTML = `<div class="flex flex-col items-center justify-center py-20"><i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i><p class="text-slate-500 font-bold">Calculando Roadmap de Performance...</p></div>`;
         
         try {
-            const ano = document.getElementById('sel-ano').value;
-            const sub = document.getElementById('sel-subperiodo-ano').value;
-            let inicio, fim;
-            if (sub === 'full') { inicio = `${ano}-01-01`; fim = `${ano}-12-31`; }
-            else if (sub.startsWith('S')) { 
-                inicio = sub === 'S1' ? `${ano}-01-01` : `${ano}-07-01`; 
-                fim = sub === 'S1' ? `${ano}-06-30` : `${ano}-12-31`; 
-            } else {
-                const t = parseInt(sub.substring(1));
-                inicio = `${ano}-0${(t-1)*3 + 1}-01`.replace('-010-', '-10-');
-                fim = `${ano}-0${t*3}-30`.replace('-03-30', '-03-31').replace('-06-30', '-06-30').replace('-09-30', '-09-30').replace('-012-30', '-12-31');
-            }
+            const { inicio, fim } = MinhaArea.getDatasFiltro();
 
             const filtroGrupo = window._filtroGrupo ? `AND u.contrato = '${window._filtroGrupo}'` : '';
             const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia BETWEEN ? AND ? AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') ${filtroGrupo} GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, mes ORDER BY u.nome, mes`;
@@ -979,7 +968,11 @@ MinhaArea.Relatorios = {
                 if (!roadmap[uid]) roadmap[uid] = { id: uid, nome: row.nome, meses: {} };
                 roadmap[uid].meses[row.mes] = row.dias_trab > 0 ? (row.total_prod / row.dias_trab) : 0;
             });
-            this._gapData = { roadmap, mesIni: new Date(inicio+'T12:00:00').getMonth() + 1, mesFim: new Date(fim+'T12:00:00').getMonth() + 1 };
+            this._gapData = { 
+                roadmap, 
+                mesIni: parseInt(inicio.split('-')[1]), 
+                mesFim: parseInt(fim.split('-')[1]) 
+            };
             this._gapBenchmarkId = null; 
             this.renderizarAnaliseGAP();
         } catch (e) { console.error(e); }
@@ -1034,11 +1027,11 @@ MinhaArea.Relatorios = {
             return as;
         });
 
-        // Ordenar: Benchmark fixo no topo, os demais do maior para o menor (evolução decrescente)
+        // Ordenar: Benchmark fixo no topo, os demais pela diferença (maior para menor)
         roadmapArr.sort((a,b) => {
             if (a.id == this._gapBenchmarkId) return -1;
             if (b.id == this._gapBenchmarkId) return 1;
-            return b._ev - a._ev;
+            return b._diff - a._diff;
         });
 
         let ths = '';
