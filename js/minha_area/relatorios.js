@@ -836,17 +836,46 @@ MinhaArea.Relatorios = {
         const gapData = [];
         const historyDetails = [];
 
-        // Para o gráfico, usamos a média mensal SIMPLES (não acumulada) para mostrar a flutuação real do mês
+        // Helper para métricas acumuladas (YTD - Year To Date)
+        const getMetricsAccum = (userId, targetMonth) => {
+            if (!userId) return { vel: 0, ass: 0 };
+            const history = this._gapDataFull.filter(d => String(d.usuario_id) === String(userId) && d.mes <= targetMonth);
+            if (history.length === 0) return { vel: 0, ass: 0 };
+            
+            let totalProd = 0, totalDays = 0, sumAss = 0, countMonths = 0;
+            history.forEach(d => {
+                const prod = parseFloat(d.total_prod) || 0;
+                const days = parseFloat(d.dias_trab) || 0;
+                const ass = parseFloat(d.media_assert) || 0;
+                
+                totalProd += prod;
+                totalDays += days;
+                sumAss += ass;
+                countMonths++;
+            });
+            
+            return {
+                vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0,
+                ass: countMonths > 0 ? (sumAss / countMonths) : 0
+            };
+        };
+
+        // Processar dados mês a mês usando lógica ACUMULADA (YTD)
         for (let m = 1; m <= 12; m++) {
-            const dadosMes = this._gapDataFull.filter(d => d.mes === m);
-            if (dadosMes.length === 0) continue;
+            const idsNoMes = [...new Set(this._gapDataFull.filter(d => d.mes === m).map(d => d.usuario_id))];
+            if (idsNoMes.length === 0) continue;
 
-            const ranking = [...dadosMes].sort((a,b) => (b.total_prod/b.dias_trab) - (a.total_prod/a.dias_trab));
-            const top = ranking[0];
-            const worst = ranking[ranking.length - 1];
+            const rankingAccum = idsNoMes.map(id => {
+                const mtr = getMetricsAccum(id, m);
+                const u = this._gapDataFull.find(d => String(d.usuario_id) === String(id));
+                return { ...u, ...mtr };
+            }).sort((a,b) => b.vel - a.vel);
 
-            const vTop = Math.round(top.total_prod / top.dias_trab);
-            const vWorst = Math.round(worst.total_prod / worst.dias_trab);
+            const top = rankingAccum[0];
+            const worst = rankingAccum[rankingAccum.length - 1];
+
+            const vTop = top.vel;
+            const vWorst = worst.vel;
             const gap = vTop - vWorst;
 
             labels.push(mesesNomes[m-1]);
@@ -872,33 +901,33 @@ MinhaArea.Relatorios = {
 
                 return `
                     <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-4 py-3 text-xs font-black text-slate-400 uppercase">${mesesNomes[h.m-1]}</td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                <div class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-black">
+                        <td class="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">${mesesNomes[h.m-1]}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-black">
                                     ${h.top.nome.substring(0,2).toUpperCase()}
                                 </div>
                                 <div class="flex flex-col">
-                                    <span class="text-[11px] font-black text-slate-700">${h.top.nome}</span>
-                                    <span class="text-[9px] text-slate-400 font-bold">${h.vTop} metas/dia</span>
+                                    <span class="text-[12px] font-black text-slate-700 leading-tight">${h.top.nome}</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">Média Acumulada: ${h.vTop}</span>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                <div class="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px] font-black">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-black">
                                     ${h.worst.nome.substring(0,2).toUpperCase()}
                                 </div>
                                 <div class="flex flex-col">
-                                    <span class="text-[11px] font-black text-slate-700">${h.worst.nome}</span>
-                                    <span class="text-[9px] text-slate-400 font-bold">${h.vWorst} metas/dia</span>
+                                    <span class="text-[12px] font-black text-slate-700 leading-tight">${h.worst.nome}</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">Média Acumulada: ${h.vWorst}</span>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-center">
-                            <span class="px-2.5 py-0.5 bg-slate-100 rounded-full text-xs font-black text-slate-800">${h.gap}</span>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-800">${h.gap}</span>
                         </td>
-                        <td class="px-4 py-3 text-right">${evoHtml}</td>
+                        <td class="px-6 py-4 text-right">${evoHtml}</td>
                     </tr>
                 `;
             }).join('');
@@ -913,26 +942,26 @@ MinhaArea.Relatorios = {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'GAP de Performance',
+                        label: 'GAP Acumulado (YTD)',
                         data: gapData,
-                        backgroundColor: 'rgba(59, 130, 246, 0.4)',
-                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(79, 70, 229, 0.4)',
+                        borderColor: '#4f46e5',
                         borderWidth: 2,
                         borderRadius: 12,
                         order: 2,
-                        barThickness: 40
+                        barThickness: 50
                     },
                     {
-                        label: 'Tendência de Redução',
+                        label: 'Tendência Histórica',
                         data: gapData,
                         type: 'line',
                         borderColor: '#ef4444',
-                        borderWidth: 3,
+                        borderWidth: 4,
                         pointBackgroundColor: '#ef4444',
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2,
                         pointRadius: 6,
-                        pointHoverRadius: 8,
+                        pointHoverRadius: 9,
                         tension: 0.3,
                         order: 1,
                         fill: false
@@ -948,20 +977,25 @@ MinhaArea.Relatorios = {
                         position: 'top',
                         labels: {
                             usePointStyle: true,
-                            font: { size: 10, weight: 'bold' }
+                            font: { size: 11, weight: 'black' }
                         }
                     },
                     tooltip: {
                         backgroundColor: '#1e293b',
-                        padding: 12,
-                        titleFont: { size: 12, weight: 'bold' },
-                        bodyFont: { size: 11 },
+                        padding: 16,
+                        titleFont: { size: 14, weight: 'black' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 12,
                         callbacks: {
                             afterLabel: (context) => {
                                 const h = historyDetails[context.dataIndex];
                                 return [
-                                    `Top: ${h.top.nome} (${h.vTop})`,
-                                    `Worst: ${h.worst.nome} (${h.vWorst})`
+                                    '',
+                                    `REFERÊNCIA (TOP): ${h.top.nome}`,
+                                    `Média Acumulada: ${h.vTop} metas/dia`,
+                                    '',
+                                    `CONTRASTE (PIOR): ${h.worst.nome}`,
+                                    `Média Acumulada: ${h.vWorst} metas/dia`
                                 ];
                             }
                         }
@@ -971,11 +1005,11 @@ MinhaArea.Relatorios = {
                     y: {
                         beginAtZero: true,
                         grid: { borderDash: [5, 5], color: '#f1f5f9' },
-                        ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' }
+                        ticks: { font: { size: 11, weight: 'black' }, color: '#94a3b8' }
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { font: { size: 10, weight: 'bold' }, color: '#64748b' }
+                        ticks: { font: { size: 11, weight: 'black' }, color: '#64748b' }
                     }
                 }
             }
