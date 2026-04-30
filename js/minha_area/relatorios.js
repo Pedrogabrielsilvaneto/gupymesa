@@ -721,11 +721,12 @@ MinhaArea.Relatorios = {
     _gapPiorIdPorMes: {},
 
     carregarGAP11: async function() {
+        const container = document.getElementById('relatorio-ativo-content');
         try {
-            if (!MinhaArea.isAdmin()) return;
+            console.log("📊 Carregando dados para Análise de GAP...");
             const datas = MinhaArea.getDatasFiltro();
             const { inicio } = datas;
-            const ano = inicio.split('-')[0];
+            const ano = (inicio || new Date().toISOString()).split('-')[0];
             const inicioAno = `${ano}-01-01`;
             const fimAno = `${ano}-12-31`;
 
@@ -749,12 +750,24 @@ MinhaArea.Relatorios = {
                   AND p.usuario_id NOT IN (2026, 200601) 
                   AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') 
                 GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia)
-                ORDER BY mes, SUM(p.quantidade) DESC
+                ORDER BY MONTH(p.data_referencia) ASC, SUM(p.quantidade) DESC
             `;
+            
             const data = await Sistema.query(sql, [ano, inicioAno, fimAno]);
-            this._gapDataFull = data;
+            console.log(`✅ Dados carregados: ${data?.length || 0} registros.`);
+            
+            this._gapDataFull = data || [];
+            
+            if (this._gapDataFull.length === 0) {
+                if (container) container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o ano de ${ano}.</div>`;
+                return;
+            }
+
             this.renderizarGAP11();
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("❌ Erro ao carregar GAP:", e);
+            if (container) container.innerHTML = `<div class="text-center py-20 text-rose-500">Erro ao carregar dados: ${e.message}</div>`;
+        }
     },
 
     renderizarGAP11: function() {
