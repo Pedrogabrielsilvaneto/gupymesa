@@ -891,6 +891,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarGraficoEvolucaoGAP: function() {
+        console.log(`📊 Renderizando Gráfico GAP v1.7.8...`);
         const ctx = document.getElementById('canvas-gap-evolution')?.getContext('2d');
         if (!ctx) return;
 
@@ -1023,7 +1024,7 @@ MinhaArea.Relatorios = {
                         borderWidth: 2,
                         borderRadius: 12,
                         order: 2,
-                        barThickness: 60 // Barra mais larga conforme solicitado
+                        barThickness: 65 // Barra mais larga conforme solicitado
                     },
                     {
                         label: 'Tendência Histórica',
@@ -1047,14 +1048,17 @@ MinhaArea.Relatorios = {
                 afterDraw: (chart) => {
                     const { ctx } = chart;
                     chart.data.datasets.forEach((dataset, i) => {
-                        if (dataset.type === 'bar') {
-                            const meta = chart.getDatasetMeta(i);
+                        const meta = chart.getDatasetMeta(i);
+                        // Aplicar apenas no dataset de barras (Index 0 ou Type Bar)
+                        if (meta.type === 'bar') {
                             meta.data.forEach((bar, index) => {
                                 const data = dataset.data[index];
+                                ctx.save();
                                 ctx.fillStyle = '#4f46e5';
-                                ctx.font = 'bold 12px Inter';
+                                ctx.font = 'bold 13px Inter';
                                 ctx.textAlign = 'center';
                                 ctx.fillText(data, bar.x, bar.y - 12);
+                                ctx.restore();
                             });
                         }
                     });
