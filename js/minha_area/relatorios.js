@@ -1006,14 +1006,31 @@ MinhaArea.Relatorios = {
         if (!this._selectedGapUsers) this._selectedGapUsers = new Set();
         const allSelected = this._selectedGapUsers.size === 0 && !this._selectedGapUsers.has('FORCED_EMPTY');
 
+        const bench = roadmapOrig.find(u => u.id == this._gapBenchmarkId);
+
         // Calcular Evolução antecipadamente para poder ordenar
         const roadmapArr = roadmapOrig.map(as => {
             let pVal = null, lVal = null;
+            let sum = 0, count = 0;
+            let benchSum = 0, benchCount = 0;
             for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
                 const val = as.meses[m] || 0;
-                if (val > 0) { if (pVal === null) pVal = val; lVal = val; }
+                if (val > 0) { 
+                    if (pVal === null) pVal = val; 
+                    lVal = val; 
+                    sum += val;
+                    count++;
+                }
+                const bVal = bench.meses[m] || 0;
+                if (bVal > 0) {
+                    benchSum += bVal;
+                    benchCount++;
+                }
             }
             as._ev = (pVal > 0 && lVal > 0) ? ((lVal / pVal) - 1) * 100 : 0;
+            as._avg = count > 0 ? sum / count : 0;
+            as._benchAvg = benchCount > 0 ? benchSum / benchCount : 0;
+            as._diff = as._avg - as._benchAvg;
             return as;
         });
 
@@ -1058,7 +1075,8 @@ MinhaArea.Relatorios = {
                                         </div>
                                     </th>
                                     ${ths}
-                                    <th class="px-6 py-5 text-center bg-slate-100">Evolução</th>
+                                    <th class="px-6 py-5 text-center bg-slate-100">Evolução %</th>
+                                    <th class="px-6 py-5 text-right bg-rose-50/50 text-rose-800">Diferença vs Ref.</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -1082,9 +1100,20 @@ MinhaArea.Relatorios = {
             }
             
             let ev = as._ev;
+            let diffHtml = '';
+            if (isRef) {
+                diffHtml = `<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Referência</span>`;
+            } else {
+                let diffVal = Math.round(as._diff);
+                diffHtml = `<span class="font-black ${diffVal >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${diffVal > 0 ? '+' : ''}${diffVal} metas/dia</span>`;
+            }
+
             html += `
                 <td class="px-6 py-4 text-center bg-slate-50/50 font-black text-[11px] ${ev >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
                     ${ev > 0 ? '+' : ''}${ev.toFixed(1)}%
+                </td>
+                <td class="px-6 py-4 text-right bg-rose-50/30 text-[11px]">
+                    ${diffHtml}
                 </td>
             </tr>`;
         });
