@@ -725,10 +725,8 @@ MinhaArea.Relatorios = {
         try {
             console.log("📊 Carregando dados para Análise de GAP...");
             const datas = MinhaArea.getDatasFiltro();
-            const { inicio } = datas;
+            const { inicio, fim } = datas;
             const ano = (inicio || new Date().toISOString()).split('-')[0];
-            const inicioAno = `${ano}-01-01`;
-            const fimAno = `${ano}-12-31`;
 
             const sql = `
                 SELECT 
@@ -751,7 +749,7 @@ MinhaArea.Relatorios = {
                 LEFT JOIN (
                     SELECT usuario_id, MONTH(data_referencia) as mes, AVG(assertividade_val) as media_assert
                     FROM assertividade
-                    WHERE YEAR(data_referencia) = ?
+                    WHERE data_referencia >= ? AND data_referencia <= ?
                     GROUP BY usuario_id, MONTH(data_referencia)
                 ) avg_a ON base.usuario_id = avg_a.usuario_id AND base.mes = avg_a.mes
                 WHERE u.ativo = 1 
@@ -760,13 +758,13 @@ MinhaArea.Relatorios = {
                 ORDER BY base.mes ASC, base.total_prod DESC
             `;
             
-            const data = await Sistema.query(sql, [inicioAno, fimAno, ano]);
+            const data = await Sistema.query(sql, [inicio, fim, inicio, fim]);
             console.log(`✅ Dados carregados: ${data?.length || 0} registros.`);
             
             this._gapDataFull = data || [];
             
             if (this._gapDataFull.length === 0) {
-                if (container) container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o ano de ${ano}.</div>`;
+                if (container) container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o período selecionado.</div>`;
                 return;
             }
 
@@ -820,8 +818,8 @@ MinhaArea.Relatorios = {
                                         <thead>
                                             <tr class="bg-slate-50">
                                                 <th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês Referência</th>
-                                                <th class="px-6 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest">Top Performance (Maior)</th>
-                                                <th class="px-6 py-4 text-[10px] font-black text-rose-600 uppercase tracking-widest">Pior Performance (Menor)</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest">Referência (Top)</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-rose-600 uppercase tracking-widest">Contraste</th>
                                                 <th class="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">GAP Absoluto</th>
                                                 <th class="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Evolução Mensal</th>
                                             </tr>
@@ -842,14 +840,54 @@ MinhaArea.Relatorios = {
         this.renderizarGraficoEvolucaoGAP();
     },
 
-    mudarMesGap11: function(m) {
-        this._gapMesAtivo = m;
-        this.renderizarGAP11();
-    },
-
     setGapPior11: function(m, id) {
         this._gapPiorIdPorMes[m] = id;
         this.renderizarGAP11();
+    },
+
+    abrirSelecaoContraste: function(mes) {
+        const idsNoMes = [...new Set(this._gapDataFull.filter(d => d.mes === mes).map(d => d.usuario_id))];
+        
+        const getMetricsAccum = (userId, targetMonth) => {
+            const history = this._gapDataFull.filter(d => String(d.usuario_id) === String(userId) && d.mes <= targetMonth);
+            if (history.length === 0) return { vel: 0 };
+            let totalProd = 0, totalDays = 0;
+            history.forEach(d => {
+                totalProd += parseFloat(d.total_prod) || 0;
+                totalDays += parseFloat(d.dias_trab) || 0;
+            });
+            return { vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0 };
+        };
+
+        const ranking = idsNoMes.map(id => {
+            const mtr = getMetricsAccum(id, mes);
+            const u = this._gapDataFull.find(d => String(d.usuario_id) === String(id));
+            return { ...u, vel: mtr.vel };
+        }).sort((a,b) => b.vel - a.vel);
+
+        const options = ranking.map(r => `<option value="${r.usuario_id}" ${String(this._gapPiorIdPorMes[mes]) === String(r.usuario_id) ? 'selected' : ''}>${r.nome} (${r.vel} metas/dia)</option>`).join('');
+
+        Swal.fire({
+            title: 'Escolher Assistente de Contraste',
+            html: `
+                <p class="text-sm text-slate-500 mb-4 text-left">Selecione o assistente que servirá de base (mínima) para o cálculo do GAP deste mês.</p>
+                <select id="swal-select-contraste" class="w-full p-3 rounded-xl border border-slate-200 text-sm">
+                    ${options}
+                </select>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar',
+            cancelButtonText: 'Cancelar',
+            customClass: {
+                confirmButton: 'bg-indigo-600 px-6 py-2 rounded-xl text-white font-black',
+                cancelButton: 'bg-slate-100 px-6 py-2 rounded-xl text-slate-600 font-black'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const val = document.getElementById('swal-select-contraste').value;
+                this.setGapPior11(mes, val);
+            }
+        });
     },
 
     renderizarGraficoEvolucaoGAP: function() {
@@ -897,7 +935,13 @@ MinhaArea.Relatorios = {
             }).sort((a,b) => b.vel - a.vel);
 
             const top = rankingAccum[0];
-            const worst = rankingAccum[rankingAccum.length - 1];
+            
+            // Lógica de Contraste (Manual ou Automática)
+            let worst = rankingAccum[rankingAccum.length - 1];
+            if (this._gapPiorIdPorMes[m]) {
+                const manual = rankingAccum.find(r => String(r.usuario_id) === String(this._gapPiorIdPorMes[m]));
+                if (manual) worst = manual;
+            }
 
             const vTop = top.vel;
             const vWorst = worst.vel;
@@ -939,14 +983,19 @@ MinhaArea.Relatorios = {
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-black">
-                                    ${h.worst.nome.substring(0,2).toUpperCase()}
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black">
+                                        ${h.worst.nome.substring(0,2).toUpperCase()}
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[12px] font-black text-slate-700 leading-tight">${h.worst.nome}</span>
+                                        <span class="text-[10px] text-slate-400 font-bold">Média Acumulada: ${h.vWorst}</span>
+                                    </div>
                                 </div>
-                                <div class="flex flex-col">
-                                    <span class="text-[12px] font-black text-slate-700 leading-tight">${h.worst.nome}</span>
-                                    <span class="text-[10px] text-slate-400 font-bold">Média Acumulada: ${h.vWorst}</span>
-                                </div>
+                                <button onclick="MinhaArea.Relatorios.abrirSelecaoContraste(${h.m})" class="p-2 hover:bg-indigo-50 text-slate-300 hover:text-indigo-600 rounded-lg transition-all" title="Mudar Contraste">
+                                    <i class="fas fa-user-edit text-[10px]"></i>
+                                </button>
                             </div>
                         </td>
                         <td class="px-6 py-4 text-center">
@@ -974,7 +1023,7 @@ MinhaArea.Relatorios = {
                         borderWidth: 2,
                         borderRadius: 12,
                         order: 2,
-                        barThickness: 50
+                        barThickness: 60 // Barra mais larga conforme solicitado
                     },
                     {
                         label: 'Tendência Histórica',
@@ -993,6 +1042,24 @@ MinhaArea.Relatorios = {
                     }
                 ]
             },
+            plugins: [{
+                id: 'customLabels',
+                afterDraw: (chart) => {
+                    const { ctx } = chart;
+                    chart.data.datasets.forEach((dataset, i) => {
+                        if (dataset.type === 'bar') {
+                            const meta = chart.getDatasetMeta(i);
+                            meta.data.forEach((bar, index) => {
+                                const data = dataset.data[index];
+                                ctx.fillStyle = '#4f46e5';
+                                ctx.font = 'bold 12px Inter';
+                                ctx.textAlign = 'center';
+                                ctx.fillText(data, bar.x, bar.y - 12);
+                            });
+                        }
+                    });
+                }
+            }],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -1019,7 +1086,7 @@ MinhaArea.Relatorios = {
                                     `REFERÊNCIA (TOP): ${h.top.nome}`,
                                     `Média Acumulada: ${h.vTop} metas/dia`,
                                     '',
-                                    `CONTRASTE (PIOR): ${h.worst.nome}`,
+                                    `CONTRASTE: ${h.worst.nome}`,
                                     `Média Acumulada: ${h.vWorst} metas/dia`
                                 ];
                             }
