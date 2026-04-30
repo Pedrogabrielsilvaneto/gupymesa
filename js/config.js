@@ -1,3 +1,3 @@
 window.CONFIG = window.CONFIG || {
-    VERSION: "V.1.7.9"
+    VERSION: "V.1.8.2"
 };
