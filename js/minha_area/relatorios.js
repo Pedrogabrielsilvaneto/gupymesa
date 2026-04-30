@@ -974,6 +974,8 @@ MinhaArea.Relatorios = {
                 mesFim: parseInt(fim.split('-')[1]) 
             };
             this._gapBenchmarkId = null; 
+            // Inicializa todos como selecionados por padrão
+            this._selectedGapUsers = new Set(Object.keys(roadmap));
             this.renderizarAnaliseGAP();
         } catch (e) { console.error(e); }
     },
@@ -996,8 +998,8 @@ MinhaArea.Relatorios = {
             });
         }
 
-        if (!this._selectedGapUsers) this._selectedGapUsers = new Set();
-        const allSelected = this._selectedGapUsers.size === 0 && !this._selectedGapUsers.has('FORCED_EMPTY');
+        if (!this._selectedGapUsers) this._selectedGapUsers = new Set(roadmapOrig.map(u => u.id));
+        const allSelected = this._selectedGapUsers.size === roadmapOrig.length;
 
         const bench = roadmapOrig.find(u => u.id == this._gapBenchmarkId);
 
@@ -1122,7 +1124,6 @@ MinhaArea.Relatorios = {
     toggleGapUser: function(id, evt) {
         if (evt) evt.stopPropagation();
         if (!this._selectedGapUsers) this._selectedGapUsers = new Set();
-        this._selectedGapUsers.delete('FORCED_EMPTY');
         if (this._selectedGapUsers.has(id)) {
             this._selectedGapUsers.delete(id);
         } else {
@@ -1132,7 +1133,13 @@ MinhaArea.Relatorios = {
     },
 
     toggleAllGap: function(sel) {
-        if (!sel) this._selectedGapUsers = new Set(['FORCED_EMPTY']); else this._selectedGapUsers.clear();
+        if (!this._gapData) return;
+        const roadmap = Object.values(this._gapData.roadmap);
+        if (sel) {
+            this._selectedGapUsers = new Set(roadmap.map(u => u.id));
+        } else {
+            this._selectedGapUsers = new Set();
+        }
         this.renderizarAnaliseGAP();
     },
 
