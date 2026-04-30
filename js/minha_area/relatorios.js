@@ -735,21 +735,21 @@ MinhaArea.Relatorios = {
                     MONTH(p.data_referencia) as mes, 
                     SUM(p.quantidade) as total_prod, 
                     COUNT(DISTINCT p.data_referencia) as dias_trab,
-                    COALESCE(MAX(avg_a.media_assert), 0) as media_assert
+                    COALESCE((
+                        SELECT AVG(a.assertividade_val)
+                        FROM assertividade a
+                        WHERE a.usuario_id = p.usuario_id 
+                          AND MONTH(a.data_referencia) = MONTH(p.data_referencia)
+                          AND YEAR(a.data_referencia) = ?
+                    ), 0) as media_assert
                 FROM producao p 
                 JOIN usuarios u ON p.usuario_id = u.id 
-                LEFT JOIN (
-                    SELECT usuario_id, MONTH(data_referencia) as mes, AVG(assertividade_val) as media_assert
-                    FROM assertividade
-                    WHERE YEAR(data_referencia) = ?
-                    GROUP BY usuario_id, MONTH(data_referencia)
-                ) avg_a ON p.usuario_id = avg_a.usuario_id AND MONTH(p.data_referencia) = avg_a.mes
                 WHERE p.data_referencia >= ? AND p.data_referencia <= ? 
                   AND u.ativo = 1 
                   AND p.usuario_id NOT IN (2026, 200601) 
                   AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') 
                 GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia)
-                ORDER BY mes, total_prod DESC
+                ORDER BY mes, SUM(p.quantidade) DESC
             `;
             const data = await Sistema.query(sql, [ano, inicioAno, fimAno]);
             this._gapDataFull = data;
