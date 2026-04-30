@@ -328,6 +328,8 @@ window.MinhaArea = {
                         r.carregarGAP();
                     } else if (r.relatorioAtivo === 'gap_analise') {
                         r.carregarAnaliseGAP();
+                    } else if (r.relatorioAtivo === 'gap11') {
+                        r.carregarGAP11();
                     }
                 }
             }

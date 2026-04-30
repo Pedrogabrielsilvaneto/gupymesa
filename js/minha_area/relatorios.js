@@ -891,7 +891,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarGraficoEvolucaoGAP: function() {
-        console.log(`📊 Renderizando Gráfico GAP v1.8.2...`);
+        console.log(`📊 Renderizando Gráfico GAP v1.8.3...`);
         const ctx = document.getElementById('canvas-gap-evolution')?.getContext('2d');
         if (!ctx) return;
 
@@ -1178,97 +1178,90 @@ MinhaArea.Relatorios = {
 
         if (historyDetails.length === 0) return;
 
-        let narrative = `<div class="space-y-6 text-left">`;
+        // --- CÁLCULO DE INSIGHTS GLOBAIS ---
+        const firstGap = historyDetails[0].gap;
+        const lastGap = historyDetails[historyDetails.length - 1].gap;
+        const totalDiffGap = lastGap - firstGap;
+        const avgGap = Math.round(historyDetails.reduce((acc, h) => acc + h.gap, 0) / historyDetails.length);
+        
+        // Melhor e Pior Mês (Menor e Maior GAP)
+        const sortedByGap = [...historyDetails].sort((a,b) => a.gap - b.gap);
+        const bestMonth = sortedByGap[0];
+        const worstMonth = sortedByGap[sortedByGap.length - 1];
 
-        historyDetails.forEach((h, i) => {
-            const isLast = i === historyDetails.length - 1;
-            narrative += `
-                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-                    <div class="absolute right-0 top-0 w-24 h-24 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-40 group-hover:bg-indigo-50 transition-colors"></div>
-                    
-                    <div class="flex items-center gap-3 mb-4 relative z-10">
-                        <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
-                            <i class="fas fa-calendar-check"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-slate-800 font-black uppercase text-xs tracking-widest">${h.nomeMes}</h4>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase">Análise de Performance</p>
+        let html = `
+            <div class="space-y-6 text-left animate-enter">
+                <!-- Cabeçalho de Resumo (Hero Bento) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="col-span-1 md:col-span-2 bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl">
+                        <i class="fas fa-brain absolute -right-4 -bottom-4 text-8xl opacity-10 rotate-12"></i>
+                        <div class="relative z-10">
+                            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Visão Estratégica do Período</h3>
+                            <p class="text-lg font-medium leading-tight">
+                                O GAP médio no período foi de <span class="text-indigo-300 font-black">${avgGap} metas/dia</span>. 
+                                No geral, observamos uma <span class="${totalDiffGap <= 0 ? 'text-emerald-400' : 'text-rose-400'} font-black">${totalDiffGap <= 0 ? 'REDUÇÃO' : 'AUMENTO'} de ${Math.abs(totalDiffGap)} unidades</span> no contraste entre o Top e a Base.
+                            </p>
                         </div>
                     </div>
+                    <div class="bg-indigo-600 rounded-[2rem] p-6 text-white shadow-xl flex flex-col justify-center">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest opacity-70 mb-1">Destaque de Eficiência</h4>
+                        <p class="text-sm font-bold">O menor GAP ocorreu em <span class="underline">${bestMonth.nomeMes}</span> (${bestMonth.gap} m/d).</p>
+                    </div>
+                </div>
+
+                <!-- Grid de Meses (Compacto) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+        `;
+
+        historyDetails.forEach((h, i) => {
+            const prev = i > 0 ? historyDetails[i-1] : null;
+            const diffGap = prev ? h.gap - prev.gap : 0;
+            const statusColor = i === 0 ? 'border-slate-100' : (diffGap <= 0 ? 'border-emerald-100 bg-emerald-50/20' : 'border-rose-100 bg-rose-50/20');
+            const icon = i === 0 ? 'fa-star' : (diffGap <= 0 ? 'fa-arrow-down' : 'fa-arrow-up');
+            const iconColor = i === 0 ? 'text-indigo-500' : (diffGap <= 0 ? 'text-emerald-500' : 'text-rose-500');
+
+            html += `
+                <div class="p-4 rounded-2xl border ${statusColor} transition-all hover:shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${h.nomeMes}</span>
+                        <div class="w-6 h-6 rounded-lg ${iconColor.replace('text', 'bg')}/10 ${iconColor} flex items-center justify-center text-[10px]">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-[10px] font-bold text-slate-500">GAP:</span>
+                            <span class="text-sm font-black text-slate-800">${h.gap} <span class="text-[9px] opacity-50">m/d</span></span>
+                        </div>
+                        ${prev ? `
+                            <p class="text-[9px] font-bold ${diffGap <= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                                ${diffGap <= 0 ? '↓ Redução' : '↑ Aumento'} de ${Math.abs(diffGap)} vs anterior
+                            </p>
+                        ` : '<p class="text-[9px] text-slate-300 italic">Início do período</p>'}
+                    </div>
+
+                    <div class="mt-3 pt-3 border-t border-slate-100/50 flex flex-col gap-1">
+                        <p class="text-[9px] text-slate-500 truncate"><b>Top:</b> ${h.top.nome} (${h.top.vel})</p>
+                        <p class="text-[9px] text-slate-500 truncate"><b>Ref:</b> ${h.contraste.nome} (${h.contraste.vel})</p>
+                    </div>
+                </div>
             `;
-            
-            let explanation = `No mês de <strong>${h.nomeMes}</strong>, a referência de performance (Top) foi <strong>${h.top.nome}</strong> com uma média de <span class="text-indigo-600 font-black">${h.top.vel} metas/dia</span>. `;
-            explanation += `O contraste selecionado foi <strong>${h.contraste.nome}</strong> com <span class="text-slate-600 font-black">${h.contraste.vel} metas/dia</span>, resultando em um <strong>GAP de <span class="text-rose-600 font-black">${h.gap}</span> metas/dia</strong>.`;
-
-            if (i > 0) {
-                const prev = historyDetails[i-1];
-                const diffGap = h.gap - prev.gap;
-                const diffTop = h.top.vel - prev.top.vel;
-                const diffCont = h.contraste.vel - prev.contraste.vel;
-
-                explanation += `<div class="mt-4 pt-4 border-t border-slate-100 space-y-3">`;
-                
-                // Análise do GAP
-                if (diffGap < 0) {
-                    explanation += `<p class="text-xs text-slate-600 flex items-center gap-2">
-                        <i class="fas fa-check-circle text-emerald-500"></i>
-                        Houve uma <span class="text-emerald-600 font-black">REDUÇÃO de ${Math.abs(diffGap)} metas/dia</span> no GAP comparado a ${prev.nomeMes}.
-                    </p>`;
-                } else if (diffGap > 0) {
-                    explanation += `<p class="text-xs text-slate-600 flex items-center gap-2">
-                        <i class="fas fa-exclamation-circle text-rose-500"></i>
-                        Houve um <span class="text-rose-600 font-black">AUMENTO de ${diffGap} metas/dia</span> no GAP comparado a ${prev.nomeMes}.
-                    </p>`;
-                } else {
-                    explanation += `<p class="text-xs text-slate-600 flex items-center gap-2">
-                        <i class="fas fa-minus-circle text-slate-400"></i>
-                        O GAP se manteve estável em relação a ${prev.nomeMes}.
-                    </p>`;
-                }
-
-                // Análise do Top e Contraste
-                let subObs = "";
-                if (diffTop < 0) {
-                    subObs += `A produção do Top (${h.top.nome}) <span class="text-rose-600 font-bold">caiu</span> ${Math.abs(diffTop)} m/d`;
-                } else if (diffTop > 0) {
-                    subObs += `A produção do Top (${h.top.nome}) <span class="text-emerald-600 font-bold">subiu</span> ${diffTop} m/d`;
-                } else {
-                    subObs += `A produção do Top se manteve estável`;
-                }
-
-                if (diffCont < 0) {
-                    subObs += `, enquanto o contraste (${h.contraste.nome}) teve uma <span class="text-rose-600 font-bold">queda</span> de ${Math.abs(diffCont)} m/d.`;
-                } else if (diffCont > 0) {
-                    subObs += `, enquanto o contraste (${h.contraste.nome}) apresentou uma <span class="text-emerald-600 font-bold">melhora</span> de ${diffCont} m/d.`;
-                } else {
-                    subObs += ` e o contraste se manteve estável.`;
-                }
-
-                explanation += `<p class="text-[11px] text-slate-500 italic ml-6 font-medium">${subObs}</p>`;
-                explanation += `</div>`;
-            }
-
-            narrative += `<div class="text-sm text-slate-600 leading-relaxed">${explanation}</div>`;
-            narrative += `</div>`;
         });
 
-        narrative += `</div>`;
+        html += `</div></div>`;
 
         Swal.fire({
-            title: '<div class="flex flex-col items-center gap-1"><span class="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black">Roadmap Analítico</span><span class="text-slate-800 font-black uppercase text-lg tracking-tight">Relatório Narrativo</span></div>',
-            html: `
-                <div class="custom-scrollbar overflow-y-auto max-h-[65vh] px-2">
-                    ${narrative}
-                </div>
-            `,
-            width: '700px',
+            title: '<div class="flex flex-col items-center gap-1"><span class="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black">Performance YTD</span><span class="text-slate-800 font-black uppercase text-lg tracking-tight">Report Executivo de GAP</span></div>',
+            html: html,
+            width: '900px',
             showCloseButton: true,
             showConfirmButton: true,
-            confirmButtonText: 'FECHAR RELATÓRIO',
+            confirmButtonText: 'FECHAR',
             showDenyButton: true,
             denyButtonText: 'MUDAR CONTRASTE',
             customClass: {
-                popup: 'rounded-[2rem] p-8',
+                popup: 'rounded-[2.5rem] p-8',
                 confirmButton: 'bg-indigo-600 px-8 py-4 rounded-2xl text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all',
                 denyButton: 'bg-white border-2 border-slate-100 px-8 py-4 rounded-2xl text-slate-400 font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-all'
             }
