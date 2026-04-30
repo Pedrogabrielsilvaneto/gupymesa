@@ -988,20 +988,37 @@ MinhaArea.Relatorios = {
     renderizarAnaliseGAP: function() {
         if (this.relatorioAtivo !== 'gap_analise') return;
         const container = document.getElementById('relatorio-ativo-content');
-        const roadmap = Object.values(this._gapData.roadmap);
-        if (roadmap.length === 0) {
+        const roadmapOrig = Object.values(this._gapData.roadmap);
+        if (roadmapOrig.length === 0) {
             container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o período.</div>`;
             return;
         }
 
         if (!this._gapBenchmarkId) {
             let maxTotal = -1;
-            roadmap.forEach(u => {
+            roadmapOrig.forEach(u => {
                 let sum = 0;
                 Object.values(u.meses).forEach(v => sum += v);
                 if (sum > maxTotal) { maxTotal = sum; this._gapBenchmarkId = u.id; }
             });
         }
+
+        if (!this._selectedGapUsers) this._selectedGapUsers = new Set();
+        const allSelected = this._selectedGapUsers.size === 0 && !this._selectedGapUsers.has('FORCED_EMPTY');
+
+        // Calcular Evolução antecipadamente para poder ordenar
+        const roadmapArr = roadmapOrig.map(as => {
+            let pVal = null, lVal = null;
+            for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
+                const val = as.meses[m] || 0;
+                if (val > 0) { if (pVal === null) pVal = val; lVal = val; }
+            }
+            as._ev = (pVal > 0 && lVal > 0) ? ((lVal / pVal) - 1) * 100 : 0;
+            return as;
+        });
+
+        // Ordenar do maior para o menor (evolução decrescente)
+        roadmapArr.sort((a,b) => b._ev - a._ev);
 
         let ths = '';
         const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -1019,9 +1036,14 @@ MinhaArea.Relatorios = {
                             <p class="text-[10px] text-blue-600 font-bold uppercase">Comparativo de Média Diária por Mês</p>
                         </div>
                     </div>
-                    <button onclick="MinhaArea.Relatorios.mudarRelatorio('gap_analise')" class="text-[10px] font-black text-blue-700 bg-white px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition uppercase tracking-tighter">
-                        <i class="fas fa-sync-alt mr-1"></i> Atualizar Dados
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="MinhaArea.Relatorios.abrirGraficoComparativo()" class="text-[10px] font-black text-white bg-indigo-600 px-4 py-2 rounded-lg border border-indigo-700 hover:bg-indigo-700 shadow-md transition uppercase tracking-widest flex items-center gap-2">
+                            <i class="fas fa-chart-line"></i> Comparar Selecionados
+                        </button>
+                        <button onclick="MinhaArea.Relatorios.mudarRelatorio('gap_analise')" class="text-[10px] font-black text-blue-700 bg-white px-3 py-2 rounded-lg border border-blue-200 hover:bg-blue-50 shadow-sm transition uppercase tracking-tighter">
+                            <i class="fas fa-sync-alt mr-1"></i> Atualizar Dados
+                        </button>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -1029,7 +1051,12 @@ MinhaArea.Relatorios = {
                         <table class="w-full text-sm text-left border-collapse">
                             <thead class="bg-slate-50 text-slate-600 font-black uppercase text-[10px] tracking-widest border-b border-slate-200">
                                 <tr>
-                                    <th class="px-6 py-5 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 min-w-[200px]">Nome do Assistente</th>
+                                    <th class="px-6 py-5 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 min-w-[250px]">
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" onchange="MinhaArea.Relatorios.toggleAllGap(this.checked)" ${allSelected ? 'checked' : ''} class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer">
+                                            <span>Nome do Assistente</span>
+                                        </div>
+                                    </th>
                                     ${ths}
                                     <th class="px-6 py-5 text-center bg-slate-100">Evolução</th>
                                 </tr>
@@ -1037,19 +1064,24 @@ MinhaArea.Relatorios = {
                             <tbody class="divide-y divide-slate-100">
         `;
 
-        roadmap.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(as => {
+        roadmapArr.forEach(as => {
             const isRef = as.id == this._gapBenchmarkId;
-            let onclick = isRef ? '' : `onclick="MinhaArea.Relatorios.abrirGrafico('${as.id}')" style="cursor:pointer"`;
-            html += `<tr ${onclick} class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/10' : ''}"><td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">${as.nome} ${isRef ? '⭐' : ''}</td>`;
+            const checked = allSelected || this._selectedGapUsers.has(as.id) ? 'checked' : '';
             
-            let pVal = null, lVal = null;
+            html += `<tr class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/10' : ''}">
+                <td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" onchange="MinhaArea.Relatorios.toggleGapUser('${as.id}', event)" ${checked} class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer">
+                        <span onclick="MinhaArea.Relatorios.abrirGrafico('${as.id}')" style="cursor:pointer" class="hover:text-blue-600 transition">${as.nome} ${isRef ? '<span title="Benchmark do Período" class="ml-1 cursor-help">⭐</span>' : ''}</span>
+                    </div>
+                </td>`;
+            
             for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
                 const val = as.meses[m] || 0;
-                if (val > 0) { if (pVal === null) pVal = val; lVal = val; }
                 html += `<td class="px-4 py-4 text-center border-r font-mono font-bold text-slate-500">${val > 0 ? Math.round(val) : '--'}</td>`;
             }
             
-            let ev = (pVal > 0 && lVal > 0) ? ((lVal / pVal) - 1) * 100 : 0;
+            let ev = as._ev;
             html += `
                 <td class="px-6 py-4 text-center bg-slate-50/50 font-black text-[11px] ${ev >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
                     ${ev > 0 ? '+' : ''}${ev.toFixed(1)}%
@@ -1061,9 +1093,21 @@ MinhaArea.Relatorios = {
         container.innerHTML = html;
     },
 
+    toggleGapUser: function(id, evt) {
+        if (evt) evt.stopPropagation();
+        if (!this._selectedGapUsers) this._selectedGapUsers = new Set();
+        this._selectedGapUsers.delete('FORCED_EMPTY');
+        if (this._selectedGapUsers.has(id)) {
+            this._selectedGapUsers.delete(id);
+        } else {
+            this._selectedGapUsers.add(id);
+        }
+        this.renderizarAnaliseGAP();
+    },
+
     toggleAllGap: function(sel) {
         if (!sel) this._selectedGapUsers = new Set(['FORCED_EMPTY']); else this._selectedGapUsers.clear();
-        this.renderizarGAP();
+        this.renderizarAnaliseGAP();
     },
 
     abrirGraficoComparativo: function() {
