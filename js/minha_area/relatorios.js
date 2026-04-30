@@ -735,10 +735,15 @@ MinhaArea.Relatorios = {
                     MONTH(p.data_referencia) as mes, 
                     SUM(p.quantidade) as total_prod, 
                     COUNT(DISTINCT p.data_referencia) as dias_trab,
-                    AVG(COALESCE(a.assertividade_val, 0)) as media_assert
+                    COALESCE(avg_a.media_assert, 0) as media_assert
                 FROM producao p 
                 JOIN usuarios u ON p.usuario_id = u.id 
-                LEFT JOIN assertividade a ON p.usuario_id = a.usuario_id AND p.data_referencia = a.data_referencia
+                LEFT JOIN (
+                    SELECT usuario_id, MONTH(data_referencia) as mes, AVG(assertividade_val) as media_assert
+                    FROM assertividade
+                    WHERE YEAR(data_referencia) = ?
+                    GROUP BY usuario_id, mes
+                ) avg_a ON p.usuario_id = avg_a.usuario_id AND MONTH(p.data_referencia) = avg_a.mes
                 WHERE p.data_referencia >= ? AND p.data_referencia <= ? 
                   AND u.ativo = 1 
                   AND p.usuario_id NOT IN (2026, 200601) 
@@ -746,7 +751,7 @@ MinhaArea.Relatorios = {
                 GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, mes 
                 ORDER BY mes, total_prod DESC
             `;
-            const data = await Sistema.query(sql, [inicioAno, fimAno]);
+            const data = await Sistema.query(sql, [ano, inicioAno, fimAno]);
             this._gapDataFull = data;
             this.renderizarGAP11();
         } catch (e) { console.error(e); }
