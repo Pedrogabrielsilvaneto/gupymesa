@@ -760,7 +760,7 @@ MinhaArea.Relatorios = {
         const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
         let html = `
-            <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[750px] animate-enter">
+            <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[800px] animate-enter">
                 <!-- Sidebar Meses -->
                 <div class="w-full md:w-48 shrink-0 flex md:flex-col gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 overflow-x-auto md:overflow-y-auto no-scrollbar md:custom-scrollbar">
                     <h4 class="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Selecione o Mês</h4>
@@ -775,11 +775,18 @@ MinhaArea.Relatorios = {
                             </button>
                         `;
                     }).join('')}
+
+                    <div class="mt-auto pt-4 border-t border-slate-200 hidden md:block">
+                         <button onclick="document.getElementById('gap-chart-section').scrollIntoView({behavior:'smooth'})" 
+                                 class="w-full text-left px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-2">
+                            <i class="fas fa-chart-bar"></i> Ver Gráfico
+                         </button>
+                    </div>
                 </div>
 
                 <!-- Conteúdo Principal -->
-                <div class="flex-1 flex flex-col gap-6 overflow-hidden">
-                    <div id="gap-main-view" class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+                <div class="flex-1 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2">
+                    <div id="gap-main-view" class="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden shrink-0">
                         <!-- Header do Gap -->
                         <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
                             <div class="flex items-center gap-3">
@@ -793,8 +800,45 @@ MinhaArea.Relatorios = {
                             </div>
                         </div>
 
-                        <div class="p-6 flex-1 overflow-y-auto custom-scrollbar">
+                        <div class="p-6">
                             ${this.renderizarConteudoMesGap11()}
+                        </div>
+                    </div>
+
+                    <!-- Seção de Gráfico e Tabela Detalhada -->
+                    <div id="gap-chart-section" class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col shrink-0">
+                        <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-xs"></i>
+                                </div>
+                                <h3 class="font-black text-slate-800 text-xs uppercase tracking-widest">Histórico de Variação do GAP</h3>
+                            </div>
+                        </div>
+                        <div class="p-8">
+                            <div class="h-[350px] w-full">
+                                <canvas id="canvas-gap-evolution"></canvas>
+                            </div>
+                            
+                            <div class="mt-8 border-t border-slate-100 pt-8">
+                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Dados da Análise Detalhada</h4>
+                                <div class="overflow-x-auto rounded-2xl border border-slate-100">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-slate-50">
+                                                <th class="px-4 py-3 text-[10px] font-black text-slate-500 uppercase">Mês</th>
+                                                <th class="px-4 py-3 text-[10px] font-black text-emerald-600 uppercase">Top Performance</th>
+                                                <th class="px-4 py-3 text-[10px] font-black text-rose-600 uppercase">Pior Performance</th>
+                                                <th class="px-4 py-3 text-[10px] font-black text-slate-800 uppercase text-center">GAP</th>
+                                                <th class="px-4 py-3 text-[10px] font-black text-slate-800 uppercase text-right">Evolução</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="gap-history-table-body" class="divide-y divide-slate-50">
+                                            <!-- Preenchido via JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -802,6 +846,7 @@ MinhaArea.Relatorios = {
         `;
 
         container.innerHTML = html;
+        this.renderizarGraficoEvolucaoGAP();
     },
 
     mudarMesGap11: function(m) {
@@ -812,6 +857,161 @@ MinhaArea.Relatorios = {
     setGapPior11: function(m, id) {
         this._gapPiorIdPorMes[m] = id;
         this.renderizarGAP11();
+    },
+
+    renderizarGraficoEvolucaoGAP: function() {
+        const ctx = document.getElementById('canvas-gap-evolution')?.getContext('2d');
+        if (!ctx) return;
+
+        const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+        const labels = [];
+        const gapData = [];
+        const historyDetails = [];
+
+        // Para o gráfico, usamos a média mensal SIMPLES (não acumulada) para mostrar a flutuação real do mês
+        for (let m = 1; m <= 12; m++) {
+            const dadosMes = this._gapDataFull.filter(d => d.mes === m);
+            if (dadosMes.length === 0) continue;
+
+            const ranking = [...dadosMes].sort((a,b) => (b.total_prod/b.dias_trab) - (a.total_prod/a.dias_trab));
+            const top = ranking[0];
+            const worst = ranking[ranking.length - 1];
+
+            const vTop = Math.round(top.total_prod / top.dias_trab);
+            const vWorst = Math.round(worst.total_prod / worst.dias_trab);
+            const gap = vTop - vWorst;
+
+            labels.push(mesesNomes[m-1]);
+            gapData.push(gap);
+            historyDetails.push({ m, top, worst, vTop, vWorst, gap });
+        }
+
+        // Renderizar Tabela
+        const tbody = document.getElementById('gap-history-table-body');
+        if (tbody) {
+            tbody.innerHTML = historyDetails.map((h, i) => {
+                const prevGap = i > 0 ? historyDetails[i-1].gap : null;
+                const diff = prevGap !== null ? h.gap - prevGap : null;
+                const colorClass = diff <= 0 ? 'text-emerald-500' : 'text-rose-500';
+                const icon = diff <= 0 ? 'fa-arrow-down' : 'fa-arrow-up';
+                
+                const evoHtml = diff !== null 
+                    ? `<span class="font-black ${colorClass} text-[10px] flex items-center gap-1 justify-end">
+                        <i class="fas ${icon}"></i>
+                        ${Math.abs(diff)} (${diff <= 0 ? 'Redução' : 'Aumento'})
+                      </span>`
+                    : '<span class="text-slate-300">--</span>';
+
+                return `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-4 py-3 text-xs font-black text-slate-400 uppercase">${mesesNomes[h.m-1]}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-black">
+                                    ${h.top.nome.substring(0,2).toUpperCase()}
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[11px] font-black text-slate-700">${h.top.nome}</span>
+                                    <span class="text-[9px] text-slate-400 font-bold">${h.vTop} metas/dia</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px] font-black">
+                                    ${h.worst.nome.substring(0,2).toUpperCase()}
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[11px] font-black text-slate-700">${h.worst.nome}</span>
+                                    <span class="text-[9px] text-slate-400 font-bold">${h.vWorst} metas/dia</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2.5 py-0.5 bg-slate-100 rounded-full text-xs font-black text-slate-800">${h.gap}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">${evoHtml}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Renderizar Gráfico
+        if (window._gapChartInstance) window._gapChartInstance.destroy();
+        
+        window._gapChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'GAP de Performance',
+                        data: gapData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.4)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 2,
+                        borderRadius: 12,
+                        order: 2,
+                        barThickness: 40
+                    },
+                    {
+                        label: 'Tendência de Redução',
+                        data: gapData,
+                        type: 'line',
+                        borderColor: '#ef4444',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ef4444',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        tension: 0.3,
+                        order: 1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            font: { size: 10, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        titleFont: { size: 12, weight: 'bold' },
+                        bodyFont: { size: 11 },
+                        callbacks: {
+                            afterLabel: (context) => {
+                                const h = historyDetails[context.dataIndex];
+                                return [
+                                    `Top: ${h.top.nome} (${h.vTop})`,
+                                    `Worst: ${h.worst.nome} (${h.vWorst})`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { borderDash: [5, 5], color: '#f1f5f9' },
+                        ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10, weight: 'bold' }, color: '#64748b' }
+                    }
+                }
+            }
+        });
     },
 
     renderizarConteudoMesGap11: function() {
