@@ -760,77 +760,45 @@ MinhaArea.Relatorios = {
         const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
         let html = `
-            <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[800px] animate-enter">
-                <!-- Sidebar Meses -->
-                <div class="w-full md:w-48 shrink-0 flex md:flex-col gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 overflow-x-auto md:overflow-y-auto no-scrollbar md:custom-scrollbar">
-                    <h4 class="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Selecione o Mês</h4>
-                    ${mesesNomes.map((nome, i) => {
-                        const m = i + 1;
-                        const ativo = this._gapMesAtivo === m;
-                        const temDados = this._gapDataFull.some(d => d.mes === m);
-                        return `
-                            <button onclick="MinhaArea.Relatorios.mudarMesGap11(${m})" 
-                                class="shrink-0 md:shrink md:w-full text-center md:text-left px-4 py-3 rounded-xl font-bold text-xs transition-all ${temDados ? '' : 'opacity-40'} ${ativo ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'hover:bg-white text-slate-600'}">
-                                ${nome}
-                            </button>
-                        `;
-                    }).join('')}
-
-                    <div class="mt-auto pt-4 border-t border-slate-200 hidden md:block">
-                         <button onclick="document.getElementById('gap-chart-section').scrollIntoView({behavior:'smooth'})" 
-                                 class="w-full text-left px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-2">
-                            <i class="fas fa-chart-bar"></i> Ver Gráfico
-                         </button>
-                    </div>
-                </div>
-
+            <div class="flex flex-col gap-6 animate-enter h-full">
                 <!-- Conteúdo Principal -->
-                <div class="flex-1 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2">
-                    <div id="gap-main-view" class="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden shrink-0">
-                        <!-- Header do Gap -->
-                        <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg">
-                                    <i class="fas fa-balance-scale"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-black text-slate-800 text-sm uppercase tracking-widest leading-tight">Análise de GAP - Evolução</h3>
-                                    <p class="text-[10px] text-slate-400 font-bold">Resumo Mensal de Performance - ${mesesNomes[this._gapMesAtivo-1]}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="p-6">
-                            ${this.renderizarConteudoMesGap11()}
-                        </div>
-                    </div>
-
+                <div class="flex-1 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 pb-10">
                     <!-- Seção de Gráfico e Tabela Detalhada -->
                     <div id="gap-chart-section" class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col shrink-0">
-                        <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center">
-                                    <i class="fas fa-chart-line text-xs"></i>
+                        <div class="bg-slate-50 border-b border-slate-100 px-8 py-6 flex justify-between items-center">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-xl">
+                                    <i class="fas fa-chart-line text-lg"></i>
                                 </div>
-                                <h3 class="font-black text-slate-800 text-xs uppercase tracking-widest">Histórico de Variação do GAP</h3>
+                                <div>
+                                    <h3 class="font-black text-slate-800 text-base uppercase tracking-widest leading-tight">Análise Detalhada do GAP</h3>
+                                    <p class="text-xs text-slate-400 font-bold uppercase tracking-tighter">Histórico Anual de Performance (Maior/Menor/Variação)</p>
+                                </div>
                             </div>
                         </div>
                         <div class="p-8">
-                            <div class="h-[350px] w-full">
+                            <div class="h-[400px] w-full">
                                 <canvas id="canvas-gap-evolution"></canvas>
                             </div>
                             
-                            <div class="mt-8 border-t border-slate-100 pt-8">
-                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Dados da Análise Detalhada</h4>
-                                <div class="overflow-x-auto rounded-2xl border border-slate-100">
+                            <div class="mt-12 border-t border-slate-100 pt-10">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <i class="fas fa-list-ul text-indigo-500"></i> Roadmap de Performance Detalhado
+                                    </h4>
+                                    <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 uppercase tracking-widest">
+                                        Foco em Redução de GAP
+                                    </span>
+                                </div>
+                                <div class="overflow-x-auto rounded-3xl border border-slate-100 shadow-sm">
                                     <table class="w-full text-left border-collapse">
                                         <thead>
                                             <tr class="bg-slate-50">
-                                                <th class="px-4 py-3 text-[10px] font-black text-slate-500 uppercase">Mês</th>
-                                                <th class="px-4 py-3 text-[10px] font-black text-emerald-600 uppercase">Top Performance</th>
-                                                <th class="px-4 py-3 text-[10px] font-black text-rose-600 uppercase">Pior Performance</th>
-                                                <th class="px-4 py-3 text-[10px] font-black text-slate-800 uppercase text-center">GAP</th>
-                                                <th class="px-4 py-3 text-[10px] font-black text-slate-800 uppercase text-right">Evolução</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês Referência</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest">Top Performance (Maior)</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-rose-600 uppercase tracking-widest">Pior Performance (Menor)</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">GAP Absoluto</th>
+                                                <th class="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Evolução Mensal</th>
                                             </tr>
                                         </thead>
                                         <tbody id="gap-history-table-body" class="divide-y divide-slate-50">
@@ -1015,217 +983,7 @@ MinhaArea.Relatorios = {
     },
 
     renderizarConteudoMesGap11: function() {
-        const m = this._gapMesAtivo;
-        const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-        
-        // Helper para métricas acumuladas (YTD - Year To Date)
-        const getMetricsAccum = (userId, targetMonth) => {
-            if (!userId) return { vel: 0, ass: 0 };
-            const history = this._gapDataFull.filter(d => String(d.usuario_id) === String(userId) && d.mes <= targetMonth);
-            if (history.length === 0) return { vel: 0, ass: 0 };
-            
-            let totalProd = 0, totalDays = 0, sumAss = 0, countMonths = 0;
-            history.forEach(d => {
-                const prod = parseFloat(d.total_prod) || 0;
-                const days = parseFloat(d.dias_trab) || 0;
-                const ass = parseFloat(d.media_assert) || 0;
-                
-                totalProd += prod;
-                totalDays += days;
-                sumAss += ass;
-                countMonths++;
-            });
-            
-            return {
-                vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0,
-                ass: countMonths > 0 ? (sumAss / countMonths) : 0
-            };
-        };
-
-        const idsNoMes = [...new Set(this._gapDataFull.filter(d => d.mes === m).map(d => d.usuario_id))];
-        if (idsNoMes.length === 0) {
-            return `<div class="h-full flex flex-col items-center justify-center text-slate-300 italic py-20">
-                <i class="fas fa-ghost text-5xl mb-4 opacity-20"></i>
-                <p>Sem dados de produtividade para este mês.</p>
-            </div>`;
-        }
-
-        // Ranking baseado no ACUMULADO até o mês ativo
-        const rankingAccum = idsNoMes.map(id => {
-            const u = this._gapDataFull.find(d => String(d.usuario_id) === String(id));
-            const mtr = getMetricsAccum(id, m);
-            return { ...u, ...mtr };
-        }).sort((a,b) => b.vel - a.vel);
-
-        const top = rankingAccum[0];
-        
-        // Colaborador em Análise (Pior por padrão ou selecionado)
-        const alvoId = this._gapPiorIdPorMes?.[m];
-        let alvo = rankingAccum.find(d => String(d.usuario_id) === String(alvoId));
-        if (!alvo) alvo = [...rankingAccum].reverse()[0];
-
-        // Métricas Atuais (Acumuladas até M)
-        const mt = { vel: top.vel, ass: top.ass };
-        const ma = { vel: alvo.vel, ass: alvo.ass };
-
-        // Métricas Anteriores (Acumuladas até M-1)
-        const mtAnt = getMetricsAccum(top.usuario_id, m - 1);
-        const maAnt = getMetricsAccum(alvo.usuario_id, m - 1);
-
-        // Cálculo do GAP Acumulado
-        const gapCurr = mt.vel - ma.vel;
-        const gapPrev = (mtAnt.vel > 0 && maAnt.vel > 0) ? (mtAnt.vel - maAnt.vel) : null;
-        const gapDiff = (gapPrev !== null) ? (gapCurr - gapPrev) : null;
-
-        const renderBadge = (curr, ant, isAss = false) => {
-            if (!ant || ant === 0) return '';
-            const diff = curr - ant;
-            if (Math.abs(diff) < 0.01) return '';
-            const isGood = diff >= 0;
-            const color = isGood ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-rose-500 bg-rose-50 border-rose-100';
-            const icon = diff > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
-            const val = isAss ? Math.abs(diff).toFixed(1) : Math.abs(Math.round(diff));
-            return `
-                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${color} ml-2">
-                    <i class="fas ${icon} text-[8px]"></i>
-                    <span class="text-[9px] font-black">${val}${isAss ? '%' : ''}</span>
-                </div>
-            `;
-        };
-
-        return `
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <!-- Coluna: Melhor do Mês (Acumulado) -->
-                <div class="flex flex-col gap-4">
-                    <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
-                                <i class="fas fa-crown"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Referência Acumulada</h4>
-                                <p class="text-[9px] text-emerald-600 font-bold uppercase">Jan a ${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
-                        <div class="absolute -right-6 -top-6 text-emerald-500/5 text-8xl rotate-12"><i class="fas fa-award"></i></div>
-                        
-                        <div class="w-24 h-24 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
-                            ${top.nome.substring(0,2).toUpperCase()}
-                        </div>
-                        <div>
-                            <h5 class="font-black text-slate-800 text-xl leading-tight">${top.nome}</h5>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${top.funcao || 'Assistente'}</p>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Média Diária Acumulada</p>
-                                <div class="flex items-center">
-                                    <p class="text-2xl font-black text-slate-800">${mt.vel}</p>
-                                    ${renderBadge(mt.vel, mtAnt.vel)}
-                                </div>
-                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">metas/dia (Jan-${mesesNomes[m-1]})</span>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade Média</p>
-                                <div class="flex items-center">
-                                    <p class="text-2xl font-black text-slate-800">${mt.ass.toFixed(1)}%</p>
-                                    ${renderBadge(mt.ass, mtAnt.ass, true)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Coluna: Colaborador em Análise (Acumulado) -->
-                <div class="flex flex-col gap-4">
-                    <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-100">
-                                <i class="fas fa-user-edit"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">Plano Individual</h4>
-                                <p class="text-[9px] text-blue-600 font-bold uppercase">Jan a ${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
-                            </div>
-                        </div>
-                        <div class="flex flex-col gap-2 px-3 py-1 bg-white rounded-xl border border-blue-100 shadow-sm">
-                            <select onchange="MinhaArea.Relatorios.setGapPior11(${m}, this.value)" 
-                                    class="text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition bg-transparent">
-                                <option value="">Trocar Colaborador...</option>
-                                ${rankingAccum.map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(alvo.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
-                        <div class="absolute -right-6 -top-6 text-blue-500/5 text-8xl rotate-12"><i class="fas fa-chart-line"></i></div>
-                        
-                        <div class="w-24 h-24 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
-                            ${alvo.nome.substring(0,2).toUpperCase()}
-                        </div>
-                        <div>
-                            <h5 class="font-black text-slate-800 text-xl leading-tight">${alvo.nome}</h5>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${alvo.funcao || 'Assistente'}</p>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Média Diária Acumulada</p>
-                                <div class="flex items-center">
-                                    <p class="text-2xl font-black text-slate-800">${ma.vel}</p>
-                                    ${renderBadge(ma.vel, maAnt.vel)}
-                                </div>
-                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">metas/dia (Jan-${mesesNomes[m-1]})</span>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade Média</p>
-                                <div class="flex items-center">
-                                    <p class="text-2xl font-black text-slate-800">${ma.ass.toFixed(1)}%</p>
-                                    ${renderBadge(ma.ass, maAnt.ass, true)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Dashboard de GAP e Evolução Acumulada -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-                <!-- Card GAP Central -->
-                <div class="md:col-span-1 bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group hover:shadow-xl transition-all duration-500">
-                    <div class="absolute -right-8 -bottom-8 w-32 h-32 ${gapDiff < 0 ? 'bg-emerald-50' : 'bg-rose-50'} rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
-                    
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">GAP Acumulado (Jan-${mesesNomes[m-1]})</span>
-                    <h2 class="text-5xl font-black text-slate-800 mb-2 relative z-10">-${gapCurr}<span class="text-xs text-slate-400 ml-1">metas/dia</span></h2>
-                    
-                    ${gapDiff !== null ? `
-                        <div class="flex items-center gap-1.5 px-3 py-1 ${gapDiff <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} rounded-full text-[10px] font-black relative z-10 animate-bounce mt-2">
-                            <i class="fas ${gapDiff <= 0 ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
-                            ${gapDiff === 0 ? 'GAP ESTÁVEL' : (gapDiff < 0 ? `REDUZIU GAP EM ${Math.abs(gapDiff)}` : `AUMENTOU GAP EM ${gapDiff}`)}
-                        </div>
-                    ` : ''}
-                </div>
-
-                <div class="md:col-span-2 bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-center">
-                    <div class="absolute top-0 right-0 p-8 opacity-10">
-                        <i class="fas fa-history text-8xl"></i>
-                    </div>
-                    <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                        <i class="fas fa-layer-group text-amber-400"></i> Visão de Consistência (YTD)
-                    </h4>
-                    <p class="text-base text-slate-300 leading-relaxed font-medium italic">
-                        ${gapDiff !== null && gapDiff < 0 
-                            ? `A consistência acumulada de <b>${alvo.nome}</b> está melhorando! O GAP histórico em relação ao benchmark reduziu em <b>${Math.abs(gapDiff)} metas/dia</b>.`
-                            : `Considerando o acumulado de Janeiro a ${mesesNomes[m-1]}, <b>${alvo.nome}</b> mantém um GAP de <b>${gapCurr} metas/dia</b>. O objetivo é aproximar a média acumulada de <b>${mt.vel} metas/dia</b>.`
-                        }
-                    </p>
-                </div>
-            </div>
-        `;
+        return ''; // Removido conforme solicitado para focar no gráfico e tabela
     },
 
     // --- ANÁLISE DE GAP (TABELA ORIGINAL) ---
