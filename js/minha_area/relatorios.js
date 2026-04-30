@@ -817,6 +817,7 @@ MinhaArea.Relatorios = {
     renderizarConteudoMesGap11: function() {
         const m = this._gapMesAtivo;
         const dadosMes = this._gapDataFull.filter(d => d.mes === m);
+        const dadosMesAnt = this._gapDataFull.filter(d => d.mes === (m - 1));
         
         if (dadosMes.length === 0) {
             return `<div class="h-full flex flex-col items-center justify-center text-slate-300 italic py-20">
@@ -834,13 +835,35 @@ MinhaArea.Relatorios = {
         if (!pior) pior = [...dadosMes].sort((a,b) => (a.total_prod/a.dias_trab) - (b.total_prod/b.dias_trab))[0];
 
         const getMetrics = (d) => {
+            if (!d) return { vel: 0, ass: 0 };
             const v = d.total_prod / d.dias_trab;
             const a = Number(d.media_assert) || 0;
-            return { vel: Math.round(v), ass: a.toFixed(1) };
+            return { vel: Math.round(v), ass: a };
         };
 
         const mt = getMetrics(top);
         const mp = getMetrics(pior);
+
+        // Comparativo Mes Anterior
+        const topAnt = dadosMesAnt.find(d => d.usuario_id === top.usuario_id);
+        const piorAnt = dadosMesAnt.find(d => d.usuario_id === pior.usuario_id);
+        const mtAnt = getMetrics(topAnt);
+        const mpAnt = getMetrics(piorAnt);
+
+        const renderBadge = (curr, ant, isAss = false) => {
+            if (!ant || ant === 0) return '';
+            const diff = curr - ant;
+            if (Math.abs(diff) < 0.01) return '';
+            const color = diff > 0 ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-rose-500 bg-rose-50 border-rose-100';
+            const icon = diff > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+            const val = isAss ? Math.abs(diff).toFixed(1) : Math.abs(Math.round(diff));
+            return `
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${color} ml-2 animate-pulse">
+                    <i class="fas ${icon} text-[8px]"></i>
+                    <span class="text-[9px] font-black">${val}${isAss ? '%' : ''}</span>
+                </div>
+            `;
+        };
 
         return `
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -867,13 +890,20 @@ MinhaArea.Relatorios = {
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
-                                <p class="text-2xl font-black text-slate-800">${mt.vel}<span class="text-[10px] text-slate-400 ml-1">metas/dia</span></p>
+                                <div class="flex items-center">
+                                    <p class="text-2xl font-black text-slate-800">${mt.vel}</p>
+                                    ${renderBadge(mt.vel, mtAnt.vel)}
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">metas/dia</span>
                             </div>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
-                                <p class="text-2xl font-black text-slate-800">${mt.ass}%</p>
+                                <div class="flex items-center">
+                                    <p class="text-2xl font-black text-slate-800">${mt.ass.toFixed(1)}%</p>
+                                    ${renderBadge(mt.ass, mtAnt.ass, true)}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -909,13 +939,20 @@ MinhaArea.Relatorios = {
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 w-full mt-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
-                                <p class="text-2xl font-black text-slate-800">${mp.vel}<span class="text-[10px] text-slate-400 ml-1">metas/dia</span></p>
+                                <div class="flex items-center">
+                                    <p class="text-2xl font-black text-slate-800">${mp.vel}</p>
+                                    ${renderBadge(mp.vel, mpAnt.vel)}
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">metas/dia</span>
                             </div>
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
-                                <p class="text-2xl font-black text-slate-800">${mp.ass}%</p>
+                                <div class="flex items-center">
+                                    <p class="text-2xl font-black text-slate-800">${mp.ass.toFixed(1)}%</p>
+                                    ${renderBadge(mp.ass, mpAnt.ass, true)}
+                                </div>
                             </div>
                         </div>
                     </div>
