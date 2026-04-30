@@ -1190,7 +1190,7 @@ MinhaArea.Relatorios = {
                                     <th class="px-3 py-2 border-r border-slate-200 font-bold text-rose-700">BASE (CONTRASTE)</th>
                                     <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-600 text-center">MÉDIA (BASE)</th>
                                     <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-900 text-center bg-amber-50">GAP</th>
-                                    <th class="px-3 py-2 font-bold text-slate-900 text-right bg-amber-50">EVOLUÇÃO</th>
+                                    <th class="px-3 py-2 font-bold text-slate-900 text-left bg-slate-50 w-1/3">ANÁLISE NARRATIVA</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-200">
@@ -1198,25 +1198,32 @@ MinhaArea.Relatorios = {
 
         historyDetails.forEach((h, i) => {
             const prev = i > 0 ? historyDetails[i-1] : null;
-            const diffGap = prev ? h.gap - prev.gap : null;
             
-            let evoHtml = '<span class="text-slate-300">---</span>';
-            if (diffGap !== null) {
-                const color = diffGap < 0 ? 'text-emerald-600' : (diffGap > 0 ? 'text-rose-600' : 'text-slate-500');
-                const sign = diffGap < 0 ? '' : (diffGap > 0 ? '+' : '');
-                evoHtml = `<span class="font-bold ${color}">${sign}${diffGap}</span>`;
+            let insight = "";
+            if (!prev) {
+                insight = `<span class="text-slate-400 italic">Mês inicial para análise de tendência.</span>`;
+            } else {
+                const diffTop = h.top.vel - prev.top.vel;
+                const diffBase = h.contraste.vel - prev.contraste.vel;
+                const diffGap = h.gap - prev.gap;
+
+                const topTxt = diffTop === 0 ? "manteve a produção" : `${diffTop > 0 ? 'subiu' : 'reduziu'} ${Math.abs(diffTop)} pts`;
+                const baseTxt = diffBase === 0 ? "manteve o ritmo" : `${diffBase > 0 ? 'subiu' : 'caiu'} ${Math.abs(diffBase)} pts`;
+                const gapTxt = diffGap === 0 ? "o GAP estabilizou" : `o GAP ${diffGap < 0 ? 'diminuiu' : 'aumentou'} ${Math.abs(diffGap)} unidades`;
+
+                insight = `<b>${h.top.nome}</b> ${topTxt}, enquanto <b>${h.contraste.nome}</b> ${baseTxt}. Com isso, ${gapTxt}.`;
             }
 
             html += `
                 <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30 transition-colors">
                     <td class="px-3 py-2 border-r border-slate-100 font-black text-slate-500">${h.nomeMes.toUpperCase()}</td>
-                    <td class="px-3 py-2 border-r border-slate-100 text-slate-700">${h.top.nome}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-slate-700 font-medium">${h.top.nome}</td>
                     <td class="px-3 py-2 border-r border-slate-100 text-center font-mono font-bold">${h.top.vel}</td>
-                    <td class="px-3 py-2 border-r border-slate-100 text-slate-700">${h.contraste.nome}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-slate-700 font-medium">${h.contraste.nome}</td>
                     <td class="px-3 py-2 border-r border-slate-100 text-center font-mono font-bold">${h.contraste.vel}</td>
                     <td class="px-3 py-2 border-r border-slate-100 text-center font-black text-slate-900 bg-amber-50/30">${h.gap}</td>
-                    <td class="px-3 py-2 text-right bg-amber-50/30">
-                        ${evoHtml}
+                    <td class="px-3 py-2 text-slate-600 leading-tight">
+                        <p class="text-[10px]">${insight}</p>
                     </td>
                 </tr>
             `;
@@ -1233,7 +1240,7 @@ MinhaArea.Relatorios = {
         Swal.fire({
             title: '',
             html: html,
-            width: '1000px',
+            width: '1200px',
             padding: '1.5rem',
             showCloseButton: true,
             showConfirmButton: false,
