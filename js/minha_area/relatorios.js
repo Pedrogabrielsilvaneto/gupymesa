@@ -723,10 +723,12 @@ MinhaArea.Relatorios = {
     carregarGAP11: async function() {
         const container = document.getElementById('relatorio-ativo-content');
         try {
-            console.log("📊 Carregando dados para Análise de GAP...");
-            const datas = MinhaArea.getDatasFiltro();
-            const { inicio, fim } = datas;
-            const ano = (inicio || new Date().toISOString()).split('-')[0];
+            const { inicio, fim } = MinhaArea.getDatasFiltro();
+            console.log(`[GAP 1:1] Filtrando período: ${inicio} até ${fim}`);
+            
+            // Determina os meses limites para o gráfico
+            this._currentStartMonth = parseInt(inicio.split('-')[1]);
+            this._currentEndMonth = parseInt(fim.split('-')[1]);
 
             const sql = `
                 SELECT 
@@ -826,25 +828,23 @@ MinhaArea.Relatorios = {
                         </div>
                     </div>
 
-                    <!-- Card da Tabela -->
-                    <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden pb-10">
-                        <div class="p-6 border-b border-slate-50 bg-slate-50/30">
-                            <h3 class="text-sm font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                                <i class="fas fa-table text-indigo-500"></i> Detalhamento por Período
-                            </h3>
+                    <!-- Card da Tabela (Excel Style) -->
+                    <div class="bg-white rounded-lg border border-slate-300 shadow-sm">
+                        <div class="bg-slate-100 px-4 py-2 border-b border-slate-300 font-black text-[11px] text-slate-600 uppercase">
+                            Detalhamento Mensal de Performance
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr class="bg-slate-50">
-                                        <th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês Referência</th>
-                                        <th class="px-6 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest">Referência (Top)</th>
-                                        <th class="px-6 py-4 text-[10px] font-black text-rose-600 uppercase tracking-widest">Contraste</th>
-                                        <th class="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">GAP Absoluto</th>
-                                        <th class="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Evolução Mensal</th>
+                        <div class="overflow-y-auto max-h-[500px]">
+                            <table class="w-full text-xs text-left border-collapse border border-slate-200">
+                                <thead class="sticky top-0 bg-slate-50 z-10">
+                                    <tr class="border-b border-slate-300">
+                                        <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-600">Mês</th>
+                                        <th class="px-3 py-2 border-r border-slate-200 font-bold text-emerald-700">Top</th>
+                                        <th class="px-3 py-2 border-r border-slate-200 font-bold text-rose-700">Contraste</th>
+                                        <th class="px-3 py-2 text-center font-bold text-slate-600">GAP</th>
+                                        <th class="px-3 py-2 text-right font-bold text-slate-600">Evolução</th>
                                     </tr>
                                 </thead>
-                                <tbody id="gap-history-table-body" class="divide-y divide-slate-50"></tbody>
+                                <tbody id="gap-history-table-body" class="divide-y divide-slate-200"></tbody>
                             </table>
                         </div>
                     </div>
@@ -864,7 +864,7 @@ MinhaArea.Relatorios = {
     abrirSelecaoContrasteGlobal: function() {
         const todosUsuarios = [...new Set(this._gapDataFull.map(d => JSON.stringify({id: d.usuario_id, nome: d.nome})))].map(s => JSON.parse(s)).sort((a,b) => a.nome.localeCompare(b.nome));
         
-        const options = todosUsuarios.map(r => `<option value="${r.id}" ${String(this._gapContrasteIdGlobal) === String(r.id) ? 'selected' : ''}>${r.nome}</option>`).join('');
+        const options = todosUsuarios.map(r => `<option value="${r.id}" ${String(this._gapContrasteIdGlobal) === String(r.id) ? 'selected' : ''}>${r.nome}</option>').join('');
 
         Swal.fire({
             title: 'Contraste Global',
@@ -891,11 +891,10 @@ MinhaArea.Relatorios = {
     },
 
     renderizarGraficoEvolucaoGAP: function() {
-        console.log(`📊 Renderizando Gráfico GAP v1.8.3...`);
+        console.log(`📊 Renderizando Gráfico GAP v1.8.4...`);
         const ctx = document.getElementById('canvas-gap-evolution')?.getContext('2d');
         if (!ctx) return;
 
-        // Atualizar info global
         const infoDiv = document.getElementById('gap-global-info');
         if (infoDiv) {
             if (this._gapContrasteIdGlobal) {
@@ -911,34 +910,32 @@ MinhaArea.Relatorios = {
         const gapData = [];
         const historyDetails = [];
 
-        // Helper para métricas acumuladas (YTD - Year To Date)
         const getMetricsAccum = (userId, targetMonth) => {
             if (!userId) return { vel: 0, ass: 0 };
             const history = this._gapDataFull.filter(d => String(d.usuario_id) === String(userId) && d.mes <= targetMonth);
             if (history.length === 0) return { vel: 0, ass: 0 };
-            
             let totalProd = 0, totalDays = 0, sumAss = 0, countMonths = 0;
             history.forEach(d => {
-                const prod = parseFloat(d.total_prod) || 0;
-                const days = parseFloat(d.dias_trab) || 0;
-                const ass = parseFloat(d.media_assert) || 0;
-                
-                totalProd += prod;
-                totalDays += days;
-                sumAss += ass;
+                totalProd += parseFloat(d.total_prod) || 0;
+                totalDays += parseFloat(d.dias_trab) || 0;
+                sumAss += parseFloat(d.media_assert) || 0;
                 countMonths++;
             });
-            
             return {
                 vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0,
                 ass: countMonths > 0 ? (sumAss / countMonths) : 0
             };
         };
 
-        // Processar dados mês a mês usando lógica ACUMULADA (YTD)
-        for (let m = 1; m <= 12; m++) {
+        for (let m = this._currentStartMonth; m <= this._currentEndMonth; m++) {
             const idsNoMes = [...new Set(this._gapDataFull.filter(d => d.mes === m).map(d => d.usuario_id))];
-            if (idsNoMes.length === 0) continue;
+            labels.push(mesesNomes[m - 1]);
+            
+            if (idsNoMes.length === 0) {
+                gapData.push(0);
+                historyDetails.push({ m, gap: 0, empty: true });
+                continue;
+            }
 
             const rankingAccum = idsNoMes.map(id => {
                 const mtr = getMetricsAccum(id, m);
@@ -1131,29 +1128,22 @@ MinhaArea.Relatorios = {
         const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const historyDetails = [];
 
-        // Helper para métricas acumuladas (mesmo do gráfico para consistência)
         const getMetricsAccum = (userId, targetMonth) => {
             const history = this._gapDataFull.filter(d => String(d.usuario_id) === String(userId) && d.mes <= targetMonth);
             if (history.length === 0) return { vel: 0, ass: 0 };
-            let totalProd = 0, totalDays = 0, sumAss = 0, countMonths = 0;
+            let totalProd = 0, totalDays = 0;
             history.forEach(d => {
                 totalProd += parseFloat(d.total_prod) || 0;
                 totalDays += parseFloat(d.dias_trab) || 0;
-                sumAss += parseFloat(d.media_assert) || 0;
-                countMonths++;
             });
             return {
-                vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0,
-                ass: countMonths > 0 ? (sumAss / countMonths) : 0
+                vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0
             };
         };
 
-        // Identifica meses únicos presentes nos dados
         const mesesPresentes = [...new Set(this._gapDataFull.map(d => d.mes))].sort((a,b) => a - b);
-
         mesesPresentes.forEach(m => {
             const idsNoMes = [...new Set(this._gapDataFull.filter(d => d.mes === m).map(d => d.usuario_id))];
-            
             const rankingAccum = idsNoMes.map(id => {
                 const mtr = getMetricsAccum(id, m);
                 const u = this._gapDataFull.find(d => String(d.usuario_id) === String(id));
@@ -1176,98 +1166,80 @@ MinhaArea.Relatorios = {
             });
         });
 
-        if (historyDetails.length === 0) return;
-
-        // --- CÁLCULO DE INSIGHTS GLOBAIS ---
-        const firstGap = historyDetails[0].gap;
-        const lastGap = historyDetails[historyDetails.length - 1].gap;
-        const totalDiffGap = lastGap - firstGap;
-        const avgGap = Math.round(historyDetails.reduce((acc, h) => acc + h.gap, 0) / historyDetails.length);
-        
-        // Melhor e Pior Mês (Menor e Maior GAP)
-        const sortedByGap = [...historyDetails].sort((a,b) => a.gap - b.gap);
-        const bestMonth = sortedByGap[0];
-        const worstMonth = sortedByGap[sortedByGap.length - 1];
-
         let html = `
-            <div class="space-y-6 text-left animate-enter">
-                <!-- Cabeçalho de Resumo (Hero Bento) -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="col-span-1 md:col-span-2 bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl">
-                        <i class="fas fa-brain absolute -right-4 -bottom-4 text-8xl opacity-10 rotate-12"></i>
-                        <div class="relative z-10">
-                            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Visão Estratégica do Período</h3>
-                            <p class="text-lg font-medium leading-tight">
-                                O GAP médio no período foi de <span class="text-indigo-300 font-black">${avgGap} metas/dia</span>. 
-                                No geral, observamos uma <span class="${totalDiffGap <= 0 ? 'text-emerald-400' : 'text-rose-400'} font-black">${totalDiffGap <= 0 ? 'REDUÇÃO' : 'AUMENTO'} de ${Math.abs(totalDiffGap)} unidades</span> no contraste entre o Top e a Base.
-                            </p>
+            <div class="animate-enter space-y-4">
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+                            <i class="fas fa-table"></i>
                         </div>
-                    </div>
-                    <div class="bg-indigo-600 rounded-[2rem] p-6 text-white shadow-xl flex flex-col justify-center">
-                        <h4 class="text-[10px] font-black uppercase tracking-widest opacity-70 mb-1">Destaque de Eficiência</h4>
-                        <p class="text-sm font-bold">O menor GAP ocorreu em <span class="underline">${bestMonth.nomeMes}</span> (${bestMonth.gap} m/d).</p>
+                        <div>
+                            <h3 class="text-slate-800 font-black uppercase text-xs tracking-widest">Grade Analítica de GAP</h3>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Visão Tabular (Excel Style)</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Grid de Meses (Compacto) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div class="bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto max-h-[60vh] custom-scrollbar">
+                        <table class="w-full text-left border-collapse text-[11px] font-sans">
+                            <thead class="bg-[#f8f9fa] border-b border-slate-300 sticky top-0 z-10">
+                                <tr>
+                                    <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-600">MÊS</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 font-bold text-emerald-700">TOP PERFORMER</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-600 text-center">MÉDIA (TOP)</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 font-bold text-rose-700">BASE (CONTRASTE)</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-600 text-center">MÉDIA (BASE)</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 font-bold text-slate-900 text-center bg-amber-50">GAP</th>
+                                    <th class="px-3 py-2 font-bold text-slate-900 text-right bg-amber-50">EVOLUÇÃO</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
         `;
 
         historyDetails.forEach((h, i) => {
             const prev = i > 0 ? historyDetails[i-1] : null;
-            const diffGap = prev ? h.gap - prev.gap : 0;
-            const statusColor = i === 0 ? 'border-slate-100' : (diffGap <= 0 ? 'border-emerald-100 bg-emerald-50/20' : 'border-rose-100 bg-rose-50/20');
-            const icon = i === 0 ? 'fa-star' : (diffGap <= 0 ? 'fa-arrow-down' : 'fa-arrow-up');
-            const iconColor = i === 0 ? 'text-indigo-500' : (diffGap <= 0 ? 'text-emerald-500' : 'text-rose-500');
+            const diffGap = prev ? h.gap - prev.gap : null;
+            
+            let evoHtml = '<span class="text-slate-300">---</span>';
+            if (diffGap !== null) {
+                const color = diffGap < 0 ? 'text-emerald-600' : (diffGap > 0 ? 'text-rose-600' : 'text-slate-500');
+                const sign = diffGap < 0 ? '' : (diffGap > 0 ? '+' : '');
+                evoHtml = `<span class="font-bold ${color}">${sign}${diffGap}</span>`;
+            }
 
             html += `
-                <div class="p-4 rounded-2xl border ${statusColor} transition-all hover:shadow-sm">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${h.nomeMes}</span>
-                        <div class="w-6 h-6 rounded-lg ${iconColor.replace('text', 'bg')}/10 ${iconColor} flex items-center justify-center text-[10px]">
-                            <i class="fas ${icon}"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <div class="flex justify-between items-baseline">
-                            <span class="text-[10px] font-bold text-slate-500">GAP:</span>
-                            <span class="text-sm font-black text-slate-800">${h.gap} <span class="text-[9px] opacity-50">m/d</span></span>
-                        </div>
-                        ${prev ? `
-                            <p class="text-[9px] font-bold ${diffGap <= 0 ? 'text-emerald-600' : 'text-rose-600'}">
-                                ${diffGap <= 0 ? '↓ Redução' : '↑ Aumento'} de ${Math.abs(diffGap)} vs anterior
-                            </p>
-                        ` : '<p class="text-[9px] text-slate-300 italic">Início do período</p>'}
-                    </div>
-
-                    <div class="mt-3 pt-3 border-t border-slate-100/50 flex flex-col gap-1">
-                        <p class="text-[9px] text-slate-500 truncate"><b>Top:</b> ${h.top.nome} (${h.top.vel})</p>
-                        <p class="text-[9px] text-slate-500 truncate"><b>Ref:</b> ${h.contraste.nome} (${h.contraste.vel})</p>
-                    </div>
-                </div>
+                <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30 transition-colors">
+                    <td class="px-3 py-2 border-r border-slate-100 font-black text-slate-500">${h.nomeMes.toUpperCase()}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-slate-700">${h.top.nome}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-center font-mono font-bold">${h.top.vel}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-slate-700">${h.contraste.nome}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-center font-mono font-bold">${h.contraste.vel}</td>
+                    <td class="px-3 py-2 border-r border-slate-100 text-center font-black text-slate-900 bg-amber-50/30">${h.gap}</td>
+                    <td class="px-3 py-2 text-right bg-amber-50/30">
+                        ${evoHtml}
+                    </td>
+                </tr>
             `;
         });
 
-        html += `</div></div>`;
+        html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
 
         Swal.fire({
-            title: '<div class="flex flex-col items-center gap-1"><span class="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black">Performance YTD</span><span class="text-slate-800 font-black uppercase text-lg tracking-tight">Report Executivo de GAP</span></div>',
+            title: '',
             html: html,
-            width: '900px',
+            width: '1000px',
+            padding: '1.5rem',
             showCloseButton: true,
-            showConfirmButton: true,
-            confirmButtonText: 'FECHAR',
-            showDenyButton: true,
-            denyButtonText: 'MUDAR CONTRASTE',
+            showConfirmButton: false,
             customClass: {
-                popup: 'rounded-[2.5rem] p-8',
-                confirmButton: 'bg-indigo-600 px-8 py-4 rounded-2xl text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all',
-                denyButton: 'bg-white border-2 border-slate-100 px-8 py-4 rounded-2xl text-slate-400 font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-all'
-            }
-        }).then(result => {
-            if (result.isDenied) {
-                this.abrirSelecaoContrasteGlobal();
+                popup: 'rounded-3xl'
             }
         });
     },
