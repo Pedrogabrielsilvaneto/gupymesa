@@ -816,6 +816,7 @@ MinhaArea.Relatorios = {
 
     renderizarConteudoMesGap11: function() {
         const m = this._gapMesAtivo;
+        const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const dadosMes = this._gapDataFull.filter(d => d.mes === m);
         const dadosMesAnt = this._gapDataFull.filter(d => d.mes === (m - 1));
         
@@ -826,13 +827,13 @@ MinhaArea.Relatorios = {
             </div>`;
         }
 
-        // Top Performance (calculado: maior total_prod / dias_trab)
+        // Top Performance (Mês Atual)
         const top = [...dadosMes].sort((a,b) => (b.total_prod/b.dias_trab) - (a.total_prod/a.dias_trab))[0];
         
-        // Pior do Mês (Selecionado pela Gestora ou o menor se não selecionado)
-        const piorId = this._gapPiorIdPorMes?.[m];
-        let pior = dadosMes.find(d => String(d.usuario_id) === String(piorId));
-        if (!pior) pior = [...dadosMes].sort((a,b) => (a.total_prod/a.dias_trab) - (b.total_prod/b.dias_trab))[0];
+        // Colaborador em Análise (Pior por padrão ou selecionado)
+        const alvoId = this._gapPiorIdPorMes?.[m];
+        let alvo = dadosMes.find(d => String(d.usuario_id) === String(alvoId));
+        if (!alvo) alvo = [...dadosMes].sort((a,b) => (a.total_prod/a.dias_trab) - (b.total_prod/b.dias_trab))[0];
 
         const getMetrics = (d) => {
             if (!d) return { vel: 0, ass: 0 };
@@ -842,23 +843,29 @@ MinhaArea.Relatorios = {
         };
 
         const mt = getMetrics(top);
-        const mp = getMetrics(pior);
+        const ma = getMetrics(alvo);
 
-        // Comparativo Mes Anterior
+        // Dados Mes Anterior para Comparação
         const topAnt = dadosMesAnt.find(d => d.usuario_id === top.usuario_id);
-        const piorAnt = dadosMesAnt.find(d => d.usuario_id === pior.usuario_id);
+        const alvoAnt = dadosMesAnt.find(d => d.usuario_id === alvo.usuario_id);
         const mtAnt = getMetrics(topAnt);
-        const mpAnt = getMetrics(piorAnt);
+        const maAnt = getMetrics(alvoAnt);
+
+        // Cálculo do GAP
+        const gapCurr = mt.vel - ma.vel;
+        const gapPrev = (mtAnt.vel > 0 && maAnt.vel > 0) ? (mtAnt.vel - maAnt.vel) : null;
+        const gapDiff = (gapPrev !== null) ? (gapCurr - gapPrev) : null;
 
         const renderBadge = (curr, ant, isAss = false) => {
             if (!ant || ant === 0) return '';
             const diff = curr - ant;
             if (Math.abs(diff) < 0.01) return '';
-            const color = diff > 0 ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-rose-500 bg-rose-50 border-rose-100';
+            const isGood = isAss ? diff > 0 : diff > 0;
+            const color = isGood ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-rose-500 bg-rose-50 border-rose-100';
             const icon = diff > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
             const val = isAss ? Math.abs(diff).toFixed(1) : Math.abs(Math.round(diff));
             return `
-                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${color} ml-2 animate-pulse">
+                <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${color} ml-2">
                     <i class="fas ${icon} text-[8px]"></i>
                     <span class="text-[9px] font-black">${val}${isAss ? '%' : ''}</span>
                 </div>
@@ -874,7 +881,10 @@ MinhaArea.Relatorios = {
                             <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
                                 <i class="fas fa-crown"></i>
                             </div>
-                            <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Melhor do Mês</h4>
+                            <div>
+                                <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Top Performance</h4>
+                                <p class="text-[9px] text-emerald-600 font-bold uppercase">${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -891,12 +901,12 @@ MinhaArea.Relatorios = {
 
                         <div class="grid grid-cols-2 gap-4 w-full mt-4">
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Produção Média</p>
                                 <div class="flex items-center">
                                     <p class="text-2xl font-black text-slate-800">${mt.vel}</p>
                                     ${renderBadge(mt.vel, mtAnt.vel)}
                                 </div>
-                                <span class="text-[10px] text-slate-400 font-bold uppercase">metas/dia</span>
+                                <span class="text-[9px] text-slate-400 font-bold">metas/dia</span>
                             </div>
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
@@ -909,49 +919,52 @@ MinhaArea.Relatorios = {
                     </div>
                 </div>
 
-                <!-- Coluna: Pior do Mês -->
+                <!-- Coluna: Colaborador em Análise -->
                 <div class="flex flex-col gap-4">
-                    <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between">
+                    <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-100">
-                                <i class="fas fa-user-minus"></i>
+                            <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-100">
+                                <i class="fas fa-user-edit"></i>
                             </div>
-                            <h4 class="font-black text-rose-900 text-xs uppercase tracking-widest">Pior do Mês</h4>
+                            <div>
+                                <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">Foco do Plano</h4>
+                                <p class="text-[9px] text-blue-600 font-bold uppercase">${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
+                            </div>
                         </div>
-                        <div class="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                        <div class="flex flex-col gap-2 px-3 py-1 bg-white rounded-xl border border-blue-100 shadow-sm">
                             <select onchange="MinhaArea.Relatorios.setGapPior11(${m}, this.value)" 
-                                    class="w-full text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition">
+                                    class="text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition bg-transparent">
                                 <option value="">Trocar Colaborador...</option>
-                                ${dadosMes.sort((a,b) => a.nome.localeCompare(b.nome)).map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(pior.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
+                                ${dadosMes.sort((a,b) => a.nome.localeCompare(b.nome)).map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(alvo.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
                             </select>
                         </div>
                     </div>
 
                     <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
-                        <div class="absolute -right-6 -top-6 text-rose-500/5 text-8xl rotate-12"><i class="fas fa-chart-line"></i></div>
+                        <div class="absolute -right-6 -top-6 text-blue-500/5 text-8xl rotate-12"><i class="fas fa-chart-line"></i></div>
                         
-                        <div class="w-24 h-24 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
-                            ${pior.nome.substring(0,2).toUpperCase()}
+                        <div class="w-24 h-24 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
+                            ${alvo.nome.substring(0,2).toUpperCase()}
                         </div>
                         <div>
-                            <h5 class="font-black text-slate-800 text-xl leading-tight">${pior.nome}</h5>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${pior.funcao || 'Assistente'}</p>
+                            <h5 class="font-black text-slate-800 text-xl leading-tight">${alvo.nome}</h5>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${alvo.funcao || 'Assistente'}</p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 w-full mt-4">
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Produção Média</p>
                                 <div class="flex items-center">
-                                    <p class="text-2xl font-black text-slate-800">${mp.vel}</p>
-                                    ${renderBadge(mp.vel, mpAnt.vel)}
+                                    <p class="text-2xl font-black text-slate-800">${ma.vel}</p>
+                                    ${renderBadge(ma.vel, maAnt.vel)}
                                 </div>
-                                <span class="text-[10px] text-slate-400 font-bold uppercase">metas/dia</span>
+                                <span class="text-[9px] text-slate-400 font-bold">metas/dia</span>
                             </div>
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
                                 <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
                                 <div class="flex items-center">
-                                    <p class="text-2xl font-black text-slate-800">${mp.ass.toFixed(1)}%</p>
-                                    ${renderBadge(mp.ass, mpAnt.ass, true)}
+                                    <p class="text-2xl font-black text-slate-800">${ma.ass.toFixed(1)}%</p>
+                                    ${renderBadge(ma.ass, maAnt.ass, true)}
                                 </div>
                             </div>
                         </div>
@@ -959,29 +972,35 @@ MinhaArea.Relatorios = {
                 </div>
             </div>
 
-            <!-- Dashboard de GAP -->
+            <!-- Dashboard de GAP e Evolução -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
                 <!-- Card GAP Central -->
                 <div class="md:col-span-1 bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group hover:shadow-xl transition-all duration-500">
-                    <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-rose-50 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
-                    <i class="fas fa-chart-area text-rose-200 text-5xl absolute left-6 top-6 opacity-30"></i>
+                    <div class="absolute -right-8 -bottom-8 w-32 h-32 ${gapDiff < 0 ? 'bg-emerald-50' : 'bg-rose-50'} rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
                     
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">Déficit de Performance</span>
-                    <h2 class="text-5xl font-black text-rose-600 mb-2 relative z-10">-${Math.round((1 - (mp.vel/mt.vel))*100)}%</h2>
-                    <div class="px-4 py-1.5 bg-rose-100 text-rose-700 rounded-full text-[11px] font-black relative z-10">
-                        ${mt.vel - mp.vel} metas/dia de GAP
-                    </div>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">GAP de Performance</span>
+                    <h2 class="text-5xl font-black text-slate-800 mb-2 relative z-10">-${gapCurr}<span class="text-xs text-slate-400 ml-1">metas/dia</span></h2>
+                    
+                    ${gapDiff !== null ? `
+                        <div class="flex items-center gap-1.5 px-3 py-1 ${gapDiff <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} rounded-full text-[10px] font-black relative z-10 animate-bounce mt-2">
+                            <i class="fas ${gapDiff <= 0 ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                            ${gapDiff === 0 ? 'GAP ESTÁVEL' : (gapDiff < 0 ? `GAP DIMINUIU EM ${Math.abs(gapDiff)}` : `GAP AUMENTOU EM ${gapDiff}`)}
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div class="md:col-span-2 bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-center">
                     <div class="absolute top-0 right-0 p-8 opacity-10">
-                        <i class="fas fa-quote-right text-8xl"></i>
+                        <i class="fas fa-chart-line text-8xl"></i>
                     </div>
                     <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                        <i class="fas fa-lightbulb text-amber-400"></i> Insight de Gestão
+                        <i class="fas fa-bullseye text-blue-400"></i> Direcionamento de GAP
                     </h4>
                     <p class="text-base text-slate-300 leading-relaxed font-medium italic">
-                        "Para atingir o nível de performance do <b>${top.nome}</b>, o colaborador <b>${pior.nome}</b> precisa aumentar sua produção diária em <b>${mt.vel - mp.vel} metas</b>, mantendo a assertividade acima de 97%."
+                        ${gapDiff !== null && gapDiff < 0 
+                            ? `O colaborador <b>${alvo.nome}</b> está no caminho certo! O GAP para o Top Performance diminuiu em <b>${Math.abs(gapDiff)} metas/dia</b> em relação ao mês anterior.`
+                            : `O colaborador <b>${alvo.nome}</b> ainda possui um déficit de <b>${gapCurr} metas/dia</b> em relação ao benchmark <b>${top.nome}</b>. Focar na evolução constante de velocidade.`
+                        }
                     </p>
                 </div>
             </div>
