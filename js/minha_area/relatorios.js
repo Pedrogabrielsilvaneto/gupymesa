@@ -1034,8 +1034,12 @@ MinhaArea.Relatorios = {
             return as;
         });
 
-        // Ordenar do maior para o menor (evolução decrescente)
-        roadmapArr.sort((a,b) => b._ev - a._ev);
+        // Ordenar: Benchmark fixo no topo, os demais do maior para o menor (evolução decrescente)
+        roadmapArr.sort((a,b) => {
+            if (a.id == this._gapBenchmarkId) return -1;
+            if (b.id == this._gapBenchmarkId) return 1;
+            return b._ev - a._ev;
+        });
 
         let ths = '';
         const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
