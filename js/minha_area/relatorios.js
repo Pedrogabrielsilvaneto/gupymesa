@@ -817,41 +817,58 @@ MinhaArea.Relatorios = {
     renderizarConteudoMesGap11: function() {
         const m = this._gapMesAtivo;
         const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-        const dadosMes = this._gapDataFull.filter(d => d.mes === m);
-        const dadosMesAnt = this._gapDataFull.filter(d => d.mes === (m - 1));
         
-        if (dadosMes.length === 0) {
+        // Helper para métricas acumuladas (YTD - Year To Date)
+        const getMetricsAccum = (userId, targetMonth) => {
+            if (!userId) return { vel: 0, ass: 0 };
+            const history = this._gapDataFull.filter(d => String(d.usuario_id) === String(userId) && d.mes <= targetMonth);
+            if (history.length === 0) return { vel: 0, ass: 0 };
+            
+            let totalProd = 0, totalDays = 0, sumAss = 0, countMonths = 0;
+            history.forEach(d => {
+                totalProd += (d.total_prod || 0);
+                totalDays += (d.dias_trab || 0);
+                sumAss += (d.media_assert || 0);
+                countMonths++;
+            });
+            
+            return {
+                vel: totalDays > 0 ? Math.round(totalProd / totalDays) : 0,
+                ass: countMonths > 0 ? (sumAss / countMonths) : 0
+            };
+        };
+
+        const idsNoMes = [...new Set(this._gapDataFull.filter(d => d.mes === m).map(d => d.usuario_id))];
+        if (idsNoMes.length === 0) {
             return `<div class="h-full flex flex-col items-center justify-center text-slate-300 italic py-20">
                 <i class="fas fa-ghost text-5xl mb-4 opacity-20"></i>
                 <p>Sem dados de produtividade para este mês.</p>
             </div>`;
         }
 
-        // Top Performance (Mês Atual)
-        const top = [...dadosMes].sort((a,b) => (b.total_prod/b.dias_trab) - (a.total_prod/a.dias_trab))[0];
+        // Ranking baseado no ACUMULADO até o mês ativo
+        const rankingAccum = idsNoMes.map(id => {
+            const u = this._gapDataFull.find(d => String(d.usuario_id) === String(id));
+            const mtr = getMetricsAccum(id, m);
+            return { ...u, ...mtr };
+        }).sort((a,b) => b.vel - a.vel);
+
+        const top = rankingAccum[0];
         
         // Colaborador em Análise (Pior por padrão ou selecionado)
         const alvoId = this._gapPiorIdPorMes?.[m];
-        let alvo = dadosMes.find(d => String(d.usuario_id) === String(alvoId));
-        if (!alvo) alvo = [...dadosMes].sort((a,b) => (a.total_prod/a.dias_trab) - (b.total_prod/b.dias_trab))[0];
+        let alvo = rankingAccum.find(d => String(d.usuario_id) === String(alvoId));
+        if (!alvo) alvo = [...rankingAccum].reverse()[0];
 
-        const getMetrics = (d) => {
-            if (!d) return { vel: 0, ass: 0 };
-            const v = d.total_prod / d.dias_trab;
-            const a = Number(d.media_assert) || 0;
-            return { vel: Math.round(v), ass: a };
-        };
+        // Métricas Atuais (Acumuladas até M)
+        const mt = { vel: top.vel, ass: top.ass };
+        const ma = { vel: alvo.vel, ass: alvo.ass };
 
-        const mt = getMetrics(top);
-        const ma = getMetrics(alvo);
+        // Métricas Anteriores (Acumuladas até M-1)
+        const mtAnt = getMetricsAccum(top.usuario_id, m - 1);
+        const maAnt = getMetricsAccum(alvo.usuario_id, m - 1);
 
-        // Dados Mes Anterior para Comparação
-        const topAnt = dadosMesAnt.find(d => d.usuario_id === top.usuario_id);
-        const alvoAnt = dadosMesAnt.find(d => d.usuario_id === alvo.usuario_id);
-        const mtAnt = getMetrics(topAnt);
-        const maAnt = getMetrics(alvoAnt);
-
-        // Cálculo do GAP
+        // Cálculo do GAP Acumulado
         const gapCurr = mt.vel - ma.vel;
         const gapPrev = (mtAnt.vel > 0 && maAnt.vel > 0) ? (mtAnt.vel - maAnt.vel) : null;
         const gapDiff = (gapPrev !== null) ? (gapCurr - gapPrev) : null;
@@ -860,7 +877,7 @@ MinhaArea.Relatorios = {
             if (!ant || ant === 0) return '';
             const diff = curr - ant;
             if (Math.abs(diff) < 0.01) return '';
-            const isGood = isAss ? diff > 0 : diff > 0;
+            const isGood = diff >= 0;
             const color = isGood ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-rose-500 bg-rose-50 border-rose-100';
             const icon = diff > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
             const val = isAss ? Math.abs(diff).toFixed(1) : Math.abs(Math.round(diff));
@@ -874,7 +891,7 @@ MinhaArea.Relatorios = {
 
         return `
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <!-- Coluna: Melhor do Mês -->
+                <!-- Coluna: Melhor do Mês (Acumulado) -->
                 <div class="flex flex-col gap-4">
                     <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
                         <div class="flex items-center gap-3">
@@ -882,8 +899,8 @@ MinhaArea.Relatorios = {
                                 <i class="fas fa-crown"></i>
                             </div>
                             <div>
-                                <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Top Performance</h4>
-                                <p class="text-[9px] text-emerald-600 font-bold uppercase">${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
+                                <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Referência Acumulada</h4>
+                                <p class="text-[9px] text-emerald-600 font-bold uppercase">Jan a ${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
                             </div>
                         </div>
                     </div>
@@ -901,15 +918,15 @@ MinhaArea.Relatorios = {
 
                         <div class="grid grid-cols-2 gap-4 w-full mt-4">
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Produção Média</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Média Diária Acumulada</p>
                                 <div class="flex items-center">
                                     <p class="text-2xl font-black text-slate-800">${mt.vel}</p>
                                     ${renderBadge(mt.vel, mtAnt.vel)}
                                 </div>
-                                <span class="text-[9px] text-slate-400 font-bold">metas/dia</span>
+                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">metas/dia (Jan-${mesesNomes[m-1]})</span>
                             </div>
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade Média</p>
                                 <div class="flex items-center">
                                     <p class="text-2xl font-black text-slate-800">${mt.ass.toFixed(1)}%</p>
                                     ${renderBadge(mt.ass, mtAnt.ass, true)}
@@ -919,7 +936,7 @@ MinhaArea.Relatorios = {
                     </div>
                 </div>
 
-                <!-- Coluna: Colaborador em Análise -->
+                <!-- Coluna: Colaborador em Análise (Acumulado) -->
                 <div class="flex flex-col gap-4">
                     <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-center justify-between">
                         <div class="flex items-center gap-3">
@@ -927,15 +944,15 @@ MinhaArea.Relatorios = {
                                 <i class="fas fa-user-edit"></i>
                             </div>
                             <div>
-                                <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">Foco do Plano</h4>
-                                <p class="text-[9px] text-blue-600 font-bold uppercase">${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
+                                <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">Plano Individual</h4>
+                                <p class="text-[9px] text-blue-600 font-bold uppercase">Jan a ${mesesNomes[m-1]} ${new Date().getFullYear()}</p>
                             </div>
                         </div>
                         <div class="flex flex-col gap-2 px-3 py-1 bg-white rounded-xl border border-blue-100 shadow-sm">
                             <select onchange="MinhaArea.Relatorios.setGapPior11(${m}, this.value)" 
                                     class="text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition bg-transparent">
                                 <option value="">Trocar Colaborador...</option>
-                                ${dadosMes.sort((a,b) => a.nome.localeCompare(b.nome)).map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(alvo.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
+                                ${rankingAccum.map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(alvo.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -953,15 +970,15 @@ MinhaArea.Relatorios = {
 
                         <div class="grid grid-cols-2 gap-4 w-full mt-4">
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Produção Média</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Média Diária Acumulada</p>
                                 <div class="flex items-center">
                                     <p class="text-2xl font-black text-slate-800">${ma.vel}</p>
                                     ${renderBadge(ma.vel, maAnt.vel)}
                                 </div>
-                                <span class="text-[9px] text-slate-400 font-bold">metas/dia</span>
+                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">metas/dia (Jan-${mesesNomes[m-1]})</span>
                             </div>
                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade Média</p>
                                 <div class="flex items-center">
                                     <p class="text-2xl font-black text-slate-800">${ma.ass.toFixed(1)}%</p>
                                     ${renderBadge(ma.ass, maAnt.ass, true)}
@@ -972,34 +989,34 @@ MinhaArea.Relatorios = {
                 </div>
             </div>
 
-            <!-- Dashboard de GAP e Evolução -->
+            <!-- Dashboard de GAP e Evolução Acumulada -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
                 <!-- Card GAP Central -->
                 <div class="md:col-span-1 bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group hover:shadow-xl transition-all duration-500">
                     <div class="absolute -right-8 -bottom-8 w-32 h-32 ${gapDiff < 0 ? 'bg-emerald-50' : 'bg-rose-50'} rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
                     
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">GAP de Performance</span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 relative z-10">GAP Acumulado (Jan-${mesesNomes[m-1]})</span>
                     <h2 class="text-5xl font-black text-slate-800 mb-2 relative z-10">-${gapCurr}<span class="text-xs text-slate-400 ml-1">metas/dia</span></h2>
                     
                     ${gapDiff !== null ? `
                         <div class="flex items-center gap-1.5 px-3 py-1 ${gapDiff <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} rounded-full text-[10px] font-black relative z-10 animate-bounce mt-2">
                             <i class="fas ${gapDiff <= 0 ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
-                            ${gapDiff === 0 ? 'GAP ESTÁVEL' : (gapDiff < 0 ? `GAP DIMINUIU EM ${Math.abs(gapDiff)}` : `GAP AUMENTOU EM ${gapDiff}`)}
+                            ${gapDiff === 0 ? 'GAP ESTÁVEL' : (gapDiff < 0 ? `REDUZIU GAP EM ${Math.abs(gapDiff)}` : `AUMENTOU GAP EM ${gapDiff}`)}
                         </div>
                     ` : ''}
                 </div>
 
                 <div class="md:col-span-2 bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-center">
                     <div class="absolute top-0 right-0 p-8 opacity-10">
-                        <i class="fas fa-chart-line text-8xl"></i>
+                        <i class="fas fa-history text-8xl"></i>
                     </div>
                     <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                        <i class="fas fa-bullseye text-blue-400"></i> Direcionamento de GAP
+                        <i class="fas fa-layer-group text-amber-400"></i> Visão de Consistência (YTD)
                     </h4>
                     <p class="text-base text-slate-300 leading-relaxed font-medium italic">
                         ${gapDiff !== null && gapDiff < 0 
-                            ? `O colaborador <b>${alvo.nome}</b> está no caminho certo! O GAP para o Top Performance diminuiu em <b>${Math.abs(gapDiff)} metas/dia</b> em relação ao mês anterior.`
-                            : `O colaborador <b>${alvo.nome}</b> ainda possui um déficit de <b>${gapCurr} metas/dia</b> em relação ao benchmark <b>${top.nome}</b>. Focar na evolução constante de velocidade.`
+                            ? `A consistência acumulada de <b>${alvo.nome}</b> está melhorando! O GAP histórico em relação ao benchmark reduziu em <b>${Math.abs(gapDiff)} metas/dia</b>.`
+                            : `Considerando o acumulado de Janeiro a ${mesesNomes[m-1]}, <b>${alvo.nome}</b> mantém um GAP de <b>${gapCurr} metas/dia</b>. O objetivo é aproximar a média acumulada de <b>${mt.vel} metas/dia</b>.`
                         }
                     </p>
                 </div>
