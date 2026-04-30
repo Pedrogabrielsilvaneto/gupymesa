@@ -994,8 +994,8 @@ MinhaArea.Relatorios = {
                                         <span class="text-[10px] text-slate-400 font-bold">Média Acumulada: ${h.vWorst}</span>
                                     </div>
                                 </div>
-                                <button onclick="MinhaArea.Relatorios.abrirSelecaoContraste(${h.m})" class="p-2 hover:bg-indigo-50 text-slate-300 hover:text-indigo-600 rounded-lg transition-all" title="Mudar Contraste">
-                                    <i class="fas fa-user-edit text-[10px]"></i>
+                                <button onclick="MinhaArea.Relatorios.abrirSelecaoContraste(${h.m})" class="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md border border-indigo-100 hover:bg-indigo-100 transition-all text-[10px] font-black shadow-sm" title="Mudar Contraste">
+                                    <i class="fas fa-sync-alt text-[9px]"></i> MUDAR
                                 </button>
                             </div>
                         </td>
