@@ -723,11 +723,14 @@ MinhaArea.Relatorios = {
     carregarGAP11: async function() {
         const container = document.getElementById('relatorio-ativo-content');
         try {
-            const { inicio, fim } = MinhaArea.getDatasFiltro();
-            console.log(`[GAP 1:1] Filtrando período: ${inicio} até ${fim}`);
+            const { inicio: inicioFiltro, fim } = MinhaArea.getDatasFiltro();
+            const ano = inicioFiltro.split('-')[0];
+            const inicioYTD = `${ano}-01-01`;
             
-            // Determina os meses limites para o gráfico
-            this._currentStartMonth = parseInt(inicio.split('-')[1]);
+            console.log(`[GAP 1:1] Carregando YTD: ${inicioYTD} até ${fim}`);
+            
+            // Determina os meses limites para o gráfico (Sempre inicia em Jan para o GAP acumulado)
+            this._currentStartMonth = 1;
             this._currentEndMonth = parseInt(fim.split('-')[1]);
 
             const sql = `
@@ -760,7 +763,7 @@ MinhaArea.Relatorios = {
                 ORDER BY base.mes ASC, base.total_prod DESC
             `;
             
-            const data = await Sistema.query(sql, [inicio, fim, inicio, fim]);
+            const data = await Sistema.query(sql, [inicioYTD, fim, inicioYTD, fim]);
             console.log(`✅ Dados carregados: ${data?.length || 0} registros.`);
             
             this._gapDataFull = data || [];
