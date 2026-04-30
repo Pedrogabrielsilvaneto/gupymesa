@@ -842,12 +842,82 @@ MinhaArea.Relatorios = {
         const mt = getMetrics(top);
         const mp = getMetrics(pior);
 
-                    <div class="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                        <select onchange="MinhaArea.Relatorios.setGapPior11(${m}, this.value)" 
-                                class="w-full text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition">
-                            <option value="">Trocar Colaborador...</option>
-                            ${dadosMes.sort((a,b) => a.nome.localeCompare(b.nome)).map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(pior.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
-                        </select>
+        return `
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <!-- Coluna: Melhor do Mês -->
+                <div class="flex flex-col gap-4">
+                    <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
+                                <i class="fas fa-crown"></i>
+                            </div>
+                            <h4 class="font-black text-emerald-900 text-xs uppercase tracking-widest">Melhor do Mês</h4>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 text-emerald-500/5 text-8xl rotate-12"><i class="fas fa-award"></i></div>
+                        
+                        <div class="w-24 h-24 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
+                            ${top.nome.substring(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                            <h5 class="font-black text-slate-800 text-xl leading-tight">${top.nome}</h5>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${top.funcao || 'Assistente'}</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 w-full mt-4">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
+                                <p class="text-2xl font-black text-slate-800">${mt.vel}<span class="text-[10px] text-slate-400 ml-1">metas/dia</span></p>
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
+                                <p class="text-2xl font-black text-slate-800">${mt.ass}%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna: Pior do Mês -->
+                <div class="flex flex-col gap-4">
+                    <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-100">
+                                <i class="fas fa-user-minus"></i>
+                            </div>
+                            <h4 class="font-black text-rose-900 text-xs uppercase tracking-widest">Pior do Mês</h4>
+                        </div>
+                        <div class="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <select onchange="MinhaArea.Relatorios.setGapPior11(${m}, this.value)" 
+                                    class="w-full text-[10px] font-black uppercase tracking-tighter outline-none cursor-pointer text-slate-500 hover:text-blue-600 transition">
+                                <option value="">Trocar Colaborador...</option>
+                                ${dadosMes.sort((a,b) => a.nome.localeCompare(b.nome)).map(d => `<option value="${d.usuario_id}" ${String(d.usuario_id) === String(pior.usuario_id) ? 'selected' : ''}>${d.nome}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 text-rose-500/5 text-8xl rotate-12"><i class="fas fa-chart-line"></i></div>
+                        
+                        <div class="w-24 h-24 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl font-black border-4 border-white shadow-xl">
+                            ${pior.nome.substring(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                            <h5 class="font-black text-slate-800 text-xl leading-tight">${pior.nome}</h5>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${pior.funcao || 'Assistente'}</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 w-full mt-4">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Velocidade</p>
+                                <p class="text-2xl font-black text-slate-800">${mp.vel}<span class="text-[10px] text-slate-400 ml-1">metas/dia</span></p>
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Assertividade</p>
+                                <p class="text-2xl font-black text-slate-800">${mp.ass}%</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
