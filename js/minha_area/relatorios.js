@@ -787,8 +787,8 @@ MinhaArea.Relatorios = {
                                     <i class="fas fa-balance-scale"></i>
                                 </div>
                                 <div>
-                                    <h3 class="font-black text-slate-800 text-sm uppercase tracking-widest leading-tight">Análise de GAP Mês a Mês</h3>
-                                    <p class="text-[10px] text-slate-400 font-bold">Relatório GAP 1:1 - ${mesesNomes[this._gapMesAtivo-1]}</p>
+                                    <h3 class="font-black text-slate-800 text-sm uppercase tracking-widest leading-tight">Análise de GAP - Evolução</h3>
+                                    <p class="text-[10px] text-slate-400 font-bold">Resumo Mensal de Performance - ${mesesNomes[this._gapMesAtivo-1]}</p>
                                 </div>
                             </div>
                         </div>
@@ -1048,8 +1048,8 @@ MinhaArea.Relatorios = {
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-100"><i class="fas fa-info-circle"></i></div>
                         <div>
-                            <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">Roadmap de Performance</h4>
-                            <p class="text-[10px] text-blue-600 font-bold uppercase">Comparativo de Média Diária por Mês</p>
+                            <h4 class="font-black text-blue-900 text-xs uppercase tracking-widest">GAP 1:1 - Roadmap</h4>
+                            <p class="text-[10px] text-blue-600 font-bold uppercase">Acompanhamento Individual vs Referência</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
