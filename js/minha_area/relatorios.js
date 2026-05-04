@@ -733,6 +733,11 @@ MinhaArea.Relatorios = {
             this._currentStartMonth = 1;
             this._currentEndMonth = parseInt(fim.split('-')[1]);
 
+            const alvoId = MinhaArea.getUsuarioAlvo();
+            let filtroGrupo = '';
+            if (alvoId === 'GRUPO_CLT') filtroGrupo = ' AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE "%pj%" AND LOWER(u.contrato) NOT LIKE "%terceiro%")) ';
+            else if (alvoId === 'GRUPO_TERCEIROS') filtroGrupo = ' AND (LOWER(u.contrato) LIKE "%pj%" OR LOWER(u.contrato) LIKE "%terceiro%") ';
+
             const sql = `
                 SELECT 
                     base.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, 
@@ -758,26 +763,63 @@ MinhaArea.Relatorios = {
                     GROUP BY usuario_id, MONTH(data_referencia)
                 ) avg_a ON base.usuario_id = avg_a.usuario_id AND base.mes = avg_a.mes
                 WHERE u.ativo = 1 
-                  AND base.usuario_id NOT IN (2026, 200601) 
+                  AND base.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) 
                   AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') 
+                  ${filtroGrupo}
                 ORDER BY base.mes ASC, base.total_prod DESC
             `;
             
             const data = await Sistema.query(sql, [inicioYTD, fim, inicioYTD, fim]);
             console.log(`✅ Dados carregados: ${data?.length || 0} registros.`);
             
-            this._gapDataFull = data || [];
-            
-            if (this._gapDataFull.length === 0) {
-                if (container) container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o período selecionado.</div>`;
-                return;
-            }
-
             this.renderizarGAP11();
         } catch (e) { 
             console.error("❌ Erro ao carregar GAP:", e);
             if (container) container.innerHTML = `<div class="text-center py-20 text-rose-500">Erro ao carregar dados: ${e.message}</div>`;
         }
+    },
+
+    abrirSelecaoContrasteGlobal: function() {
+        const todosUsuarios = [...new Set(this._gapDataFull.map(d => JSON.stringify({id: d.usuario_id, nome: d.nome})))].map(s => JSON.parse(s)).sort((a,b) => a.nome.localeCompare(b.nome));
+        
+        const currentIds = this._gapContrasteIdsGlobal || [];
+
+        let listHtml = todosUsuarios.map(u => `
+            <label class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-slate-100">
+                <input type="checkbox" name="contraste-user" value="${u.id}" ${currentIds.includes(String(u.id)) ? 'checked' : ''} class="w-4 h-4 text-indigo-600 rounded">
+                <span class="text-sm font-semibold text-slate-700">${u.nome}</span>
+            </label>
+        `).join('');
+
+        Swal.fire({
+            title: 'Configurar Grupo de Referência',
+            html: `
+                <p class="text-xs text-slate-500 mb-4 text-left font-bold uppercase tracking-widest">Selecione os assistentes para compor a base de comparação:</p>
+                <div class="max-h-[350px] overflow-y-auto custom-scrollbar pr-2 space-y-1">
+                    <label class="flex items-center gap-3 p-2 bg-indigo-50 border border-indigo-100 rounded-lg cursor-pointer mb-3">
+                        <input type="checkbox" onchange="const chks = document.querySelectorAll('input[name=contraste-user]'); chks.forEach(c => c.checked = this.checked)" class="w-4 h-4 text-indigo-600 rounded">
+                        <span class="text-sm font-black text-indigo-700 uppercase">Selecionar Todos</span>
+                    </label>
+                    ${listHtml}
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Aplicar Seleção',
+            cancelButtonText: 'Restaurar Automático',
+            customClass: {
+                confirmButton: 'bg-indigo-600 px-6 py-2.5 rounded-xl text-white font-black text-xs uppercase',
+                cancelButton: 'bg-slate-100 px-6 py-2.5 rounded-xl text-slate-600 font-black text-xs uppercase'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const selected = Array.from(document.querySelectorAll('input[name="contraste-user"]:checked')).map(i => i.value);
+                this._gapContrasteIdsGlobal = selected;
+                this.renderizarGAP11();
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                this._gapContrasteIdsGlobal = null;
+                this.renderizarGAP11();
+            }
+        });
     },
 
     renderizarGAP11: function() {
@@ -859,39 +901,7 @@ MinhaArea.Relatorios = {
         this.renderizarGraficoEvolucaoGAP();
     },
 
-    setGapContrasteGlobal: function(id) {
-        this._gapContrasteIdGlobal = id;
-        this.renderizarGAP11();
-    },
 
-    abrirSelecaoContrasteGlobal: function() {
-        const todosUsuarios = [...new Set(this._gapDataFull.map(d => JSON.stringify({id: d.usuario_id, nome: d.nome})))].map(s => JSON.parse(s)).sort((a,b) => a.nome.localeCompare(b.nome));
-        
-        const options = todosUsuarios.map(r => `<option value="${r.id}" ${String(this._gapContrasteIdGlobal) === String(r.id) ? 'selected' : ''}>${r.nome}</option>`).join('');
-
-        Swal.fire({
-            title: 'Contraste Global',
-            html: `
-                <p class="text-sm text-slate-500 mb-4 text-left">Escolha um assistente para servir de base de comparação em todos os meses do período selecionado.</p>
-                <select id="swal-select-contraste" class="w-full p-3 rounded-xl border border-slate-200 text-sm">
-                    <option value="">-- Automático (Menor do Mês) --</option>
-                    ${options}
-                </select>
-            `,
-            showCancelButton: true,
-            confirmButtonText: 'Aplicar Período',
-            cancelButtonText: 'Cancelar',
-            customClass: {
-                confirmButton: 'bg-indigo-600 px-6 py-2 rounded-xl text-white font-black',
-                cancelButton: 'bg-slate-100 px-6 py-2 rounded-xl text-slate-600 font-black'
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const val = document.getElementById('swal-select-contraste').value;
-                this.setGapContrasteGlobal(val || null);
-            }
-        });
-    },
 
     renderizarGraficoEvolucaoGAP: function() {
         console.log(`📊 Renderizando Gráfico GAP v1.8.7...`);
@@ -900,9 +910,8 @@ MinhaArea.Relatorios = {
 
         const infoDiv = document.getElementById('gap-global-info');
         if (infoDiv) {
-            if (this._gapContrasteIdGlobal) {
-                const u = this._gapDataFull.find(d => String(d.usuario_id) === String(this._gapContrasteIdGlobal));
-                infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> Base de Contraste: <span class="text-indigo-600">${u ? u.nome : 'Selecionado'}</span>`;
+            if (this._gapContrasteIdsGlobal && this._gapContrasteIdsGlobal.length > 0) {
+                infoDiv.innerHTML = `<i class="fas fa-users"></i> Referência: <span class="text-indigo-600">Grupo Personalizado (${this._gapContrasteIdsGlobal.length} assistentes)</span>`;
             } else {
                 infoDiv.innerHTML = `<i class="fas fa-magic"></i> Seleção Automática (Menor do Mês)`;
             }
@@ -950,9 +959,13 @@ MinhaArea.Relatorios = {
             
             // Lógica de Contraste (Global ou Automática)
             let worst = rankingAccum[rankingAccum.length - 1];
-            if (this._gapContrasteIdGlobal) {
-                const manual = rankingAccum.find(r => String(r.usuario_id) === String(this._gapContrasteIdGlobal));
-                if (manual) worst = manual;
+            if (this._gapContrasteIdsGlobal && this._gapContrasteIdsGlobal.length > 0) {
+                const group = rankingAccum.filter(r => this._gapContrasteIdsGlobal.includes(String(r.usuario_id)));
+                if (group.length > 0) {
+                    const avgVel = group.reduce((acc, curr) => acc + curr.vel, 0) / group.length;
+                    const avgAss = group.reduce((acc, curr) => acc + curr.ass, 0) / group.length;
+                    worst = { vel: Math.round(avgVel), ass: avgAss, nome: "Média do Grupo" };
+                }
             }
 
             const vTop = top.vel;
@@ -1163,9 +1176,12 @@ MinhaArea.Relatorios = {
 
             const top = rankingAccum[0];
             let worst = rankingAccum[rankingAccum.length - 1];
-            if (this._gapContrasteIdGlobal) {
-                const manual = rankingAccum.find(r => String(r.usuario_id) === String(this._gapContrasteIdGlobal));
-                if (manual) worst = manual;
+            if (this._gapContrasteIdsGlobal && this._gapContrasteIdsGlobal.length > 0) {
+                const group = rankingAccum.filter(r => this._gapContrasteIdsGlobal.includes(String(r.usuario_id)));
+                if (group.length > 0) {
+                    const avgVel = group.reduce((acc, curr) => acc + curr.vel, 0) / group.length;
+                    worst = { vel: Math.round(avgVel), nome: `Média Grupo (${group.length})` };
+                }
             }
 
             historyDetails.push({ 
@@ -1268,11 +1284,17 @@ MinhaArea.Relatorios = {
         container.innerHTML = `<div class="flex flex-col items-center justify-center py-20"><i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i><p class="text-slate-500 font-bold">Calculando Roadmap de Performance...</p></div>`;
         
         try {
-            const { inicio, fim } = MinhaArea.getDatasFiltro();
+            const { inicio: inicioFiltro, fim } = MinhaArea.getDatasFiltro();
+            const ano = inicioFiltro.split('-')[0];
+            const inicioYTD = `${ano}-01-01`;
 
-            const filtroGrupo = window._filtroGrupo ? `AND u.contrato = '${window._filtroGrupo}'` : '';
-            const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia BETWEEN ? AND ? AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') ${filtroGrupo} GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, mes ORDER BY u.nome, mes`;
-            const data = await Sistema.query(sql, [inicio, fim]);
+            const alvoId = MinhaArea.getUsuarioAlvo();
+            let filtroGrupo = '';
+            if (alvoId === 'GRUPO_CLT') filtroGrupo = ' AND (u.contrato IS NULL OR (LOWER(u.contrato) NOT LIKE "%pj%" AND LOWER(u.contrato) NOT LIKE "%terceiro%")) ';
+            else if (alvoId === 'GRUPO_TERCEIROS') filtroGrupo = ' AND (LOWER(u.contrato) LIKE "%pj%" OR LOWER(u.contrato) LIKE "%terceiro%") ';
+            
+            const sql = `SELECT p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, MONTH(p.data_referencia) as mes, SUM(p.quantidade) as total_prod, COUNT(DISTINCT p.data_referencia) as dias_trab FROM producao p JOIN usuarios u ON p.usuario_id = u.id WHERE p.data_referencia BETWEEN ? AND ? AND (LOWER(u.funcao) NOT LIKE '%auditor%' AND LOWER(u.funcao) NOT LIKE '%lider%' AND LOWER(u.funcao) NOT LIKE '%gestor%' AND LOWER(u.funcao) NOT LIKE '%coordena%') AND p.usuario_id NOT IN (${this.VISITANTE_IDS.join(',')}) ${filtroGrupo} GROUP BY p.usuario_id, u.nome, u.perfil, u.funcao, u.contrato, mes ORDER BY u.nome, mes`;
+            const data = await Sistema.query(sql, [inicioYTD, fim]);
             const roadmap = {};
             data.forEach(row => {
                 const uid = String(row.usuario_id);
@@ -1281,14 +1303,25 @@ MinhaArea.Relatorios = {
             });
             this._gapData = { 
                 roadmap, 
-                mesIni: parseInt(inicio.split('-')[1]), 
+                mesIni: 1, 
                 mesFim: parseInt(fim.split('-')[1]) 
             };
             this._gapBenchmarkId = null; 
             // Inicializa todos como selecionados por padrão
             this._selectedGapUsers = new Set(Object.keys(roadmap));
+            this._gapBenchmarkIds = new Set(); // Reset benchmarks
             this.renderizarAnaliseGAP();
         } catch (e) { console.error(e); }
+    },
+
+    toggleBenchmark: function(id) {
+        if (!this._gapBenchmarkIds) this._gapBenchmarkIds = new Set();
+        if (this._gapBenchmarkIds.has(id)) {
+            this._gapBenchmarkIds.delete(id);
+        } else {
+            this._gapBenchmarkIds.add(id);
+        }
+        this.renderizarAnaliseGAP();
     },
 
     renderizarAnaliseGAP: function() {
@@ -1300,13 +1333,15 @@ MinhaArea.Relatorios = {
             return;
         }
 
-        if (!this._gapBenchmarkId) {
+        if (!this._gapBenchmarkIds || this._gapBenchmarkIds.size === 0) {
             let maxTotal = -1;
+            let topId = null;
             roadmapOrig.forEach(u => {
                 let sum = 0;
                 Object.values(u.meses).forEach(v => sum += v);
-                if (sum > maxTotal) { maxTotal = sum; this._gapBenchmarkId = u.id; }
+                if (sum > maxTotal) { maxTotal = sum; topId = u.id; }
             });
+            this._gapBenchmarkIds = new Set([topId]);
         }
 
         if (!this._selectedGapUsers) this._selectedGapUsers = new Set(roadmapOrig.map(u => u.id));
@@ -1318,7 +1353,8 @@ MinhaArea.Relatorios = {
         const roadmapArr = roadmapOrig.map(as => {
             let pVal = null, lVal = null;
             let sum = 0, count = 0;
-            let benchSum = 0, benchCount = 0;
+            let totalBenchDiff = 0, totalBenchCount = 0;
+
             for (let m = this._gapData.mesIni; m <= this._gapData.mesFim; m++) {
                 const val = as.meses[m] || 0;
                 if (val > 0) { 
@@ -1327,23 +1363,35 @@ MinhaArea.Relatorios = {
                     sum += val;
                     count++;
                 }
-                const bVal = bench.meses[m] || 0;
-                if (bVal > 0) {
-                    benchSum += bVal;
-                    benchCount++;
+
+                // Cálculo do Benchmark Médio para o mês m
+                let monthlyBenchSum = 0, monthlyBenchCount = 0;
+                this._gapBenchmarkIds.forEach(bid => {
+                    const bUser = this._gapData.roadmap[bid];
+                    if (bUser && bUser.meses[m] > 0) {
+                        monthlyBenchSum += bUser.meses[m];
+                        monthlyBenchCount++;
+                    }
+                });
+
+                if (monthlyBenchCount > 0) {
+                    const monthlyBenchAvg = monthlyBenchSum / monthlyBenchCount;
+                    totalBenchDiff += (val - monthlyBenchAvg);
+                    totalBenchCount++;
                 }
             }
             as._ev = (pVal > 0 && lVal > 0) ? ((lVal / pVal) - 1) * 100 : 0;
             as._avg = count > 0 ? sum / count : 0;
-            as._benchAvg = benchCount > 0 ? benchSum / benchCount : 0;
-            as._diff = as._avg - as._benchAvg;
+            as._diff = totalBenchCount > 0 ? totalBenchDiff / totalBenchCount : 0;
             return as;
         });
 
-        // Ordenar: Benchmark fixo no topo, os demais pela diferença (maior para menor)
+        // Ordenar: Benchmarks no topo, os demais pela diferença (maior para menor)
         roadmapArr.sort((a,b) => {
-            if (a.id == this._gapBenchmarkId) return -1;
-            if (b.id == this._gapBenchmarkId) return 1;
+            const aIsBench = this._gapBenchmarkIds.has(a.id);
+            const bIsBench = this._gapBenchmarkIds.has(b.id);
+            if (aIsBench && !bIsBench) return -1;
+            if (!aIsBench && bIsBench) return 1;
             return b._diff - a._diff;
         });
 
@@ -1393,14 +1441,19 @@ MinhaArea.Relatorios = {
         `;
 
         roadmapArr.forEach(as => {
-            const isRef = as.id == this._gapBenchmarkId;
+            const isRef = this._gapBenchmarkIds.has(as.id);
             const checked = allSelected || this._selectedGapUsers.has(as.id) ? 'checked' : '';
             
-            html += `<tr class="hover:bg-slate-50 transition group ${isRef ? 'bg-rose-50/10' : ''}">
+            html += `<tr class="hover:bg-slate-50 transition group ${isRef ? 'bg-indigo-50/20' : ''}">
                 <td class="px-6 py-4 font-black sticky left-0 bg-white z-10 border-r shadow-[1px_0_0_0_rgba(0,0,0,0.05)] text-slate-700 bg-clip-padding group-hover:bg-slate-50">
                     <div class="flex items-center gap-3">
                         <input type="checkbox" onchange="MinhaArea.Relatorios.toggleGapUser('${as.id}', event)" ${checked} class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer">
-                        <span onclick="MinhaArea.Relatorios.abrirGrafico('${as.id}')" style="cursor:pointer" class="hover:text-blue-600 transition">${as.nome} ${isRef ? '<span title="Benchmark do Período" class="ml-1 cursor-help">⭐</span>' : ''}</span>
+                        <span class="flex items-center gap-1">
+                            <span onclick="MinhaArea.Relatorios.abrirGrafico('${as.id}')" style="cursor:pointer" class="hover:text-blue-600 transition truncate max-w-[150px]">${as.nome}</span>
+                            <span onclick="MinhaArea.Relatorios.toggleBenchmark('${as.id}')" class="ml-1 cursor-pointer transition-transform hover:scale-125" title="Fixar como Referência (Benchmark)">
+                                ${isRef ? '<i class="fas fa-star text-amber-400"></i>' : '<i class="far fa-star text-slate-300 hover:text-amber-300"></i>'}
+                            </span>
+                        </span>
                     </div>
                 </td>`;
             
@@ -1459,14 +1512,32 @@ MinhaArea.Relatorios = {
         this.verificarEInjetarModalGrafico(); // [NOVO] Garante que o modal existe
         
         const { roadmap, mesIni, mesFim } = this._gapData;
+        let benchmarkLine = null;
+        if (this._gapBenchmarkIds && this._gapBenchmarkIds.size > 0) {
+            const bIds = Array.from(this._gapBenchmarkIds);
+            const virtual = { id: 'virtual_bench', nome: 'Média Referência', meses: {} };
+            let hasAnyData = false;
+            for (let m = mesIni; m <= mesFim; m++) {
+                let mSum = 0, mCount = 0;
+                bIds.forEach(bid => {
+                    if (roadmap[bid] && roadmap[bid].meses[m] > 0) {
+                        mSum += roadmap[bid].meses[m];
+                        mCount++;
+                    }
+                });
+                virtual.meses[m] = mCount > 0 ? mSum / mCount : 0;
+                if (virtual.meses[m] > 0) hasAnyData = true;
+            }
+            if (hasAnyData) benchmarkLine = virtual;
+        }
+
         const selectedIds = Array.from(this._selectedGapUsers);
         let usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : Object.values(roadmap);
         
-        // [NOVO] Garante que o Benchmark (Top Performer) sempre esteja no gráfico
-        if (this._gapBenchmarkId && !usersToDraw.some(u => u.id == this._gapBenchmarkId)) {
-            const bench = roadmap[this._gapBenchmarkId];
-            if (bench) usersToDraw.unshift(bench);
-        }
+        // Remove individual benchmark members from the general list to avoid redundancy with the average line
+        usersToDraw = usersToDraw.filter(u => !this._gapBenchmarkIds.has(u.id));
+
+        if (benchmarkLine) usersToDraw.unshift(benchmarkLine);
 
         const container = document.getElementById('gap-chart-container');
         if (container) container.classList.remove('hidden');
@@ -1504,11 +1575,11 @@ MinhaArea.Relatorios = {
             const benchColor = '#f43f5e'; // Rose fixo para Benchmark
 
             const datasets = usersToDraw.map((u, i) => {
-                const isBench = u.id == this._gapBenchmarkId;
+                const isBench = u.id === 'virtual_bench' || this._gapBenchmarkIds.has(u.id);
                 const baseColor = isBench ? benchColor : userColors[i % userColors.length];
                 
                 return {
-                    label: isBench ? u.nome + " (Referência)" : u.nome,
+                    label: isBench ? u.nome + " (REF)" : u.nome,
                     data: meses.map(m => u.meses[m] || 0),
                     backgroundColor: isSingle ? baseColor + 'CC' : baseColor + '20',
                     borderColor: baseColor,
@@ -1535,10 +1606,10 @@ MinhaArea.Relatorios = {
                             callbacks: { 
                                 label: (ctx) => {
                                     const val = Math.round(ctx.raw);
-                                    const isBench = ctx.dataset.label.includes('Referência');
+                                    const isBench = ctx.dataset.label.includes('(REF)');
                                     if (isBench) return `${ctx.dataset.label}: ${val} metas/dia`;
                                     
-                                    const benchDs = ctx.chart.data.datasets.find(d => d.label.includes('Referência'));
+                                    const benchDs = ctx.chart.data.datasets.find(d => d.label.includes('(REF)'));
                                     const benchVal = benchDs ? Math.round(benchDs.data[ctx.dataIndex]) : 0;
                                     const diff = val - benchVal;
                                     const perc = benchVal > 0 ? (diff / benchVal) * 100 : 0;
@@ -1557,12 +1628,17 @@ MinhaArea.Relatorios = {
             // [NOVO] Renderiza o resumo de GAP fixo abaixo do gráfico
             const summaryContainer = document.getElementById('gap-summary-container');
             if (summaryContainer) {
-                const bench = roadmap[this._gapBenchmarkId];
-                const benchAvg = meses.reduce((acc, m) => acc + (bench.meses[m] || 0), 0) / meses.length;
+                const bIds = Array.from(this._gapBenchmarkIds);
+                const getBenchVal = (m) => {
+                    let s = 0, c = 0;
+                    bIds.forEach(bid => { if (roadmap[bid]?.meses[m] > 0) { s += roadmap[bid].meses[m]; c++; } });
+                    return c > 0 ? s / c : 0;
+                };
+                const benchAvg = meses.reduce((acc, m) => acc + getBenchVal(m), 0) / meses.length;
                 
                 let html = '';
                 usersToDraw.forEach(u => {
-                    const isBench = u.id == this._gapBenchmarkId;
+                    const isBench = u.id === 'virtual_bench' || this._gapBenchmarkIds.has(u.id);
                     const uAvg = meses.reduce((acc, m) => acc + (u.meses[m] || 0), 0) / meses.length;
                     const diff = uAvg - benchAvg;
                     const perc = benchAvg > 0 ? (diff / benchAvg) * 100 : 0;
@@ -1607,8 +1683,16 @@ MinhaArea.Relatorios = {
         
         const { roadmap, mesIni, mesFim } = this._gapData;
         const user = roadmap[userId];
-        const benchmark = roadmap[this._gapBenchmarkId];
-        if (!user || !benchmark) return;
+        if (!user) return;
+
+        // Create virtual bench for individual comparison
+        const bIds = Array.from(this._gapBenchmarkIds);
+        const virtualBench = { id: 'virtual_bench', nome: 'Média Referência', meses: {} };
+        for (let m = mesIni; m <= mesFim; m++) {
+            let mSum = 0, mCount = 0;
+            bIds.forEach(bid => { if (roadmap[bid]?.meses[m] > 0) { mSum += roadmap[bid].meses[m]; mCount++; } });
+            virtualBench.meses[m] = mCount > 0 ? mSum / mCount : 0;
+        }
 
         const container = document.getElementById('gap-chart-container');
         container.classList.remove('hidden');
@@ -1642,7 +1726,7 @@ MinhaArea.Relatorios = {
 
             const isSingle = labels.length === 1;
             const userData = meses.map(m => user.meses[m] || 0);
-            const refData = meses.map(m => benchmark.meses[m] || 0);
+            const refData = meses.map(m => virtualBench.meses[m] || 0);
             const userBaseColor = '#3b82f6'; // Azul fixo para usuário
             const refBaseColor = '#f43f5e';  // Rose fixo para referência
 
@@ -1662,7 +1746,7 @@ MinhaArea.Relatorios = {
                             tension: 0.3
                         },
                         { 
-                            label: "Referência", 
+                            label: virtualBench.nome + " (REF)", 
                             data: refData, 
                             backgroundColor: isSingle ? refBaseColor : refBaseColor + '20', 
                             borderColor: refBaseColor,
