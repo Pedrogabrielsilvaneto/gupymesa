@@ -770,8 +770,13 @@ MinhaArea.Relatorios = {
             `;
             
             const data = await Sistema.query(sql, [inicioYTD, fim, inicioYTD, fim]);
-            console.log(`✅ Dados carregados: ${data?.length || 0} registros.`);
+            this._gapDataFull = data || [];
             
+            if (this._gapDataFull.length === 0) {
+                if (container) container.innerHTML = `<div class="text-center py-20 text-slate-400">Nenhum dado produtivo encontrado para o período selecionado.</div>`;
+                return;
+            }
+
             this.renderizarGAP11();
         } catch (e) { 
             console.error("❌ Erro ao carregar GAP:", e);
