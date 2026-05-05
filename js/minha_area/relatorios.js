@@ -1311,10 +1311,8 @@ MinhaArea.Relatorios = {
                 mesIni: 1, 
                 mesFim: parseInt(fim.split('-')[1]) 
             };
-            this._gapBenchmarkId = null; 
-            // Inicializa todos como selecionados por padrão
-            this._selectedGapUsers = new Set(Object.keys(roadmap));
             this._gapBenchmarkIds = new Set(); // Reset benchmarks
+            this._selectedGapUsers = new Set(); // Inicia vazio para evitar "spaghetti chart"
             this.renderizarAnaliseGAP();
         } catch (e) { console.error(e); }
     },
@@ -1432,9 +1430,15 @@ MinhaArea.Relatorios = {
                             <thead class="bg-slate-50 text-slate-600 font-black uppercase text-[10px] tracking-widest border-b border-slate-200">
                                 <tr>
                                     <th class="px-6 py-5 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 min-w-[250px]">
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" onchange="MinhaArea.Relatorios.toggleAllGap(this.checked)" ${allSelected ? 'checked' : ''} class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer">
-                                            <span>Nome do Assistente</span>
+                                        <div class="flex items-center gap-3 group/header">
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" onchange="MinhaArea.Relatorios.toggleAllGap(this.checked)" ${allSelected ? 'checked' : ''} class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer">
+                                                <span class="cursor-default">Assistente</span>
+                                            </div>
+                                            <div class="hidden group-hover/header:flex items-center gap-1 ml-auto mr-4">
+                                                <button onclick="MinhaArea.Relatorios.toggleAllGap(true)" class="text-[9px] bg-slate-200 hover:bg-blue-600 hover:text-white px-1.5 py-0.5 rounded transition">TUDO</button>
+                                                <button onclick="MinhaArea.Relatorios.toggleAllGap(false)" class="text-[9px] bg-slate-200 hover:bg-rose-600 hover:text-white px-1.5 py-0.5 rounded transition">NADA</button>
+                                            </div>
                                         </div>
                                     </th>
                                     ${ths}
@@ -1537,12 +1541,23 @@ MinhaArea.Relatorios = {
         }
 
         const selectedIds = Array.from(this._selectedGapUsers);
-        let usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : Object.values(roadmap);
+        let usersToDraw = selectedIds.length > 0 ? selectedIds.map(id => roadmap[id]).filter(u => !!u) : [];
         
         // Remove individual benchmark members from the general list to avoid redundancy with the average line
         usersToDraw = usersToDraw.filter(u => !this._gapBenchmarkIds.has(u.id));
 
         if (benchmarkLine) usersToDraw.unshift(benchmarkLine);
+        
+        // Se não houver ninguém selecionado, avisa
+        if (usersToDraw.length === 0) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Nenhum assistente selecionado',
+                text: 'Selecione ao menos um assistente na tabela para comparar com a referência.',
+                confirmButtonColor: '#4f46e5'
+            });
+            return;
+        }
 
         const container = document.getElementById('gap-chart-container');
         if (container) container.classList.remove('hidden');
@@ -1586,13 +1601,13 @@ MinhaArea.Relatorios = {
                 return {
                     label: isBench ? u.nome + " (REF)" : u.nome,
                     data: meses.map(m => u.meses[m] || 0),
-                    backgroundColor: isSingle ? baseColor + 'CC' : baseColor + '20',
-                    borderColor: baseColor,
-                    borderWidth: isSingle ? 0 : 2,
+                    backgroundColor: isSingle ? baseColor + 'CC' : (isBench ? baseColor + '10' : 'transparent'),
+                    borderColor: isBench ? baseColor : baseColor + '90',
+                    borderWidth: isBench ? 4 : 1.5,
                     borderRadius: isSingle ? 8 : 0,
                     tension: 0.3,
-                    fill: !isSingle,
-                    pointRadius: isSingle ? 0 : 4,
+                    fill: isBench && !isSingle,
+                    pointRadius: isSingle ? 0 : (isBench ? 5 : 3),
                     pointBackgroundColor: baseColor
                 };
             });
@@ -1608,6 +1623,7 @@ MinhaArea.Relatorios = {
                         tooltip: { 
                             mode: 'index', 
                             intersect: false, 
+                            itemSort: (a, b) => b.raw - a.raw, // Ordena do maior para o menor no tooltip
                             callbacks: { 
                                 label: (ctx) => {
                                     const val = Math.round(ctx.raw);
