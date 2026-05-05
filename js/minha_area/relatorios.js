@@ -969,7 +969,8 @@ MinhaArea.Relatorios = {
                 if (group.length > 0) {
                     const avgVel = group.reduce((acc, curr) => acc + curr.vel, 0) / group.length;
                     const avgAss = group.reduce((acc, curr) => acc + curr.ass, 0) / group.length;
-                    worst = { vel: Math.round(avgVel), ass: avgAss, nome: "Média do Grupo" };
+                    const label = group.length === 1 ? group[0].nome : "Média do Grupo";
+                    worst = { vel: Math.round(avgVel), ass: avgAss, nome: label };
                 }
             }
 
@@ -1185,7 +1186,8 @@ MinhaArea.Relatorios = {
                 const group = rankingAccum.filter(r => this._gapContrasteIdsGlobal.includes(String(r.usuario_id)));
                 if (group.length > 0) {
                     const avgVel = group.reduce((acc, curr) => acc + curr.vel, 0) / group.length;
-                    worst = { vel: Math.round(avgVel), nome: `Média Grupo (${group.length})` };
+                    const label = group.length === 1 ? group[0].nome : `Média Grupo (${group.length})`;
+                    worst = { vel: Math.round(avgVel), nome: label };
                 }
             }
 
@@ -1524,7 +1526,8 @@ MinhaArea.Relatorios = {
         let benchmarkLine = null;
         if (this._gapBenchmarkIds && this._gapBenchmarkIds.size > 0) {
             const bIds = Array.from(this._gapBenchmarkIds);
-            const virtual = { id: 'virtual_bench', nome: 'Média Referência', meses: {} };
+            const label = bIds.length === 1 ? roadmap[bIds[0]].nome : 'Média Referência';
+            const virtual = { id: 'virtual_bench', nome: label, meses: {} };
             let hasAnyData = false;
             for (let m = mesIni; m <= mesFim; m++) {
                 let mSum = 0, mCount = 0;
@@ -1708,7 +1711,8 @@ MinhaArea.Relatorios = {
 
         // Create virtual bench for individual comparison
         const bIds = Array.from(this._gapBenchmarkIds);
-        const virtualBench = { id: 'virtual_bench', nome: 'Média Referência', meses: {} };
+        const label = bIds.length === 1 ? roadmap[bIds[0]].nome : 'Média Referência';
+        const virtualBench = { id: 'virtual_bench', nome: label, meses: {} };
         for (let m = mesIni; m <= mesFim; m++) {
             let mSum = 0, mCount = 0;
             bIds.forEach(bid => { if (roadmap[bid]?.meses[m] > 0) { mSum += roadmap[bid].meses[m]; mCount++; } });
