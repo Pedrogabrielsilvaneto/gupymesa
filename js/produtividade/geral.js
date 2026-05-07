@@ -1156,18 +1156,19 @@ Produtividade.Geral = {
         }).length;
 
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
-        const hcParaVelocidade = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : this.getHeadcountConfig();
+        const hcParaVelocidade = this.getHeadcountConfig();
 
         // [FIX] A Velocidade Global do card agora volta a usar o Headcount Fixo (igual ao Relatório/Liderança)
-        const hcClt = (this.state.configMes && this.state.configMes.hc_clt) ? Number(this.state.configMes.hc_clt) : 8;
-        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros) ? Number(this.state.configMes.hc_terceiros) : 9;
+        const hcClt = (this.state.configMes && this.state.configMes.hc_clt !== null) ? Number(this.state.configMes.hc_clt) : 8;
+        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros !== null) ? Number(this.state.configMes.hc_terceiros) : 9;
         
         const dTrabalhadosTime = datasComProducao.size || (isPeriodoKpi ? 1 : diasDivisorBase);
         const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
             ? Math.max(1, (isPeriodoKpi ? (dTrabalhadosTime - mesesDecorridos) : dTrabalhadosTime))
             : Math.max(1, dTrabalhadosTime);
         
-        let hcFinalParaCard = totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : (filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' ? hcTerc : (hcClt + hcTerc)));
+        // Sempre usar HC da configuracao, e nao os ativos exibidos
+        let hcFinalParaCard = filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ' ? hcTerc : (hcClt + hcTerc));
         const divisorGlobalCard = hcFinalParaCard * dParaVelGlobal;
         const mediaVelocidadeReal = divisorGlobalCard > 0 ? Math.round(totalProd / divisorGlobalCard) : 0;
         console.log(`[DEBUG VEL] totalProd=${totalProd}, divisorGlobalCard=${divisorGlobalCard}, velocidade=${mediaVelocidadeReal}`);
@@ -1237,7 +1238,7 @@ Produtividade.Geral = {
                 diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && isPeriodoKpi && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - mesesDecorridos) : datasComProducao.size,
                 diasTotal: diasBrutos, // Valor bruto no card de capacidade para referência visual
                 assisReal: assisRealFinal,
-                assisTotal: totalHeadcountFiltrado > 0 ? totalHeadcountFiltrado : (filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' ? hcTerc : (hcClt + hcTerc)))
+                assisTotal: hcFinalParaCard
             },
             velocidade: { real: mediaVelocidadeReal, meta: targetVelocidade }
         };

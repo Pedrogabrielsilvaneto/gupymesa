@@ -913,9 +913,9 @@ MinhaArea.Geral = {
             assert: { real: mediaAssert, meta: metaGlobalAssert },
             capacidade: {
                 diasReal: ((filtroContrato === 'CLT' || filtroContrato === 'TODOS') && isPeriodo && datasComProducao.size > 0) ? Math.max(0, datasComProducao.size - mesesDecorridosKpi) : datasComProducao.size,
-                diasTotal: (filtroContrato === 'TERCEIROS') ? dTercMeta : dBase,
+                diasTotal: diasCalendarioEfetivos, // Valor bruto do calendário
                 assisReal: assisRealFinal,
-                assisTotal: (filtroContrato === 'CLT') ? hClt : (filtroContrato === 'TERCEIROS' ? hTerc : hGeral)
+                assisTotal: hcParaVelocidade
             },
             velocidade: {
                 real: mediaVelocidadeReal,
