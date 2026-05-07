@@ -608,8 +608,8 @@ MinhaArea.Geral = {
                     <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(dia)}</td>
                     <td class="px-2 py-2 text-center text-slate-500">${metaBase}</td>
                     <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
-                    <td class="px-2 py-2 text-center font-black ${producaoQtd < metaDia ? 'text-rose-600 bg-rose-50/20' : 'text-blue-600 bg-blue-50/20'}">${producaoQtd}</td>
-                    <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pct}%</td>
+                    <td class="px-2 py-2 text-center font-black ${producaoQtd < metaDia ? 'text-rose-700 bg-rose-100/50 ring-1 ring-inset ring-rose-200' : 'text-blue-600 bg-blue-50/20'}">${producaoQtd}</td>
+                    <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600 bg-emerald-50/20' : 'text-rose-600 bg-rose-50/30'}">${pct}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
                     <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[400px]" onclick="MinhaArea.Geral.abrirModalObs('${uid}', '${dia}')" title="Clique para editar observação">
                         <div class="flex items-center gap-2">
@@ -1530,19 +1530,19 @@ MinhaArea.Geral = {
         const originalText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; btn.disabled = true;
 
         try {
-            // Verifica se existe registro
             const existenteRows = await Sistema.query('SELECT * FROM producao WHERE usuario_id = ? AND data_referencia = ?', [uid, data]);
             const existente = (existenteRows && existenteRows.length > 0) ? existenteRows[0] : null;
+            const partes = data.split('-');
+            const mes = parseInt(partes[1]);
+            const ano = parseInt(partes[0]);
 
             if (existente) {
-                // Update
                 await Sistema.query('UPDATE producao SET observacao_assistente = ? WHERE id = ?', [texto, existente.id]);
             } else {
-                // Insert novo (quantidade 0, fator 1.0)
                 const uuid = Sistema.gerarUUID ? Sistema.gerarUUID() : crypto.randomUUID();
                 await Sistema.query(
-                    'INSERT INTO producao (id, usuario_id, data_referencia, quantidade, fator, observacao_assistente) VALUES (?, ?, ?, 0, 1.0, ?)',
-                    [uuid, uid, data, texto]
+                    'INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, quantidade, fator, observacao_assistente, status) VALUES (?, ?, ?, ?, ?, 0, 1.0, ?, "OK")',
+                    [uuid, uid, data, mes, ano, texto]
                 );
             }
 

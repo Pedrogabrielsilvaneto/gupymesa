@@ -681,8 +681,10 @@ Produtividade.Geral = {
             if (ehGestao) return false;
 
             // Oculta assistentes que não têm nenhuma produção nem dias abonados
+            // [SYNC v5.8] Mantém visível se houver observação (para não "sumir" se o Pedro salvar obs sem produção)
             const abonoManual = (item.count_fator || 0) - (item.soma_fator || 0);
-            if (item.producao === 0 && abonoManual === 0) return false;
+            const temObs = (item.observacao_assistente && item.observacao_assistente !== 'Vários...') || (item.justificativa && item.justificativa !== 'Vários...');
+            if (item.producao === 0 && abonoManual === 0 && !temObs) return false;
 
             return true;
         });
