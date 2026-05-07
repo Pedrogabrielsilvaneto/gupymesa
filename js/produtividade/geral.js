@@ -680,6 +680,10 @@ Produtividade.Geral = {
             const ehGestao = termosGestao.some(t => funcao.includes(t) || perfil.includes(t));
             if (ehGestao) return false;
 
+            // Oculta assistentes que não têm nenhuma produção nem dias abonados
+            const abonoManual = (item.count_fator || 0) - (item.soma_fator || 0);
+            if (item.producao === 0 && abonoManual === 0) return false;
+
             return true;
         });
 
