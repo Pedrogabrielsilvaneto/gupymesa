@@ -608,8 +608,8 @@ MinhaArea.Geral = {
                     <td class="px-3 py-2 font-bold text-slate-700">${this.formatarDataSegura(dia)}</td>
                     <td class="px-2 py-2 text-center text-slate-500">${metaBase}</td>
                     <td class="px-2 py-2 text-center text-slate-700 font-bold">${metaDia}</td>
-                    <td class="px-2 py-2 text-center font-black text-blue-600 bg-blue-50/20">${producaoQtd}</td>
-                    <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-blue-600'}">${pct}%</td>
+                    <td class="px-2 py-2 text-center font-black ${producaoQtd < metaDia ? 'text-rose-600 bg-rose-50/20' : 'text-blue-600 bg-blue-50/20'}">${producaoQtd}</td>
+                    <td class="px-2 py-2 text-center font-bold ${pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pct}%</td>
                     <td class="px-2 py-2 text-center">${assertHtml}</td>
                     <td class="px-3 py-2 cursor-pointer group hover:bg-white truncate max-w-[400px]" onclick="MinhaArea.Geral.abrirModalObs('${uid}', '${dia}')" title="Clique para editar observação">
                         <div class="flex items-center gap-2">

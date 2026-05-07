@@ -5,3 +5,5 @@
 - For deploys, follow the /deploy workflow automatically.
 - Language: Portuguese (BR) for user-facing messages.
 - The user trusts the agent fully. Just do everything and show results.
+- Always deploy automatically to Vercel and GitHub after making code changes.
+- Always increment the system version (e.g. from V.1.9.0 to V.1.9.1) in js/config.js and version.txt when applying changes.
