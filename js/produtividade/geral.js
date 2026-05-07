@@ -112,6 +112,19 @@ Produtividade.Geral = {
         }
     },
 
+    visualizarObservacao: function (nome, html) {
+        if (!html || html.includes('text-slate-300')) return;
+
+        Swal.fire({
+            title: `Observação: ${nome}`,
+            html: `<div class="text-left text-sm p-2 bg-slate-50 rounded-lg border border-slate-200">${html}</div>`,
+            icon: 'info',
+            confirmButtonText: 'Fechar',
+            confirmButtonColor: '#3b82f6',
+            width: '500px'
+        });
+    },
+
     // ... (buscarUsuarios, buscarProducao, buscarAssertividadeUnificada, buscarMetas mantidos igual) ...
     buscarUsuarios: async function () {
         if (Object.keys(this.state.mapaUsuarios).length > 0) return;
@@ -933,7 +946,9 @@ Produtividade.Geral = {
                         </div>
                     </td>
                     <td class="px-2 py-3 text-center border-emerald-100 bg-emerald-50/20">${assertHtml}</td>
-                    <td class="px-3 py-3 text-[10px] italic text-slate-500 max-w-[200px] truncate" title="${obsText.replace(/<[^>]*>?/gm, '')}">
+                    <td class="px-3 py-3 text-[10px] italic text-slate-500 max-w-[200px] truncate cursor-pointer hover:bg-slate-50 transition-colors" 
+                        onclick="Produtividade.Geral.visualizarObservacao('${u.nome || 'Usuário'}', this.innerHTML)"
+                        title="Clique para ler a mensagem completa">
                         ${obsText}
                     </td>
                 </tr>
