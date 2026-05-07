@@ -916,6 +916,8 @@ Produtividade.Geral = {
             }
             if (!obsText) obsText = '<span class="text-slate-300">-</span>';
 
+            const safeNome = (u.nome || 'Usuário').replace(/'/g, "\\'");
+
             return `
                 <tr class="divide-x divide-slate-100 ${rowClass} transition-colors group">
                     <td class="px-3 py-3 cursor-pointer" onclick="${row.isAggregatedManager ? '' : `Produtividade.Geral.abrirDetalhes('${row.uid}')`}">
@@ -947,12 +949,13 @@ Produtividade.Geral = {
                     </td>
                     <td class="px-2 py-3 text-center border-emerald-100 bg-emerald-50/20">${assertHtml}</td>
                     <td class="px-3 py-3 text-[10px] italic text-slate-500 max-w-[200px] truncate cursor-pointer hover:bg-slate-50 transition-colors" 
-                        onclick="Produtividade.Geral.visualizarObservacao('${u.nome || 'Usuário'}', this.innerHTML)"
+                        onclick="Produtividade.Geral.visualizarObservacao('${safeNome}', this.innerHTML)"
                         title="Clique para ler a mensagem completa">
                         ${obsText}
                     </td>
                 </tr>
             `;
+
         }).join('');
 
         this.els.tabela.innerHTML = html;
