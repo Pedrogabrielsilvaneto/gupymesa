@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Fix Schema - TiDB Migration</title>
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+</head>
+
+<body class="bg-slate-900 text-white p-8 font-mono">
+    <h1 class="text-2xl font-bold mb-4 text-amber-400">🔧 Reparador de Banco de Dados</h1>
+
+    <div id="status" class="bg-slate-800 p-4 rounded text-sm mb-4">
+        Aguardando início...
+    </div>
+
+    <button onclick="executarCorrection()"
+        class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded">
+        EXECUTAR CORREÇÃO AGORA
+    </button>
+
+    <!-- Scripts Essenciais -->
+    <script src="js/config.js"></script>
+    <script src="js/sistema.js"></script>
+
+    <script>
+        async function executarCorrection() {
+            const log = (msg, cor = 'text-white') => {
+                const el = document.getElementById('status');
+                el.innerHTML += `<div class="${cor}">${msg}</div>`;
+                console.log(msg);
+            };
+
+            log("🚀 Iniciando correção de esquema...", "text-blue-400 font-bold");
+
+            try {
+                // 1. Tabela USUARIOS
+                log("--- Verificando Tabela USUARIOS ---");
+
+                const colsUser = [
+                    "perfil VARCHAR(50)",
+                    "ativo BOOLEAN DEFAULT TRUE",
+                    "funcao VARCHAR(100)"
+                ];
+
+                for (const col of colsUser) {
+                    try {
+                        const sql = `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ${col}`;
+                        await Sistema.query(sql);
+                        log(`✅ Coluna Usuario '${col.split(' ')[0]}' verificada.`, "text-emerald-400");
+                    } catch (e) {
+                        log(`⚠️ Aviso na coluna ${col.split(' ')[0]}: ${e.message}`, "text-amber-400");
+                    }
+                }
+
+                // 2. Tabela PRODUCAO
+                log("--- Verificando Tabela PRODUCAO ---");
+                const cols = [
+                    "fifo INT DEFAULT 0",
+                    "gradual_total INT DEFAULT 0",
+                    "gradual_parcial INT DEFAULT 0",
+                    "perfil_fc INT DEFAULT 0",
+                    "fator DECIMAL(5,2) DEFAULT 1.00",
+                    "status VARCHAR(20) DEFAULT 'OK'"
+                ];
+
+                for (const col of cols) {
+                    // Nota: TiDB suporta ADD COLUMN IF NOT EXISTS (MySQL 8.0 compatível)
+                    // Caso falhe, vamos tentar ignorar o erro específico de coluna duplicada
+                    try {
+                        const sql = `ALTER TABLE producao ADD COLUMN IF NOT EXISTS ${col}`;
+                        await Sistema.query(sql);
+                        log(`✅ Coluna '${col.split(' ')[0]}' verificada.`, "text-emerald-400");
+                    } catch (e) {
+                        log(`⚠️ Aviso na coluna ${col.split(' ')[0]}: ${e.message}`, "text-amber-400");
+                    }
+                }
+
+                log("🎉 PROCESSO CONCLUÍDO COM SUCESSO!", "text-emerald-400 font-bold mt-4");
+                alert("Correção concluída! Pode fechar esta tela.");
+
+            } catch (e) {
+                log(`❌ ERRO FATAL: ${e.message}`, "text-rose-500 font-bold");
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+
+</html>

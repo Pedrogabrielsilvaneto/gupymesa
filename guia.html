@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GupyMesa – Central de Treinamento</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --bg-main: #020617;
+            --bg-sidebar: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.08);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Outfit', sans-serif; }
+        body { background: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .sidebar-header { padding: 30px; border-bottom: 1px solid var(--border); }
+        .logo-box { display: flex; align-items: center; gap: 12px; }
+        .logo-circle { width: 40px; height: 40px; background: linear-gradient(135deg, var(-- primary), var(--secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 18px; box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
+        .logo-text { font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
+
+        .nav { flex: 1; padding: 20px 0; overflow-y: auto; }
+        .nav-label { font-size: 11px; font-weight: 700; color: #475569; padding: 10px 30px; text-transform: uppercase; letter-spacing: 1.5px; }
+        .nav-item { 
+            display: flex; align-items: center; gap: 14px; padding: 14px 30px; 
+            color: var(--text-muted); text-decoration: none; font-size: 15px; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 3px solid transparent; 
+        }
+        .nav-item:hover { color: #fff; background: rgba(255,255,255,0.03); }
+        .nav-item.active { 
+            color: #fff; background: linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%); 
+            border-right-color: var(--primary); font-weight: 600; 
+        }
+        .nav-item i { width: 20px; text-align: center; }
+
+        .main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100vh; }
+        
+        .header { 
+            height: 80px; padding: 0 40px; border-bottom: 1px solid var(--border); 
+            display: flex; align-items: center; justify-content: space-between; 
+            background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(20px); z-index: 90;
+        }
+        .header-info h2 { font-size: 22px; font-weight: 700; }
+        .header-info span { font-size: 13px; color: var(--text-muted); }
+
+        .tab-content { flex: 1; overflow-y: auto; display: none; padding-bottom: 80px; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .inner-tabs { 
+            background: rgba(255,255,255,0.02); padding: 5px; border-radius: 12px; 
+            display: inline-flex; gap: 5px; margin-bottom: 30px; border: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .inner-tab { 
+            padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; 
+            color: var(--text-muted); cursor: pointer; transition: 0.3s; 
+        }
+        .inner-tab:hover { color: #fff; }
+        .inner-tab.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2); }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px; }
+        .doc-section { margin-bottom: 60px; }
+        .doc-section h3 { font-size: 28px; margin-bottom: 20px; letter-spacing: -0.5px; }
+        .doc-text { font-size: 16px; color: var(--text-muted); line-height: 1.7; margin-bottom: 25px; }
+
+        .glossary { 
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+            border: 1px solid var(--border); border-radius: 20px; padding: 30px; margin: 30px 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .glossary-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .glossary-header i { color: var(--warning); }
+        .glossary-header h4 { font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .glossary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .glossary-item { padding: 15px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); }
+        .glossary-item strong { display: block; color: var(--primary); font-size: 13px; text-transform: uppercase; margin-bottom: 6px; }
+        .glossary-item p { font-size: 14px; color: var(--text-main); font-weight: 300; line-height: 1.5; }
+
+        .media-card { background: #000; border-radius: 16px; border: 1px solid var(--border); padding: 8px; margin: 30px 0; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.5); position: relative; }
+        .media-card img, .media-card video { width: 100%; border-radius: 10px; display: block; }
+        .media-badge { position: absolute; top: 20px; right: 20px; background: var(--primary); color: #fff; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+        .media-caption { padding: 15px; text-align: center; color: var(--text-muted); font-size: 13px; font-style: italic; }
+
+        .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 30px 0; }
+        .f-card { background: var(--bg-card); padding: 25px; border-radius: 20px; border: 1px solid var(--border); }
+        .f-icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(99, 102, 241, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 15px; }
+        .f-card h5 { margin-bottom: 8px; font-size: 16px; }
+        .f-card p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+        .tip-box { background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--success); padding: 20px; border-radius: 0 14px 14px 0; margin: 20px 0; display: flex; gap: 16px; }
+        .tip-box i { color: var(--success); font-size: 20px; }
+
+        .footer { padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border); }
+
+        @media (max-width: 1024px) {
+            .feature-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-box">
+                <div class="logo-circle">GM</div>
+                <span class="logo-text">GupyMesa Manual</span>
+            </div>
+        </div>
+        <div class="nav">
+            <div class="nav-label">Começar</div>
+            <a href="javascript:void(0)" class="nav-item active" onclick="showTab('intro')"><i class="fas fa-rocket"></i> <span>Introdução</span></a>
+            <a href="javascript:void(0)" class="nav-item" onclick="showTab('login')"><i class="fas fa-lock"></i> <span>Acesso e Login</span></a>
+            
+            <div class="nav-label">Módulos do Sistema</div>
+            <a href="javascript:void(0)" class="nav-item" onclick="showTab('gestao')"><i class="fas fa-tasks"></i> <span>Gestão Administrativa</span></a>
+            <a href="javascript:void(0)" class="nav-item" onclick="showTab('produtividade')"><i class="fas fa-chart-line"></i> <span>Produtividade</span></a>
+            <a href="javascript:void(0)" class="nav-item" onclick="showTab('minhaarea')"><i class="fas fa-user-circle"></i> <span>Minha Área (Perfil)</span></a>
+            <a href="javascript:void(0)" class="nav-item" onclick="showTab('biblioteca')"><i class="fas fa-book"></i> <span>Biblioteca</span></a>
+            
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="header">
+            <div class="header-info">
+                <h2 id="current-title">Manual: Introdução</h2>
+                <span>Manual do Usuário GupyMesa v2.1.0</span>
+            </div>
+        </header>
+
+        <!-- INTRODUÇÃO -->
+        <div id="tab-intro" class="tab-content active">
+            <div class="container">
+                <div class="doc-section">
+                    <h3>Bem-vindo ao GupyMesa</h3>
+                    <p class="doc-text">O <strong>GupyMesa</strong> é o coração operacional e estratégico da nossa equipe. Ele não é apenas um sistema de registros, mas sim uma plataforma inteligente desenvolvida exclusivamente para monitorar, apoiar e evoluir o seu trabalho no dia a dia.</p>
+                    
+                    <p class="doc-text">Aqui, cada validação de documento e cada meta alcançada é refletida em tempo real. O sistema foi construído com a premissa da total transparência: você sempre saberá exatamente onde está, o que precisa fazer e como o seu esforço contribui para o grande objetivo da empresa.</p>
+                    
+                    <div class="media-card">
+                        <span class="media-badge">TOUR DE APRESENTAÇÃO</span>
+                        <img src="img/guia/tour_video.webp" alt="Tour Geral">
+                        <div class="media-caption">Conheça a interface: desenhada para ser rápida, escura (Dark Mode) para conforto visual e focada na sua produtividade.</div>
+                    </div>
+
+                    <h4 style="font-size: 22px; margin-top: 50px; margin-bottom: 20px;">O que faz do GupyMesa uma ferramenta única?</h4>
+
+                    <div class="feature-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-tachometer-alt"></i></div>
+                            <h5>Métricas em Tempo Real</h5>
+                            <p>Ao contrário de planilhas estáticas, o GupyMesa processa milhares de linhas instantaneamente. Quando a gestão importa novos dados, o seu painel se atualiza em milissegundos, mostrando seu atingimento real.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-shield-alt"></i></div>
+                            <h5>Privacidade e Governança</h5>
+                            <p>Seus dados são seus. A "Minha Área" blinda as suas informações, garantindo que o seu desempenho individual seja acessível apenas por você e pela sua liderança de forma segura e privada.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-check-double"></i></div>
+                            <h5>Qualidade Acima do Volume</h5>
+                            <p>O módulo de Auditoria não permite que a pressa comprometa a excelência. O sistema monitora a Assertividade, garantindo que o acerto no primeiro envio (First Time Right) seja nosso maior indicador.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-toolbox"></i></div>
+                            <h5>Um Ecossistema de Apoio</h5>
+                            <p>Com calculadoras de prazo automáticas, preenchimento inteligente de CEPs e uma biblioteca com milhares de frases, o GupyMesa não apenas cobra a produção; ele lhe entrega as ferramentas para alcançá-la.</p>
+                        </div>
+                    </div>
+
+                    <div class="tip-box" style="margin-top: 40px;">
+                        <i class="fas fa-map-signs"></i>
+                        <div class="tip-content">
+                            <strong>Use o menu lateral para navegar!</strong> Este manual foi construído em abas interativas para que você explore cada canto do sistema. Vamos juntos dominar o GupyMesa, página por página!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="tab-login" class="tab-content">
+            <div class="container">
+                <div class="doc-section">
+                    <h3>A Porta de Entrada: Segurança em Primeiro Lugar</h3>
+                    <p class="doc-text">O GupyMesa lida com o seu bem mais valioso: <strong>os seus dados de performance</strong>. Por isso, a tela de login não é apenas uma formalidade, é um escudo. Construímos um ecossistema blindado para garantir que absolutamente ninguém, além de você e da liderança autorizada, tenha acesso às suas métricas de produtividade e avaliações de qualidade.</p>
+                    
+                    <p class="doc-text">O acesso é simples, direto, mas sustentado por regras estritas de segurança desde o seu primeiro dia na operação.</p>
+
+                    <div class="media-card">
+                        <img src="img/guia/login.png" alt="Tela de Login do GupyMesa">
+                        <div class="media-caption">Acesso exclusivo com sua matrícula/ID: Uma camada de proteção entre seus resultados e o mundo externo.</div>
+                    </div>
+
+                    <h4 style="font-size: 22px; margin-top: 50px; margin-bottom: 20px;">Protocolos de Acesso e Privacidade</h4>
+
+                    <div class="feature-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-id-badge"></i></div>
+                            <h5>Sua Matrícula, Sua Chave</h5>
+                            <p>Chega de e-mails corporativos longos ou usuários confusos. O seu login padrão é sempre o seu <strong>Número de Registro (ID)</strong>. Direto ao ponto para você entrar rapidamente no sistema e focar no que importa.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-lock"></i></div>
+                            <h5>Garantia do 1º Acesso</h5>
+                            <p>No seu primeiro acesso, a senha será provisória (seu próprio ID). Imediatamente, o sistema forçará você a criar uma <strong>Senha Privada</strong>, garantindo que ninguém do treinamento ou RH tenha a sua senha definitiva.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-user-shield"></i></div>
+                            <h5>Recuperação Ágil</h5>
+                            <p>Esqueceu a senha? Não se preocupe. Diferente de sistemas burocráticos onde você espera 24 horas por um link no e-mail, no GupyMesa qualquer líder ou administrador pode dar um "Reset" na sua senha em 3 segundos.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-key"></i></div>
+                            <h5>Critérios Simples e Rápidos</h5>
+                            <p>Nós valorizamos a segurança sem atrapalhar a rotina. Exigimos apenas 6 caracteres para a troca de senha. Recomendamos não utilizar datas de nascimento ou sequências como '123456' para proteger a sua <em>Minha Área</em>.</p>
+                        </div>
+                    </div>
+
+                    <div class="tip-box" style="margin-top: 40px; background: rgba(99, 102, 241, 0.1); border-left-color: var(--primary);">
+                        <i class="fas fa-sync-alt" style="color: var(--primary);"></i>
+                        <div class="tip-content text-indigo-100">
+                            <strong style="color: var(--primary-dark)">Troque a senha quando quiser:</strong> Mesmo após o primeiro acesso, caso você sinta que sua senha foi exposta, basta clicar na engrenagem ou botão <strong><i class="fas fa-key mx-1"></i> Trocar Senha</strong> no menu superior da plataforma (ao lado do seu nome) e alterá-la imediatamente.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRODUTIVIDADE -->
+        <div id="tab-produtividade" class="tab-content">
+            <div class="container">
+                <div class="inner-tabs">
+                    <div class="inner-tab active" onclick="switchSubTab(this, 'prod-validacao')">Validação</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'prod-consolidado')">Consolidado</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'prod-performance')">Performance 360°</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'prod-matriz')">Matriz</div>
+                </div>
+
+                <!-- SUB-TAB: VALIDAÇÃO -->
+                <div id="prod-validacao" class="sub-tab-content">
+                    <h3>Módulo Dinâmico de Validação</h3>
+                    <p class="doc-text">A aba "Validação" é a tela principal de acompanhamento da ferramenta. Aqui, a equipe visualiza os cards de desempenho macro no topo e os detalhes diários de toda a operação através de uma tabela filtrável gerada automaticamente.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/indicadores.png" alt="Cards e Tabela de Validação">
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-header"><i class="fas fa-filter"></i> <h4>Painel de Filtros e Busca</h4></div>
+                        <div class="glossary-grid">
+                            <div class="glossary-item">
+                                <strong>Filtro de Período (Dia, Mês, Ano)</strong>
+                                <p>Localizado no menu de cima. Quer saber o resultado do "Mês"? O sistema soma toda a equipe do dia 01 ao dia atual. Se trocar para "Dia" e escolher 20 de Março, os cards se recalculam <em>apenas</em> para aquela quarta-feira.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong>Barra de Busca</strong>
+                                <p>Sua equipe cresceu? Basta digitar parte do nome ou código de matrícula. A tabela esconderá todos os outros assistentes e deixará só a sua pesquisa em tela para auditoria rápida.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong>Filtros: Geral e Função</strong>
+                                <p>O filtro "Geral" permite dividir por tipo de vínculo, como CLT ou terceirizados. O de "Função" permite segmentar as planilhas entre Assistentes e Lideranças ativas.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glossary" style="margin-top: 20px;">
+                        <div class="glossary-header"><i class="fas fa-server"></i> <h4>Controles de Dados</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong style="color: var(--success)"><i class="fas fa-file-csv mx-1"></i> Botão IMPORTAR</strong>
+                                <p>A mágica acontece aqui. A gestão recebe a base bruta do sistema central, aperta "Importar" e seleciona o documento CSV. Em instantes o GupyMesa lê os dados, calcula os cruzamentos de metas reais, abonos e já disponibiliza os resultados em tela.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--danger)"><i class="fas fa-trash-alt mx-1"></i> Botão EXCLUIR</strong>
+                                <p>O ícone de lixeira (apenas para perfis de liderança/gestão) serve para <strong>limpar os dados</strong> do período que você está visualizando na tela. Utilizado quando há erro na planilha grossa e um reparo precisa ser feito de fábrica.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: CONSOLIDADO -->
+                <div id="prod-consolidado" class="sub-tab-content" style="display:none">
+                    <h3>Análise Consolidada (Agrupamentos)</h3>
+                    <p class="doc-text">O Consolidado pega a tabela "infinita" da aba anterior e resolve um problema simples: "E se eu quiser ver a soma da semana ou do mês inteiro daquela pessoa?".</p>
+
+                    <div class="media-card">
+                        <img src="img/guia/consolidado.png" alt="Tabela Consolidada">
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-layer-group"></i></div>
+                            <h5>Soma Perfeita</h5>
+                            <p>Ele rastreia o filtro de período lá de cima. Se você filtrá-lo para "Mês", a tabela mostrará 1 linha por Assistente reunindo TODA a produção de todos os dias operados no mês.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-percentage"></i></div>
+                            <h5>Média Ponderada</h5>
+                            <p>Percentuais da Assertividade não são somados (100% + 100% não é 200%). O Consolidado faz a média ponderada exata dos dias úteis e volume real para chegar à nota justa.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: PERFORMANCE 360 -->
+                <div id="prod-performance" class="sub-tab-content" style="display:none">
+                    <h3>Performance 360° (Tração vs Atrito)</h3>
+                    <p class="doc-text">Avaliação gerencial rápida por categorias extremas. Para evoluir pessoas precisamos primeiro entender qual o momento em que elas estão.</p>
+
+                    <div class="media-card">
+                        <img src="img/guia/performance.png" alt="Aba de Performance">
+                    </div>
+                    
+                    <div class="glossary">
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong>🚀 Tração</strong>
+                                <p>Lista exclusiva com as pessoas de Alta Produtividade e Alta Assertividade (as que "puxam" a roda do projeto e lideram nos KPIs).</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong>⚠️ Atrito</strong>
+                                <p>Lista focada nos Gaps. Aponta gargalos ou profissionais que estão estagnados nas entregas diárias necessitando de acompanhamento imediato.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: MATRIZ -->
+                <div id="prod-matriz" class="sub-tab-content" style="display:none">
+                    <h3>Matriz Anual Expansiva</h3>
+                    <p class="doc-text">A ferramenta chave do feedback de longo prazo. Mostra toda a variação de esforço (produção final) ao longo do ano inteiro.</p>
+
+                    <div class="media-card">
+                        <img src="img/guia/matriz.png" alt="Tabela Matriz Anual">
+                    </div>
+
+                    <div class="tip-box">
+                        <i class="fas fa-th"></i>
+                        <div class="tip-content">
+                            A Matriz Anual contém <strong>médias de Semestres e Trimestres</strong> destacadas na tabela. Essa ferramenta é fundamental na construção de promoções internas (PDIs) ou rebaixamentos corporativos, baseados sempre na constância através do tempo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GESTÃO ADMINISTRATIVA -->
+        <div id="tab-gestao" class="tab-content">
+            <div class="container">
+                <div class="inner-tabs">
+                    <div class="inner-tab active" onclick="switchSubTab(this, 'gest-usuarios')">Usuários</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'gest-empresas')">Empresas</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'gest-assertividade')">Assertividade</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'gest-metas')">Metas</div>
+                </div>
+
+                <!-- SUB-TAB: USUARIOS -->
+                <div id="gest-usuarios" class="sub-tab-content">
+                    <h3>Gestão de Usuários (Controle de Acessos)</h3>
+                    <p class="doc-text">O painel central de Pessoas. Aqui o gestor define quem tem acesso à plataforma, qual é o nível de permissão (Assistente, Gestão, Auditoria) e a que time cada pessoa pertence.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/gestao_usuarios_new.png" alt="Tela de Gestão de Usuários">
+                        <div class="media-caption">Painel completo com os filtros superiores e botões de ação à direita.</div>
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-header"><i class="fas fa-users-cog"></i> <h4>Ferramentas da Tela</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong>Filtros Simultâneos e Busca</strong>
+                                <p>No cabeçalho você pode cruzar os filtros: Mostrar todos os de "Contrato Terc", que estão "Ativos" e são "Assistentes". A barra de busca acha imediatamente qualquer pessoa pelo ID ou Nome.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--primary)"><i class="fas fa-file-upload mx-1"></i> Botão IMPORTAR (Cadastro em Massa)</strong>
+                                <p>Sua equipe tem 50 pessoas novas? O GupyMesa possui o botão azul <span class="badge border border-indigo-300 text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs mx-1">Importar</span> no topo direito. Suba um CSV e a inteligência cadastrará todo mundo automaticamente.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: EMPRESAS -->
+                <div id="gest-empresas" class="sub-tab-content" style="display:none">
+                    <h3>Gestão de Empresas (Sub-Grupos)</h3>
+                    <p class="doc-text">As Empresas no GupyMesa funcionam como "Pastas" que organizam pessoas de diferentes setores, turnos ou vínculos de negócios terceirizados.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/gestao_empresas_new.png" alt="Tela de Gestão de Empresas">
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong>Criação Estruturada</strong>
+                                <p>Pode-se criar a empresa informando Nome e um "Subdomínio" único. Na barra central superior de busca rápida é possível filtrar quem pertence a qual grupo.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--primary)"><i class="fas fa-file-upload mx-1"></i> Botão IMPORTAR (Cadastro de Parceiros)</strong>
+                                <p>Assim como os Usuários, se você possui dezenas de células de CNPJ diferentes a serem cadastradas, o botão de <span class="badge border border-indigo-300 text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs mx-1">Importar</span> permite subir a folha pronta.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: ASSERTIVIDADE -->
+                <div id="gest-assertividade" class="sub-tab-content" style="display:none">
+                    <h3>Auditoria e Qualidade (Assertividade)</h3>
+                    <p class="doc-text">Aqui não medimos a velocidade do colaborador, medimos a SUA EXCELÊNCIA. O módulo cruza quantos campos ele inseriu versus a quantidade de erros gerados no processo final.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/gestao_assertividade_new.png" alt="Auditoria de Assertividade">
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-header"><i class="fas fa-vial"></i> <h4>Recursos Exclusivos de Qualidade</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong style="color: var(--primary)"><i class="fas fa-file-upload mx-1"></i> Botão IMPORTAR Planilha Final</strong>
+                                <p>O motor V7 absorve as respostas da sua base de auditoria externa e cruza todos os dados NOK (Erros graves ou rasuras) calculando os pesos automaticamente contra os dias avaliados e as funções (Filtros CLT / Terc) da barra superior.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--warning)"><i class="fas fa-flask mx-1"></i> Sala de Teste (Simulador)</strong>
+                                <p>Localizada lá no botão esquerdo claro <span class="badge border border-slate-300 text-slate-600 bg-white px-2 py-0.5 rounded text-xs mx-1">Sala de Teste</span>. Permite aos gestores subirem CSVs brutos apenas para "Simularem" se as margens de erro estão altas ANTES de lançarem os apontamentos oficiais da qualidade para todos verem.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: METAS -->
+                <div id="gest-metas" class="sub-tab-content" style="display:none">
+                    <h3>Configuração Global de Metas</h3>
+                    <p class="doc-text">A bússola de toda a ferramenta operacional. O que se edita aqui reflete nas telas, metas diárias e no painel final (Minha Área) de TODOS os usuários do sistema.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/gestao_metas_new.png" alt="Configuração de Metas Anuais">
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-cog"></i></div>
+                            <h5>Painel de Ajuste Refinado</h5>
+                            <p>O cabeçalho horizontal azul é o grande responsável. Você escolhe o Período, ajusta se aquele mês teve feriados mudando o número de <strong>Dias Úteis (CLT x Terc)</strong> e salva.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-users-cog"></i></div>
+                            <h5>Headcount Fixo</h5>
+                            <p>Você insere quantas cabeças (Assistentes ativos) devem ser cobradas por produção, regulando o ritmo base exigido da operação completa em tempo real.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-bolt"></i></div>
+                            <h5>Ação em Lote</h5>
+                            <p>O campo final, de Raio Negro (Padrão: Produção / Assertividade), permite espalhar de uma vez só uma mesma meta (Ex: 650/97) em cascata para as 300 pessoas da tabela abaixo.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MINHA ÁREA (PERFIL) -->
+        <div id="tab-minhaarea" class="tab-content">
+            <div class="container">
+                <div class="inner-tabs">
+                    <div class="inner-tab active" onclick="switchSubTab(this, 'perfil-dia')">Dia a Dia</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'perfil-okr')">Meta / OKR</div>
+                    <div class="inner-tab" onclick="switchSubTab(this, 'perfil-feedback')">Feedback</div>
+                </div>
+
+                <div class="doc-section mt-4 mb-2">
+                    <p class="doc-text border-l-4 border-indigo-500 pl-4 py-2 bg-indigo-50/10 mb-6 font-medium">A <strong class="text-indigo-600">Minha Área</strong> é a principal aba dedicada a <u>você</u>. É o seu diário de bordo confidencial e a forma principal para saber: <b>"Estou indo bem?"</b>.</p>
+                    
+                    <div class="tip-box" style="background: rgba(239, 68, 68, 0.05); border-color: var(--danger);">
+                        <i class="fas fa-user-lock" style="color: var(--danger);"></i>
+                        <div class="tip-content">
+                            <strong style="color: var(--danger); display: block; margin-bottom: 5px;">A Regra do Cofre Sagrado (Filtro Geral)</strong>
+                            Para o Assistente, o GupyMesa atua como um cofre onde se enxerga apenas a própria produção. O filtro lá no topo de <strong>"Selecionar Usuário / Geral (Todos)"</strong> é um poder exclusivo de Gestores e Auditores. Se você é um funcionário da base, o sistema inteligentemente esconde isso de você, garantindo privacidade total na sua operação. Ninguém vê o seu e você não vê o dos outros.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: DIA A DIA -->
+                <div id="perfil-dia" class="sub-tab-content">
+                    <h3>O Seu Diário de Bordo (Dia a Dia)</h3>
+                    <p class="doc-text">Aqui ficam agrupados de forma instantânea tudo que você validou. O objetivo dessa tela é responder se o seu ritmo de hoje garantirá que você bata a meta no final do mês.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/ma_diario.png" alt="Minha Área - Dia a Dia">
+                        <div class="media-caption">Painel principal da assistente com os KPIs coloridos de Progresso e Foco na Meta.</div>
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-header"><i class="fas fa-stethoscope"></i> <h4>Coração da Operação (KPIs Analisados)</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong style="color: var(--primary)"><i class="fas fa-bullseye mx-1"></i> Alerta de Foco na Meta</strong>
+                                <p>Sabe a barra "Produtividade"? Olhe de perto o texto <strong class="text-blue-600 font-bold text-xs uppercase bg-blue-50 px-1 py-0.5 rounded">Faltam: X</strong> ao lado da porcentagem. O GupyMesa calcula em tempo real o quanto da "tração" exata do seu contrato (CLT/Terc) necessita por dia para terminar a corrida no verde, já subtraindo seus feriados e folgas!</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--warning)"><i class="fas fa-bolt mx-1"></i> Velocidade Média</strong>
+                                <p>Não importa se no Dia 1 você fez mil, e no Dia 2 você não fez nada. O Card Amarelo calcula a média limpa, te mostrando sua "Marcha". Se a média cair, o card te avisa visualmente.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--success)"><i class="fas fa-shield-alt mx-1"></i> Assertividade 100%</strong>
+                                <p>Todo o trabalho perfeito gera o número verde. Se a auditoria lançar NOK na sua Gestão, este percentual é corroído instantes depois. Seu desafio é fechar o trimestre em 100% de qualidade.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong><i class="fas fa-calendar-alt mx-1"></i> Filtros de Período Limpos</strong>
+                                <p>No cabeçalho, os botões <strong>Mês</strong>, <strong>Semana</strong> e <strong>Ano</strong> alteram magicamente o dashboard inteiro de uma vez, sem carregar telas chatas. Ele apenas recalcula "a quente" seus resultados daquele trimestre ou semana atual.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: META/OKR -->
+                <div id="perfil-okr" class="sub-tab-content" style="display:none">
+                    <h3>Raio-X de Performance (Meta / OKR)</h3>
+                    <p class="doc-text">O cardápio completo da sua evolução visual. Esta tela abandona a matemática crua e mostra em rankings e gráficos o quão valiosa é sua produção de ponta a ponta.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/ma_metas.png" alt="Minha Área - Meta OKR">
+                        <div class="media-caption">Apresentação dos rankings de Velocidade e Produtividade Total comparativa.</div>
+                    </div>
+
+                    <div class="glossary" style="margin-top: 20px;">
+                        <div class="glossary-header"><i class="fas fa-layer-group"></i> <h4>Botões Internos da Aba (Visões da Meta)</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                            <div class="glossary-item" style="border-top: 3px solid #3b82f6;">
+                                <strong class="text-blue-600"><i class="fas fa-bolt mx-1"></i> Sub-Aba Produção</strong>
+                                <p>Foca no volume bruto de entregas. Mostra o ranking geral da equipe e sua contagem total versus os demais membros, além da sua velocidade diária de execução frente a meta diária estipulada.</p>
+                            </div>
+                            <div class="glossary-item" style="border-top: 3px solid #10b981;">
+                                <strong class="text-emerald-600"><i class="fas fa-check-circle mx-1"></i> Sub-Aba Qualidade</strong>
+                                <p>Troca o viés de quantidade para precisão. Apresenta o atingimento em "100% livre de erros", detalhando quantos % de qualidade garantida você ou a equipe possuem durante a linha do tempo mensal e geral.</p>
+                            </div>
+                            <div class="glossary-item" style="border-top: 3px solid #64748b;">
+                                <strong class="text-slate-600"><i class="fas fa-chart-pie mx-1"></i> Sub-Aba Assertividade</strong>
+                                <p>Analisa o balanço entre Produtividade x Qualidade. Demonstra na prática quantos % você foi assertivo ao entregar certo volume minimizando os chamados da auditoria e falhas diárias.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-grid">
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-list-ol"></i></div>
+                            <h5>Ranking Semântico de Cores</h5>
+                            <p>Toda a tabela diária obedece às cores do semáforo. Numeros <strong>vermelhos</strong> evidenciam dias em que o "Motor engasgou" e precisou repor a meta. Os <strong>Azuis/Cinzas</strong> provam que superou a expectativa imposta pela Liderança.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-chart-line"></i></div>
+                            <h5>Gráficos de Comparativo Dinâmico (Click!)</h5>
+                            <p>Lembra do botão "Ranking"? O GupyMesa interage: Qualquer assistente pode <strong>clicar no próprio nome na grade inferior</strong> para invocar um Modal que renderiza gráficos de barra da sua evolução cruzando Assertividade em linhas nos últimos dias.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-tachometer-alt"></i></div>
+                            <h5>Os Diferenciais Consolidados</h5>
+                            <p>Os três grandes blocos superiores (Validação Total, Velocidade Diária Média e % Atingimento Acumulado) mostram o panorama Macro real, indicando se sua "meta da equipe inteira" somada já está segura.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: FEEDBACK -->
+                <div id="perfil-feedback" class="sub-tab-content" style="display:none">
+                    <h3>O Elo de Comunicação (Feedback)</h3>
+                    <p class="doc-text">O GupyMesa traz um Messenger interno privado focado em evolução. O Feedback liga a Liderança à você sem precisar de chats externos, oficializando acordos, parabenizações e metas combinadas para aquele mês.</p>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/ma_feedback.png" alt="Minha Área - Feedback">
+                        <div class="media-caption">Canal de chat instantâneo encriptado. Comunicação entre time vs Liderança.</div>
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-user-lock"></i></div>
+                            <h5>Geral (Mural) vs Particulares</h5>
+                            <p>Na lista lateral esquerda, há um Canal Geral onde os Gestores fixam avisos globais da equipe (como lembretes de feriado ou fechamento), e canais 1-a-1, blindados de terceiros, que carregam as atas da sua própria vida laboral.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon"><i class="fas fa-microphone"></i></div>
+                            <h5>Mensagens por Voz Integradas</h5>
+                            <p>Possui o ícone do Microfone permitindo que Lideranças atarefadas enviem áudios explicativos sobre métricas, acelerando a mentoria e garantindo o tom de voz da liderança sem perder a formalidade.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BIBLIOTECA -->
+        <div id="tab-biblioteca" class="tab-content">
+            <div class="container">
+                <div class="doc-section">
+                    <h3>Aceleradores de Rotina (A Biblioteca)</h3>
+                    <p class="doc-text">Imagine essa aba como o seu "Canivete Suíço" corporativo. Toda regra nova, texto padrão de atendimento, ou ferramenta (que antes você pesquisava no Google) estão 100% integrados dentro desta mesma tela.</p>
+
+                    <div class="media-card">
+                        <img src="img/guia/bib_main.png" alt="Tela Principal da Biblioteca">
+                        <div class="media-caption">Toda a base de conhecimento e atalhos rápidos reunidos em um lugar só.</div>
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-header"><i class="fas fa-search"></i> <h4>Navegação de Alta Velocidade</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong style="color: var(--primary)">As Duas Barras de Busca Inteligente</strong>
+                                <p>Por que duas? Para cruzamento tático! A barra superior busca palavras soltas no nome do atalho (Ex: <em>Cônjuge</em>). A segunda barra filtra detalhes internos ou "tags" da frase (Ex: <em>Certidão</em>). É impossível não achar a regra correta em décimos de segundo.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong style="color: var(--primary)">Contador de Frases</strong>
+                                <p>Sempre visível para comprovar a robustez do banco de dados, mostrando exato o arsenal de frases e procedimentos cadastrados que você pode usufruir para não ter que digitar do zero.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong>Aba "Todas as Frases"</strong>
+                                <p>Sua visão global. Mostra todo o catálogo cadastrado pela Liderança.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong class="text-rose-500"><i class="fas fa-heart"></i> Aba "Favoritas"</strong>
+                                <p>Seu espaço VIP. Tem 3 frases que você usa o dia inteiro? Clique no "coração" nelas. Clicando nesta aba especial, o sistema oculta a poluição de toda a rede e deixa APENAS as suas, a um clique do copiar-e-colar.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 50px">Integrações Automáticas Sem Sair da Tela</h3>
+                    <p class="doc-text">Pare de esmagar o `Alt + Tab`. O GupyMesa traz apps externos cruciais no cabeçalho. Veja como funcionam:</p>
+
+                    <div class="media-card">
+                        <img src="img/guia/bib_calc.png" alt="Calculadora de Datas Integrada">
+                        <div class="media-caption">Botão da Calculadora (A soma temporal de folgas e atestados).</div>
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="f-card">
+                            <div class="f-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;"><i class="fas fa-calculator"></i></div>
+                            <h5>Calculadora de Tempos Mágica</h5>
+                            <p>Recebeu um atestado de 123 dias retroativos? Ou um dependente faz 18 anos semana que vem? Clique no ícone superior, insira a data base e mande o sistema Adicionar ou Subtrair para descobrir o prazo limite exato sem calcular no papel.</p>
+                        </div>
+                        <div class="f-card">
+                            <div class="f-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;"><i class="fas fa-map-marker-alt"></i></div>
+                            <h5>Consulta de CEP Direta</h5>
+                            <p>Um comprovante de residência parece duvidoso? O ícone de Pin do mapinha te abre a viabilização de pesquisar o CEP do candidato na hora e ver se ao menos bate com a mesma Rua e Cidade apontadas no doc enviado.</p>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 40px">Menu "Opções" (A Ferramenta da Gestão Operacional)</h3>
+                    
+                    <div class="media-card">
+                        <img src="img/guia/bib_opcoes.png" alt="Menu Dropdown de Opções Extras">
+                    </div>
+
+                    <div class="glossary">
+                        <div class="glossary-header"><i class="fas fa-cogs"></i> <h4>Ferramentas Clínicas e Macro Filtros</h4></div>
+                        <div class="glossary-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="glossary-item">
+                                <strong class="text-rose-500"><i class="fas fa-stethoscope mx-1"></i> Tabela CID Internacional</strong>
+                                <p>Chegou laudo novo pra cadastrar no eSocial? Nós injetamos o CID-10 e 11 inteiro aqui. Digite "F32" e em frações de segundo saiba que se trata do Código Médico específico dentro do modal instantâneo.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong class="text-emerald-500"><i class="fas fa-id-card mx-1"></i> Validador de Siglas</strong>
+                                <p>Cansado de pesquisar DPT, SSP, DETRAN de diferentes estados nos RGs? A tabela de órgãos emissores fica salva para consulta paralela rápida, padronizando os formulários da equipe.</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong class="text-blue-500"><i class="fas fa-filter mx-1"></i> Macro Filtros de Documento</strong>
+                                <p>Sua base tem 5 mil frases? Abra a opção filtros no menu para buscar as regras focadas estritamente em um campo, por exemplo "Só Frases de Certidão de Nascimento", ou restritas a "Tal Empregador".</p>
+                            </div>
+                            <div class="glossary-item">
+                                <strong class="text-indigo-600"><i class="fas fa-plus mx-1"></i> Nova Frase (Contribuição)</strong>
+                                <p>Se o seu perfil for de Gestão ou curadoria de conhecimento, você acessa este painel invisível para os assistentes para popular a base de Conhecimento com as Novas Regras aprovadas ontem!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>© 2026 Operação GupyMesa • Sistema de Apoio ao Assistente</p>
+            <p style="opacity: 0.5; margin-top: 5px;">Este manual é atualizado automaticamente conforme novas funcionalidades são lançadas.</p>
+        </footer>
+    </main>
+
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('onclick').includes(tabId)) item.classList.add('active');
+            });
+
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            const labels = {
+                'intro': 'Introdução',
+                'login': 'Acesso e Login',
+                'produtividade': 'Produtividade',
+                'gestao': 'Gestão Administrativa',
+                'minhaarea': 'Minha Área (Painel Pessoal)',
+                'biblioteca': 'Biblioteca Inteligente',
+                'suporte': 'Suporte e Ajuda'
+            };
+            document.getElementById('current-title').innerText = 'Manual: ' + labels[tabId];
+            
+            document.querySelector('.main').scrollTop = 0;
+        }
+
+        function switchSubTab(element, subTabId) {
+            const parent = element.parentElement.parentElement;
+            
+            parent.querySelectorAll('.inner-tab').forEach(tab => tab.classList.remove('active'));
+            element.classList.add('active');
+
+            parent.querySelectorAll('.sub-tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.getElementById(subTabId).style.display = 'block';
+            document.getElementById(subTabId).style.animation = 'fadeIn 0.3s ease-out';
+        }
+    </script>
+</body>
+</html>

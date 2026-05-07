@@ -1,0 +1,186 @@
+/**
+ * SISTEMA: GupyMesa - TiDB Unified (Versão 3.0)
+ * Arquitetura: Frontend -> Vercel API -> TiDB Cloud
+ * Removido: Dependência do Supabase (Abril/2026)
+ */
+
+window.Sistema = window.Sistema || {
+    usuarioLogado: null,
+
+    // --- INICIALIZAÇÃO CENTRALIZADA ---
+    async inicializar() {
+        console.log("🚀 Sistema GupyMesa: Inicializando...");
+        this.atualizarVersaoGlobal();
+    },
+
+    // --- NÚCLEO: Conexão com a API ---
+    async query(sql, params = []) {
+        try {
+            const response = await fetch('/api/banco', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: sql, values: params })
+            });
+
+            const result = await response.json();
+
+            if (result.error) {
+                console.error("Erro SQL:", result.error);
+                throw new Error(result.error);
+            }
+
+            return result.data;
+        } catch (erro) {
+            console.error("Falha na comunicação com API:", erro);
+            return null;
+        }
+    },
+
+    // --- CRIPTOGRAFIA ---
+    gerarHash: async function (texto) {
+        if (!texto) return '';
+        const msgBuffer = new TextEncoder().encode(texto);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    },
+
+    // --- UTILITÁRIOS ---
+    gerarUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    },
+
+    formatarMoeda(valor) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+    },
+
+    escapar(str) {
+        if (!str) return '';
+        return str.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    },
+
+    // --- SESSÃO E LOGIN ---
+    lerSessao() {
+        try {
+            const dados = localStorage.getItem('usuario_logado');
+            if (!dados) return null;
+
+            const versaoSessao = localStorage.getItem('sessao_v_2026_03_24');
+            if (versaoSessao !== 'v1') {
+                this.limparSessao();
+                return null;
+            }
+
+            return JSON.parse(dados);
+        } catch (e) {
+            this.limparSessao();
+            return null;
+        }
+    },
+
+    salvarSessao(dadosUsuario) {
+        localStorage.setItem('usuario_logado', JSON.stringify(dadosUsuario));
+        localStorage.setItem('sessao_v_2026_03_24', 'v1');
+        localStorage.setItem('ultimo_acesso', new Date().toISOString());
+    },
+
+    limparSessao() {
+        localStorage.removeItem('usuario_logado');
+        window.location.href = 'index.html';
+    },
+
+    verificarSessaoGlobal() {
+        const paginasPublicas = ['index.html', 'login.html', 'ferramentas.html'];
+        const path = window.location.pathname;
+        const paginaAtual = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+
+        if (paginasPublicas.includes(paginaAtual)) return;
+
+        const usuario = this.lerSessao();
+        if (!usuario) {
+            window.location.href = 'index.html';
+        } else {
+            const elNome = document.getElementById('usuario-nome-top');
+            if (elNome) elNome.innerText = usuario.nome.split(' ')[0];
+        }
+    },
+
+    // --- MÉTODOS DE NEGÓCIO ---
+    async buscarProducao(mes, ano) {
+        const sql = `SELECT * FROM producao WHERE mes_referencia = ? AND ano_referencia = ?`;
+        return await this.query(sql, [mes, ano]);
+    },
+
+    async salvarProducao(dados) {
+        const id = this.gerarUUID();
+        const sql = `
+            INSERT INTO producao (id, usuario_id, data_referencia, mes_referencia, ano_referencia, tarefa, quantidade, tempo_gasto_minutos)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const usuarioId = this.lerSessao()?.id || 'ANONIMO';
+        return await this.query(sql, [
+            id, usuarioId, dados.data, dados.mes, dados.ano, dados.tarefa, dados.qtd, dados.tempo || 0
+        ]);
+    },
+
+    async atualizarSenha(novaSenha) {
+        const usuario = this.lerSessao();
+        if (!usuario || !usuario.id) return { success: false, error: 'Sessão não encontrada' };
+
+        try {
+            const hash = await this.gerarHash(novaSenha);
+            const sql = `UPDATE usuarios SET senha = ?, trocar_senha = 0 WHERE id = ?`;
+            const result = await this.query(sql, [hash, usuario.id]);
+
+            if (result !== null) {
+                usuario.senha = hash;
+                usuario.trocar_senha = 0;
+                this.salvarSessao(usuario);
+                return { success: true };
+            }
+            return { success: false, error: 'Erro ao salvar no banco' };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    },
+
+    notificar(msg, tipo = 'info') {
+        if (window.Swal) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: tipo,
+                title: msg,
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        }
+    },
+
+    // --- DATA MODULE ---
+    Datas: {
+        feriadosFixos: ['01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'],
+        ehFeriado: function (data) { return false; }
+    },
+
+    atualizarVersaoGlobal() {
+        const ver = (window.CONFIG && CONFIG.VERSION) ? CONFIG.VERSION : 'V.?.?.?';
+        const ids = ['lib-footer-version', 'global-footer-version'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = ver;
+        });
+    }
+};
+
+if (typeof window !== 'undefined') {
+    window.Sistema = Sistema;
+    document.addEventListener('DOMContentLoaded', () => {
+        Sistema.inicializar();
+        Sistema.verificarSessaoGlobal();
+    });
+}

@@ -1,0 +1,463 @@
+// ARQUIVO: js/produtividade/consolidado.js
+// V11 — Audit completo: filtros corrigidos, inativos excluídos, fórmulas revisadas
+
+Produtividade.Consolidado = {
+    initialized: false,
+    ultimoCache: { key: null, data: null },
+    dadosCalculados: null,
+    monthToColMap: null,
+
+    // Cache de dados de usuários (ID -> info)
+    mapaFuncoes: {},
+    mapaAtivo: {},
+    mapaContrato: {},
+
+    // Configuração vinda da config_mes (definida pela gestora)
+    headcountConfig: 0,
+    diasUteisConfig: 0,
+    hasManualDU: false,
+    configMes: null,
+
+    init: async function () {
+        if (!this.initialized) { this.initialized = true; }
+        this.carregar();
+    },
+
+    getContextKey: function () {
+        const datas = Produtividade.getDatasFiltro();
+        let t = Produtividade.filtroPeriodo || 'mes';
+        if (t === 'semana') t = 'dia';
+        return `${t}_${datas.inicio}_${datas.fim}`;
+    },
+
+    _getMesesNoPeriodo: function (inicio, fim) {
+        const meses = [];
+        const d = new Date(inicio + 'T12:00:00');
+        const fimDate = new Date(fim + 'T12:00:00');
+        const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        while (d <= fimDate) {
+            const ano = d.getFullYear();
+            const mes = d.getMonth() + 1;
+            const inicioMes = new Date(ano, mes - 1, 1);
+            const fimMes = new Date(ano, mes, 0);
+            const inicioReal = d < inicioMes ? inicioMes : new Date(d);
+            const fimReal = fimMes > fimDate ? new Date(fimDate) : fimMes;
+            meses.push({ ano, mes, inicio: fmt(inicioReal), fim: fmt(fimReal) });
+            d.setDate(1); d.setMonth(d.getMonth() + 1);
+        }
+        return meses;
+    },
+
+    carregarMapas: async function () {
+        if (Object.keys(this.mapaFuncoes).length > 0) return;
+        try {
+            const data = await Sistema.query('SELECT id, funcao, contrato, ativo FROM usuarios');
+            if (data) {
+                data.forEach(u => {
+                    this.mapaFuncoes[u.id] = (u.funcao || '').toUpperCase();
+                    this.mapaAtivo[u.id] = u.ativo;
+                    this.mapaContrato[u.id] = (u.contrato || '').toUpperCase();
+                });
+            }
+        } catch (e) { console.error("Erro carregando funções:", e); }
+    },
+
+    carregarHeadcountConfig: async function () {
+        const datas = Produtividade.getDatasFiltro();
+        if (!datas.inicio) return;
+
+        const partes = datas.inicio.split('-');
+        const mes = parseInt(partes[1]);
+        const ano = parseInt(partes[0]);
+
+        try {
+            const data = await Sistema.query(
+                'SELECT * FROM config_mes WHERE mes = ? AND ano = ?',
+                [mes, ano]
+            );
+
+            this.configMes = (data && data.length > 0) ? data[0] : null;
+            const config = this.configMes;
+
+            // Resolve Headcount
+            const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
+                ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase()
+                : 'TODOS';
+
+            this.hasManualDU = false; // Reset
+            this.headcountConfig = null; // Reset Headcount para forçar recálculo a cada filtro
+
+            if (config) {
+                // Checa se há alteração manual baseada no filtro para exibir a linha depois
+                if (filtroContrato === 'CLT') {
+                    if (config.dias_uteis_clt !== null) this.hasManualDU = true;
+                } else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+                    if (config.dias_uteis_terceiros !== null) this.hasManualDU = true;
+                } else {
+                    if (config.dias_uteis_clt !== null || config.dias_uteis_terceiros !== null || config.dias_uteis !== null) {
+                        this.hasManualDU = true;
+                    }
+                }
+
+                if (filtroContrato === 'CLT' && Number(config.hc_clt) > 0) {
+                    this.headcountConfig = Number(config.hc_clt);
+                } else if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && Number(config.hc_terceiros) > 0) {
+                    this.headcountConfig = Number(config.hc_terceiros);
+                } else if (filtroContrato === 'TODOS' || filtroContrato === '') {
+                    const total = Number(config.hc_clt || 0) + Number(config.hc_terceiros || 0);
+                    this.headcountConfig = total > 0 ? total : 0;
+                }
+            }
+
+            // Fallback Headcount
+            if (!this.headcountConfig || this.headcountConfig <= 0) {
+                if (filtroContrato === 'CLT') this.headcountConfig = 8;
+                else if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') this.headcountConfig = 9;
+                else this.headcountConfig = 17;
+            }
+
+            // Resolve Dias Úteis Configurados
+            this.diasUteisConfig = this.getDiasUteisConfig();
+
+        } catch (e) {
+            console.error("Erro carregando config_mes:", e);
+            this.headcountConfig = 17;
+            this.diasUteisConfig = 22; // Fallback genérico
+        }
+    },
+
+    contarDiasUteis: function (ini, fim, capHoje = false) {
+        if (!ini || !fim) return 0;
+        let d = new Date(ini + 'T12:00:00'), end = new Date(fim + 'T12:00:00');
+        
+        if (capHoje) {
+            const hoje = new Date();
+            hoje.setHours(12, 0, 0, 0);
+            if (end > hoje) end = hoje;
+        }
+        
+        if (d > end) return 0;
+
+        let c = 0;
+        while (d <= end) { 
+            if (d.getDay() !== 0 && d.getDay() !== 6) c++; 
+            d.setDate(d.getDate() + 1); 
+        }
+        return c;
+    },
+
+    getDiasUteisConfig: function () {
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase() : 'TODOS';
+        const config = this.configMes;
+        const datas = Produtividade.getDatasFiltro();
+        const hoje = new Date().toISOString().split('T')[0];
+
+        // Regra Especial: Se estamos no mês atual, o divisor deve capar em hoje
+        const isCurrentRange = (hoje >= datas.inicio && hoje <= datas.fim);
+        
+        // Se estiver no mês atual, contamos até hoje. Se for mês passado, conta tudo.
+        const diasCalendario = this.contarDiasUteis(datas.inicio, datas.fim, true); 
+        const diasTotaisDoMes = this.contarDiasUteis(datas.inicio, datas.fim, false); // Para referência do -1 mensal
+        
+        const hasCustomConfig = config && (Number(config.dias_uteis_clt) > 0 || Number(config.dias_uteis_terceiros) > 0 || Number(config.dias_uteis) > 0);
+
+        let vTerc = diasCalendario;
+        // CLT: -1 por mês apenas se o período contiver meses completos ou se for maior que um dia
+        const mesesNoPeriodo = this._getMesesNoPeriodo(datas.inicio, datas.fim);
+        const numMeses = mesesNoPeriodo.length || 1;
+        let vClt = isCurrentRange ? Math.max(1, diasCalendario) : Math.max(1, diasCalendario - numMeses);
+
+        if (hasCustomConfig) {
+            vTerc = Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || diasCalendario;
+            vClt = Number(config.dias_uteis_clt) || Number(config.dias_uteis) || Math.max(1, vTerc - 1);
+        }
+
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return Math.max(1, vTerc);
+        if (filtroContrato === 'CLT') return Math.max(1, vClt);
+
+        return Math.max(1, vClt); 
+    },
+
+    contarAssistentesAtivos: function () {
+        const VISITANTE_IDS = new Set(['2026', '200601']);
+        const termosExcluidos = ['admin', 'gestor', 'auditor', 'lider', 'líder', 'coordenador'];
+        let count = 0;
+        for (const uid in this.mapaFuncoes) {
+            // [FIX v5.7] Exclui IDs de teste por ID
+            if (VISITANTE_IDS.has(uid)) continue;
+            const funcao = (this.mapaFuncoes[uid] || '').toLowerCase();
+            const ativo = this.mapaAtivo[uid];
+            if (ativo === false || ativo === 0 || ativo === '0') continue;
+            if (termosExcluidos.some(t => funcao.includes(t))) continue;
+            count++;
+        }
+        return count || 17;
+    },
+
+    carregar: async function (forcar = false) {
+        const tbody = document.getElementById('cons-table-body');
+        const datas = Produtividade.getDatasFiltro();
+        const s = datas.inicio; const e = datas.fim;
+        let t = Produtividade.filtroPeriodo || 'mes'; if (t === 'semana') t = 'dia';
+
+        if (tbody) tbody.innerHTML = '<tr><td colspan="15" class="text-center py-10 text-slate-400"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i></td></tr>';
+
+        try {
+            await Promise.all([this.carregarHeadcountConfig(), this.carregarMapas()]);
+
+            // Buscar dados do período completo (inclui dia 31)
+            const rawData = await Sistema.query(
+                `SELECT usuario_id, data_referencia, quantidade, fifo, gradual_total, gradual_parcial, perfil_fc, fator
+                 FROM producao
+                 WHERE data_referencia >= ? AND data_referencia <= ?
+                 ORDER BY data_referencia ASC`,
+                [s, e]
+            );
+
+            // Debug: mostrar soma bruta
+            if (rawData && rawData.length > 0) {
+                const somaTotal = rawData.reduce((acc, r) => acc + (Number(r.quantidade) || 0) + (Number(r.fifo) || 0), 0);
+                console.log(`[CONSOLIDADO] Período: ${s} a ${e} | Registros: ${rawData.length} | Soma bruta: ${somaTotal.toLocaleString('pt-BR')}`);
+            }
+
+            if (!rawData) throw new Error("Falha ao buscar dados de produção.");
+
+            this.ultimoCache = { key: this.getContextKey(), data: rawData, tipo: t };
+            this.processarEExibir(rawData, t, s, e);
+        } catch (e) {
+            console.error(e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="15" class="text-center py-4 text-rose-500">Erro: ${e.message}</td></tr>`;
+        }
+    },
+
+    getSemanasDoMes: function (year, month) {
+        const weeks = [];
+        const firstDay = new Date(year, month - 1, 1);
+        firstDay.setHours(12, 0, 0, 0);
+        const lastDay = new Date(year, month, 0);
+        lastDay.setHours(12, 0, 0, 0);
+        
+        // Ajustar para iniciar na segunda-feira
+        let currentDay = new Date(firstDay);
+        const dayOfWeek = currentDay.getDay();
+        if (dayOfWeek !== 1) {
+            const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+            currentDay.setDate(currentDay.getDate() + daysToMonday);
+        }
+        
+        while (currentDay <= lastDay) {
+            const startOfWeek = new Date(currentDay);
+            let endOfWeek = new Date(currentDay);
+            endOfWeek.setDate(currentDay.getDate() + 6); // Domingo
+            endOfWeek.setHours(12, 0, 0, 0);
+            if (endOfWeek > lastDay) endOfWeek = new Date(lastDay);
+            
+            // Formatar datas em YYYY-MM-DD
+            const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            weeks.push({ inicio: fmtDate(startOfWeek), fim: fmtDate(endOfWeek) });
+            
+            currentDay = new Date(endOfWeek);
+            currentDay.setDate(currentDay.getDate() + 1);
+            currentDay.setHours(12, 0, 0, 0);
+        }
+        return weeks;
+    },
+
+    processarDados: function (rawData, t, dataInicio, dataFim) {
+        const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        let cols = []; let datesMap = {}; this.monthToColMap = {};
+
+        const dIni = new Date(dataInicio + 'T12:00:00');
+        const currentYear = dIni.getFullYear();
+        const currentMonth = dIni.getMonth() + 1;
+
+        if (t === 'dia') {
+            let curr = new Date(dataInicio + 'T12:00:00'); const end = new Date(dataFim + 'T12:00:00'); let idx = 1;
+            while (curr <= end) {
+                const dayOfWeek = curr.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    cols.push(String(curr.getDate()).padStart(2, '0'));
+                    datesMap[idx] = { ini: curr.toISOString().split('T')[0], fim: curr.toISOString().split('T')[0] };
+                    idx++;
+                }
+                curr.setDate(curr.getDate() + 1); 
+            }
+        } else if (t === 'mes') {
+            this.getSemanasDoMes(currentYear, currentMonth).forEach((s, i) => { cols.push(`Sem ${i + 1}`); datesMap[i + 1] = { ini: s.inicio, fim: s.fim }; });
+        } else if (t === 'ano') {
+            const dFimObj = new Date(dataFim + 'T12:00:00');
+            for (let i = dIni.getMonth(); i <= dFimObj.getMonth(); i++) {
+                cols.push(mesesNomes[i]); this.monthToColMap[i + 1] = cols.length;
+                datesMap[cols.length] = { ini: `${currentYear}-${String(i + 1).padStart(2, '0')}-01`, fim: `${currentYear}-${String(i + 1).padStart(2, '0')}-${new Date(currentYear, i + 1, 0).getDate()}` };
+            }
+        }
+
+        const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado) ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase() : 'TODOS';
+        const isCLT = (filtroContrato === 'CLT' || filtroContrato === 'TODOS');
+
+        const numCols = cols.length;
+        let st = {};
+        for (let i = 1; i <= numCols; i++) {
+            st[i] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0 };
+            const rawDU = this.contarDiasUteis(datesMap[i].ini, datesMap[i].fim, true);
+            // Se for visão de ano (onde cada coluna é um mês), desconta 1 dia CLT por coluna
+            const descontar = isCLT && (t === 'ano');
+            st[i].diasUteis = (descontar && rawDU > 0) ? Math.max(0, rawDU - 1) : rawDU;
+        }
+        // TOTAL (99) usa o valor configurado capado em hoje (definido em getDiasUteisConfig)
+        st[99] = { users: new Set(), dias: new Set(), diasFator: 0, qty: 0, fifo: 0, gt: 0, gp: 0, fc: 0, diasUteis: this.diasUteisConfig };
+
+        if (rawData) {
+            // Filtro local de Contrato e Função (Consolidado tem os mapas cacheados da DB inteira)
+            const filtroContrato = (Produtividade.Filtros && Produtividade.Filtros.estado)
+                ? (Produtividade.Filtros.estado.contrato || 'todos').toUpperCase()
+                : 'TODOS';
+            const filtroFuncao = (Produtividade.Filtros && Produtividade.Filtros.estado)
+                ? (Produtividade.Filtros.estado.funcao || 'todos').toUpperCase()
+                : 'TODOS';
+
+            rawData.forEach(r => {
+                const uid = String(r.usuario_id);
+                const contrato = this.mapaContrato[uid] || '';
+                const funcao = this.mapaFuncoes[uid] || '';
+
+                // Normalizar data para YYYY-MM-DD (sem timezone)
+                const dataRef = r.data_referencia ? r.data_referencia.split('T')[0] : null;
+
+                // Filtra por contrato
+                if (filtroContrato !== 'TODOS') {
+                    if (filtroContrato === 'CLT' && contrato !== 'CLT') return;
+                    if ((filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') && !contrato.includes('PJ') && !contrato.includes('TERCEIRO')) return;
+                }
+
+                // Filtra por Função HUD
+                if (filtroFuncao !== 'TODOS' && funcao !== filtroFuncao) {
+                    return;
+                }
+
+                // [FIX v5.7] Exclui IDs de usuários de teste por ID
+                const VISITANTE_IDS_CONS = new Set(['2026', '200601']);
+                if (VISITANTE_IDS_CONS.has(uid)) return;
+
+                // Exclui gestão estrita (AUDITORA, GESTORA)
+                const isManager = ['AUDITORA', 'GESTORA'].includes(funcao);
+
+                // Exclui inativos
+                const ativo = this.mapaAtivo[uid];
+                const isInativo = (ativo === false || ativo === 0 || ativo === '0');
+
+                let b = -1;
+                if (t === 'dia') { for (let k = 1; k <= numCols; k++) if (datesMap[k].ini === dataRef) b = k; }
+                else if (t === 'mes') { for (let k = 1; k <= numCols; k++) if (dataRef >= datesMap[k].ini && dataRef <= datesMap[k].fim) b = k; }
+                else if (t === 'ano') { const mesData = parseInt(dataRef.split('-')[1]); if (this.monthToColMap[mesData]) b = this.monthToColMap[mesData]; }
+
+                if (b >= 1 && b <= numCols) {
+                    // Soma na coluna da semana (com filtro)
+                    st[b].qty += Number(r.quantidade) || 0;
+                    st[b].fifo += Number(r.fifo) || 0;
+                    st[b].gt += Number(r.gradual_total) || 0;
+                    st[b].gp += Number(r.gradual_parcial) || 0;
+                    st[b].fc += Number(r.perfil_fc) || 0;
+
+                    if (!isManager && !isInativo) {
+                        st[b].users.add(r.usuario_id);
+                        st[b].dias.add(dataRef);
+                        const fatorDb = (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
+                        st[b].diasFator += fatorDb;
+                    }
+
+                    // TOTAL (99): soma SEM filtro (igual aba Geral)
+                    st[99].qty += Number(r.quantidade) || 0;
+                    st[99].fifo += Number(r.fifo) || 0;
+                    st[99].gt += Number(r.gradual_total) || 0;
+                    st[99].gp += Number(r.gradual_parcial) || 0;
+                    st[99].fc += Number(r.perfil_fc) || 0;
+
+                    if (!isManager && !isInativo) {
+                        st[99].users.add(r.usuario_id);
+                        st[99].dias.add(dataRef);
+                        st[99].diasFator += (r.fator !== undefined && r.fator !== null) ? Number(r.fator) : 1;
+                    }
+                }
+            });
+        }
+        return { cols, st, numCols };
+    },
+
+    processarEExibir: function (rawData, t, s, e) {
+        // [FIX] Consolidado performs its own local mapping for all HUD filters, ignoring `preFiltrar`
+        this.dadosCalculados = this.processarDados(rawData, t, s, e);
+        this.renderizar(this.dadosCalculados);
+    },
+
+    renderizar: function ({ cols, st, numCols }) {
+        const tbody = document.getElementById('cons-table-body');
+        const hRow = document.getElementById('cons-table-header');
+        if (!tbody || !hRow) return;
+
+        const HC = this.headcountConfig;
+
+        let headerHTML = `<tr class="bg-slate-50 border-b border-slate-200"><th class="px-6 py-4 sticky left-0 bg-slate-50 z-20 border-r border-slate-200 text-left min-w-[250px]"><span class="text-xs font-black text-slate-400 uppercase tracking-widest">Indicador</span></th>`;
+
+        cols.forEach((c) => {
+            headerHTML += `<th class="px-2 py-3 text-center border-l border-slate-200 min-w-[80px]"><span class="text-xs font-bold text-slate-600 uppercase">${c}</span></th>`;
+        });
+
+        headerHTML += `<th class="px-4 py-3 text-center bg-blue-50 border-l border-blue-100 min-w-[100px]"><span class="text-xs font-black text-blue-600 uppercase">TOTAL</span></th></tr>`;
+        hRow.innerHTML = headerHTML;
+
+        const mkRow = (label, icon, color, getter, isCalc = false, isBold = false, rowClass = '', rowId = '') => {
+            const bgLabel = rowClass ? rowClass : (isBold ? 'bg-slate-50/50' : '');
+            const idAttr = rowId ? `id="${rowId}"` : '';
+            let tr = `<tr ${idAttr} class="${bgLabel} border-b border-slate-100 hover:bg-slate-50 transition"><td class="px-6 py-3 sticky left-0 ${rowClass && !rowClass.includes('hidden') ? rowClass : 'bg-white'} z-10 border-r border-slate-200"><div class="flex items-center gap-3"><i class="${icon} ${color} text-sm w-4 text-center"></i><span class="text-xs uppercase ${isBold ? 'font-black' : 'font-medium'} text-slate-600">${label}</span></div></td>`;
+
+            [...Array(numCols).keys()].map(i => i + 1).concat(99).forEach(i => {
+                const s = st[i];
+
+                const val = isCalc ? getter(s, HC) : getter(s);
+                let cellHTML = (val !== undefined && !isNaN(val)) ? Math.round(val).toLocaleString('pt-BR') : '-';
+
+                if (cellHTML === '0' || cellHTML === '-') cellHTML = `<span class="text-slate-300">-</span>`;
+
+                tr += `<td class="px-4 py-3 text-center text-xs ${i === 99 ? 'bg-blue-50/30 font-bold text-blue-800' : 'text-slate-600'}">${cellHTML}</td>`;
+            });
+            return tr + '</tr>';
+        };
+
+        // === LINHAS DA TABELA ===
+        // 1. HC: Definido pela gestora
+        let rows = mkRow('Total de assistentes', 'fas fa-users-cog', 'text-indigo-400', (s, HC) => HC, true);
+
+        // 2. Dias úteis trabalhados: dias únicos com produção (não soma de fator) (Oculto por Padrão)
+        rows += mkRow('Dias úteis trabalhados', 'fas fa-calendar-day', 'text-cyan-500', s => s.dias.size, false, false, 'hidden hidden-row-dias bg-white', 'linha-dias-uteis-trab');
+
+        // 2.1 Dias úteis configurados (V38 - Sempre Mostrar para transparência)
+        const toggleBtnHtml = `<span class="ml-2 text-[10px] text-blue-500 cursor-pointer font-bold select-none hover:text-blue-700 hover:underline" onclick="document.getElementById('linha-dias-uteis-trab').classList.toggle('hidden')">(Ver Prod / Dia)</span>`;
+        rows += mkRow(`Dias úteis (Período) ${toggleBtnHtml}`, 'fas fa-calendar-check', 'text-emerald-500', (s, HC) => s.diasUteis, true, false, 'bg-emerald-50/30');
+
+        // 3-6. Produção por tipo
+        rows += mkRow('Total documentos Fifo', 'fas fa-sort-amount-down', 'text-slate-400', s => s.fifo);
+        rows += mkRow('Total documentos Gradual Parcial', 'fas fa-chart-area', 'text-teal-500', s => s.gp);
+        rows += mkRow('Total documentos Gradual Total', 'fas fa-chart-line', 'text-emerald-500', s => s.gt);
+        rows += mkRow('Total documentos Perfil FC', 'fas fa-id-card', 'text-purple-500', s => s.fc);
+
+        // 7. Total geral de documentos
+        rows += mkRow('Total documentos validados', 'fas fa-layer-group', 'text-emerald-700', s => s.qty, false, true, 'bg-emerald-100/60 border-emerald-200');
+
+        // 8. Média de produção por dia útil trabalhado: total / dias configurado ou calendário
+        rows += mkRow('Média diária (por dia útil)', 'fas fa-calendar-check', 'text-amber-600',
+            (s, HC) => (s.diasUteis > 0) ? s.qty / s.diasUteis : 0, true);
+
+        // 9. Média de produção por assistente (período inteiro): total / HC
+        rows += mkRow('Média por assistente (período)', 'fas fa-users', 'text-orange-600',
+            (s, HC) => (HC > 0) ? s.qty / HC : 0, true);
+
+        // 10. Média diária por assistente: total / dias / HC
+        rows += mkRow('Média diária por assistente', 'fas fa-user-tag', 'text-emerald-700',
+            (s, HC) => (s.diasUteis > 0 && HC > 0) ? s.qty / s.diasUteis / HC : 0, true, true, 'bg-emerald-100/60 border-emerald-200');
+
+        tbody.innerHTML = rows;
+        const footerEl = document.getElementById('total-consolidado-footer');
+        if (footerEl) footerEl.innerText = HC;
+    }
+};
