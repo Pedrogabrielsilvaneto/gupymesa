@@ -1172,15 +1172,8 @@ Produtividade.Geral = {
 
         // [FIX] Soma de divisores reais para Velocidade Global exata
         let somaDivisoresEquipeTotal = 0;
-        const hoje = new Date().toISOString().split('T')[0];
-        const rangeInicio = this.state.range.inicio;
-        const rangeFim = this.state.range.fim;
-        const diasCalendarioEfetivos = this.contarDiasUteis(rangeInicio, rangeFim);
         let diasDivisorBase = diasCalendarioEfetivos;
         if (hoje >= rangeInicio && hoje <= rangeFim) diasDivisorBase = this.contarDiasUteis(rangeInicio, hoje);
-
-        const mesesNoRange = this._getMesesNoPeriodo(rangeInicio, rangeFim);
-        const mesesDecorridos = mesesNoRange.filter(m => m.inicio <= hoje).length || 1;
 
         listaExibicao.forEach(i => {
             if (i.isAggregatedManager) return;
