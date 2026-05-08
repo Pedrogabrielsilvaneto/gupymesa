@@ -1220,15 +1220,16 @@ Produtividade.Geral = {
         // Se o filtro resultar em 0 pessoas, usamos o HC Configurado para evitar divisão por zero indevida ou 0 absoluto
         const hcParaVelocidade = this.getHeadcountConfig();
 
-        // [FIX] A Velocidade Global do card agora volta a usar o Headcount Fixo (igual ao Relatório/Liderança)
-        const dTrabalhadosTime = datasComProducao.size || (isPeriodoKpi ? 1 : (diasDivisorBase || 1));
+        // [FIX v6.1] Garantir que dTrabalhadosTime nunca seja zero
+        const diasDivisorBase = diasDivisorReal; // alias para compatibilidade
+        const dTrabalhadosTime = datasComProducao.size > 0 ? datasComProducao.size : diasProdutivosFinal || diasCalendarioEfetivos || 1;
         const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
             ? Math.max(1, (isPeriodoKpi ? (dTrabalhadosTime - mesesDecorridos) : dTrabalhadosTime))
             : Math.max(1, dTrabalhadosTime);
         
-        const divisorGlobalCard = hcFinalParaCard * dParaVelGlobal;
+        const divisorGlobalCard = Math.max(1, hcFinalParaCard) * dParaVelGlobal;
         const mediaVelocidadeReal = divisorGlobalCard > 0 ? Math.round(totalProd / divisorGlobalCard) : 0;
-        console.log(`[DEBUG VEL] totalProd=${totalProd}, divisorGlobalCard=${divisorGlobalCard}, velocidade=${mediaVelocidadeReal}`);
+        console.log(`[DEBUG VEL] totalProd=${totalProd}, hcFinalParaCard=${hcFinalParaCard}, dParaVelGlobal=${dParaVelGlobal}, divisorGlobalCard=${divisorGlobalCard}, velocidade=${mediaVelocidadeReal}`);
 
         // [MOD V4.52] Lógica do Alvo da Velocidade (Denominador) conforme regra de filtros
         let targetVelocidade = 0;
