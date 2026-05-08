@@ -1221,8 +1221,7 @@ Produtividade.Geral = {
         const hcParaVelocidade = this.getHeadcountConfig();
 
         // [FIX v6.1] Garantir que dTrabalhadosTime nunca seja zero
-        const diasDivisorBase = diasDivisorReal; // alias para compatibilidade
-        const dTrabalhadosTime = datasComProducao.size > 0 ? datasComProducao.size : diasProdutivosFinal || diasCalendarioEfetivos || 1;
+        const dTrabalhadosTime = datasComProducao.size > 0 ? datasComProducao.size : diasProdutivosFinal || diasDivisorBase || diasCalendarioEfetivos || 1;
         const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
             ? Math.max(1, (isPeriodoKpi ? (dTrabalhadosTime - mesesDecorridos) : dTrabalhadosTime))
             : Math.max(1, dTrabalhadosTime);
