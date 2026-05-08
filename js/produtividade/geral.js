@@ -1122,8 +1122,48 @@ Produtividade.Geral = {
         const isPeriodoKpi = rangeSel.inicio !== rangeSel.fim;
         if (maxMetaProducao === 0) maxMetaProducao = targetMetaFallback;
 
-        // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
-        // [FIX v5.9] Calcula o Headcount Efetivo (FTE) com base nos dias úteis reais
+        // --- [NEW v6.0] BASE CALCULATIONS MOVED TO TOP TO PREVENT ReferenceError ---
+        const hcClt = (this.state.configMes && this.state.configMes.hc_clt !== null) ? Number(this.state.configMes.hc_clt) : 8;
+        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros !== null) ? Number(this.state.configMes.hc_terceiros) : 9;
+        const hcFinalParaCard = filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ' ? hcTerc : (hcClt + hcTerc));
+        
+        const rangeInicio = this.state.range.inicio;
+        const rangeFim = this.state.range.fim;
+        const diasCalendarioEfetivos = this.contarDiasUteis(rangeInicio, rangeFim);
+        const diasBrutos = diasCalendarioEfetivos;
+        
+        const hoje = new Date().toISOString().split('T')[0];
+        const mesesNoRange = this._getMesesNoPeriodo(rangeInicio, rangeFim);
+        const mesesDecorridos = mesesNoRange.filter(m => m.inicio <= hoje).length || 1;
+
+        let hcFinal = 0;
+        let diasProdutivosFinal = 0;
+        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
+            hcFinal = hcTerc;
+            diasProdutivosFinal = diasBrutos;
+        } else if (filtroContrato === 'CLT') {
+            hcFinal = hcClt;
+            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - mesesDecorridos) : diasBrutos;
+        } else {
+            hcFinal = hcClt + hcTerc;
+            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - mesesDecorridos) : diasBrutos;
+        }
+
+        let totalAbonoAssistentesMeta = 0;
+        listaExibicao.forEach(i => {
+            if (!i.isAggregatedManager) {
+                const u = this.state.mapaUsuarios[i.uid] || {};
+                const cargo = (u.funcao || '').toUpperCase();
+                const perfil = (u.perfil || '').toUpperCase();
+                const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
+                if (!ehGestao && !this.ehAdmin(i.uid)) {
+                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
+                    if (abono > 0) totalAbonoAssistentesMeta += abono;
+                }
+            }
+        });
+
+        // Agora calculamos os numeradores de capacidade
         const totalManDaysPossiveis = (hcFinalParaCard * (isPeriodoKpi ? diasProdutivosFinal : 1));
         const totalManDaysAbonados = totalAbonoAssistentesMeta; 
         const assisRealFinal = isPeriodoKpi 
@@ -1188,16 +1228,11 @@ Produtividade.Geral = {
         const hcParaVelocidade = this.getHeadcountConfig();
 
         // [FIX] A Velocidade Global do card agora volta a usar o Headcount Fixo (igual ao Relatório/Liderança)
-        const hcClt = (this.state.configMes && this.state.configMes.hc_clt !== null) ? Number(this.state.configMes.hc_clt) : 8;
-        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros !== null) ? Number(this.state.configMes.hc_terceiros) : 9;
-        
-        const dTrabalhadosTime = datasComProducao.size || (isPeriodoKpi ? 1 : diasDivisorBase);
+        const dTrabalhadosTime = datasComProducao.size || (isPeriodoKpi ? 1 : (diasDivisorBase || 1));
         const dParaVelGlobal = (filtroContrato === 'CLT' || filtroContrato === 'TODOS')
             ? Math.max(1, (isPeriodoKpi ? (dTrabalhadosTime - mesesDecorridos) : dTrabalhadosTime))
             : Math.max(1, dTrabalhadosTime);
         
-        // Sempre usar HC da configuracao, e nao os ativos exibidos
-        let hcFinalParaCard = filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ' ? hcTerc : (hcClt + hcTerc));
         const divisorGlobalCard = hcFinalParaCard * dParaVelGlobal;
         const mediaVelocidadeReal = divisorGlobalCard > 0 ? Math.round(totalProd / divisorGlobalCard) : 0;
         console.log(`[DEBUG VEL] totalProd=${totalProd}, divisorGlobalCard=${divisorGlobalCard}, velocidade=${mediaVelocidadeReal}`);
@@ -1217,47 +1252,8 @@ Produtividade.Geral = {
         const diasTotalKpi = totalDiasUteis;
 
         // --- [FIX v5.7] CÁLCULO DA META GLOBAL (PRODUTIVIDADE) CONFORME REGRAS ESPECÍFICAS ---
-        // Regra: Meta Diária * Headcount * Dias Produtivos
-        
         const metaBaseGeral = targetVelocidade > 0 ? targetVelocidade : 650;
         
-        const diasBrutos = diasCalendarioEfetivos; // Pega os dias úteis totais sem descontos prévios
-        
-        let hcFinal = 0;
-        let diasProdutivosFinal = 0;
-
-        if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') {
-            hcFinal = hcTerc;
-            diasProdutivosFinal = diasBrutos; // Terceiros: Dias integrais
-        } else if (filtroContrato === 'CLT') {
-            hcFinal = hcClt;
-            // CLT: -1 dia por mês que já iniciou
-            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - mesesDecorridos) : diasBrutos;
-        } else {
-            // GERAL (TODOS)
-            hcFinal = hcClt + hcTerc;
-            // Geral segue regra CLT (gestora é CLT): -1 dia por mês que já iniciou
-            diasProdutivosFinal = isPeriodoKpi ? Math.max(0, diasBrutos - mesesDecorridos) : diasBrutos;
-        }
-
-        // Subtrai abono dos assistentes do total de dias produtivos se aplicável
-        // Re-calcula abono total para Meta Global (dias totais - dias efetivos)
-        let totalAbonoAssistentesMeta = 0;
-        listaExibicao.forEach(i => {
-            if (!i.isAggregatedManager) {
-                const u = this.state.mapaUsuarios[i.uid] || {};
-                const cargo = (u.funcao || '').toUpperCase();
-                const perfil = (u.perfil || '').toUpperCase();
-                const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
-                
-                // [FIX v5.9] Considera abono de todos, não apenas de quem teve produção > 0
-                if (!ehGestao && !this.ehAdmin(i.uid)) {
-                    const abono = (i.count_fator || 0) - (i.soma_fator || 0);
-                    if (abono > 0) totalAbonoAssistentesMeta += abono;
-                }
-            }
-        });
-
         // [FIX v5.9] A Meta Global agora subtrai o abono do TOTAL de Man-Days (HC * Dias), não apenas dos dias de calendário.
         const totalManDaysBrutos = hcFinal * diasProdutivosFinal;
         const totalManDaysEfetivos = Math.max(0, totalManDaysBrutos - totalAbonoAssistentesMeta);
