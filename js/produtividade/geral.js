@@ -1007,7 +1007,7 @@ Produtividade.Geral = {
             return forbidden.some(t => func.includes(t) || perf.includes(t)) || uid == 1 || uid == 1000;
         });
 
-        const filterC = this.state.filtroContrato;
+        const filterC = filtroContrato;
 
         let metaDiariaGestor = 0;
         if (filterC === 'CLT' || filterC === 'TODOS') {
@@ -1123,7 +1123,12 @@ Produtividade.Geral = {
         if (maxMetaProducao === 0) maxMetaProducao = targetMetaFallback;
 
         // Numerador da Capacidade: Quem trabalhou (excluindo pedaços abonados)
-        const assisRealFinal = Math.max(0, assistentesReaisComProducao - Math.floor(totalAbonoParticipante + 0.001));
+        // [FIX v5.9] Calcula o Headcount Efetivo (FTE) com base nos dias úteis reais
+        const totalManDaysPossiveis = (hcFinalParaCard * (isPeriodoKpi ? diasProdutivosFinal : 1));
+        const totalManDaysAbonados = totalAbonoAssistentesMeta; 
+        const assisRealFinal = isPeriodoKpi 
+            ? Math.max(0, (totalManDaysPossiveis - totalManDaysAbonados) / diasProdutivosFinal)
+            : Math.max(0, hcFinalParaCard - totalAbonoAssistentesMeta);
 
         // [FIX] Soma de divisores reais para Velocidade Global exata
         let somaDivisoresEquipeTotal = 0;
@@ -1244,15 +1249,20 @@ Produtividade.Geral = {
                 const cargo = (u.funcao || '').toUpperCase();
                 const perfil = (u.perfil || '').toUpperCase();
                 const ehGestao = forbidden.some(t => cargo.includes(t) || perfil.includes(t));
-                if (!ehGestao && i.producao > 0) {
+                
+                // [FIX v5.9] Considera abono de todos, não apenas de quem teve produção > 0
+                if (!ehGestao && !this.ehAdmin(i.uid)) {
                     const abono = (i.count_fator || 0) - (i.soma_fator || 0);
                     if (abono > 0) totalAbonoAssistentesMeta += abono;
                 }
             }
         });
-        const diasAjustadosComAbono = Math.max(0, diasProdutivosFinal - totalAbonoAssistentesMeta);
+
+        // [FIX v5.9] A Meta Global agora subtrai o abono do TOTAL de Man-Days (HC * Dias), não apenas dos dias de calendário.
+        const totalManDaysBrutos = hcFinal * diasProdutivosFinal;
+        const totalManDaysEfetivos = Math.max(0, totalManDaysBrutos - totalAbonoAssistentesMeta);
         
-        window.Produtividade.MetaGlobalCalculada = Math.round(metaBaseGeral * hcFinal * diasAjustadosComAbono);
+        window.Produtividade.MetaGlobalCalculada = Math.round(metaBaseGeral * totalManDaysEfetivos);
         // --------------------------------------------------------------------------------
 
         const dadosKPI = {
