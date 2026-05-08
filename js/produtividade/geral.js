@@ -1123,8 +1123,9 @@ Produtividade.Geral = {
         if (maxMetaProducao === 0) maxMetaProducao = targetMetaFallback;
 
         // --- [NEW v6.0] BASE CALCULATIONS MOVED TO TOP TO PREVENT ReferenceError ---
-        const hcClt = (this.state.configMes && this.state.configMes.hc_clt !== null) ? Number(this.state.configMes.hc_clt) : 8;
-        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros !== null) ? Number(this.state.configMes.hc_terceiros) : 9;
+        // [FIX v6.2] Usar > 0 para fallback, evitando que HC = 0 do banco zere todos os cálculos
+        const hcClt = (this.state.configMes && this.state.configMes.hc_clt > 0) ? Number(this.state.configMes.hc_clt) : 8;
+        const hcTerc = (this.state.configMes && this.state.configMes.hc_terceiros > 0) ? Number(this.state.configMes.hc_terceiros) : 9;
         const hcFinalParaCard = filtroContrato === 'CLT' ? hcClt : (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ' ? hcTerc : (hcClt + hcTerc));
         
         const rangeInicio = this.state.range.inicio;
