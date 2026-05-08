@@ -1558,9 +1558,9 @@ Produtividade.Geral = {
         if (this.els.kpiDiasTrabalhados) this.els.kpiDiasTrabalhados.textContent = kpi.capacidade.diasReal;
         if (this.els.kpiDiasUteis) this.els.kpiDiasUteis.textContent = kpi.capacidade.diasTotal;
         updateBar(null, this.els.barDias, this.els.kpiDiasPct, kpi.capacidade.diasReal, kpi.capacidade.diasTotal, false, 'purple');
-        if (this.els.kpiAssisAtivos) this.els.kpiAssisAtivos.textContent = kpi.capacidade.assisReal;
-        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = kpi.capacidade.assisTotal;
-        updateBar(this.els.kpiAssisAtivos, this.els.barAssis, this.els.kpiAssisPct, kpi.capacidade.assisReal, kpi.capacidade.assisTotal, false, 'purple');
+        if (this.els.kpiAssisAtivos) this.els.kpiAssisAtivos.textContent = Math.round(kpi.capacidade.assisReal);
+        if (this.els.kpiAssisTotal) this.els.kpiAssisTotal.textContent = Math.round(kpi.capacidade.assisTotal);
+        updateBar(this.els.kpiAssisAtivos, this.els.barAssis, this.els.kpiAssisPct, Math.round(kpi.capacidade.assisReal), Math.round(kpi.capacidade.assisTotal), false, 'purple');
         if (this.els.kpiVelocReal) this.els.kpiVelocReal.textContent = kpi.velocidade.real.toLocaleString('pt-BR');
         if (this.els.kpiVelocEsperada) this.els.kpiVelocEsperada.textContent = kpi.velocidade.meta.toLocaleString('pt-BR');
         updateBar(null, this.els.barVeloc, this.els.kpiVelocPct, kpi.velocidade.real, kpi.velocidade.meta, false, 'amber');
