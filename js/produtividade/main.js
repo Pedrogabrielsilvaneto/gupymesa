@@ -41,23 +41,8 @@ Object.assign(window.Produtividade, {
     },
 
     verificarStatusPresenca: async function () {
-        if (!Sistema) return;
-        const hoje = new Date().toISOString().split('T')[0];
-        try {
-            const data = await Sistema.query(`
-                SELECT id 
-                FROM acessos_diarios 
-                WHERE usuario_id = ? AND data_referencia = ? 
-                LIMIT 1
-            `, [this.usuario.id, hoje]);
-
-            const statusEl = document.getElementById('status-presenca-hoje');
-            if (statusEl) {
-                statusEl.innerHTML = (data && data.length > 0)
-                    ? '<span class="text-green-500 font-bold"><i class="fas fa-check-circle"></i> CHECKING ATIVO</span>'
-                    : '<span class="text-amber-500 font-bold"><i class="fas fa-clock"></i> AGUARDANDO REGISTRO</span>';
-            }
-        } catch (err) { }
+        // [FIX] Tabela acessos_diarios não existe no banco atual — função desativada para evitar erro 500.
+        return;
     },
 
     popularSeletoresIniciais: function () {
