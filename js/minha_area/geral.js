@@ -1,6 +1,7 @@
 /* ARQUIVO: js/minha_area/geral.js
-   VERSÃO: V5.0 (Capacidade Operativa Fix)
-   DESCRIÇÃO: Ajuste na lógica de Capacidade Operativa (CLT vs Terceiros) e filtros de período.
+   VERSÃO: V5.1 (Equalização CLT/Terceiros - Mai/2026)
+   DESCRIÇÃO: A partir de Mai/2026, CLT e Terceiros trabalham os mesmos dias úteis do mês.
+             Períodos anteriores a Mai/2026 mantêm a regra original (CLT -1 dia/mês).
 */
 window.MinhaArea = window.MinhaArea || {};
 
@@ -224,24 +225,28 @@ MinhaArea.Geral = {
         this.state.configMesLocal = configMes;
 
         const getDU = (contrato, nomeUser) => {
+            const contratoUp = (contrato || '').toUpperCase();
+            const isCLT = contratoUp.includes('CLT');
             const hasCustomDU = configMes && (Number(configMes.dias_uteis_terceiros) > 0 || Number(configMes.dias_uteis_clt) > 0 || Number(configMes.dias_uteis) > 0);
 
-            // [FIX] Se for um período curto (semana/dia), ignoramos a config mensal de dias úteis e usamos o calendário real
+            // [v5.1] Verifica data de corte: a partir de Mai/2026, CLT = Terceiros
+            const d1ref = new Date(this.state.range.inicio + 'T12:00:00');
+            const equalizado = (d1ref.getFullYear() > 2026) ||
+                               (d1ref.getFullYear() === 2026 && (d1ref.getMonth() + 1) >= 5);
+
+            // Se for um período curto (semana/dia), ignoramos a config mensal e usamos o calendário real
             const isShortPeriod = diasCal < (dBase * 0.8) || !configMes;
 
             if (!hasCustomDU || isShortPeriod) {
-                if (contrato === 'TERCEIROS' || contrato === 'PJ') return diasCal;
-                if (contrato === 'CLT') return Math.max(0, diasCal - 1);
-                return diasCal;
+                if (!isCLT || equalizado) return diasCal;
+                return Math.max(0, diasCal - 1); // CLT antes de Mai/2026: -1 dia
             }
 
             const vTerc = Number(configMes.dias_uteis_terceiros) || Number(configMes.dias_uteis) || diasCal;
-            if (contrato === 'TERCEIROS' || contrato === 'PJ') return vTerc;
+            if (!isCLT || equalizado) return vTerc;
 
             const vClt = Number(configMes.dias_uteis_clt) || Number(configMes.dias_uteis) || Math.max(0, vTerc - 1);
-            if (contrato === 'CLT') return vClt;
-
-            return vTerc; // Default
+            return vClt; // CLT antes de Mai/2026: regra original
         };
 
         // Se tiver config, define headcount base (embora aqui usemos contagem real)
@@ -318,13 +323,17 @@ MinhaArea.Geral = {
             const isTerceiro = contratoUser.includes('PJ') || contratoUser.includes('TERCEIR') || contratoUser.includes('PREST');
             const defaultMeta = isTerceiro ? 100 : 650;
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-            const ehCLTVel = !isTerceiro;
-
-            // [FIX] Base real previstando descontar CLT (-1 dia/mês), em seguida abater abonos explícitos
-            const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
-            let diasPrevistos = item.soma_fator || 0;
+            // [v5.1] Verifica data de corte: a partir de Mai/2026, CLT = Terceiros
+            const d1ref = new Date(this.state.range.inicio + 'T12:00:00');
+            const equalizadoCLT = (d1ref.getFullYear() > 2026) ||
+                                   (d1ref.getFullYear() === 2026 && (d1ref.getMonth() + 1) >= 5);
+            const diasPrevistos = item.soma_fator || 0;
+            // Desconto CLT no divisor apenas para períodos antes de Mai/2026
+            const mesesNoPeriodoDiv = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
             const numMesesAtivos = (item.distinct_months?.size > 0) ? item.distinct_months.size : 1;
-            const finalDivisor = Math.max(1, ehCLTVel ? (diasPrevistos - numMesesAtivos) : diasPrevistos);
+            const finalDivisor = (!isTerceiro && !equalizadoCLT)
+                ? Math.max(1, diasPrevistos - numMesesAtivos) // CLT antes de Mai/2026: -1 dia por mês
+                : Math.max(1, diasPrevistos);                  // Todos a partir de Mai/2026: sem desconto
             
             item.dias_efetivos_kpi = Math.max(1, Math.round(diasPrevistos * 10) / 10);
 
@@ -359,7 +368,11 @@ MinhaArea.Geral = {
                     
                     const diasCalMes = this.contarDiasUteis(inicio, fimRealMeta);
                     const jaPassouOuEstaNoMes = (hojeStr >= inicio);
-                    const duMes = ehCLTVel ? Math.max(0, diasCalMes - 1) : diasCalMes;
+                    // [v5.1] Dias úteis por mês: aplica regra conforme data de corte
+                    const equalizadoMes = (ano > 2026) || (ano === 2026 && mes >= 5);
+                    const duMes = (!isTerceiro && !equalizadoMes)
+                        ? Math.max(0, diasCalMes - 1) // CLT antes de Mai/2026: -1 dia
+                        : diasCalMes;                  // CLT a partir de Mai/2026: igual a Terceiros
 
                     metaTotalAcumulada += metaBase * duMes;
                     somaMetaDiaria += metaBase;
@@ -788,7 +801,11 @@ MinhaArea.Geral = {
                 : (mRange.filter(m => m.inicio <= hojeLocal).length || 1);
 
             let dUser = dBaseVel;
-            if (!isTerceiro) dUser = Math.max(0, dUser - mDecorridosUser);
+            // [v5.1] Velocidade KPI: desconto CLT apenas para períodos antes de Mai/2026
+            const d1velRef = new Date((this.state.range.inicio || '') + 'T12:00:00');
+            const equalizadoVel = (d1velRef.getFullYear() > 2026) ||
+                                  (d1velRef.getFullYear() === 2026 && (d1velRef.getMonth() + 1) >= 5);
+            if (!isTerceiro && !equalizadoVel) dUser = Math.max(0, dUser - mDecorridosUser);
             
             const abonoIndiv = (i.soma_abono || 0);
             this._somaDivisoresEquipe = (this._somaDivisoresEquipe || 0) + Math.max(0, dUser - abonoIndiv);

@@ -657,11 +657,19 @@ MinhaArea.Metas = {
                         celula.assert = null;
                     }
 
+                    // [v5.1] CLT = Terceiros apenas a partir de Mai/2026
                     let diasDivisorMes = celula.dias_efetivos;
                     if (this.isMacroView && this.statsUsers[uid]) {
                         const isCLT = !(this.statsUsers[uid].contrato || '').toUpperCase().includes('PJ') && !(this.statsUsers[uid].contrato || '').toUpperCase().includes('TERCEIRO');
                         if (isCLT && diasDivisorMes > 0) {
-                            diasDivisorMes = Math.max(0, diasDivisorMes - 1);
+                            // Determina o mês da coluna
+                            const parts = k.split('-');
+                            const colAno = parseInt(parts[0]);
+                            const colMes = parseInt(parts[1]);
+                            const equalizadoCol = (colAno > 2026) || (colAno === 2026 && colMes >= 5);
+                            if (!equalizadoCol) {
+                                diasDivisorMes = Math.max(0, diasDivisorMes - 1);
+                            }
                         }
                     }
                     const divisor = diasDivisorMes > 0 ? diasDivisorMes : 1;
@@ -883,14 +891,23 @@ MinhaArea.Metas = {
         const hasCustomConfig = config && (Number(config.dias_uteis_clt) > 0 || Number(config.dias_uteis_terceiros) > 0 || Number(config.dias_uteis) > 0);
 
         const diasCalendario = diasUteisRef;
+        // [v5.1] Verifica data de corte para a regra CLT
+        const rangeInicioMetas = range.inicio || '';
+        const partesInicioMetas = rangeInicioMetas.split('-');
+        const anoMetas = parseInt(partesInicioMetas[0]);
+        const mesMetas = parseInt(partesInicioMetas[1]);
+        const equalizadoMetas = (anoMetas > 2026) || (anoMetas === 2026 && mesMetas >= 5);
+
         let vTerc = diasCalendario;
-        let vClt = Math.max(0, diasCalendario - 1);
-        let vGeral = Math.max(0, diasCalendario - 1);
+        let vClt = equalizadoMetas ? diasCalendario : Math.max(0, diasCalendario - 1);
+        let vGeral = vClt;
 
         if (hasCustomConfig) {
             vTerc = Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || diasCalendario;
-            vClt = Number(config.dias_uteis_clt) || Number(config.dias_uteis) || Math.max(0, vTerc - 1);
-            vGeral = Number(config.dias_uteis_clt) || Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || Math.max(0, vTerc - 1);
+            vClt = equalizadoMetas
+                ? vTerc // A partir de Mai/2026: CLT = Terceiros
+                : (Number(config.dias_uteis_clt) || Number(config.dias_uteis) || Math.max(0, vTerc - 1)); // Antes: -1
+            vGeral = vClt;
         }
 
         let dBase = vGeral;
@@ -952,18 +969,13 @@ MinhaArea.Metas = {
             diasDivisorReal = this.contarDiasUteis(range.inicio, hojeStr);
         }
 
-        // Regra Central: CLT e TODOS (Geral) subtraem 1 dia no período. PJ não subtrai.
-        let descontarDia = false;
-        if (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS') {
-            const uInfo = this.statsUsers[alvoReal] || {};
-            const isTargetTerceiro = ((uInfo.contrato || '').includes('PJ') || (uInfo.contrato || '').includes('TERCEIRO'));
-            if (!isTargetTerceiro) descontarDia = true;
-        } else if (subAba === 'CLT' || subAba === 'TODOS') {
-            descontarDia = true;
-        }
+        // [v5.1] Verifica data de corte para desconto CLT
+        const descontarDia = !equalizadoMetas && (subAba === 'CLT' || subAba === 'TODOS' ||
+            (alvoReal && alvoReal !== 'EQUIPE' && alvoReal !== 'GRUPO_CLT' && alvoReal !== 'GRUPO_TERCEIROS' &&
+             !((this.statsUsers[alvoReal]?.contrato || '').includes('PJ') || (this.statsUsers[alvoReal]?.contrato || '').includes('TERCEIRO'))));
 
-        const diasParaVelocidade = descontarDia
-            ? Math.max(1, (isPeriodo ? (diasDivisorReal - 1 - abonoManualGestora) : diasDivisorReal))
+        const diasParaVelocidade = (descontarDia && isPeriodo)
+            ? Math.max(1, diasDivisorReal - 1 - abonoManualGestora)
             : Math.max(1, diasDivisorReal);
 
         const divisorVelocidade = hcParaVelocidade * diasParaVelocidade;
@@ -996,7 +1008,8 @@ MinhaArea.Metas = {
                 const isTargetTerceiro = ((uInfo.contrato || '').includes('PJ') || (uInfo.contrato || '').includes('TERCEIRO'));
 
                 let div = s.dias_efetivos;
-                if (!isTargetTerceiro && isPeriodo && s.dias_efetivos > 0) {
+                // [v5.1] Desconto CLT apenas antes de Mai/2026
+                if (!isTargetTerceiro && isPeriodo && s.dias_efetivos > 0 && !equalizadoMetas) {
                     div = Math.max(0, s.dias_efetivos - 1);
                 }
 
@@ -1206,12 +1219,15 @@ MinhaArea.Metas = {
                 cellNok = ''; // Hide when not in assert mode
 
                 // LÓGICA DE MÉDIA ACUMULADA: MÉDIA DAS MÉDIAS (MACRO)
-                // [FIX] Apply CLT Rule: Days - 1 if period
+                // [v5.1] CLT = Terceiros apenas a partir de Mai/2026
                 const range = this.currentRange || { inicio: '', fim: '' };
                 const isPeriodo = range.inicio !== range.fim;
                 let diasDivisor = stats.dias_efetivos;
                 const isCLT = !(stats.contrato || '').toUpperCase().includes('PJ') && !(stats.contrato || '').toUpperCase().includes('TERCEIRO');
-                if (isCLT && isPeriodo && diasDivisor > 0) {
+                const partesR = (range.inicio || '').split('-');
+                const anoR = parseInt(partesR[0]); const mesR = parseInt(partesR[1]);
+                const equalizadoR = (anoR > 2026) || (anoR === 2026 && mesR >= 5);
+                if (isCLT && isPeriodo && diasDivisor > 0 && !equalizadoR) {
                     diasDivisor = Math.max(0, diasDivisor - 1);
                 }
                 diasDivisor = diasDivisor > 0 ? diasDivisor : 1;

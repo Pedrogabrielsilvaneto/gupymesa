@@ -1,8 +1,13 @@
 /* ARQUIVO: js/produtividade/geral.js
-   VERSÃO: V5.0 (Capacidade Operativa Fix)
-   DESCRIÇÃO: Ajuste na lógica de Capacidade Operativa (CLT vs Terceiros) e filtros dinâmicos.
+   VERSÃO: V5.1 (Equalização CLT/Terceiros - Mai/2026)
+   DESCRIÇÃO: A partir de Mai/2026, CLT e Terceiros trabalham os mesmos dias úteis do mês.
+             Períodos anteriores a Mai/2026 mantêm a regra original (CLT -1 dia/mês).
 */
 window.Produtividade = window.Produtividade || {};
+
+/* DATA DE CORTE: A partir de Maio/2026, CLT e Terceiros têm os mesmos dias úteis */
+const CLT_EQUALIZACAO_ANO = 2026;
+const CLT_EQUALIZACAO_MES = 5; // Maio
 
 /* IDs de usuários de TESTE que devem ser completamente ignorados */
 const VISITANTE_IDS = new Set(['2026', '200601', 2026, 200601]);
@@ -357,6 +362,11 @@ Produtividade.Geral = {
         return (hcClt + hcTerc); // Retorna 17 se não houver config overrides
     },
 
+    // Helper: retorna true se o mês/ano já aplica a regra equalizada (CLT = Terceiros)
+    _isCLTEqualizadoPorData: function (ano, mes) {
+        return (ano > CLT_EQUALIZACAO_ANO) || (ano === CLT_EQUALIZACAO_ANO && mes >= CLT_EQUALIZACAO_MES);
+    },
+
     // Helper centralizado para Dias Úteis
     getDiasUteisConfig: function () {
         const filtroContrato = (window.Produtividade.Filtros?.estado?.contrato || 'todos').toUpperCase();
@@ -367,60 +377,68 @@ Produtividade.Geral = {
         // [FIX v5.3] Se for filtro de UM DIA, a meta deve ser baseada em 1 dia, sem descontar o dia da CLT mensal
         if (!isPeriodo) return diasCalendario;
 
-        // Para períodos multi-mês (semestre/trimestre), usa dias úteis reais do calendário
-        // A config_mes é por mês individual — não faz sentido usar uma única config para 3-6 meses
+        // Para períodos multi-mês (semestre/trimestre): aplica regra por mês
         if (this.state.isMultiMesPeriodo) {
             const configsMulti = this.state.configMesMulti || [];
-
-            if (configsMulti.length > 0) {
-                // Soma os dias configurados de cada mês do período
-                let totalTerc = 0, totalClt = 0;
-                const mesesNoPeriodo = this._getMesesNoPeriodo(range.inicio, range.fim);
-
-                mesesNoPeriodo.forEach(({ ano, mes, inicio, fim }) => {
-                    const cfg = configsMulti.find(c => Number(c.mes) === mes && Number(c.ano) === ano);
-                    if (cfg && (Number(cfg.dias_uteis_terceiros) > 0 || Number(cfg.dias_uteis) > 0)) {
-                        totalTerc += Number(cfg.dias_uteis_terceiros) || Number(cfg.dias_uteis) || this.contarDiasUteis(inicio, fim);
-                    } else {
-                        totalTerc += this.contarDiasUteis(inicio, fim);
-                    }
-                    if (cfg && (Number(cfg.dias_uteis_clt) > 0 || Number(cfg.dias_uteis) > 0)) {
-                        totalClt += Number(cfg.dias_uteis_clt) || Number(cfg.dias_uteis) || Math.max(0, this.contarDiasUteis(inicio, fim) - 1);
-                    } else {
-                        totalClt += Math.max(0, this.contarDiasUteis(inicio, fim) - 1);
-                    }
-                });
-
-                if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return totalTerc;
-                if (filtroContrato === 'CLT') return totalClt;
-                return totalClt; // GERAL usa CLT para manter padrão -1/mês
-            }
-
-            // Sem configs: usa dias úteis reais - 1/mês para CLT, puro para Terceiros
             const mesesNoPeriodo = this._getMesesNoPeriodo(range.inicio, range.fim);
-            const numMeses = mesesNoPeriodo.length || 1;
-            if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return diasCalendario;
-            if (filtroContrato === 'CLT') return Math.max(0, diasCalendario - numMeses);
-            return Math.max(0, diasCalendario - numMeses); // GERAL
+
+            let totalTerc = 0, totalClt = 0;
+
+            mesesNoPeriodo.forEach(({ ano, mes, inicio, fim }) => {
+                const cfg = configsMulti.find(c => Number(c.mes) === mes && Number(c.ano) === ano);
+                const diasCalMes = this.contarDiasUteis(inicio, fim);
+                const equalizado = this._isCLTEqualizadoPorData(ano, mes);
+
+                // Terceiros: sempre integral (com config ou calendário)
+                const dTerc = (cfg && (Number(cfg.dias_uteis_terceiros) > 0 || Number(cfg.dias_uteis) > 0))
+                    ? (Number(cfg.dias_uteis_terceiros) || Number(cfg.dias_uteis))
+                    : diasCalMes;
+
+                totalTerc += dTerc;
+
+                if (equalizado) {
+                    // A partir de Mai/2026: CLT = Terceiros
+                    totalClt += dTerc;
+                } else {
+                    // Antes de Mai/2026: CLT = -1 dia por mês
+                    const dClt = (cfg && Number(cfg.dias_uteis_clt) > 0)
+                        ? Number(cfg.dias_uteis_clt)
+                        : Math.max(0, dTerc - 1);
+                    totalClt += dClt;
+                }
+            });
+
+            if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return totalTerc;
+            if (filtroContrato === 'CLT') return totalClt;
+            return totalClt; // GERAL usa CLT por segurança
         }
 
-        // Período de mês único: comportamento original
+        // Período de mês único: verifica data de corte
         const config = this.state.configMes;
+        const partesInicio = (range.inicio || '').split('-');
+        const anoRange = parseInt(partesInicio[0]);
+        const mesRange = parseInt(partesInicio[1]);
+        const equalizado = this._isCLTEqualizadoPorData(anoRange, mesRange);
+
         const hasCustomConfig = config && (Number(config.dias_uteis_clt) > 0 || Number(config.dias_uteis_terceiros) > 0 || Number(config.dias_uteis) > 0);
 
         let vTerc = diasCalendario;
-        let vClt = Math.max(0, diasCalendario - 1);
-        let vGeral = Math.max(0, diasCalendario - 1);
+        let vClt;
 
         if (hasCustomConfig) {
             vTerc = Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || diasCalendario;
-            vClt = Number(config.dias_uteis_clt) || Number(config.dias_uteis) || Math.max(0, vTerc - 1);
-            vGeral = Number(config.dias_uteis_clt) || Number(config.dias_uteis_terceiros) || Number(config.dias_uteis) || Math.max(0, vTerc - 1);
+            vClt = equalizado
+                ? vTerc // A partir de Mai/2026: CLT = Terceiros
+                : (Number(config.dias_uteis_clt) || Number(config.dias_uteis) || Math.max(0, vTerc - 1)); // Antes: -1
+        } else {
+            vClt = equalizado
+                ? diasCalendario // A partir de Mai/2026: CLT = Terceiros
+                : Math.max(0, diasCalendario - 1); // Antes: -1
         }
 
         if (filtroContrato === 'TERCEIROS' || filtroContrato === 'PJ') return vTerc;
         if (filtroContrato === 'CLT') return vClt;
-        return vGeral;
+        return vClt; // GERAL segue CLT
     },
 
     // Helper: retorna lista de meses no período com suas datas de início/fim reais
@@ -611,48 +629,69 @@ Produtividade.Geral = {
             const mesesNoPeriodo = this._getMesesNoPeriodo(this.state.range.inicio, this.state.range.fim);
             const numMeses = mesesNoPeriodo.length || 1;
 
+            // [v5.1] Verifica se o período está sujeito à nova regra (a partir de Mai/2026)
+            const partesRangeInicio = this.state.range.inicio.split('-');
+            const anoRange = parseInt(partesRangeInicio[0]);
+            const mesRange = parseInt(partesRangeInicio[1]);
+
             if (this.state.isMultiMesPeriodo) {
-                // Multi-mês: Usa o helper já existente que soma dias de todos os meses
-                if (contratoUpper === 'CLT' || ehGestao) {
-                    // Soma (Dias do Mês - 1) para cada mês
-                    let somaD = 0;
-                    mesesNoPeriodo.forEach(m => {
-                        somaD += Math.max(0, this.contarDiasUteis(m.inicio, m.fim) - 1);
-                    });
-                    diasUsuario = somaD;
+                // Multi-mês: aplica regra por mês individualmente
+                let somaD = 0;
+                mesesNoPeriodo.forEach(m => {
+                    const duMes = this.contarDiasUteis(m.inicio, m.fim);
+                    if (this._isCLTEqualizadoPorData(m.ano, m.mes)) {
+                        // A partir de Mai/2026: sem desconto para nenhum contrato
+                        somaD += duMes;
+                    } else {
+                        // Antes de Mai/2026: CLT tem -1 dia, Terceiros não
+                        somaD += (contratoUpper === 'CLT' || ehGestao) ? Math.max(0, duMes - 1) : duMes;
+                    }
+                });
+                diasUsuario = somaD;
+            } else if (this._isCLTEqualizadoPorData(anoRange, mesRange)) {
+                // Mês único a partir de Mai/2026: CLT = Terceiros
+                if (this.state.configMes) {
+                    const c = this.state.configMes;
+                    const vDias = Number(c.dias_uteis_terceiros) || Number(c.dias_uteis) || diasUteisPeriodo;
+                    diasUsuario = (diasUteisPeriodo >= (vDias * 0.8)) ? vDias : diasUteisPeriodo;
                 } else {
-                    // Terceiros: Soma integral
                     diasUsuario = diasUteisPeriodo;
                 }
-            } else if (this.state.configMes) {
-                const c = this.state.configMes;
-                const vTerc = c.dias_uteis_terceiros || c.dias_uteis || diasUteisPeriodo;
-                const vClt = c.dias_uteis_clt || vTerc;
-
-                if (diasUteisPeriodo >= (vTerc * 0.8)) {
-                    diasUsuario = (contratoUpper === 'CLT' || ehGestao) ? vClt : vTerc;
+            } else {
+                // Mês único antes de Mai/2026: regra original CLT -1 dia
+                if (this.state.configMes) {
+                    const c = this.state.configMes;
+                    const vTerc = Number(c.dias_uteis_terceiros) || Number(c.dias_uteis) || diasUteisPeriodo;
+                    const vClt  = Number(c.dias_uteis_clt) || vTerc;
+                    if (diasUteisPeriodo >= (vTerc * 0.8)) {
+                        diasUsuario = (contratoUpper === 'CLT' || ehGestao) ? vClt : vTerc;
+                    } else {
+                        const diasMenosProd = (contratoUpper === 'CLT' || ehGestao) ? 1 : 0;
+                        diasUsuario = Math.max(0, diasUteisPeriodo - diasMenosProd);
+                    }
                 } else {
-                    // Período parcial do mês: aplica regra proporcional
                     const diasMenosProd = (contratoUpper === 'CLT' || ehGestao) ? 1 : 0;
                     diasUsuario = Math.max(0, diasUteisPeriodo - diasMenosProd);
                 }
-            } else {
-                // Sem configuração: Regra padrão
-                const diasMenosProd = (contratoUpper === 'CLT' || ehGestao) ? 1 : 0;
-                diasUsuario = Math.max(0, diasUteisPeriodo - diasMenosProd);
             }
 
             const multiplicador = isPeriodo ? diasUsuario : 1;
             const hoje = new Date().toISOString().split('T')[0];
             const rangeFim = this.state.range.fim;
             const useTodayCap = (hoje < rangeFim && isPeriodo);
-            
+
             // [FIX] Cap meta by today if we are in the middle of the period
             let finalMult = multiplicador;
             if (useTodayCap) {
                 const diasDecorridosIndiv = this.contarDiasUteis(this.state.range.inicio, hoje);
                 const numMesesDecorr = this._getMesesNoPeriodo(this.state.range.inicio, hoje).length || 1;
-                finalMult = (contratoUpper === 'CLT' || ehGestao) ? Math.max(0, diasDecorridosIndiv - numMesesDecorr) : diasDecorridosIndiv;
+                // Aplica desconto CLT apenas se o período for anterior a Mai/2026
+                const equalizadoHoje = this._isCLTEqualizadoPorData(anoRange, mesRange);
+                if (equalizadoHoje || !(contratoUpper === 'CLT' || ehGestao)) {
+                    finalMult = diasDecorridosIndiv;
+                } else {
+                    finalMult = Math.max(0, diasDecorridosIndiv - numMesesDecorr);
+                }
             }
 
             item.meta_real_calculada = Math.round(item.meta_base_diaria * finalMult * item.fator);
@@ -774,7 +813,12 @@ Produtividade.Geral = {
             }
 
             const isPeriodo = this.state.range.inicio !== this.state.range.fim;
-            const multDiasGestor = (filtroContrato === 'CLT' || filtroContrato === 'TODOS') ? (isPeriodo ? Math.max(0, diasFinal - 1) : diasFinal) : diasFinal;
+            // [v5.1] Recalculo da meta da gestora com verificação de data de corte
+            const partesInicioG = this.state.range.inicio.split('-');
+            const equalizadoGestor = this._isCLTEqualizadoPorData(parseInt(partesInicioG[0]), parseInt(partesInicioG[1]));
+            const multDiasGestor = (!equalizadoGestor && (filtroContrato === 'CLT' || filtroContrato === 'TODOS') && isPeriodo)
+                ? Math.max(0, diasFinal - 1) // Antes de Mai/2026: CLT -1 dia
+                : diasFinal;                  // A partir de Mai/2026: sem desconto
             gestoraItem.meta_real_calculada = window.Produtividade.MetaGlobalCalculada || Math.round(metaBaseGestor * HC * multDiasGestor);
             // gestoraItem.justificativa = `Equipe Filtrada (${filtroContrato === 'todos' ? 'Total' : filtroContrato}) - HC: ${HC}, DU: ${multDiasGestor}`;
             // listaExibicao.unshift(gestoraItem);
